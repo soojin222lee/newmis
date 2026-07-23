@@ -7012,3 +7012,113 @@
     text-align: left;
   }
 }
+
+/* Compact account execution budget selector */
+.setup-overview.compact {
+  margin-top: 6px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.setup-version-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: min(520px, 100%);
+  min-height: 22px;
+  margin: 0 0 32px 0;
+  border: 1px solid #0284c7;
+  border-radius: 999px;
+  background: #f8fdff;
+  color: #0284c7;
+  font-size: 12px;
+  font-weight: 950;
+}
+.setup-version-pill span {
+  padding: 2px 8px;
+  border: 1px solid #7dd3fc;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #0284c7;
+  font-size: 10px;
+}
+.setup-simple-line {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+}
+.setup-total-row,
+.setup-account-row {
+  min-height: 66px;
+  border: 1px solid #dbe4ea;
+  border-radius: 6px;
+  background: #fff;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+}
+.setup-total-row {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 6px 8px;
+}
+.setup-total-row span,
+.setup-account-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+.setup-total-row span b,
+.setup-account-row span b {
+  color: #94a3b8;
+  font-size: 20px;
+  line-height: 1;
+}
+.setup-total-row strong {
+  color: #f97316;
+  font-size: 18px;
+  font-weight: 950;
+}
+.setup-account-row-group {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.setup-account-row {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+.setup-account-row strong {
+  align-self: flex-end;
+  font-size: 14px;
+  font-weight: 950;
+}
+.setup-account-row:hover,
+.setup-account-row.active {
+  border-color: #38bdf8;
+  background: #e0f2fe;
+}
+@media (max-width: 960px) {
+  .setup-simple-line {
+    grid-template-columns: 1fr;
+  }
+  .setup-total-row {
+    align-items: flex-start;
+  }
+  .setup-account-row-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -7132,55 +7132,35 @@ function closeBudgetAccountEditor() {
 
 function renderBudgetSetupOverview(data, actual, quasi) {
   const accounts = [
-    { key:'인건비', desc:'인력 투입, MM, SCM 승인 상태를 관리합니다.' },
-    { key:'외주비', desc:'외주 계약/투입확정 전 월별 계획을 관리합니다.' },
-    { key:'재료비', desc:'구매 품목 및 월별 재료비 계획을 관리합니다.' },
-    { key:'경비', desc:'출장, 회의, 운영성 비용의 월별 계획을 관리합니다.' },
+    { key:'인건비' },
+    { key:'외주비' },
+    { key:'재료비' },
+    { key:'경비' },
   ];
 
-  const cards = accounts.map(({ key, desc }) => {
+  const totalBudget = accounts.reduce((sum, { key }) => sum + (data.plan[key] || 0), 0);
+  const rows = accounts.map(({ key }) => {
     const budget = data.plan[key] || 0;
-    const used = (actual[key] || 0) + (quasi[key] || 0);
-    const remain = Math.max(budget - used, 0);
-    const rate = budget > 0 ? Math.round(used / budget * 100) : 0;
-    const futureMonths = data.months.filter(m => m.type === 'plan' && m[key]).length;
     return `
-      <div class="setup-account-card">
-        <div class="setup-account-top">
-          <div>
-            <div class="setup-account-name">${key}</div>
-            <div class="setup-account-desc">${desc}</div>
-          </div>
-          <button class="setup-account-btn" onclick="openBudgetAccountEditor('${key}')">${key} 수정</button>
-        </div>
-        <div class="setup-account-metrics">
-          <div><span>예산</span><strong>${fmt(budget)}원</strong></div>
-          <div><span>확정/실적</span><strong>${fmt(used)}원</strong></div>
-          <div><span>잔여</span><strong>${fmt(remain)}원</strong></div>
-        </div>
-        <div class="setup-account-progress">
-          <i style="width:${Math.min(rate, 100)}%"></i>
-        </div>
-        <div class="setup-account-foot">
-          <span>${futureMonths}개월 계획</span>
-          <b>${rate}% 사용</b>
-        </div>
-      </div>`;
+      <button class="setup-account-row ${key === '재료비' ? 'active' : ''}" onclick="openBudgetAccountEditor('${key}')">
+        <span>${key}<b>›</b></span>
+        <strong>${fmt(budget)}원</strong>
+      </button>`;
   }).join('');
 
   return `
-    <div class="setup-overview">
-      <div class="setup-overview-head">
-        <div>
-          <div class="setup-eyebrow">계정별 실행예산 수립</div>
-          <div class="setup-title">수정할 계정을 선택하세요</div>
-        </div>
-        <div class="setup-min-note">필수 정보만 표시합니다.</div>
+    <div class="setup-overview compact">
+      <div class="setup-version-pill">
+        <strong>V1.0 2026-07-21</strong>
+        <span>승인완료</span>
       </div>
-      <div class="setup-overview-shortcuts">
-        <button class="labor-sub-btn" onclick="showBudgetSummaryGrid()">전체 현황 보기</button>
+      <div class="setup-simple-line">
+        <button class="setup-total-row" onclick="showBudgetSummaryGrid()">
+          <span>프로젝트 총 실행 비용 <b>›</b></span>
+          <strong>${fmt(totalBudget)}원</strong>
+        </button>
+        <div class="setup-account-row-group">${rows}</div>
       </div>
-      <div class="setup-account-grid">${cards}</div>
     </div>`;
 }
 
