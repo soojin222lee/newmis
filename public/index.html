@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PM 대시보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/css/main.css" />
+<link rel="stylesheet" href="/css/initiation-extra.css" />
+<link rel="stylesheet" href="/css/initiation-extra2.css?v=20260723-restore16" />
+</head>
+<body>
+
+<button class="menu-open-button" id="menu-open-button" onclick="toggleSideMenu()">메뉴열기</button>
+
+<div class="shell">
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo" onclick="showMain()" style="cursor:pointer">
+      <div class="logo-mark">PM System</div>
+      <div class="logo-name">프로젝트 관리</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">운영 안내 (임시)</div>
+
+      <div class="nav-group-btn" id="ngbtn-sub-sysdesc" onclick="toggleNavGroup('sub-sysdesc')">
+        <span><span class="nav-icon">📋</span> 운영 가이드</span>
+        <span class="ng-arrow">›</span>
+      </div>
+      <div class="nav-sub" id="sub-sysdesc">
+        <div class="nav-sub-item" onclick="showSysDescConcept()" id="nav-sysdesc-concept">
+          <span>💡</span> 프로젝트 운영 컨셉
+        </div>
+        <div class="nav-sub-item" onclick="showSysDescProcess()" id="nav-sysdesc-process">
+          <span>⚙️</span> 운영 프로세스
+        </div>
+        <div class="nav-sub-item" onclick="showSysDescData()" id="nav-sysdesc-data">
+          <span>🔗</span> 데이터 흐름
+        </div>
+        <div class="nav-sub-item" onclick="showSysDescDepts()" id="nav-sysdesc-depts">
+          <span>🏢</span> 운영 기준 및 R&R
+        </div>
+      </div>
+
+      <div class="nav-divider"></div>
+      <div class="nav-section-label">메뉴</div>
+      <!-- 프로젝트 관리 -->
+      <div class="nav-group-btn" id="ngbtn-sub-ops" onclick="toggleNavGroup('sub-ops')">
+        <span><span class="nav-icon">🗂</span> 프로젝트 정보</span>
+        <span class="ng-arrow">›</span>
+      </div>
+      <div class="nav-sub" id="sub-ops">
+        <div class="nav-sub-item" onclick="showSIProject()" id="nav-si-project">
+          <span>🏗</span> 수주형 프로젝트
+        </div>
+        <div class="nav-sub-item" onclick="showWGProject()" id="nav-wg-project">
+          <span>📁</span> W/G 프로젝트
+        </div>
+        <div class="nav-sub-item" onclick="showInternalProject()" id="nav-internal-project">
+          <span>🏢</span> 사내 프로젝트
+        </div>
+      </div>
+
+      <!-- 실행예산 / 월 마감 (대메뉴) -->
+      <div class="nav-group-btn" id="nav-budget" onclick="showBudget()">
+        <span><span class="nav-icon">💰</span> 실행예산</span>
+      </div>
+      <div class="nav-group-btn" id="nav-project-close" onclick="showProjectClose()">
+        <span><span class="nav-icon">🏁</span> 프로젝트 종료</span>
+      </div>
+      <div class="nav-group-btn" id="nav-monthly" onclick="showMonthlyClose()">
+        <span><span class="nav-icon">📅</span> 월 마감</span>
+      </div>
+
+      <!-- 프로젝트 체크포인트 -->
+      <div class="nav-group-btn" id="ngbtn-sub-cp" onclick="toggleNavGroup('sub-cp')" style="display:none">
+        <span><span class="nav-icon">📌</span> 프로젝트 체크포인트</span>
+        <span class="ng-arrow">›</span>
+      </div>
+      <div class="nav-sub" id="sub-cp" style="display:none">
+        <div class="nav-sub-item" onclick="showCpCurrent()" id="nav-cp-current">
+          <span>📊</span> 체크포인트 현황
+        </div>
+        <div class="nav-sub-item" onclick="showCpBriefing()" id="nav-cp-briefing">
+          <span>📤</span> 브리핑
+        </div>
+        <div class="nav-sub-item" onclick="showCpStatus()" id="nav-cp-status">
+          <span>🔄</span> 대응 현황
+        </div>
+        <div class="nav-sub-item" onclick="showCpHistory()" id="nav-cp-history">
+          <span>📋</span> 조치 이력
+        </div>
+      </div>
+
+      <!-- 프로젝트 단계 보고 -->
+      <div class="nav-group-btn" id="ngbtn-sub-phase" onclick="toggleNavGroup('sub-phase')" style="display:none">
+        <span><span class="nav-icon">📝</span> 프로젝트 단계 보고</span>
+        <span class="ng-arrow">›</span>
+      </div>
+      <div class="nav-sub" id="sub-phase" style="display:none">
+        <div class="nav-sub-item" onclick="showInitiation()" id="nav-initiation">
+          <span>🚀</span> 착수 보고
+        </div>
+        <div class="nav-sub-item" onclick="showInterim()" id="nav-interim">
+          <span>📊</span> 중간 보고
+        </div>
+        <div class="nav-sub-item" onclick="showClosure()" id="nav-closure">
+          <span>🏁</span> 종료 보고
+        </div>
+        <div class="nav-sub-item" onclick="showPhaseHistory()" id="nav-phase-history">
+          <span>🗂</span> 보고 이력 조회
+        </div>
+      </div>
+
+      <!-- 기준정보 설정 (관리자) -->
+      <div class="nav-group-btn admin-nav-group" id="ngbtn-sub-master" onclick="toggleNavGroup('sub-master')" style="display:none">
+        <span><span class="nav-icon">⚙️</span> 기준정보 설정 <span class="nav-admin-badge">관리자</span></span>
+        <span class="ng-arrow">›</span>
+      </div>
+      <div class="nav-sub" id="sub-master" style="display:none">
+        <div class="nav-sub-item" onclick="showMasterBudgetRate()" id="nav-master-budget">
+          <span>📊</span> 예산 소진율 기준
+        </div>
+        <div class="nav-sub-item" onclick="showMasterReportLayout()" id="nav-master-report">
+          <span>📋</span> 보고서 레이아웃
+        </div>
+        <div class="nav-sub-item" onclick="showMasterMethodology()" id="nav-master-method">
+          <span>🔧</span> 개발방법론
+        </div>
+        <div class="nav-sub-item" onclick="showMasterDevEnv()" id="nav-master-devenv">
+          <span>💻</span> 개발환경
+        </div>
+        <div class="nav-sub-item" onclick="showMasterMMRate()" id="nav-master-mmrate">
+          <span>💰</span> 인건비 단가 기준
+        </div>
+        <div class="nav-sub-item" onclick="showMasterPhase()" id="nav-master-phase">
+          <span>📐</span> 예산 사용 기준 정의
+        </div>
+        <div class="nav-sub-item" onclick="showMasterRiskCriteria()" id="nav-master-risk">
+          <span>⚠️</span> 리스크 분류 기준
+        </div>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-avatar">Lee</div>
+      <div class="user-info">
+        <div class="user-name">이봄</div>
+        <div class="user-role">프로젝트 매니저</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main">
+    <div class="content">
+      <div class="screen active" id="s-main"></div>
+      <div class="screen" id="s-hist"></div>
+      <div class="screen" id="s-budget"></div>
+      <div class="screen" id="s-project-close"></div>
+      <div class="screen" id="s-initiation"></div>
+      <div class="screen" id="s-interim"></div>
+      <div class="screen" id="s-closure"></div>
+      <div class="screen" id="s-monthly-close"></div>
+      <div class="screen" id="s-system-desc"></div>
+      <div class="screen" id="s-si-project"></div>
+      <div class="screen" id="s-wg-project"></div>
+      <div class="screen" id="s-internal-project"></div>
+      <div class="screen" id="s-master-config"></div>
+      <div class="screen" id="s-cp-briefing"></div>
+      <div class="screen" id="s-cp-status"></div>
+      <div class="screen" id="s-cp-history"></div>
+      <div class="screen" id="s-phase-history"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ════ MODAL: AI 리스크 조치 ════ -->
+<div class="overlay" id="action-overlay" onclick="closeMoIfBg(event)">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-tag" id="mo-tag"></div>
+        <div class="modal-title" id="mo-title"></div>
+        <div class="modal-level" id="mo-level-badge"></div>
+      </div>
+      <button class="close-btn" onclick="closeMo()">닫기</button>
+    </div>
+    <div class="modal-section">
+      <div class="sec-label">조치 사항</div>
+      <div class="sec-body" id="mo-action"></div>
+    </div>
+    <div class="modal-section">
+      <div class="sec-label">AI 가이드</div>
+      <div class="sec-body" id="mo-guide"></div>
+    </div>
+    <div class="modal-section">
+      <div class="sec-label">확인 체크리스트</div>
+      <div class="chk-list">
+        <div class="chk-item"><input type="checkbox" id="mc1"><label for="mc1">해당 리스크 내용을 확인했습니다.</label></div>
+        <div class="chk-item"><input type="checkbox" id="mc2"><label for="mc2">AI가 제시한 가이드 내용을 확인했습니다.</label></div>
+        <div class="chk-item"><input type="checkbox" id="mc3"><label for="mc3">미조치 또는 지연에 따른 영향과 책임을 인지했습니다.</label></div>
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="sec-label">확인 의견</div>
+      <textarea class="memo-input" id="mo-memo" placeholder="조치 계획 또는 확인 의견을 입력하세요."></textarea>
+    </div>
+    <div class="modal-section">
+      <div class="sec-label">PM 서명</div>
+      <div class="sig-container">
+        <div class="sig-header">
+          <span class="sig-hint">마우스 또는 터치로 서명하세요</span>
+          <button class="sig-clear-btn" onclick="clearSig()">지우기</button>
+        </div>
+        <canvas id="sig-canvas" width="560" height="100"></canvas>
+      </div>
+      <div class="sig-confirmer">
+        <span>확인자: <strong id="mo-confirmer"></strong></span>
+        <span id="sig-status" style="font-size:13px;color:#94a3b8">서명 전</span>
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="sec-label">조치 이력</div>
+      <div id="mo-hist-body"></div>
+    </div>
+    <div class="modal-footer">
+      <div class="saved-msg" id="mo-saved-msg">✓ 저장되었습니다</div>
+      <button class="save-btn" onclick="saveAction()">확인 완료</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL: 단계보고 승인 ════ -->
+<div class="overlay" id="phase-approve-overlay" onclick="if(event.target===this)closeApproveModal()">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <div>
+        <div class="modal-tag">단계보고 승인</div>
+        <div class="modal-title" id="apr-phase-name"></div>
+      </div>
+      <button class="close-btn" onclick="closeApproveModal()">닫기</button>
+    </div>
+    <div class="modal-section">
+      <div style="font-size:14px;color:#475569;line-height:1.8;background:#f8fafc;border-radius:10px;padding:16px">
+        위 보고서를 검토하였으며 내용이 정확함을 확인하고 최종 승인합니다.<br>
+        승인 후에는 해당 단계가 공식 완료 처리됩니다.
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="sec-label">승인자</div>
+      <div style="font-size:15px;font-weight:700;color:#1e293b;padding:8px 0">이봄 (프로젝트 매니저)</div>
+    </div>
+    <div class="modal-footer">
+      <div></div>
+      <div style="display:flex;gap:10px">
+        <button class="reset-btn" onclick="closeApproveModal()">취소</button>
+        <button class="save-btn" onclick="confirmApprove()">✅ 최종 승인</button>
+      </div>
+    </div>
+    <input type="hidden" id="apr-idx" value="">
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/js/app.js"></script>
+<script src="/js/dashboard.js"></script>
+<script src="/js/risk-history.js"></script>
+<script src="/js/budget-status.js?v=20260723-restore16"></script>
+<script src="/js/project-close.js?v=20260707-2"></script>
+<script src="/js/initiation-report.js"></script>
+<script src="/js/interim-report.js"></script>
+<script src="/js/closure-report.js"></script>
+<script src="/js/monthly-close.js"></script>
+<script src="/js/system-desc.js"></script>
+<script src="/js/si-project.js"></script>
+<script src="/js/wg-project.js"></script>
+<script src="/js/internal-project.js"></script>
+<script src="/js/master-config.js"></script>
+<script src="/js/checkpoint-extra.js"></script>
+</body>
+</html>

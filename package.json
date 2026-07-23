@@ -1,0 +1,8 @@
+{
+  "name": "pm-dashboard",
+  "version": "1.0.0",
+  "description": "PM 리스크 관리 대시보드",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

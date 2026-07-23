@@ -1,0 +1,14 @@
+node_modules/
+.env
+.env.*
+*.log
+
+# Local editor/assistant state
+.claude/
+.restore/
+*.before-restore.*
+*.min-recovery.*
+
+# OS metadata
+Thumbs.db
+.DS_Store
