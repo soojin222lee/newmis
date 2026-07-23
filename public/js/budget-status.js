@@ -4,7 +4,7 @@
 
 let budgetView = 'summary';
 let budgetScreenView = 'list';   // 'list' | 'detail'
-let budgetDetailStep = 'overview'; // 'overview' | 'setup'
+let budgetDetailStep = 'setup'; // 'setup' | 'summaryGrid' | 'confirm'
 let budgetSetupEditAccount = null;
 let currentBudgetProj = 'cloud';
 
@@ -1160,7 +1160,7 @@ function renderBudgetAccountEditorLegacyBroken(data, account) {
 function openBudgetProjectScreen(k) {
   currentBudgetProj = k;
   budgetScreenView = 'detail';
-  budgetDetailStep = 'overview';
+  budgetDetailStep = 'setup';
   budgetSetupEditAccount = null;
   budgetTransferEditMode = false;
   budgetHistorySelectedVersion = (budgetTransferHistory[k] || [])[0]?.version || null;
@@ -4543,7 +4543,7 @@ function showBudgetSummaryGrid() {
   budgetSetupEditAccount = null;
 
   document.getElementById('budget-body').innerHTML = `
-    <button class="mc-back-btn" onclick="budgetScreenView='list';budgetDetailStep='overview';renderBudgetPage()">← 목록으로</button>
+    <button class="mc-back-btn" onclick="budgetScreenView='list';budgetDetailStep='setup';renderBudgetPage()">← 목록으로</button>
     ${renderTotalBudgetBar(totBudget, totActual, totQuasi, totRemain, data.projName, data.dplus, data.stage)}
     <div class="budget-process-head">
       <button class="budget-process-back" onclick="budgetDetailStep='setup';budgetSetupEditAccount=null;renderBudgetPage()">← 상세 예산 수립</button>
@@ -4564,6 +4564,7 @@ function renderBudgetPage() {
     renderBudgetListView();
     return;
   }
+  if (budgetDetailStep === 'overview') budgetDetailStep = 'setup';
 
   const data = BUDGET_SOURCE[currentBudgetProj];
   if (!data) return;
@@ -4593,7 +4594,7 @@ function renderBudgetPage() {
     </div>`;
 
   document.getElementById('budget-body').innerHTML = `
-    <button class="mc-back-btn" onclick="budgetScreenView='list';budgetDetailStep='overview';renderBudgetPage()">← 목록으로</button>
+    <button class="mc-back-btn" onclick="budgetScreenView='list';budgetDetailStep='setup';renderBudgetPage()">← 목록으로</button>
     ${renderTotalBudgetBar(totBudget, totActual, totQuasi, totRemain, data.projName, data.dplus, data.stage)}
     ${budgetDetailStep === 'overview'
       ? `
@@ -8930,7 +8931,7 @@ function renderBudgetPage() {
         ? renderBudgetConfirmScreen(data, actual, quasi)
         : `
           <div class="budget-process-head">
-            <button class="budget-process-back" onclick="budgetDetailStep='overview';budgetSetupEditAccount=null;renderBudgetPage()">← 예산 집행 현황</button>
+            <button class="budget-process-back" onclick="budgetScreenView='list';budgetDetailStep='setup';budgetSetupEditAccount=null;renderBudgetPage()">← 목록으로</button>
             <div>
               <div class="budget-process-title">상세 예산 수립</div>
               <div class="budget-process-sub">전체 프로젝트 계획을 확인하고, 4대 계정을 펼쳐 상세 항목까지 검토합니다.</div>
