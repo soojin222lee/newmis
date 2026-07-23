@@ -6972,3 +6972,43 @@
   font-weight: 800;
   line-height: 1.5;
 }
+.bpo-rule-note {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 8px 0 14px;
+  padding: 14px 16px;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background: #fff7ed;
+}
+.bpo-rule-note strong {
+  flex: 0 0 auto;
+  color: #9a3412;
+  font-weight: 950;
+}
+.bpo-rule-note span {
+  color: #7c2d12;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
+  text-align: right;
+}
+.bpo-readonly-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+@media (max-width: 720px) {
+  .bpo-rule-note {
+    flex-direction: column;
+  }
+  .bpo-rule-note span {
+    text-align: left;
+  }
+}

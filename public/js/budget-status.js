@@ -2533,7 +2533,7 @@ var bpoTravelPlansV2 = [
 
 var bpoTransferPlansV2 = [
   { id:'tf-1', direction:'Receiver Project', month:'2026-09', amount:12000000, reason:'타 프로젝트 잔여 외주비 이관 수취', status:'계획' },
-  { id:'tf-2', direction:'Sender Project', month:'2026-11', amount:-4500000, reason:'공통 개발센터 비용 타 프로젝트 배부', status:'계획' },
+  { id:'tf-2', direction:'Sender Project', month:'2026-07', amount:-4500000, reason:'공통 개발센터 비용 타 프로젝트 배부', status:'집행완료' },
 ];
 
 var bpoOtherPlansV2 = [
@@ -2750,7 +2750,10 @@ function renderBpoListTableV2(kind, rows) {
           : ['업체 / 계약명','계약기간','계약금액','견적번호','PO번호','상태',''];
   const body = rows.map(row => {
     if (kind === 'travel') return `<tr><td>${row.requestNo}</td><td>${row.contractNo}</td><td>${row.detail}</td><td>${row.month}</td><td class="num">${bpoWonV2(row.amount)}</td><td>${row.status}</td><td><button class="labor-sub-btn" onclick="bpoEditV2('travel','${row.id}')">수정</button></td></tr>`;
-    if (kind === 'transfer') return `<tr><td>${row.direction}</td><td>${row.month}</td><td class="num ${row.amount < 0 ? 'danger' : 'good'}">${bpoWonV2(row.amount)}</td><td>${row.reason}</td><td>${row.status}</td><td><button class="labor-sub-btn" onclick="bpoEditV2('transfer','${row.id}')">수정</button></td></tr>`;
+    if (kind === 'transfer') {
+      const locked = row.direction === 'Sender Project' || row.status === '집행완료';
+      return `<tr><td>${row.direction}</td><td>${row.month}</td><td class="num ${row.amount < 0 ? 'danger' : 'good'}">${bpoWonV2(row.amount)}</td><td>${row.reason}</td><td>${row.status}</td><td>${locked ? '<span class="bpo-readonly-text">조회</span>' : `<button class="labor-sub-btn" onclick="bpoEditV2('transfer','${row.id}')">수정</button>`}</td></tr>`;
+    }
     if (kind === 'other') return `<tr><td>${row.month}</td><td class="num">${bpoWonV2(row.amount)}</td><td>${row.description}</td><td>${row.status}</td><td><button class="labor-sub-btn" onclick="bpoEditV2('other','${row.id}')">수정</button></td></tr>`;
     if (kind === 'construction') return `<tr><td><b>${row.vendor}</b><br><span>${row.contract}</span></td><td>${row.period}</td><td class="num">${bpoWonV2(row.amount)}</td><td>${row.quoteNo}</td><td><button class="labor-sub-btn" onclick="bpoEditV2('construction','${row.id}')">수정</button></td></tr>`;
     return `<tr><td><b>${row.vendor}</b><br><span>${row.contract}</span></td><td>${row.period}</td><td class="num">${bpoWonV2(row.amount)}</td><td>${row.quoteNo}</td><td>${row.poNo || '-'}</td><td>${row.status}</td><td><button class="labor-sub-btn" onclick="bpoEditV2('${kind}','${row.id}')">수정</button></td></tr>`;
@@ -3436,15 +3439,21 @@ function renderBpoPoPopupInlineV2() {
 }
 
 function renderBpoTransferPanelV2() {
-  return `${renderBpoListTableV2('transfer', bpoTransferPlansV2)}${bpoFormOpenV2 ? renderBpoTransferFormV2() : ''}`;
+  return `
+    <div class="bpo-rule-note">
+      <strong>이관외주비 등록 기준</strong>
+      <span>신규 계획 등록은 Receiver Project만 가능합니다. Sender Project는 타 시스템에서 집행이 완료된 뒤 이관 결과로 수신되어 리스트에서 조회만 가능합니다.</span>
+    </div>
+    ${renderBpoListTableV2('transfer', bpoTransferPlansV2)}
+    ${bpoFormOpenV2 ? renderBpoTransferFormV2() : ''}`;
 }
 
 function renderBpoTransferFormV2() {
   return `
     <div class="bpo-form-card">
-      <div class="bpo-form-head"><div><strong>이관외주비 계획 입력</strong><span>Sender Project는 음수, Receiver Project는 양수로 계획에 반영됩니다.</span></div><button class="labor-sub-btn" onclick="bpoCloseFormV2()">닫기</button></div>
+      <div class="bpo-form-head"><div><strong>이관외주비 계획 입력</strong><span>신규 등록은 Receiver Project만 가능하며, Sender Project는 집행완료 후 조회 전용으로 반영됩니다.</span></div><button class="labor-sub-btn" onclick="bpoCloseFormV2()">닫기</button></div>
       <div class="bpo-contract-grid">
-        <label><span>Project Type</span><select><option>Receiver Project</option><option>Sender Project</option></select></label>
+        <label><span>Project Type</span><input value="Receiver Project" readonly></label>
         <label><span>이관예정월</span><input type="month" value="2026-09"></label>
         <label><span>계획금액</span><input value="12000000"></label>
         <label><span>이관 사유</span><input value="타 프로젝트 잔여 외주비 이관"></label>
