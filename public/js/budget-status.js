@@ -8692,7 +8692,7 @@ function toggleBudgetSummaryAccount(key) {
 function getExecPlanAccounts(data, actual, quasi) {
   const defs = [
     { key:'labor', acct:'인건비', desc:'실투입 인건비, 이관 인건비, 증업/OT', edit:'인건비' },
-    { key:'outsource', acct:'외주비', desc:'실투입 외주비, 공사/MA 외주비, 기타외주비', edit:'외주비' },
+    { key:'outsource', acct:'외주비', desc:'실투입대상, 전문직수수료, 출장비, 공사MA, 이관, 기타', edit:'외주비' },
     { key:'material', acct:'재료비', desc:'상품재료비, 감가상각비', edit:'재료비' },
     { key:'expense', acct:'경비', desc:'통제/비통제 경비, A/S Cost', edit:'경비' },
   ];
@@ -8720,7 +8720,14 @@ function splitAccountChildren(account) {
     return [mk('실투입인건비', .72, 'SCM 승인/투입확정 기준'), mk('이관인건비', .18, '타 프로젝트 이관 인건비'), mk('증업일급여-OT', .10, '월별 OT 계획')];
   }
   if (account.key === 'outsource') {
-    return [mk('실투입외주비', .62, '업체/계약/PO'), mk('공사/MA외주비', .25, '견적/납기/손익인식'), mk('기타외주비', .13, '출장/이관/기타')];
+    return [
+      mk('실투입대상 외주비', .45, '업체/계약/PO/검수'),
+      mk('전문직수수료/제안/기타', .12, '업체/계약/PO'),
+      mk('외주출장비', .05, '출장비/집행월'),
+      mk('공사MA', .25, '공사/MA 계약'),
+      mk('이관외주비', .05, '이관월/금액/사유'),
+      mk('기타외주비', .08, '집행월/금액/설명'),
+    ];
   }
   if (account.key === 'material') {
     return [mk('상품재료비', .78, '견적 기반 상품재료비'), mk('감가상각비', .22, '장비/라이선스 상각')];
@@ -8954,9 +8961,12 @@ function getAccountDetailRows(account) {
     { name:'증업일급여-OT', ratio:.10 },
   ];
   if (account === CATS[1]) return [
-    { name:'실투입외주비', ratio:.62 },
-    { name:'공사/MA외주비', ratio:.25 },
-    { name:'기타외주비', ratio:.13 },
+    { name:'실투입대상 외주비', ratio:.45 },
+    { name:'전문직수수료/제안/기타', ratio:.12 },
+    { name:'외주출장비', ratio:.05 },
+    { name:'공사MA', ratio:.25 },
+    { name:'이관외주비', ratio:.05 },
+    { name:'기타외주비', ratio:.08 },
   ];
   if (account === CATS[2]) return [
     { name:'상품재료비', ratio:null },
@@ -9233,7 +9243,7 @@ function renderAccountMonthlyBudgetTable(data, account) {
 
 function getActualTabs(account) {
   if (account === CATS[0]) return ['사내인건비/사내간접비', '증업일급여-OT', '이관인건비'];
-  if (account === CATS[1]) return ['실투입외주비', '공사/MA외주비', '기타외주비'];
+  if (account === CATS[1]) return ['실투입대상 외주비', '전문직수수료/제안/기타', '외주출장비', '공사MA', '이관외주비', '기타외주비'];
   if (account === CATS[2]) return ['상품재료비', '감가상각비', '기타재료비'];
   return ['경비 전체'];
 }
