@@ -7144,7 +7144,7 @@
 
 /* Final warm orange theme */
 :root {
-  --warm-bg: #fff8f3;
+  --warm-bg: #ffffff;
   --warm-panel: #ffffff;
   --warm-panel-soft: #fff3e8;
   --warm-line: #fed7aa;
@@ -7222,10 +7222,7 @@ body {
 
 .ai-workspace,
 #s-budget {
-  background:
-    radial-gradient(circle at 78% 14%, rgba(251, 146, 60, 0.16), transparent 30%),
-    radial-gradient(circle at 18% 86%, rgba(239, 68, 68, 0.08), transparent 34%),
-    linear-gradient(180deg, #fffaf7 0%, #fff7ed 48%, #ffffff 100%) !important;
+  background: #ffffff !important;
   color: var(--warm-text) !important;
 }
 .ai-brand strong,
