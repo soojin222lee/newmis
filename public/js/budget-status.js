@@ -4577,9 +4577,7 @@ function renderBudgetPage() {
   const totQuasi = CATS.reduce((s,c)=>s+quasi[c],0);
   const totRemain= totBudget - totActual - totQuasi;
 
-  const setupBody = budgetSetupEditAccount
-    ? renderBudgetAccountEditor(data, budgetSetupEditAccount)
-    : renderBudgetSetupOverview(data, actual, quasi);
+  const setupBody = renderBudgetSetupOverview(data, actual, quasi);
 
   const setupHeader = `
     <div class="budget-process-head">
@@ -4656,9 +4654,7 @@ function renderBudgetPage() {
   const totQuasi = CATS.reduce((s,c)=>s+quasi[c],0);
   const totRemain= totBudget - totActual - totQuasi;
 
-  const setupBody = budgetSetupEditAccount
-    ? renderBudgetAccountEditor(data, budgetSetupEditAccount)
-    : renderBudgetSetupOverview(data, actual, quasi);
+  const setupBody = renderBudgetSetupOverview(data, actual, quasi);
 
   const setupHeader = `
     <div class="budget-process-head">
@@ -4673,7 +4669,7 @@ function renderBudgetPage() {
     </div>`;
 
   document.getElementById('budget-body').innerHTML = `
-    <button class="mc-back-btn" onclick="budgetScreenView='list';budgetDetailStep='overview';renderBudgetPage()">← 목록으로</button>
+    <button class="mc-back-btn" onclick="budgetScreenView='list';budgetDetailStep='setup';renderBudgetPage()">← 목록으로</button>
     ${renderTotalBudgetBar(totBudget, totActual, totQuasi, totRemain, data.projName, data.dplus, data.stage)}
     ${budgetDetailStep === 'overview'
       ? `
@@ -7142,11 +7138,14 @@ function renderBudgetSetupOverview(data, actual, quasi) {
   const rows = accounts.map(({ key }) => {
     const budget = data.plan[key] || 0;
     return `
-      <button class="setup-account-row ${key === '재료비' ? 'active' : ''}" onclick="openBudgetAccountEditor('${key}')">
+      <button class="setup-account-row ${budgetSetupEditAccount === key ? 'active' : ''}" onclick="openBudgetAccountEditor('${key}')">
         <span>${key}<b>›</b></span>
         <strong>${fmt(budget)}원</strong>
       </button>`;
   }).join('');
+  const expanded = budgetSetupEditAccount
+    ? `<div class="setup-expanded-detail">${renderBudgetAccountEditor(data, budgetSetupEditAccount)}</div>`
+    : '';
 
   return `
     <div class="setup-overview compact">
@@ -7161,6 +7160,7 @@ function renderBudgetSetupOverview(data, actual, quasi) {
         </button>
         <div class="setup-account-row-group">${rows}</div>
       </div>
+      ${expanded}
     </div>`;
 }
 
