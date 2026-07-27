@@ -8104,6 +8104,14 @@ body {
 .actr-title {
   color: var(--warm-text) !important;
 }
+.ai-work-hero h1 .ai-hero-line-sub,
+.ai-hero h1 .ai-hero-line-sub {
+  display: inline-block;
+  font-size: 0.72em;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+}
 .ai-brand span,
 .ai-greeting,
 .ai-helper-card span,

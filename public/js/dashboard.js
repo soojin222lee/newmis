@@ -126,7 +126,7 @@ function initDashboard() {
           <div class="ai-robot-head"><span></span><span></span></div>
           <div class="ai-robot-body"></div>
         </div>
-        <h1>사용은 가볍게, 데이터는 단단하게.<br>간편한 업무 경험과 신뢰할 수 있는 데이터의 연결.</h1>
+        <h1>사용은 가볍게, 데이터는 단단하게.<br><span class="ai-hero-line-sub">편리한 업무 환경과 신뢰할 수 있는 데이터의 연결.</span></h1>
         <div class="ai-search">
           <div class="ai-search-mark">AI</div>
           <input id="ai-main-query" type="text" placeholder="프로젝트, 실행예산, 인건비, 외주비, 월마감에 대해 질문해보세요"
@@ -352,7 +352,7 @@ function initDashboard() {
 
       <section class="ai-work-hero">
         <div class="ai-greeting">NEW MIS는.</div>
-        <h1>사용은 가볍게, 데이터는 단단하게.<br>간편한 업무 경험과 신뢰할 수 있는 데이터의 연결.</h1>
+        <h1>사용은 가볍게, 데이터는 단단하게.<br><span class="ai-hero-line-sub">편리한 업무 환경과 신뢰할 수 있는 데이터의 연결.</span></h1>
         <div class="ai-helper-card">
           <div class="ai-robot compact" aria-hidden="true">
             <div class="ai-robot-head"><span></span><span></span></div>
@@ -528,7 +528,7 @@ function renderPmDashboard() {
 
       <section class="ai-work-hero">
         <div class="ai-greeting">NEW MIS는.</div>
-        <h1>사용은 가볍게, 데이터는 단단하게.<br>간편한 업무 경험과 신뢰할 수 있는 데이터의 연결.</h1>
+        <h1>사용은 가볍게, 데이터는 단단하게.<br><span class="ai-hero-line-sub">편리한 업무 환경과 신뢰할 수 있는 데이터의 연결.</span></h1>
         <div class="ai-helper-card">
           <div class="ai-robot compact" aria-hidden="true">
             <div class="ai-robot-head"><span></span><span></span></div>
