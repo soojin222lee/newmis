@@ -4150,6 +4150,54 @@
     grid-template-columns: 1fr;
   }
 }
+
+.material-transfer-summary {
+  grid-template-columns: 180px 220px minmax(360px, 1fr);
+}
+
+.material-transfer-list-card,
+.material-transfer-form-card {
+  width: 100%;
+}
+
+.material-transfer-list {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.material-transfer-head,
+.material-transfer-row {
+  grid-template-columns: 170px 130px 150px minmax(280px, 1fr) 110px 90px;
+  min-width: 980px;
+}
+
+.material-transfer-row.active {
+  background: #fff7ed;
+}
+
+.material-transfer-row strong.good {
+  color: #15803d;
+}
+
+.material-transfer-row strong.danger {
+  color: #dc2626;
+}
+
+.material-transfer-form {
+  grid-template-columns: 170px 150px 170px minmax(280px, 1fr);
+}
+
+.material-transfer-form input[readonly] {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+@media (max-width: 900px) {
+  .material-transfer-summary,
+  .material-transfer-form {
+    grid-template-columns: 1fr;
+  }
+}
 .expense-plan-panel {
   display: flex;
   flex-direction: column;

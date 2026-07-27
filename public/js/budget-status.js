@@ -11952,6 +11952,154 @@ saveDepreciationPlan = function() {
   renderBudgetPage();
 };
 
+var materialTransferEditorOpenFinal = false;
+
+function ensureMaterialTransferMockRowsFinal() {
+  const rows = getOtherMaterialRows();
+  rows.forEach(row => {
+    if (!row.transferType) row.transferType = row.amount < 0 ? 'Sender Project' : 'Receiver Project';
+    if (!row.description) row.description = row.transferType === 'Sender Project' ? '타 프로젝트로 재료비 이관' : '타 프로젝트 잔여 재료비 이관 수취';
+  });
+  if (!rows.some(row => row.id === 'mt-sender-actual-001')) {
+    rows.push({
+      id:'mt-sender-actual-001',
+      transferType:'Sender Project',
+      expectedMonth:'2026-07',
+      amount:-2800000,
+      description:'공통 테스트 장비 비용 타 프로젝트 배부',
+      status:'집행완료',
+      actualized:true,
+    });
+  }
+}
+
+function openMaterialTransferNewFinal() {
+  materialTransferEditorOpenFinal = true;
+  editingOtherMaterialId = null;
+  renderBudgetPage();
+}
+
+function closeMaterialTransferEditorFinal() {
+  materialTransferEditorOpenFinal = false;
+  editingOtherMaterialId = null;
+  renderBudgetPage();
+}
+
+editOtherMaterialExpense = function(id) {
+  const row = getOtherMaterialRows().find(item => item.id === id);
+  if (!row) return;
+  if (row.transferType === 'Sender Project' || row.actualized || row.status === '집행완료') {
+    showToast('Sender Project 또는 집행완료 건은 조회만 가능합니다.');
+    return;
+  }
+  editingOtherMaterialId = id;
+  materialTransferEditorOpenFinal = true;
+  materialKind = 'other';
+  renderBudgetPage();
+};
+
+cancelOtherMaterialEdit = function() {
+  closeMaterialTransferEditorFinal();
+};
+
+renderOtherMaterialPanel = function() {
+  ensureMaterialTransferMockRowsFinal();
+  const rows = getOtherMaterialRows();
+  const editing = editingOtherMaterialId ? rows.find(row => row.id === editingOtherMaterialId) : null;
+  const editorOpen = materialTransferEditorOpenFinal || !!editing;
+  const total = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const listRows = rows.map(row => {
+    const locked = row.transferType === 'Sender Project' || row.actualized || row.status === '집행완료';
+    const amountClass = row.amount < 0 ? 'danger' : 'good';
+    return `
+      <div class="bpo-list-row material-transfer-row ${editingOtherMaterialId === row.id ? 'active' : ''}">
+        <span>${row.transferType || 'Receiver Project'}</span>
+        <span>${row.expectedMonth || '-'}</span>
+        <strong class="${amountClass}">${fmt(row.amount || 0)}원</strong>
+        <span>${row.description || '-'}</span>
+        <em>${row.status || '계획'}</em>
+        ${locked
+          ? '<span class="bpo-readonly-text">조회</span>'
+          : `<button class="labor-sub-btn" onclick="editOtherMaterialExpense('${row.id}')">수정</button>`}
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="os-sub-summary ma material-transfer-summary">
+      <div><strong>${rows.length}</strong><span>이관재료비 건수</span></div>
+      <div><strong>${fmt(total)}원</strong><span>순 이관금액</span></div>
+      <p>신규 계획 등록은 Receiver Project만 가능합니다. Sender Project는 타 시스템에서 집행이 완료된 뒤 이관 결과로 수신되어 리스트에서 조회만 가능합니다.</p>
+    </div>
+    <div class="os-registered-card material-transfer-list-card">
+      <div class="labor-flow-title">
+        <strong>이관재료비 계획 등록</strong>
+        ${editorOpen ? '' : '<button class="labor-main-btn" onclick="openMaterialTransferNewFinal()">신규등록</button>'}
+      </div>
+      <div class="bpo-list-card material-transfer-list">
+        <div class="bpo-list-head material-transfer-head">
+          <span>Project Type</span><span>이관예정월</span><span>금액</span><span>이관 사유</span><span>상태</span><span></span>
+        </div>
+        ${listRows || '<div class="labor-empty">등록된 이관재료비 계획이 없습니다.</div>'}
+      </div>
+    </div>
+    ${editorOpen ? renderMaterialTransferFormFinal(editing) : ''}`;
+};
+
+function renderMaterialTransferFormFinal(editing) {
+  return `
+    <div class="labor-card material-transfer-form-card">
+      <div class="bpo-form-head">
+        <div>
+          <strong>${editing ? '이관재료비 계획 수정' : '이관재료비 계획 입력'}</strong>
+          <span>신규 등록은 Receiver Project만 가능하며, Sender Project는 집행완료 후 조회 전용으로 반영됩니다.</span>
+        </div>
+        <button class="labor-sub-btn" onclick="closeMaterialTransferEditorFinal()">닫기</button>
+      </div>
+      <div class="labor-form os-other-form material-transfer-form">
+        <label><span>Project Type</span><input id="other-material-transfer-type" value="Receiver Project" readonly></label>
+        <label><span>이관예정월</span><input id="other-material-month" type="month" value="${editing?.expectedMonth || '2026-10'}"></label>
+        <label><span>금액</span><input id="other-material-amount" inputmode="numeric" value="${editing ? Math.abs(editing.amount || 0) : ''}" placeholder="예: 6500000"></label>
+        <label class="wide"><span>이관 사유</span><input id="other-material-desc" value="${editing?.description || ''}" placeholder="예: 타 프로젝트 잔여 재료비 이관 수취"></label>
+      </div>
+      <div class="bpo-rule-note">
+        <strong>Receiver Project 기준</strong>
+        <span>이관재료비 신규 계획은 수취 프로젝트 기준 플러스 금액으로 등록됩니다. 비용을 보내는 Sender Project 건은 집행 완료 후 조회 데이터로만 표시합니다.</span>
+      </div>
+      <div class="labor-actions">
+        <button class="labor-main-btn" onclick="saveOtherMaterialExpense()">${editing ? '수정 저장' : '등록'}</button>
+      </div>
+    </div>`;
+}
+
+saveOtherMaterialExpense = function() {
+  const rows = getOtherMaterialRows();
+  const editing = editingOtherMaterialId ? rows.find(row => row.id === editingOtherMaterialId) : null;
+  if (editing && (editing.transferType === 'Sender Project' || editing.actualized || editing.status === '집행완료')) {
+    showToast('Sender Project 또는 집행완료 건은 수정할 수 없습니다.');
+    return;
+  }
+  const amount = parseBudgetAmount(document.getElementById('other-material-amount')?.value || 0);
+  if (!amount) {
+    showToast('이관재료비 금액을 입력해 주세요.');
+    return;
+  }
+  const payload = {
+    id: editing?.id || `om-${Date.now()}`,
+    transferType:'Receiver Project',
+    expectedMonth: document.getElementById('other-material-month')?.value || '2026-10',
+    amount: Math.abs(amount),
+    description: document.getElementById('other-material-desc')?.value || '타 프로젝트 잔여 재료비 이관 수취',
+    status: editing?.status || '계획',
+    actualized: false,
+  };
+  if (editing) Object.assign(editing, payload);
+  else rows.unshift(payload);
+  editingOtherMaterialId = null;
+  materialTransferEditorOpenFinal = false;
+  showToast(editing ? '이관재료비 계획이 수정되었습니다.' : '이관재료비 계획이 등록되었습니다.');
+  renderBudgetPage();
+};
+
 renderDepreciationFormFinal = function(editing) {
   const accountCode = editing?.accountCode || materialDepreciationAccountsFinal[0].code;
   const accountOptions = materialDepreciationAccountsFinal.map(account =>
