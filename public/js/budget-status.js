@@ -5097,6 +5097,7 @@ let editingOtherMaterialId = null;
 let materialQuoteNo = 'MQ-202607-001';
 let materialQuoteAmount = 52000000;
 let materialQuoteTitle = '개발/테스트 솔루션 라이선스';
+let materialQuoteSelectedYn = 'Y';
 
 const outsourceVendorPool = [
   { id:'vd-bp', name:'BP Korea', grade:'A', owner:'김민재', specialty:'Java/Vue 구축' },
@@ -5175,9 +5176,9 @@ const budgetOtherOutsourceExpenses = {
 };
 
 const purchaseMaterialQuoteData = [
-  { quoteNo:'MQ-202607-001', title:'개발/테스트 솔루션 라이선스', amount:52000000, receivedAt:'2026-07-01 11:10' },
-  { quoteNo:'MQ-202607-002', title:'검수 자동화 도구 12개월 사용권', amount:28000000, receivedAt:'2026-07-02 09:35' },
-  { quoteNo:'MQ-202607-003', title:'프로젝트 산출물 보안 패키지', amount:17000000, receivedAt:'2026-07-02 16:20' },
+  { quoteNo:'MQ-202607-001', itemNo:'10', itemCode:'SW00014', categoryName:'소프트웨어-경영/인사', standardName:'HRMS(인사관리)', manufacturer:'휴먼컨설팅그룹', modelName:'hunel', title:'HRMS(인사관리)', amount:52000000, receivedAt:'2026-07-01 11:10', poNo:'' },
+  { quoteNo:'MQ-202607-002', itemNo:'20', itemCode:'SW00021', categoryName:'소프트웨어-개발도구', standardName:'테스트 자동화 도구', manufacturer:'QA Tech', modelName:'QA-AUTO-STD', title:'테스트 자동화 도구', amount:28000000, receivedAt:'2026-07-02 09:35', poNo:'' },
+  { quoteNo:'MQ-202607-003', itemNo:'30', itemCode:'SW00033', categoryName:'소프트웨어-보안', standardName:'보안 점검 패키지', manufacturer:'SecureOne', modelName:'SEC-PACK-PRO', title:'보안 점검 패키지', amount:17000000, receivedAt:'2026-07-02 16:20', poNo:'' },
 ];
 
 const budgetMaterialItems = {
@@ -6243,16 +6244,40 @@ function renderMaterialShell(title, subtitle, bodyHtml) {
     </div>`;
 }
 
+function switchMaterialQuoteSelectedYn(value) {
+  materialQuoteSelectedYn = value === 'N' ? 'N' : 'Y';
+  if (materialQuoteSelectedYn === 'N') {
+    materialQuoteNo = '';
+    materialQuoteAmount = 0;
+    materialQuoteTitle = '';
+  }
+  renderBudgetPage();
+}
+
 function applyMaterialPurchaseQuote(quoteNo, amount, title) {
+  const quote = purchaseMaterialQuoteData.find(q => q.quoteNo === quoteNo) || {};
+  materialQuoteSelectedYn = 'Y';
   materialQuoteNo = quoteNo;
   materialQuoteAmount = amount;
   materialQuoteTitle = title;
   const quoteEl = document.getElementById('material-quote-no');
   const amountEl = document.getElementById('material-amount');
   const detailEl = document.getElementById('material-product-detail');
+  const itemNoEl = document.getElementById('material-item-no');
+  const itemCodeEl = document.getElementById('material-item-code');
+  const categoryEl = document.getElementById('material-category-name');
+  const standardEl = document.getElementById('material-standard-name');
+  const manufacturerEl = document.getElementById('material-manufacturer');
+  const modelEl = document.getElementById('material-model');
   if (quoteEl) quoteEl.value = quoteNo;
   if (amountEl) amountEl.value = amount;
   if (detailEl) detailEl.value = title;
+  if (itemNoEl) itemNoEl.value = quote.itemNo || '';
+  if (itemCodeEl) itemCodeEl.value = quote.itemCode || '';
+  if (categoryEl) categoryEl.value = quote.categoryName || '';
+  if (standardEl) standardEl.value = quote.standardName || title || '';
+  if (manufacturerEl) manufacturerEl.value = quote.manufacturer || '';
+  if (modelEl) modelEl.value = quote.modelName || '';
   showToast('재료비 견적 데이터가 입력값에 반영되었습니다.');
 }
 
@@ -6282,6 +6307,12 @@ function saveMaterialItem() {
 
   const item = {
     id: editing?.id || `mi-${Date.now()}`,
+    quoteSelectedYn:document.querySelector('input[name="material-quote-yn"]:checked')?.value || materialQuoteSelectedYn,
+    itemNo:document.getElementById('material-item-no')?.value || '',
+    itemCode:document.getElementById('material-item-code')?.value || '',
+    categoryName:document.getElementById('material-category-name')?.value || '',
+    standardName:document.getElementById('material-standard-name')?.value || '',
+    manufacturer:document.getElementById('material-manufacturer')?.value || '',
     large:document.getElementById('material-large')?.value || '',
     middle:document.getElementById('material-middle')?.value || '',
     small:document.getElementById('material-small')?.value || '',
@@ -6293,12 +6324,18 @@ function saveMaterialItem() {
     deliveryStart:document.getElementById('material-start')?.value || '',
     deliveryEnd:document.getElementById('material-end')?.value || '',
     quoteNo:document.getElementById('material-quote-no')?.value || '',
+    poNo:document.getElementById('material-po-no')?.value || '',
     amount:parseBudgetAmount(document.getElementById('material-amount')?.value || 0),
     status:'계획',
   };
 
-  if (!item.large || !item.middle || !item.small || !item.quantity || !item.revenueBasis || !item.deliveryStart || !item.deliveryEnd || !item.amount) {
-    showToast('재료비 필수값과 견적 금액을 입력해 주세요.');
+  if (item.quoteSelectedYn === 'Y' && !item.quoteNo) {
+    showToast('견적선정유무가 Y이면 구매시스템 견적 데이터를 선택해 주세요.');
+    return;
+  }
+
+  if (!item.itemCode || !item.categoryName || !item.standardName || !item.manufacturer || !item.model || !item.quantity || !item.amount) {
+    showToast('물품정보 필수값과 견적 금액을 입력해 주세요.');
     return;
   }
 
@@ -6436,6 +6473,118 @@ function renderMaterialItemPanel() {
         ${rows.map(row => `
           <div class="os-ma-row with-action ${editingMaterialItemId === row.id ? 'active' : ''}">
             <span>${row.large}</span><span>${row.middle}</span><span>${row.small}</span><span>${row.model || '-'}</span><span>${row.productDetail || '-'}</span><span>${row.quantity}</span><span>${row.unit || '-'}</span><span>${row.revenueBasis}</span><span>${row.deliveryStart}</span><span>${row.deliveryEnd}</span><span><b>${row.quoteNo || '-'}</b><em>${fmt(row.amount)}원</em></span>
+            <span class="labor-reg-actions">${row.actualized ? '<button disabled>수정불가</button>' : `<button onclick="editMaterialItem('${row.id}')">수정</button>`}</span>
+          </div>
+        `).join('') || '<div class="labor-empty">등록된 재료비 계획이 없습니다.</div>'}
+      </div>
+    </div>`;
+}
+
+function renderMaterialItemPanel() {
+  const rows = getMaterialRows();
+  const editing = editingMaterialItemId ? rows.find(row => row.id === editingMaterialItemId) : null;
+  const defaultQuote = purchaseMaterialQuoteData.find(q => q.quoteNo === materialQuoteNo) || purchaseMaterialQuoteData[0] || {};
+  const source = editing || {
+    quoteSelectedYn: materialQuoteSelectedYn,
+    itemNo: defaultQuote.itemNo || '10',
+    itemCode: defaultQuote.itemCode || 'SW00014',
+    categoryName: defaultQuote.categoryName || '소프트웨어-경영/인사',
+    standardName: defaultQuote.standardName || 'HRMS(인사관리)',
+    manufacturer: defaultQuote.manufacturer || '휴먼컨설팅그룹',
+    model: defaultQuote.modelName || 'hunel',
+    productDetail: defaultQuote.standardName || materialQuoteTitle,
+    quantity: 1,
+    unit: '식',
+    revenueBasis: '월',
+    deliveryStart: '2026-08-01',
+    deliveryEnd: '2027-07-31',
+    quoteNo: materialQuoteNo || defaultQuote.quoteNo || '',
+    poNo: '',
+    amount: materialQuoteAmount || defaultQuote.amount || 0,
+  };
+  const quoteYn = editing ? (editing.quoteSelectedYn || (editing.quoteNo ? 'Y' : 'N')) : materialQuoteSelectedYn;
+
+  return `
+    <div class="os-sub-summary ma">
+      <div><strong>${rows.length}</strong><span>상품재료비 품목</span></div>
+      <div><strong>${fmt(rows.reduce((sum, row) => sum + row.amount, 0))}원</strong><span>상품재료비 계획 금액</span></div>
+      <p>견적선정유무를 먼저 선택하고, Y인 경우 구매시스템 물품정보를 불러와 재료비 예산을 등록합니다. PO번호는 추후 구매 계약 확정 시 매핑됩니다.</p>
+    </div>
+    <div class="os-ma-grid">
+      <div class="labor-card">
+        <div class="labor-card-headline">
+          <div>
+            <div class="labor-card-title">1. 견적선정유무 선택</div>
+            <p>Y를 선택하면 구매시스템에 수취된 물품정보를 조회해 입력값에 자동 세팅합니다.</p>
+          </div>
+          <button class="labor-sync-btn" onclick="showToast('구매시스템 재료비 견적 데이터를 새로 조회했습니다.')">견적 새로고침</button>
+        </div>
+        <div class="os-quote-decision-card ma-new-quote-panel">
+          <div class="os-quote-choice-row">
+            <label class="os-quote-yn"><input type="radio" name="material-quote-yn" value="Y" ${quoteYn === 'Y' ? 'checked' : ''} onchange="switchMaterialQuoteSelectedYn('Y')"><span>Y · 구매시스템 견적 사용</span></label>
+            <label class="os-quote-yn"><input type="radio" name="material-quote-yn" value="N" ${quoteYn === 'N' ? 'checked' : ''} onchange="switchMaterialQuoteSelectedYn('N')"><span>N · 직접 입력</span></label>
+          </div>
+          ${quoteYn === 'Y' ? `
+            <div class="os-quote-list compact ma-quote-choice">
+              ${purchaseMaterialQuoteData.map(q => `
+                <button class="os-quote-item ${source.quoteNo === q.quoteNo ? 'active' : ''}" onclick="applyMaterialPurchaseQuote('${q.quoteNo}', ${q.amount}, '${q.title}')">
+                  <strong>${q.quoteNo}</strong>
+                  <span>${q.itemNo} · ${q.itemCode} · ${q.categoryName}</span>
+                  <b>${q.standardName}</b>
+                  <em>${q.manufacturer} / ${q.modelName} · ${fmt(q.amount)}원</em>
+                </button>
+              `).join('')}
+            </div>` : `
+            <div class="bpo-rule-note">
+              <strong>직접 입력</strong>
+              <span>견적이 아직 확정되지 않은 단계입니다. 물품정보와 금액을 직접 입력하고 PO번호는 추후 매핑합니다.</span>
+            </div>`}
+        </div>
+      </div>
+
+      <div class="labor-card">
+        <div class="labor-flow-title">
+          <strong>${editing ? '상품재료비 수정' : '상품재료비 등록'}</strong>
+          ${editing ? '<button class="labor-sub-btn" onclick="cancelMaterialItemEdit()">수정취소</button>' : ''}
+        </div>
+        <div class="labor-form os-ma-form">
+          <label><span>항번</span><input id="material-item-no" value="${source.itemNo || ''}" ${quoteYn === 'Y' ? 'readonly' : ''}></label>
+          <label><span>품목코드 *</span><input id="material-item-code" value="${source.itemCode || ''}" ${quoteYn === 'Y' ? 'readonly' : ''}></label>
+          <label><span>분류명 *</span><input id="material-category-name" value="${source.categoryName || source.large || ''}" ${quoteYn === 'Y' ? 'readonly' : ''}></label>
+          <label><span>표준품명 *</span><input id="material-standard-name" value="${source.standardName || source.productDetail || ''}" ${quoteYn === 'Y' ? 'readonly' : ''}></label>
+          <label><span>제조사 *</span><input id="material-manufacturer" value="${source.manufacturer || ''}" ${quoteYn === 'Y' ? 'readonly' : ''}></label>
+          <label><span>모델명 *</span><input id="material-model" value="${source.model || source.modelName || ''}" ${quoteYn === 'Y' ? 'readonly' : ''}></label>
+          <input type="hidden" id="material-large" value="${source.large || source.categoryName || ''}">
+          <input type="hidden" id="material-middle" value="${source.middle || ''}">
+          <input type="hidden" id="material-small" value="${source.small || source.standardName || ''}">
+          <input type="hidden" id="material-product-detail" value="${source.productDetail || source.standardName || ''}">
+          <label><span>수량 *</span><input id="material-qty" inputmode="numeric" value="${source.quantity || 1}"></label>
+          <label><span>단위</span><input id="material-unit" value="${source.unit || '식'}"></label>
+          <label><span>손익인식기준</span>
+            <select id="material-revenue-basis">
+              ${['월','분기','반기','연'].map(v => `<option ${source.revenueBasis === v ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+          </label>
+          <label><span>예산 시작일</span><input id="material-start" type="date" value="${source.deliveryStart || ''}"></label>
+          <label><span>예산 종료일</span><input id="material-end" type="date" value="${source.deliveryEnd || ''}"></label>
+          <label><span>견적번호</span><input id="material-quote-no" value="${source.quoteNo || ''}" ${quoteYn === 'Y' ? 'readonly' : ''}></label>
+          <label><span>PO번호</span><input id="material-po-no" value="${source.poNo || ''}" placeholder="추후 PO 매핑"></label>
+          <label><span>견적/예산금액</span><input id="material-amount" inputmode="numeric" value="${source.amount || ''}"></label>
+        </div>
+        <div class="labor-actions">
+          <button class="labor-main-btn" onclick="saveMaterialItem()">${editing ? '수정 저장' : '상품재료비 등록'}</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="os-ma-table-wrap">
+      <div class="os-ma-table">
+        <div class="os-ma-head with-action material-item-head">
+          <span>견적</span><span>항번</span><span>품목코드</span><span>분류명</span><span>표준품명</span><span>제조사</span><span>모델명</span><span>수량</span><span>PO번호</span><span>견적/금액</span><span></span>
+        </div>
+        ${rows.map(row => `
+          <div class="os-ma-row with-action material-item-row ${editingMaterialItemId === row.id ? 'active' : ''}">
+            <span>${row.quoteSelectedYn || (row.quoteNo ? 'Y' : 'N')}</span><span>${row.itemNo || '-'}</span><span>${row.itemCode || '-'}</span><span>${row.categoryName || row.large || '-'}</span><span>${row.standardName || row.productDetail || '-'}</span><span>${row.manufacturer || '-'}</span><span>${row.model || '-'}</span><span>${row.quantity}</span><span>${row.poNo || '-'}</span><span><b>${row.quoteNo || '-'}</b><em>${fmt(row.amount)}원</em></span>
             <span class="labor-reg-actions">${row.actualized ? '<button disabled>수정불가</button>' : `<button onclick="editMaterialItem('${row.id}')">수정</button>`}</span>
           </div>
         `).join('') || '<div class="labor-empty">등록된 재료비 계획이 없습니다.</div>'}
