@@ -11241,3 +11241,232 @@ renderMaterialItemPanel = function() {
       ${rows.map(row => `<div class="os-ma-row with-action material-item-row ${editingMaterialItemId === row.id ? 'active' : ''}" onclick="editMaterialItem('${row.id}')"><span>${row.quoteSelectedYn === 'N' ? '직접' : '견적'}</span><span>${row.quoteNo || '-'}</span><span>${row.purchaseName || row.standardName || row.productDetail || '-'}</span><span>${row.vendor || row.manufacturer || '-'}</span><span>${row.itemCode || '-'}</span><span>${row.itemCount || row.detailLines?.length || 1}줄</span><span>${row.inspectionDueMonth || row.revenueBasis || '-'}</span><span>${row.poNo || '-'}</span><span><b>${fmt(row.amount)}원</b></span><span>${row.status || '계획'}</span><span class="labor-reg-actions">${row.actualized ? '<button disabled>수정불가</button>' : `<button onclick="event.stopPropagation(); editMaterialItem('${row.id}')">수정</button>`}</span></div>`).join('') || '<div class="labor-empty">등록된 상품재료비 계획이 없습니다.</div>'}
     </div></div>`;
 };
+
+var materialSelectedPlanIdFinal = '';
+var materialItemEditorModeFinal = null;
+
+function selectMaterialPlanFinal(id) {
+  materialSelectedPlanIdFinal = id;
+  materialItemEditorModeFinal = null;
+  editingMaterialItemId = null;
+  renderBudgetPage();
+}
+
+function openMaterialItemNewFinal() {
+  materialItemEditorModeFinal = 'new';
+  editingMaterialItemId = null;
+  materialSelectedQuoteNoFinal = '';
+  materialDirectInputOpenFinal = false;
+  materialQuoteSelectedYn = 'Y';
+  renderBudgetPage();
+}
+
+selectMaterialQuoteLine = function(quoteNo) {
+  const group = getMaterialQuoteGroupFinal(quoteNo);
+  if (!group) return;
+  materialSelectedQuoteNoFinal = group.quoteNo;
+  materialDirectInputOpenFinal = false;
+  materialItemEditorModeFinal = 'new';
+  materialQuoteSelectedYn = 'Y';
+  materialQuoteNo = group.quoteNo;
+  materialQuoteAmount = materialQuoteAmountFinal(group);
+  materialQuoteTitle = group.purchaseName;
+  renderBudgetPage();
+};
+
+startMaterialDirectInput = function() {
+  materialSelectedQuoteNoFinal = '';
+  materialDirectInputOpenFinal = true;
+  materialItemEditorModeFinal = 'new';
+  materialQuoteSelectedYn = 'N';
+  materialQuoteNo = '';
+  materialQuoteAmount = 0;
+  materialQuoteTitle = '';
+  editingMaterialItemId = null;
+  renderBudgetPage();
+};
+
+switchMaterialQuoteSelectedYn = function(value) {
+  if (value === 'N') {
+    startMaterialDirectInput();
+    return;
+  }
+  materialDirectInputOpenFinal = false;
+  materialItemEditorModeFinal = materialItemEditorModeFinal || 'new';
+  materialQuoteSelectedYn = 'Y';
+  renderBudgetPage();
+};
+
+editMaterialItem = function(id) {
+  const row = getMaterialRows().find(item => item.id === id);
+  if (!row) return;
+  if (row.actualized) {
+    showToast('이미 실적이 발생한 상품재료비는 수정할 수 없습니다.');
+    return;
+  }
+  materialSelectedPlanIdFinal = id;
+  editingMaterialItemId = id;
+  materialItemEditorModeFinal = 'edit';
+  materialDirectInputOpenFinal = row.quoteSelectedYn === 'N';
+  materialSelectedQuoteNoFinal = row.quoteNo || '';
+  renderBudgetPage();
+};
+
+cancelMaterialItemEdit = function() {
+  editingMaterialItemId = null;
+  materialItemEditorModeFinal = null;
+  materialDirectInputOpenFinal = false;
+  renderBudgetPage();
+};
+
+saveMaterialItem = function() {
+  const rows = getMaterialRows();
+  const editing = editingMaterialItemId ? rows.find(row => row.id === editingMaterialItemId) : null;
+  const quoteYn = document.querySelector('input[name="material-quote-yn"]:checked')?.value || (materialDirectInputOpenFinal ? 'N' : 'Y');
+  const amount = parseBudgetAmount(document.getElementById('material-amount')?.value || 0);
+  const inspectionDueMonth = document.getElementById('material-inspection-due')?.value || '';
+  const startMonth = document.getElementById('material-budget-start')?.value || inspectionDueMonth;
+  const endMonth = document.getElementById('material-budget-end')?.value || inspectionDueMonth;
+  const group = quoteYn === 'Y' ? getMaterialQuoteGroupFinal(document.getElementById('material-quote-no')?.value || materialSelectedQuoteNoFinal) : null;
+  const lines = group?.lines || [];
+  const main = lines[0] || {};
+  if (quoteYn === 'Y' && !group) return showToast('등록할 구매 견적 1건을 먼저 선택해 주세요.');
+  if (!amount) return showToast('견적/예산 금액을 입력해 주세요.');
+  if (quoteYn === 'Y' && !inspectionDueMonth) return showToast('검수예정일을 입력해 주세요.');
+  if (quoteYn === 'N' && (!startMonth || !endMonth || startMonth > endMonth)) return showToast('예산 시작월과 종료월을 확인해 주세요.');
+
+  const directLine = {
+    itemNo:document.getElementById('material-item-no')?.value || '10',
+    itemCode:document.getElementById('material-item-code')?.value || '',
+    categoryName:document.getElementById('material-category-name')?.value || '',
+    standardName:document.getElementById('material-standard-name')?.value || '',
+    manufacturer:document.getElementById('material-manufacturer')?.value || '',
+    model:document.getElementById('material-model')?.value || '',
+    quantity:parseBudgetAmount(document.getElementById('material-qty')?.value || 1),
+    unit:document.getElementById('material-unit')?.value || 'EA',
+    amount,
+  };
+  const id = editing?.id || `mi-${Date.now()}`;
+  const item = {
+    id,
+    quoteSelectedYn: quoteYn,
+    quoteLineId: group?.quoteNo || '',
+    quoteNo: group?.quoteNo || '',
+    purchaseName: group?.purchaseName || directLine.standardName || '직접입력 상품재료비',
+    vendor: group?.vendor || directLine.manufacturer,
+    poNo: document.getElementById('material-po-no')?.value || group?.poNo || '',
+    itemNo: quoteYn === 'Y' ? '복수' : directLine.itemNo,
+    itemCode: main.itemCode || directLine.itemCode,
+    categoryName: main.categoryName || directLine.categoryName,
+    standardName: group?.purchaseName || directLine.standardName,
+    manufacturer: group?.vendor || directLine.manufacturer,
+    large: main.categoryName || directLine.categoryName,
+    small: group?.purchaseName || directLine.standardName,
+    model: quoteYn === 'Y' ? `${lines.length}개 품목` : directLine.model,
+    productDetail: group?.purchaseName || directLine.standardName,
+    quantity: quoteYn === 'Y' ? lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0) : directLine.quantity,
+    unit: quoteYn === 'Y' ? 'SET' : directLine.unit,
+    revenueBasis: inspectionDueMonth,
+    inspectionDueMonth,
+    deliveryStart: monthStartDate(startMonth),
+    deliveryEnd: monthEndDate(endMonth),
+    amount,
+    itemCount: quoteYn === 'Y' ? lines.length : 1,
+    detailLines: quoteYn === 'Y' ? lines : [directLine],
+    monthlyAllocations: quoteYn === 'N' ? buildMaterialAllocations(startMonth, endMonth, amount) : [{ month:inspectionDueMonth, amount }],
+    status:'계획',
+  };
+  if (!item.itemCode || !item.categoryName || !item.standardName || !item.manufacturer || !item.model) return showToast('품목 정보를 입력해 주세요.');
+  if (editing) Object.assign(editing, item);
+  else rows.unshift(item);
+  materialSelectedPlanIdFinal = id;
+  editingMaterialItemId = null;
+  materialItemEditorModeFinal = null;
+  materialSelectedQuoteNoFinal = '';
+  materialDirectInputOpenFinal = false;
+  showToast(editing ? '상품재료비 계획을 수정했습니다.' : '상품재료비 계획을 등록했습니다.');
+  renderBudgetPage();
+};
+
+function renderMaterialQuoteSelectorFinal(quoteYn) {
+  return `
+    <div class="labor-card material-quote-line-card">
+      <div class="labor-card-headline">
+        <div>
+          <div class="labor-card-title">1. 견적선정유무 선택</div>
+          <p>Y는 구매시스템 견적 1건을 선택하고, N은 직접입력으로 예산 기간 내 금액을 배분합니다.</p>
+        </div>
+        <button class="labor-sync-btn" onclick="showToast('구매시스템 상품재료비 견적 데이터를 새로 조회했습니다.')">견적 실시간 조회</button>
+      </div>
+      <div class="os-quote-choice-row material-choice-row">
+        <label class="os-quote-yn"><input type="radio" name="material-quote-yn" value="Y" ${quoteYn === 'Y' ? 'checked' : ''} onchange="switchMaterialQuoteSelectedYn('Y')"><span>Y · 견적 사용</span></label>
+        <label class="os-quote-yn"><input type="radio" name="material-quote-yn" value="N" ${quoteYn === 'N' ? 'checked' : ''} onchange="switchMaterialQuoteSelectedYn('N')"><span>N · 직접 입력</span></label>
+      </div>
+      ${quoteYn === 'Y' ? `<div class="material-quote-line-table quote-group">
+        <div class="material-quote-group-head"><span>견적번호</span><span>구매건명</span><span>업체</span><span>항번 수</span><span>PO번호</span><span>수신일시</span><span>총 금액</span></div>
+        ${materialPurchaseQuoteGroupsFinal.map(group => `<button class="material-quote-group ${materialSelectedQuoteNoFinal === group.quoteNo ? 'active' : ''}" onclick="selectMaterialQuoteLine('${group.quoteNo}')"><span>${group.quoteNo}</span><span>${group.purchaseName}</span><span>${group.vendor}</span><span>${group.lines.length}줄</span><span>${group.poNo || '-'}</span><span>${group.receivedAt}</span><strong>${fmt(materialQuoteAmountFinal(group))}원</strong></button>`).join('')}
+      </div>` : `<div class="bpo-rule-note"><strong>직접입력 등록</strong><span>견적이 확정되지 않은 단계에서는 예산 시작월~종료월과 예산금액을 입력해 월별 계획을 작성합니다.</span></div>`}
+    </div>`;
+}
+
+renderMaterialItemPanel = function() {
+  ensureMaterialItemMockRowsFinal();
+  const rows = getMaterialRows();
+  if (!materialSelectedPlanIdFinal && rows.length) materialSelectedPlanIdFinal = rows[0].id;
+  const selectedPlan = rows.find(row => row.id === materialSelectedPlanIdFinal) || null;
+  const editing = editingMaterialItemId ? rows.find(row => row.id === editingMaterialItemId) : null;
+  const selectedGroup = materialSelectedQuoteNoFinal ? getMaterialQuoteGroupFinal(materialSelectedQuoteNoFinal) : null;
+  const quoteYn = editing ? (editing.quoteSelectedYn || (editing.quoteNo ? 'Y' : 'N')) : (materialDirectInputOpenFinal ? 'N' : 'Y');
+  const formSource = editing || (quoteYn === 'Y' && selectedGroup ? {
+    quoteSelectedYn:'Y',
+    quoteNo:selectedGroup.quoteNo,
+    purchaseName:selectedGroup.purchaseName,
+    vendor:selectedGroup.vendor,
+    poNo:selectedGroup.poNo,
+    inspectionDueMonth:selectedGroup.inspectionDueMonth,
+    detailLines:selectedGroup.lines,
+    ...materialQuoteMainLineFinal(selectedGroup),
+    deliveryStart:monthStartDate(selectedGroup.inspectionDueMonth),
+    deliveryEnd:monthEndDate(selectedGroup.inspectionDueMonth),
+    amount:materialQuoteAmountFinal(selectedGroup),
+  } : { quoteSelectedYn:'N', itemNo:'10', itemCode:'', categoryName:'', standardName:'', manufacturer:'', model:'', quantity:1, unit:'EA', deliveryStart:'2026-08-01', deliveryEnd:'2026-12-31', quoteNo:'', poNo:'', amount:0 });
+  const editorOpen = materialItemEditorModeFinal === 'new' || materialItemEditorModeFinal === 'edit';
+
+  return `
+    <div class="os-sub-summary ma material-item-summary">
+      <div><strong>${rows.length}</strong><span>상품재료비 구매건</span></div>
+      <div><strong>${fmt(rows.reduce((sum, row) => sum + row.amount, 0))}원</strong><span>등록 금액</span></div>
+      <p>상품재료비는 구매건/PO 기준으로 1줄씩 관리하고, 라인을 클릭하면 항번별 상세 물품을 확인합니다.</p>
+    </div>
+
+    <div class="os-registered-card material-plan-list-card">
+      <div class="labor-flow-title">
+        <strong>상품계획 목록</strong>
+        <button class="labor-main-btn" onclick="openMaterialItemNewFinal()">신규 등록</button>
+      </div>
+      <div class="os-ma-table-wrap">
+        <div class="os-ma-table material-item-plan-table">
+          <div class="os-ma-head with-action material-item-head">
+            <span>PO번호</span><span>견적번호</span><span>구매건명</span><span>업체</span><span>대표 품목</span><span>항번 수</span><span>검수예정일</span><span>금액</span><span>상태</span><span></span><span></span>
+          </div>
+          ${rows.map(row => `<div class="os-ma-row with-action material-item-row ${materialSelectedPlanIdFinal === row.id ? 'active' : ''}" onclick="selectMaterialPlanFinal('${row.id}')"><span>${row.poNo || '-'}</span><span>${row.quoteNo || '-'}</span><span>${row.purchaseName || row.standardName || row.productDetail || '-'}</span><span>${row.vendor || row.manufacturer || '-'}</span><span>${row.itemCode || '-'}</span><span>${row.itemCount || row.detailLines?.length || 1}줄</span><span>${row.inspectionDueMonth || row.revenueBasis || '-'}</span><span><b>${fmt(row.amount)}원</b></span><span>${row.status || '계획'}</span><span>${materialSelectedPlanIdFinal === row.id ? '선택됨' : ''}</span><span class="labor-reg-actions">${row.actualized ? '<button disabled>수정불가</button>' : `<button onclick="event.stopPropagation(); editMaterialItem('${row.id}')">수정</button>`}</span></div>`).join('') || '<div class="labor-empty">등록된 상품재료비 계획이 없습니다.</div>'}
+        </div>
+      </div>
+    </div>
+
+    ${selectedPlan ? `
+      <div class="labor-card material-detail-card">
+        <div class="labor-flow-title">
+          <strong>상품계획 상세 내역</strong>
+          <span class="os-kind-caption">${selectedPlan.poNo || selectedPlan.quoteNo || '-'} · ${selectedPlan.purchaseName || selectedPlan.standardName || ''}</span>
+        </div>
+        ${renderMaterialQuoteDetailFinal(selectedPlan.detailLines || [])}
+      </div>` : '<div class="labor-empty material-form-empty">상품계획 라인을 클릭하면 항번별 상세 내역이 표시됩니다.</div>'}
+
+    ${editorOpen ? `
+      <div class="material-entry-section">
+        ${materialItemEditorModeFinal === 'new' ? renderMaterialQuoteSelectorFinal(quoteYn) : ''}
+        ${materialItemEditorModeFinal === 'edit' || materialDirectInputOpenFinal || selectedGroup ? renderMaterialItemForm(formSource, quoteYn, editing) : '<div class="labor-empty material-form-empty">등록할 견적 1건을 선택하면 입력 화면이 표시됩니다.</div>'}
+      </div>` : ''}
+  `;
+};

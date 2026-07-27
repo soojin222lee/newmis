@@ -3665,6 +3665,17 @@
   margin-top: 12px;
 }
 
+.material-plan-list-card,
+.material-detail-card,
+.material-entry-section {
+  margin-top: 12px;
+}
+
+.material-plan-list-card .labor-flow-title,
+.material-detail-card .labor-flow-title {
+  padding: 2px 2px 10px;
+}
+
 .material-choice-row {
   display: flex;
   flex-wrap: wrap;
