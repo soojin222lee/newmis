@@ -7574,7 +7574,7 @@ function renderTotalBudgetBar(budget, actual, quasi, remain, projName='', dplus=
 
   return `
     <div class="tbb-card">
-      <!-- 상단: 타이틀 + 집행률 + 바로가기 버튼들 -->
+      <!-- 상단: 타이틀 -->
       <div class="tbb-top">
         <div class="tbb-top-left">
           <div class="tbb-proj-info">
@@ -7582,21 +7582,6 @@ function renderTotalBudgetBar(budget, actual, quasi, remain, projName='', dplus=
             <span class="tbb-stage-badge">${stage}</span>
             <span class="tbb-dplus">D+${dplus}일</span>
           </div>
-          <button class="fivetier-btn" onclick="show5Tier()" style="margin-left:12px">5Tier 조회</button>
-        </div>
-        <div class="tbb-top-right">
-          <button class="ext-link-btn elb-pmo" onclick="showExtLink('AI PMO','AI PMO 시스템')">
-            <span class="elb-icon">🤖</span>
-            <span class="elb-text"><span class="elb-label">AI PMO</span><span class="elb-sub">바로가기</span></span>
-          </button>
-          <button class="ext-link-btn elb-scm" onclick="showExtLink('AI SCM','AI SCM 시스템')">
-            <span class="elb-icon">🔄</span>
-            <span class="elb-text"><span class="elb-label">AI SCM</span><span class="elb-sub">바로가기</span></span>
-          </button>
-          <button class="ext-link-btn elb-buy" onclick="showExtLink('구매시스템','구매 시스템')">
-            <span class="elb-icon">🛒</span>
-            <span class="elb-text"><span class="elb-label">구매시스템</span><span class="elb-sub">바로가기</span></span>
-          </button>
         </div>
       </div>
 
