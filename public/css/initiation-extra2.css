@@ -4520,6 +4520,43 @@
 .expense-erp-summary .danger strong {
   color: #dc2626;
 }
+.expense-middle-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.expense-middle-card {
+  padding: 12px 14px;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  background: #fffaf7;
+}
+.expense-middle-card span,
+.expense-middle-card em {
+  display: inline-flex;
+  margin-right: 6px;
+  color: #9a3412;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
+.expense-middle-card strong,
+.expense-middle-card b {
+  display: block;
+  color: #0f172a;
+  font-weight: 950;
+}
+.expense-middle-card strong {
+  margin: 5px 0;
+  font-size: 13px;
+}
+.expense-middle-card b {
+  font-size: 15px;
+}
+.expense-middle-card.free {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
 .expense-grid-wrap {
   max-height: 520px;
   overflow: auto;
@@ -4534,6 +4571,15 @@
   border-spacing: 0;
   color: #334155;
   font-size: 12px;
+}
+.expense-grid-table-final {
+  min-width: 1680px;
+}
+.expense-grid-table-final td:nth-child(2) {
+  min-width: 150px;
+}
+.expense-grid-table-final td:nth-child(4) {
+  min-width: 130px;
 }
 .expense-grid-table th {
   position: sticky;
@@ -4631,6 +4677,9 @@
   background: #fff;
   box-shadow: 0 24px 72px rgba(15, 23, 42, 0.24);
 }
+.expense-erp-box.wide {
+  width: min(1180px, calc(100vw - 32px));
+}
 .expense-erp-head {
   display: flex;
   align-items: center;
@@ -4680,6 +4729,9 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
   font-weight: 850;
+}
+.expense-erp-table .center {
+  text-align: center;
 }
 .budget-plan-summary,
 .budget-confirm-page {
