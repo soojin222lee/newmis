@@ -11471,6 +11471,168 @@ renderMaterialItemPanel = function() {
   `;
 };
 
+function getMaterialTransferAmountForMonthFinal(month) {
+  return getOtherMaterialRows().reduce((sum, row) => row.expectedMonth === month ? sum + Number(row.amount || 0) : sum, 0);
+}
+
+function getMaterialTransferPlanTotalFinal() {
+  return getOtherMaterialRows().reduce((sum, row) => sum + Number(row.amount || 0), 0);
+}
+
+function getMaterialTransferActualTotalFinal() {
+  return getOtherMaterialRows().reduce((sum, row) => row.actualized ? sum + Number(row.amount || 0) : sum, 0);
+}
+
+getAccountDetailRows = function(account) {
+  if (account === CATS[0]) return [
+    { name:'실투입인건비', ratio:.72 },
+    { name:'이관인건비', ratio:.18 },
+    { name:'종업원급여-OT', ratio:.10 },
+  ];
+  if (account === CATS[1]) return [
+    { name:'실투입대상 외주비', ratio:.45 },
+    { name:'전문직수수료/제안/기타', ratio:.12 },
+    { name:'외주출장비', ratio:.05 },
+    { name:'공사MA', ratio:.25 },
+    { name:'이관외주비', ratio:.05 },
+    { name:'기타외주비', ratio:.08 },
+  ];
+  if (account === CATS[2]) return [
+    { name:'상품재료비', ratio:null },
+    { name:'감가상각비', ratio:null },
+    { name:'이관재료비', ratio:null },
+  ];
+  return [
+    { name:'통제 경비', ratio:.64 },
+    { name:'비통제 경비', ratio:.24 },
+    { name:'A/S Cost', ratio:.12 },
+  ];
+};
+
+getMonthlyBudgetRows = function(data, account) {
+  const totalPlan = getBudgetAdjusted(data, account);
+  const totalActual = calcActual(data, account) + calcQuasi(data, account);
+  if (account !== CATS[2]) {
+    return getAccountDetailRows(account).map(detail => {
+      const months = data.months.map(mo => Math.round(getMonthAccountValue(mo, account) * detail.ratio));
+      const plan = Math.round(totalPlan * detail.ratio);
+      const actual = Math.round(totalActual * detail.ratio);
+      return { name:detail.name, plan, actual, remain:Math.max(plan - actual, 0), months };
+    });
+  }
+
+  const materialRows = getAccountDetailRows(account).map(detail => {
+    const months = data.months.map(mo => {
+      const base = getMonthAccountValue(mo, account);
+      const depreciation = getDepreciationAmountForMonth(mo.m);
+      const transfer = getMaterialTransferAmountForMonthFinal(mo.m);
+      if (detail.name === '감가상각비') return depreciation;
+      if (detail.name === '이관재료비') return transfer;
+      return Math.max(base - depreciation - transfer, 0);
+    });
+    const plan = months.reduce((sum, value) => sum + value, 0);
+    const actual = detail.name === '이관재료비'
+      ? getMaterialTransferActualTotalFinal()
+      : detail.name === '감가상각비'
+        ? 0
+        : Math.max(totalActual - getMaterialTransferActualTotalFinal(), 0);
+    return { name:detail.name, plan, actual, remain:Math.max(plan - actual, 0), months };
+  });
+  return materialRows;
+};
+
+renderMaterialKindTabs = function() {
+  return renderCategoryChoiceBoard('material', [
+    { step:'01', label:'상품재료비', desc:'견적등록/납기', active:materialKind === 'item', action:"switchMaterialKind('item')" },
+    { step:'02', label:'감가상각비', desc:'자산/라이선스 월상각', active:materialKind === 'depreciation', action:"switchMaterialKind('depreciation')" },
+    { step:'03', label:'이관재료비', desc:'이관월/금액/사유', active:materialKind === 'other', action:"switchMaterialKind('other')" },
+  ], 'material');
+};
+
+renderMaterialPlanPanel = function(data) {
+  if (materialKind === 'depreciation') {
+    return renderMaterialShell('감가상각비 계획 등록', '자산/라이선스 기준으로 월상각액을 입력하고 재료비 월별 예산에 반영합니다.', renderMaterialDepreciationPanel());
+  }
+  if (materialKind === 'other') {
+    return renderMaterialShell('이관재료비 계획 등록', '타 프로젝트 또는 시스템에서 이관되는 재료비 계획을 관리합니다. 실적 발생 전 계획 건만 수정 가능합니다.', renderOtherMaterialPanel());
+  }
+  return renderMaterialShell('상품재료비 계획 등록', '견적 데이터를 불러와 상품재료비 계획을 수립합니다.', renderMaterialItemPanel());
+};
+
+getActualTabs = function(account) {
+  if (account === CATS[0]) return ['사내인건비/사내간접비', '종업원급여-OT', '이관인건비'];
+  if (account === CATS[1]) return ['실투입대상 외주비', '전문직수수료/제안/기타', '외주출장비', '공사MA', '이관외주비', '기타외주비'];
+  if (account === CATS[2]) return ['상품재료비', '감가상각비', '이관재료비'];
+  return ['경비 전체'];
+};
+
+renderOtherMaterialPanel = function() {
+  const rows = getOtherMaterialRows();
+  const editing = editingOtherMaterialId ? rows.find(row => row.id === editingOtherMaterialId) : null;
+  return `
+    <div class="os-sub-summary">
+      <div><strong>${rows.length}</strong><span>등록 건수</span></div>
+      <div><strong>${fmt(rows.reduce((sum, row) => sum + Number(row.amount || 0), 0))}원</strong><span>이관재료비 계획</span></div>
+      <p>타 프로젝트 또는 시스템에서 재료비가 이관되는 계획입니다. 실적이 발생한 건은 수정할 수 없고, 미실적 계획만 조정합니다.</p>
+    </div>
+    <div class="os-other-layout">
+      <div class="labor-card">
+        <div class="labor-flow-title">
+          <strong>${editing ? '이관재료비 계획 수정' : '이관재료비 계획 입력'}</strong>
+          ${editing ? '<button class="labor-sub-btn" onclick="cancelOtherMaterialEdit()">수정취소</button>' : ''}
+        </div>
+        <div class="labor-form os-other-form">
+          <label><span>이관 예정월</span><input id="other-material-month" type="month" value="${editing ? editing.expectedMonth : '2026-10'}"></label>
+          <label><span>금액</span><input id="other-material-amount" inputmode="numeric" value="${editing ? editing.amount : ''}" placeholder="예: 6500000"></label>
+          <label class="wide"><span>이관 사유</span><textarea id="other-material-desc" rows="4" placeholder="예: 타 프로젝트 잔여 재료비 이관, 임시 라이선스 비용 이관">${editing ? editing.description : ''}</textarea></label>
+        </div>
+        <div class="labor-actions">
+          <button class="labor-main-btn" onclick="saveOtherMaterialExpense()">${editing ? '수정 저장' : '이관재료비 저장'}</button>
+        </div>
+      </div>
+      <div class="os-registered-card">
+        <div class="os-other-header with-action"><span>이관 예정월</span><span>금액</span><span>이관 사유</span><span>상태</span><span></span></div>
+        <div>
+          ${rows.map(row => `
+            <div class="os-other-row with-action ${editingOtherMaterialId === row.id ? 'active' : ''}">
+              <strong>${row.expectedMonth}</strong>
+              <b>${fmt(row.amount)}원</b>
+              <span>${row.description}</span>
+              <i class="labor-status ${row.actualized ? 'done' : 'saved'}">${row.status}</i>
+              <div class="labor-reg-actions">${row.actualized ? '<button disabled>수정불가</button>' : `<button onclick="editOtherMaterialExpense('${row.id}')">수정</button>`}</div>
+            </div>
+          `).join('') || '<div class="labor-empty">등록된 이관재료비 계획이 없습니다.</div>'}
+        </div>
+      </div>
+    </div>`;
+};
+
+saveOtherMaterialExpense = function() {
+  const rows = getOtherMaterialRows();
+  const editing = editingOtherMaterialId ? rows.find(row => row.id === editingOtherMaterialId) : null;
+  if (editing?.actualized) {
+    showToast('이미 실적이 발생한 이관재료비는 수정할 수 없습니다.');
+    return;
+  }
+  const payload = {
+    id: editing?.id || `om-${Date.now()}`,
+    expectedMonth: document.getElementById('other-material-month')?.value || '2026-10',
+    amount: parseBudgetAmount(document.getElementById('other-material-amount')?.value || 0),
+    description: document.getElementById('other-material-desc')?.value || '이관재료비 계획',
+    status: editing?.status || '계획',
+    actualized: editing?.actualized || false,
+  };
+  if (!payload.amount) {
+    showToast('이관재료비 금액을 입력해 주세요.');
+    return;
+  }
+  if (editing) Object.assign(editing, payload);
+  else rows.push(payload);
+  editingOtherMaterialId = null;
+  showToast(editing ? '이관재료비 계획이 수정되었습니다.' : '이관재료비 계획이 등록되었습니다.');
+  renderBudgetPage();
+};
+
 var materialInspectionPlanQuoteNoFinal = '';
 
 openMaterialInspectionPlanPopupFinal = function() {

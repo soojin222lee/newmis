@@ -4041,6 +4041,39 @@
     grid-template-columns: repeat(2, minmax(140px, 1fr));
   }
 }
+
+.material-panel .cost-category-board {
+  display: block;
+}
+
+.material-panel .cost-category-board-head {
+  margin-bottom: 14px;
+}
+
+.material-panel .os-kind-tabs.material {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.material-panel .os-kind-tabs.material button {
+  min-width: 0;
+  width: 100%;
+  min-height: 98px;
+}
+
+.material-panel .os-kind-tabs.material button strong,
+.material-panel .os-kind-tabs.material button span {
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+@media (max-width: 900px) {
+  .material-panel .os-kind-tabs.material {
+    grid-template-columns: 1fr;
+  }
+}
 .expense-plan-panel {
   display: flex;
   flex-direction: column;
