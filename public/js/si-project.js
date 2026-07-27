@@ -584,3 +584,48 @@ function buildSIHistory(history) {
 
   return `<div class="si-hist-list" style="margin-top:12px">${rows}</div>`;
 }
+
+// Final override: 수주형 프로젝트 상세는 기본정보와 IF 변경이력만 노출한다.
+renderSIDetail = function() {
+  const el = document.getElementById('s-si-project');
+  const p = SI_PROJECTS[siSelectedId];
+  if (!el || !p) return;
+  const st = SI_STATUS_STYLE[p.stage] || SI_STATUS_STYLE['등록완료'] || { bg:'#f1f5f9', color:'#475569' };
+
+  el.innerHTML = `
+    <div class="wg-detail-topbar">
+      <button class="mc-back-btn" onclick="closeSIDetail()">← 목록</button>
+      <div style="flex:1">
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:2px">${p.code}</div>
+        <div style="font-size:18px;font-weight:800;color:#1e293b">${p.name}</div>
+      </div>
+      <span class="ipc-status-badge" style="background:${st.bg};color:${st.color};font-size:13px;padding:6px 14px">${p.stage}</span>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-head">
+        <span class="card-title">기본정보</span>
+        <span style="font-size:12px;color:#94a3b8">마지막 동기화 ${p.lastSync} (${p.ifSource})</span>
+      </div>
+      <div class="si-basic-grid" style="padding:16px 24px 20px">
+        ${buildSIFieldReadonly([
+          ['프로젝트 기간', `${p.start} ~ ${p.end}`, 'ERP'],
+          ['수행PM', p.pm, 'ERP'],
+          ['매출귀속조직', p.revOrg, 'ERP'],
+          ['프로젝트유형', p.projType, 'ERP'],
+          ['프로젝트상태', p.stage, 'ERP'],
+          ['계약형태', p.contractType, 'ERP'],
+          ['주수행부서', p.mainDept, '수동'],
+          ['고객사', p.customer, 'ERP'],
+        ])}
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-head">
+        <span class="card-title">IF 변경이력</span>
+        <span class="card-badge">선행 시스템에서 수신한 데이터 변경 기록</span>
+      </div>
+      <div style="padding:0 20px 20px">${buildSIHistory(p.ifHistory)}</div>
+    </div>`;
+};
