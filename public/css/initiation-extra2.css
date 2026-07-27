@@ -4074,6 +4074,82 @@
     grid-template-columns: 1fr;
   }
 }
+
+.material-dep-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.material-dep-summary {
+  grid-template-columns: 180px 220px minmax(320px, 1fr);
+}
+
+.material-dep-list-card,
+.material-dep-form-card {
+  width: 100%;
+}
+
+.material-dep-list-card .labor-flow-title,
+.material-dep-form-card .labor-flow-title {
+  padding: 2px 2px 10px;
+}
+
+.material-dep-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.material-dep-list-table {
+  min-width: 1080px;
+  width: 100%;
+}
+
+.material-dep-list-table tr.active td {
+  background: #fff7ed;
+}
+
+.material-dep-entry-form {
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+}
+
+.material-dep-entry-form select {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0 10px;
+  background: #fff;
+  color: #0f172a;
+  font-weight: 850;
+}
+
+.dep-preview {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.material-dep-adjust-modal {
+  width: min(860px, calc(100vw - 48px));
+}
+
+.material-dep-adjust-table {
+  min-width: 620px;
+}
+
+.material-dep-adjust-table input {
+  width: 160px;
+}
+
+@media (max-width: 900px) {
+  .material-dep-summary,
+  .material-dep-entry-form {
+    grid-template-columns: 1fr;
+  }
+}
 .expense-plan-panel {
   display: flex;
   flex-direction: column;

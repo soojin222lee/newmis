@@ -11685,6 +11685,273 @@ selectBudgetProjFull = function(projectKey) {
   openBudgetProjectScreen(projectKey || 'budgetMock');
 };
 
+const materialDepreciationAccountsFinal = [
+  { code:'713801', name:'감가상각비-IT자산(장비)' },
+  { code:'713802', name:'감가상각비-IT자산(Tool)' },
+  { code:'713803', name:'감가상각비-공기구비품' },
+  { code:'713806', name:'감가상각비-시설물' },
+];
+var depreciationEditorModeFinal = null;
+var depreciationAdjustPopupOpenFinal = false;
+var depreciationMonthlyRowsFinal = [];
+var depreciationAdjustPlanIdFinal = null;
+
+function addMonthsFinal(month, offset) {
+  const [year, monthNo] = String(month || '2026-07').split('-').map(Number);
+  const date = new Date(year, (monthNo || 1) - 1 + offset, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function buildDepreciationMonthlyRowsFinal(startMonth, monthCount, totalAmount) {
+  const count = Math.max(1, Number(monthCount || 1));
+  const total = Number(totalAmount || 0);
+  const base = Math.floor(total / count);
+  let allocated = 0;
+  return Array.from({ length:count }).map((_, idx) => {
+    const amount = idx === count - 1 ? total - allocated : base;
+    allocated += amount;
+    return { month:addMonthsFinal(startMonth, idx), amount };
+  });
+}
+
+function getDepPlanMonthlyRowsFinal(plan) {
+  if (plan?.monthlyAllocations?.length) return plan.monthlyAllocations;
+  if (!plan) return [];
+  const start = plan.start || '2026-07';
+  const months = Number(plan.months || monthRange(plan.start, plan.end).length || 1);
+  const total = Number(plan.totalAmount || plan.monthly * months || plan.monthly || 0);
+  return buildDepreciationMonthlyRowsFinal(start, months, total);
+}
+
+getDepreciationAmountForMonth = function(month) {
+  return materialDepreciationPlans.reduce((sum, row) => {
+    const allocation = getDepPlanMonthlyRowsFinal(row).find(item => item.month === month);
+    if (allocation) return sum + Number(allocation.amount || 0);
+    if (month >= row.start && month <= row.end) return sum + Number(row.monthly || 0);
+    return sum;
+  }, 0);
+};
+
+function openDepreciationNewFinal() {
+  depreciationEditorModeFinal = 'new';
+  editingDepreciationPlanId = null;
+  depreciationMonthlyRowsFinal = [];
+  renderBudgetPage();
+}
+
+function cancelDepreciationEditFinal() {
+  depreciationEditorModeFinal = null;
+  editingDepreciationPlanId = null;
+  depreciationMonthlyRowsFinal = [];
+  renderBudgetPage();
+}
+
+editDepreciationPlan = function(id) {
+  editingDepreciationPlanId = id;
+  depreciationEditorModeFinal = 'edit';
+  materialKind = 'depreciation';
+  const plan = materialDepreciationPlans.find(row => row.id === id);
+  depreciationMonthlyRowsFinal = getDepPlanMonthlyRowsFinal(plan).map(row => ({ ...row }));
+  renderBudgetPage();
+};
+
+function refreshDepreciationPreviewFinal() {
+  const start = document.getElementById('dep-start')?.value || '2026-07';
+  const count = parseBudgetAmount(document.getElementById('dep-months')?.value || 1);
+  const total = parseBudgetAmount(document.getElementById('dep-total')?.value || 0);
+  depreciationMonthlyRowsFinal = buildDepreciationMonthlyRowsFinal(start, count, total);
+  renderBudgetPage();
+}
+
+function openDepreciationAdjustPopupFinal() {
+  const editing = editingDepreciationPlanId ? materialDepreciationPlans.find(row => row.id === editingDepreciationPlanId) : null;
+  const start = document.getElementById('dep-start')?.value || editing?.start || '2026-07';
+  const count = parseBudgetAmount(document.getElementById('dep-months')?.value || editing?.months || 1);
+  const total = parseBudgetAmount(document.getElementById('dep-total')?.value || editing?.totalAmount || editing?.monthly || 0);
+  if (!total) {
+    showToast('상각총액을 먼저 입력해 주세요.');
+    return;
+  }
+  depreciationMonthlyRowsFinal = depreciationMonthlyRowsFinal.length
+    ? depreciationMonthlyRowsFinal.map(row => ({ ...row }))
+    : buildDepreciationMonthlyRowsFinal(start, count, total);
+  depreciationAdjustPlanIdFinal = editing?.id || null;
+  depreciationAdjustPopupOpenFinal = true;
+  renderBudgetPage();
+}
+
+function closeDepreciationAdjustPopupFinal() {
+  depreciationAdjustPopupOpenFinal = false;
+  renderBudgetPage();
+}
+
+function saveDepreciationAdjustPopupFinal() {
+  depreciationMonthlyRowsFinal = depreciationMonthlyRowsFinal.map((row, idx) => ({
+    ...row,
+    amount: parseBudgetAmount(document.getElementById(`dep-adjust-amount-${idx}`)?.value || row.amount),
+  }));
+  depreciationAdjustPopupOpenFinal = false;
+  showToast('월별 감가상각 금액이 보정되었습니다.');
+  renderBudgetPage();
+}
+
+function renderDepreciationAdjustPopupFinal() {
+  if (!depreciationAdjustPopupOpenFinal) return '';
+  const total = depreciationMonthlyRowsFinal.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  return `
+    <div class="actual-detail-overlay open material-dep-adjust-overlay">
+      <div class="actual-detail-modal material-dep-adjust-modal">
+        <div class="actual-detail-head">
+          <strong>월별 감가상각 금액 보정</strong>
+          <button onclick="closeDepreciationAdjustPopupFinal()">×</button>
+        </div>
+        <p class="material-inspection-guide">기본 배분된 월별 감가상각 금액을 필요 시 수기로 조정한 뒤 저장합니다.</p>
+        <div class="material-inspection-table-wrap">
+          <table class="material-inspection-table material-dep-adjust-table">
+            <thead><tr><th>월</th><th>기본/확정 금액</th><th>비고</th></tr></thead>
+            <tbody>
+              ${depreciationMonthlyRowsFinal.map((row, idx) => `
+                <tr>
+                  <td>${row.month}</td>
+                  <td><input id="dep-adjust-amount-${idx}" inputmode="numeric" value="${row.amount}"></td>
+                  <td>${idx === 0 ? '시작월' : ''}</td>
+                </tr>`).join('')}
+              <tr class="total"><td>합계</td><td class="num">${fmt(total)}원</td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="actual-detail-foot">
+          <button onclick="closeDepreciationAdjustPopupFinal()">취소</button>
+          <button class="labor-main-btn" onclick="saveDepreciationAdjustPopupFinal()">보정 금액 저장</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderDepreciationMonthlyPreviewFinal(rows) {
+  if (!rows?.length) return '<div class="material-allocation-preview empty">상각 시작월, 개월수, 상각총액 입력 후 월별 금액 보정 버튼을 눌러 월별 계획을 확인하세요.</div>';
+  return `
+    <div class="material-allocation-preview dep-preview">
+      <div class="material-allocation-head"><span>상각월</span><span>월별 금액</span></div>
+      ${rows.map(row => `<div class="material-allocation-row"><span>${row.month}</span><strong>${fmt(row.amount)}원</strong></div>`).join('')}
+    </div>`;
+}
+
+function renderDepreciationFormFinal(editing) {
+  const accountCode = editing?.accountCode || materialDepreciationAccountsFinal[0].code;
+  const accountOptions = materialDepreciationAccountsFinal.map(account =>
+    `<option value="${account.code}" ${account.code === accountCode ? 'selected' : ''}>${account.code} ${account.name}</option>`
+  ).join('');
+  const rows = depreciationMonthlyRowsFinal.length ? depreciationMonthlyRowsFinal : getDepPlanMonthlyRowsFinal(editing);
+  const totalAmount = editing?.totalAmount || rows.reduce((sum, row) => sum + Number(row.amount || 0), 0) || '';
+  return `
+    <div class="labor-card material-dep-form-card">
+      <div class="labor-flow-title">
+        <strong>${editing ? '감가상각비 계획 수정' : '감가상각비 신규 등록'}</strong>
+        <button class="labor-sub-btn" onclick="cancelDepreciationEditFinal()">닫기</button>
+      </div>
+      <div class="labor-form os-ma-form material-dep-entry-form">
+        <label class="wide"><span>감가상각 계정</span><select id="dep-account">${accountOptions}</select></label>
+        <label><span>감가상각 시작월</span><input id="dep-start" type="month" value="${editing?.start || '2026-07'}" onchange="refreshDepreciationPreviewFinal()"></label>
+        <label><span>감가상각 개월수</span><input id="dep-months" inputmode="numeric" value="${editing?.months || rows.length || 12}" oninput="refreshDepreciationPreviewFinal()"></label>
+        <label><span>상각총액</span><input id="dep-total" inputmode="numeric" value="${totalAmount}" placeholder="예: 31200000" oninput="refreshDepreciationPreviewFinal()"></label>
+        <label class="wide"><span>자산/비용명</span><input id="dep-asset" value="${editing?.asset || ''}" placeholder="예: 개발서버 장비 감가상각"></label>
+        <label class="wide"><span>설명</span><textarea id="dep-note" rows="3" placeholder="예: 견적 데이터 기반 라이선스 월상각">${editing?.note || ''}</textarea></label>
+      </div>
+      <div class="labor-actions">
+        <button class="labor-sub-btn" onclick="openDepreciationAdjustPopupFinal()">월별 금액 보정</button>
+        <button class="labor-main-btn" onclick="saveDepreciationPlan()">${editing ? '수정 저장' : '감가상각비 등록'}</button>
+      </div>
+      ${renderDepreciationMonthlyPreviewFinal(rows)}
+    </div>`;
+}
+
+renderMaterialDepreciationPanel = function() {
+  const editing = editingDepreciationPlanId ? materialDepreciationPlans.find(row => row.id === editingDepreciationPlanId) : null;
+  const editorOpen = depreciationEditorModeFinal === 'new' || depreciationEditorModeFinal === 'edit';
+  const rows = materialDepreciationPlans.map(row => {
+    const monthlyRows = getDepPlanMonthlyRowsFinal(row);
+    const account = materialDepreciationAccountsFinal.find(item => item.code === row.accountCode);
+    const total = monthlyRows.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    return `
+      <tr class="${editingDepreciationPlanId === row.id ? 'active' : ''}">
+        <td>${row.accountCode || account?.code || '-'}</td>
+        <td>${account?.name || row.accountName || row.asset}</td>
+        <td>${row.asset}</td>
+        <td>${row.start} ~ ${row.end}</td>
+        <td class="num">${row.months || monthlyRows.length}개월</td>
+        <td class="num">${fmt(total)}원</td>
+        <td>${row.status}</td>
+        <td><button class="labor-sub-btn" onclick="editDepreciationPlan('${row.id}')">수정</button></td>
+      </tr>`;
+  }).join('');
+
+  return `
+    <div class="material-dep-page">
+      <div class="os-sub-summary ma material-dep-summary">
+        <div><strong>${materialDepreciationPlans.length}</strong><span>감가상각 계획</span></div>
+        <div><strong>${fmt(materialDepreciationPlans.reduce((sum, row) => sum + getDepPlanMonthlyRowsFinal(row).reduce((s, item) => s + Number(item.amount || 0), 0), 0))}원</strong><span>상각총액</span></div>
+        <p>감가상각 계정 4개 중 하나를 선택하고 시작월/개월수/총액을 기준으로 월별 감가상각 계획을 생성합니다.</p>
+      </div>
+      <div class="os-registered-card material-dep-list-card">
+        <div class="labor-flow-title">
+          <strong>기등록 감가상각 계획리스트</strong>
+          <button class="labor-main-btn" onclick="openDepreciationNewFinal()">신규등록</button>
+        </div>
+        <div class="material-dep-table-wrap">
+          <table class="material-dep-table material-dep-list-table">
+            <thead><tr><th>계정코드</th><th>감가상각 계정</th><th>자산/비용명</th><th>상각기간</th><th>개월수</th><th>상각총액</th><th>상태</th><th></th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+      ${editorOpen ? renderDepreciationFormFinal(editing) : ''}
+      ${renderDepreciationAdjustPopupFinal()}
+    </div>`;
+};
+
+saveDepreciationPlan = function() {
+  const rows = depreciationMonthlyRowsFinal.length
+    ? depreciationMonthlyRowsFinal.map(row => ({ ...row }))
+    : buildDepreciationMonthlyRowsFinal(
+        document.getElementById('dep-start')?.value || '2026-07',
+        parseBudgetAmount(document.getElementById('dep-months')?.value || 1),
+        parseBudgetAmount(document.getElementById('dep-total')?.value || 0)
+      );
+  const accountCode = document.getElementById('dep-account')?.value || materialDepreciationAccountsFinal[0].code;
+  const account = materialDepreciationAccountsFinal.find(item => item.code === accountCode) || materialDepreciationAccountsFinal[0];
+  const totalAmount = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const months = Number(document.getElementById('dep-months')?.value || rows.length || 1);
+  const start = document.getElementById('dep-start')?.value || rows[0]?.month || '2026-07';
+  const end = rows[rows.length - 1]?.month || addMonthsFinal(start, months - 1);
+  if (!totalAmount) {
+    showToast('상각총액을 입력해 주세요.');
+    return;
+  }
+  const payload = {
+    id: editingDepreciationPlanId || `dep-${Date.now()}`,
+    accountCode,
+    accountName: account.name,
+    asset: document.getElementById('dep-asset')?.value || account.name,
+    start,
+    end,
+    months,
+    totalAmount,
+    monthly: Math.round(totalAmount / Math.max(months, 1)),
+    monthlyAllocations: rows,
+    status:'계획',
+    note: document.getElementById('dep-note')?.value || '',
+  };
+  const idx = materialDepreciationPlans.findIndex(row => row.id === payload.id);
+  if (idx >= 0) materialDepreciationPlans[idx] = payload;
+  else materialDepreciationPlans.unshift(payload);
+  editingDepreciationPlanId = null;
+  depreciationEditorModeFinal = null;
+  depreciationMonthlyRowsFinal = [];
+  showToast('감가상각비 계획이 저장되었습니다.');
+  renderBudgetPage();
+};
+
 var materialInspectionPlanQuoteNoFinal = '';
 
 openMaterialInspectionPlanPopupFinal = function() {
