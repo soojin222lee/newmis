@@ -11952,6 +11952,75 @@ saveDepreciationPlan = function() {
   renderBudgetPage();
 };
 
+renderDepreciationFormFinal = function(editing) {
+  const accountCode = editing?.accountCode || materialDepreciationAccountsFinal[0].code;
+  const accountOptions = materialDepreciationAccountsFinal.map(account =>
+    `<option value="${account.code}" ${account.code === accountCode ? 'selected' : ''}>${account.code} ${account.name}</option>`
+  ).join('');
+  const rows = depreciationMonthlyRowsFinal.length ? depreciationMonthlyRowsFinal : getDepPlanMonthlyRowsFinal(editing);
+  const totalAmount = editing?.totalAmount || rows.reduce((sum, row) => sum + Number(row.amount || 0), 0) || '';
+  return `
+    <div class="labor-card material-dep-form-card">
+      <div class="labor-flow-title">
+        <strong>${editing ? '감가상각비 계획 수정' : '감가상각비 신규 등록'}</strong>
+        <button class="labor-sub-btn" onclick="cancelDepreciationEditFinal()">닫기</button>
+      </div>
+      <div class="labor-form os-ma-form material-dep-entry-form">
+        <label class="wide"><span>감가상각 계정</span><select id="dep-account">${accountOptions}</select></label>
+        <label><span>감가상각 시작월</span><input id="dep-start" type="month" value="${editing?.start || '2026-07'}" onchange="refreshDepreciationPreviewFinal()"></label>
+        <label><span>감가상각 개월수</span><input id="dep-months" inputmode="numeric" value="${editing?.months || rows.length || 12}" oninput="refreshDepreciationPreviewFinal()"></label>
+        <label><span>상각총액</span><input id="dep-total" inputmode="numeric" value="${totalAmount}" placeholder="예: 31200000" oninput="refreshDepreciationPreviewFinal()"></label>
+        <label class="wide"><span>자산/비용명</span><input id="dep-asset" value="${editing?.asset || ''}" placeholder="예: 개발서버 장비 감가상각"></label>
+      </div>
+      <div class="labor-actions">
+        <button class="labor-sub-btn" onclick="openDepreciationAdjustPopupFinal()">월별 금액 보정</button>
+        <button class="labor-main-btn" onclick="saveDepreciationPlan()">${editing ? '수정 저장' : '감가상각비 등록'}</button>
+      </div>
+      ${renderDepreciationMonthlyPreviewFinal(rows)}
+    </div>`;
+};
+
+saveDepreciationPlan = function() {
+  const rows = depreciationMonthlyRowsFinal.length
+    ? depreciationMonthlyRowsFinal.map(row => ({ ...row }))
+    : buildDepreciationMonthlyRowsFinal(
+        document.getElementById('dep-start')?.value || '2026-07',
+        parseBudgetAmount(document.getElementById('dep-months')?.value || 1),
+        parseBudgetAmount(document.getElementById('dep-total')?.value || 0)
+      );
+  const accountCode = document.getElementById('dep-account')?.value || materialDepreciationAccountsFinal[0].code;
+  const account = materialDepreciationAccountsFinal.find(item => item.code === accountCode) || materialDepreciationAccountsFinal[0];
+  const totalAmount = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const months = Number(document.getElementById('dep-months')?.value || rows.length || 1);
+  const start = document.getElementById('dep-start')?.value || rows[0]?.month || '2026-07';
+  const end = rows[rows.length - 1]?.month || addMonthsFinal(start, months - 1);
+  if (!totalAmount) {
+    showToast('상각총액을 입력해 주세요.');
+    return;
+  }
+  const payload = {
+    id: editingDepreciationPlanId || `dep-${Date.now()}`,
+    accountCode,
+    accountName: account.name,
+    asset: document.getElementById('dep-asset')?.value || account.name,
+    start,
+    end,
+    months,
+    totalAmount,
+    monthly: Math.round(totalAmount / Math.max(months, 1)),
+    monthlyAllocations: rows,
+    status:'계획',
+  };
+  const idx = materialDepreciationPlans.findIndex(row => row.id === payload.id);
+  if (idx >= 0) materialDepreciationPlans[idx] = payload;
+  else materialDepreciationPlans.unshift(payload);
+  editingDepreciationPlanId = null;
+  depreciationEditorModeFinal = null;
+  depreciationMonthlyRowsFinal = [];
+  showToast('감가상각비 계획이 저장되었습니다.');
+  renderBudgetPage();
+};
+
 var materialInspectionPlanQuoteNoFinal = '';
 
 openMaterialInspectionPlanPopupFinal = function() {
