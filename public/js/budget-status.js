@@ -12026,10 +12026,7 @@ showExpenseErpAvailabilityModal = function() {
 
 renderExpensePlanPanel = function(data) {
   const rows = getExpenseRows();
-  const middleRows = getExpenseMiddleRowsFinal();
   const totalRows = rows.length;
-  const controlledTotal = rows.filter(r => r.controlled).reduce((sum, row) => sum + expensePlanTotalFinal(row), 0);
-  const erpTotal = rows.filter(r => r.controlled).reduce((sum, row) => sum + Number(row.erpAvailable || 0), 0);
   const body = rows.map(row => {
     const plan = expensePlanTotalFinal(row);
     const balance = row.controlled ? Number(row.erpAvailable || 0) - plan : null;
@@ -12052,14 +12049,6 @@ renderExpensePlanPanel = function(data) {
       </tr>`;
   }).join('');
 
-  const middleCards = middleRows.map(row => `
-    <div class="expense-middle-card ${row.controlled ? 'control' : 'free'}">
-      <span>${row.code}</span>
-      <strong>${row.name}</strong>
-      <em>${row.control}</em>
-      <b>${fmt(row.plan)}원</b>
-    </div>`).join('');
-
   return `
     <div class="expense-plan-panel">
       <div class="expense-plan-head">
@@ -12073,13 +12062,9 @@ renderExpensePlanPanel = function(data) {
           <button class="labor-main-btn" onclick="saveExpensePlan()">계획 저장</button>
         </div>
       </div>
-      <div class="expense-erp-summary">
-        <div><span>통제 중계정 계획</span><strong>${fmt(controlledTotal)}원</strong></div>
-        <div><span>ERP 가용예산</span><strong>${fmt(erpTotal)}원</strong></div>
-        <div class="${controlledTotal > erpTotal ? 'danger' : ''}"><span>가용 잔액</span><strong>${fmt(Math.max(erpTotal - controlledTotal, 0))}원</strong></div>
-        <p>통제 중계정은 매출귀속부서 기준 ERP 가용예산을 초과할 수 없습니다. 계정별 예산 이관에서 경비 조정배분을 변경할 때도 동일한 한도를 체크합니다.</p>
+      <div class="expense-plan-comment">
+        통제 중계정은 매출귀속부서 기준 ERP 가용예산을 초과할 수 없습니다. 계정별 예산 이관에서 경비 조정배분을 변경할 때도 동일한 한도를 체크합니다.
       </div>
-      <div class="expense-middle-strip">${middleCards}</div>
       <div class="expense-grid-wrap">
         <table class="expense-grid-table expense-grid-table-final">
           <thead>
