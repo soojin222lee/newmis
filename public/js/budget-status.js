@@ -11633,6 +11633,58 @@ saveOtherMaterialExpense = function() {
   renderBudgetPage();
 };
 
+function ensureBudgetScreenRootFinal() {
+  const screen = document.getElementById('s-budget');
+  if (!screen) return null;
+  if (!document.getElementById('budget-body')) {
+    screen.innerHTML = '<div id="budget-body"></div>';
+  }
+  return document.getElementById('budget-body');
+}
+
+function activateBudgetScreenFinal() {
+  document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
+  const budgetScreen = document.getElementById('s-budget');
+  if (budgetScreen) budgetScreen.classList.add('active');
+  document.querySelectorAll('.nav-item, .nav-sub-item, .nav-sub2-item, .nav-group-btn').forEach(nav => nav.classList.remove('active'));
+  const budgetNav = document.getElementById('nav-budget');
+  if (budgetNav) budgetNav.classList.add('active');
+}
+
+openBudgetProjectScreen = function(projectKey) {
+  const key = BUDGET_SOURCE[projectKey] ? projectKey : 'budgetMock';
+  currentBudgetProj = key;
+  budgetScreenView = 'detail';
+  budgetDetailStep = 'setup';
+  budgetSetupEditAccount = null;
+  budgetTransferEditMode = false;
+  editingLaborAssignmentId = null;
+  editingOutsourceContractId = null;
+  editingOtherOutsourceId = null;
+  editingMaterialItemId = null;
+  editingOtherMaterialId = null;
+  materialItemEditorModeFinal = null;
+  materialDirectInputOpenFinal = false;
+  materialInspectionPopupOpenFinal = false;
+  selectedLaborAssignmentId = (getLaborRows(key)[0] || {}).id || null;
+  syncLaborAssignmentsToBudget(key);
+  ensureBudgetScreenRootFinal();
+  activateBudgetScreenFinal();
+  renderBudgetPage();
+};
+
+openAiProjectBudget = function(projectKey) {
+  openBudgetProjectScreen(projectKey || 'budgetMock');
+};
+
+selectBudgetProj = function(projectKey) {
+  openBudgetProjectScreen(projectKey || 'budgetMock');
+};
+
+selectBudgetProjFull = function(projectKey) {
+  openBudgetProjectScreen(projectKey || 'budgetMock');
+};
+
 var materialInspectionPlanQuoteNoFinal = '';
 
 openMaterialInspectionPlanPopupFinal = function() {
