@@ -3623,7 +3623,7 @@
 }
 .os-ma-head.material-item-head,
 .os-ma-row.material-item-row {
-  grid-template-columns: 54px 64px 94px 150px 150px 132px 112px 60px 110px 138px 78px;
+  grid-template-columns: 62px 64px 100px 150px 170px 132px 116px 104px 110px 138px 78px;
 }
 .os-ma-head {
   padding: 11px 14px;
@@ -3658,6 +3658,130 @@
   color: #0f172a;
   font-style: normal;
   font-weight: 900;
+}
+
+.material-quote-line-card,
+.material-entry-card {
+  margin-top: 12px;
+}
+
+.material-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.material-quote-line-table {
+  overflow-x: auto;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.material-quote-line-head,
+.material-quote-line {
+  display: grid;
+  grid-template-columns: 122px 54px 100px 170px 190px 142px 126px 130px;
+  gap: 8px;
+  align-items: center;
+  min-width: 1080px;
+}
+
+.material-quote-line-head {
+  padding: 12px 14px;
+  background: #fff7ed;
+  border-bottom: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.material-quote-line {
+  width: 100%;
+  padding: 13px 14px;
+  border: 0;
+  border-bottom: 1px solid #ffedd5;
+  background: #fff;
+  color: #334155;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.material-quote-line:hover,
+.material-quote-line.active {
+  background: #fff7ed;
+  box-shadow: inset 3px 0 0 #f97316;
+}
+
+.material-quote-line:last-child {
+  border-bottom: 0;
+}
+
+.material-quote-line strong {
+  color: #c2410c;
+  text-align: right;
+}
+
+.material-item-form {
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+}
+
+.material-item-form input[readonly] {
+  background: #fff7ed;
+  color: #64748b;
+}
+
+.material-form-empty {
+  margin-top: 12px;
+  border: 1px dashed #fed7aa;
+  background: #fffaf4;
+  color: #9a3412;
+}
+
+.material-allocation-preview {
+  margin-top: 12px;
+  overflow: hidden;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.material-allocation-preview.empty {
+  padding: 14px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.material-allocation-head,
+.material-allocation-row {
+  display: grid;
+  grid-template-columns: 1fr 160px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+}
+
+.material-allocation-head {
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.material-allocation-row {
+  border-top: 1px solid #ffedd5;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.material-allocation-row strong {
+  color: #0f172a;
+  text-align: right;
 }
 .expense-plan-panel {
   display: flex;
