@@ -3883,6 +3883,164 @@
   color: #0f172a;
   text-align: right;
 }
+
+.material-inspection-plan-field {
+  align-items: stretch;
+}
+
+.material-inspection-plan-field button {
+  width: 100%;
+  justify-content: center;
+}
+
+.material-inspection-plan-field em {
+  display: block;
+  margin-top: 6px;
+  color: #9a3412;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.material-inspection-modal {
+  width: min(1120px, calc(100vw - 48px));
+}
+
+.material-inspection-quote {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background: #fff7ed;
+}
+
+.material-inspection-quote div {
+  min-width: 0;
+}
+
+.material-inspection-quote span {
+  display: block;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.material-inspection-quote strong {
+  display: block;
+  margin-top: 4px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 950;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-inspection-guide {
+  margin: 12px 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.material-inspection-table-wrap {
+  max-height: 440px;
+  overflow: auto;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.material-inspection-table {
+  min-width: 960px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.material-inspection-table th,
+.material-inspection-table td {
+  padding: 10px 12px;
+  border-right: 1px solid #ffedd5;
+  border-bottom: 1px solid #ffedd5;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 850;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.material-inspection-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fff7ed;
+  color: #9a3412;
+  font-weight: 950;
+}
+
+.material-inspection-table td.num,
+.material-inspection-table th.num {
+  text-align: right;
+}
+
+.material-inspection-table input {
+  width: 132px;
+  height: 34px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #0f172a;
+  font-weight: 900;
+}
+
+.material-inspection-table tr.total td {
+  background: #fff7ed;
+  color: #c2410c;
+  font-weight: 950;
+}
+
+.material-inspection-mini {
+  margin-top: 14px;
+}
+
+.material-inspection-mini-grid {
+  display: grid;
+  grid-template-columns: 72px minmax(180px, 1fr) 92px 130px 150px;
+  overflow-x: auto;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.material-inspection-mini-grid span,
+.material-inspection-mini-grid strong {
+  padding: 10px 12px;
+  border-right: 1px solid #ffedd5;
+  border-bottom: 1px solid #ffedd5;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.material-inspection-mini-grid span:nth-child(-n+5) {
+  background: #fff7ed;
+  color: #9a3412;
+  font-weight: 950;
+}
+
+.material-inspection-mini-grid strong {
+  color: #0f172a;
+  text-align: right;
+}
+
+@media (max-width: 900px) {
+  .material-inspection-quote {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+}
 .expense-plan-panel {
   display: flex;
   flex-direction: column;
