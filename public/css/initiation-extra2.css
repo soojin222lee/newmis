@@ -4162,13 +4162,97 @@
 
 .material-transfer-list {
   width: 100%;
+  display: block;
+  padding: 0;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background: #fff;
   overflow-x: auto;
 }
 
-.material-transfer-head,
-.material-transfer-row {
-  grid-template-columns: 170px 130px 150px minmax(280px, 1fr) 110px 90px;
-  min-width: 980px;
+.material-transfer-list .material-transfer-head,
+.material-transfer-list .material-transfer-row {
+  display: grid;
+  grid-template-columns: 170px 130px 160px minmax(360px, 1fr) 120px 96px;
+  align-items: stretch;
+  min-width: 1120px;
+}
+
+.material-transfer-list .material-transfer-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0;
+  background: #fff7ed;
+  border-bottom: 1px solid #fed7aa;
+}
+
+.material-transfer-list .material-transfer-head span {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 11px 14px;
+  border-right: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.material-transfer-list .material-transfer-head span:last-child,
+.material-transfer-list .material-transfer-row > :last-child {
+  border-right: 0;
+}
+
+.material-transfer-list .material-transfer-row {
+  padding: 0;
+  border-bottom: 1px solid #ffedd5;
+  background: #fff;
+}
+
+.material-transfer-list .material-transfer-row:last-child {
+  border-bottom: 0;
+}
+
+.material-transfer-list .material-transfer-row > span,
+.material-transfer-list .material-transfer-row > strong,
+.material-transfer-list .material-transfer-row > em,
+.material-transfer-list .material-transfer-row > button {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 10px 14px;
+  border-right: 1px solid #ffedd5;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.material-transfer-list .material-transfer-row > strong {
+  justify-content: flex-end;
+  color: #0f172a;
+  font-weight: 950;
+}
+
+.material-transfer-list .material-transfer-row > em {
+  justify-content: center;
+  color: #9a3412;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.material-transfer-list .material-transfer-row > button {
+  justify-content: center;
+  align-self: center;
+  min-height: 34px;
+  margin: 6px 10px;
+  padding: 0 12px;
+}
+
+.material-transfer-list .bpo-readonly-text {
+  justify-content: center;
+  color: #64748b;
+  font-weight: 950;
 }
 
 .material-transfer-row.active {
