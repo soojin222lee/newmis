@@ -6,7 +6,7 @@ function initDashboard() {
   document.getElementById('s-main').innerHTML = `
     <div class="page-header">
       <div>
-        <div class="page-title">안녕하세요, 이봄 님 👋</div>
+        <div class="page-title">NEW MIS는.</div>
         <div class="page-sub">${dateStr}</div>
       </div>
       <span class="role-badge pm-badge">👤 PM · 일반 구성원</span>
@@ -126,7 +126,7 @@ function initDashboard() {
           <div class="ai-robot-head"><span></span><span></span></div>
           <div class="ai-robot-body"></div>
         </div>
-        <h1>원가 관리 어렵지 않아요.<br>궁금하게 있다면 저에게 물어보세요</h1>
+        <h1>사용은 가볍게, 데이터는 단단하게.<br>간편한 업무 경험과 신뢰할 수 있는 데이터의 연결.</h1>
         <div class="ai-search">
           <div class="ai-search-mark">AI</div>
           <input id="ai-main-query" type="text" placeholder="프로젝트, 실행예산, 인건비, 외주비, 월마감에 대해 질문해보세요"
@@ -351,8 +351,8 @@ function initDashboard() {
       </div>
 
       <section class="ai-work-hero">
-        <div class="ai-greeting">안녕하세요, 이봄님.</div>
-        <h1>원가 관리 어렵지 않아요.<br>궁금하게 있다면 저에게 물어보세요</h1>
+        <div class="ai-greeting">NEW MIS는.</div>
+        <h1>사용은 가볍게, 데이터는 단단하게.<br>간편한 업무 경험과 신뢰할 수 있는 데이터의 연결.</h1>
         <div class="ai-helper-card">
           <div class="ai-robot compact" aria-hidden="true">
             <div class="ai-robot-head"><span></span><span></span></div>
@@ -527,8 +527,8 @@ function renderPmDashboard() {
       </div>
 
       <section class="ai-work-hero">
-        <div class="ai-greeting">안녕하세요, 이봄님.</div>
-        <h1>원가 관리 어렵지 않아요.<br>궁금하게 있다면 저에게 물어보세요</h1>
+        <div class="ai-greeting">NEW MIS는.</div>
+        <h1>사용은 가볍게, 데이터는 단단하게.<br>간편한 업무 경험과 신뢰할 수 있는 데이터의 연결.</h1>
         <div class="ai-helper-card">
           <div class="ai-robot compact" aria-hidden="true">
             <div class="ai-robot-head"><span></span><span></span></div>
