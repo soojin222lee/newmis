@@ -120,6 +120,13 @@ function showInternalProject() {
   renderInternalProject();
 }
 
+function showInvestmentProject() {
+  openNavGroup('sub-ops');
+  setScreen('s-investment-project');
+  setNav('nav-investment-project');
+  renderInvestmentProject();
+}
+
 function showInitiation() {
   initView = 'list';
   openNavGroup('sub-phase');
