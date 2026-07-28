@@ -12057,8 +12057,99 @@ function renderAsCostPanel(data) {
 }
 
 var renderBudgetSetupOverviewBeforeAsCost = renderBudgetSetupOverview;
+var selectedExecBudgetVersionFinal = 'v3';
+
+function getExecBudgetVersionSnapshotsFinal(data) {
+  ensureAsCostPlanAmount(data);
+  return [
+    {
+      key:'v3',
+      label:'V1.2',
+      date:'2026-07-28',
+      status:'작성중',
+      owner:'이봄',
+      memo:'인건비 SCM 확정 인력과 A/S비가 반영된 최신 수립안',
+      budgets:{
+        [CATS[0]]:770000000,
+        [CATS[1]]:1195000000,
+        [CATS[2]]:155000000,
+        [CATS[3]]:92000000,
+        [CATS[4]]:48918351,
+      },
+    },
+    {
+      key:'v2',
+      label:'V1.1',
+      date:'2026-07-24',
+      status:'승인요청',
+      owner:'이봄',
+      memo:'외주비 검수계획과 재료비 상품계획 일부 보정',
+      budgets:{
+        [CATS[0]]:755000000,
+        [CATS[1]]:1175000000,
+        [CATS[2]]:145000000,
+        [CATS[3]]:88000000,
+        [CATS[4]]:48918351,
+      },
+    },
+    {
+      key:'v1',
+      label:'V1.0',
+      date:'2026-07-21',
+      status:'승인완료',
+      owner:'이봄',
+      memo:'최초 실행예산 승인 버전',
+      budgets:{
+        [CATS[0]]:760000000,
+        [CATS[1]]:1160000000,
+        [CATS[2]]:150000000,
+        [CATS[3]]:90000000,
+        [CATS[4]]:48918351,
+      },
+    },
+  ];
+}
+
+function getSelectedExecBudgetVersionFinal(data) {
+  const versions = getExecBudgetVersionSnapshotsFinal(data);
+  return versions.find(version => version.key === selectedExecBudgetVersionFinal) || versions[0];
+}
+
+function applyExecBudgetVersionSnapshotFinal(data, version) {
+  const copy = JSON.parse(JSON.stringify(data));
+  copy.transfer = { ...(copy.transfer || {}) };
+  Object.entries(version.budgets || {}).forEach(([acct, budget]) => {
+    const previousBudget = Number(copy.plan?.[acct] || 0) || 1;
+    const ratio = Number(budget || 0) / previousBudget;
+    copy.plan[acct] = Number(budget || 0);
+    copy.transfer[acct] = 0;
+    (copy.months || []).forEach(month => {
+      if (!month[acct] || month.type !== 'plan') return;
+      if (typeof month[acct].p === 'number') month[acct].p = Math.round(month[acct].p * ratio);
+      if (typeof month[acct].q === 'number') month[acct].q = Math.round(month[acct].q * ratio);
+      if (Array.isArray(month[acct].details)) {
+        month[acct].details = month[acct].details.map(detail => ({
+          ...detail,
+          amount: Math.round(Number(detail.amount || 0) * ratio),
+        }));
+      }
+    });
+  });
+  copy.versionSnapshot = version;
+  return copy;
+}
+
+function selectExecBudgetVersionFinal(versionKey) {
+  selectedExecBudgetVersionFinal = versionKey;
+  budgetSetupEditAccount = null;
+  renderBudgetPage();
+}
+
 renderBudgetSetupOverview = function(data, actual, quasi) {
   ensureAsCostPlanAmount(data);
+  const versions = getExecBudgetVersionSnapshotsFinal(data);
+  const selectedVersion = getSelectedExecBudgetVersionFinal(data);
+  const viewData = applyExecBudgetVersionSnapshotFinal(data, selectedVersion);
   const accounts = [
     { key:CATS[0], label:'인건비' },
     { key:CATS[1], label:'외주비' },
@@ -12066,9 +12157,9 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
     { key:CATS[3], label:'경비' },
     { key:CATS[4], label:'A/S비' },
   ];
-  const totalBudget = accounts.reduce((sum, item) => sum + (data.plan[item.key] || 0), 0);
+  const totalBudget = accounts.reduce((sum, item) => sum + (viewData.plan[item.key] || 0), 0);
   const rows = accounts.map(item => {
-    const budget = data.plan[item.key] || 0;
+    const budget = viewData.plan[item.key] || 0;
     return `
       <button class="setup-account-row ${budgetSetupEditAccount === item.key ? 'active' : ''}" onclick="openBudgetAccountEditor('${item.key}')">
         <span>${item.label}<b>›</b></span>
@@ -12076,14 +12167,23 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
       </button>`;
   }).join('');
   const expanded = budgetSetupEditAccount
-    ? `<div class="setup-expanded-detail">${renderBudgetAccountEditor(data, budgetSetupEditAccount)}</div>`
+    ? `<div class="setup-expanded-detail">${renderBudgetAccountEditor(viewData, budgetSetupEditAccount)}</div>`
     : '';
 
   return `
     <div class="setup-overview compact">
-      <div class="setup-version-pill">
-        <strong>V1.0 2026-07-21</strong>
-        <span>승인완료</span>
+      <div class="setup-version-tabs" aria-label="실행예산 버전 선택">
+        ${versions.map(version => `
+          <button class="setup-version-pill ${selectedVersion.key === version.key ? 'active' : ''}" onclick="selectExecBudgetVersionFinal('${version.key}')">
+            <strong>${version.label} ${version.date}</strong>
+            <span>${version.status}</span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="setup-version-note">
+        <strong>${selectedVersion.label}</strong>
+        <span>${selectedVersion.memo}</span>
+        <em>작성자 ${selectedVersion.owner}</em>
       </div>
       <div class="setup-account-rows five">
         <button class="setup-account-row total" onclick="budgetSetupEditAccount=null;renderBudgetPage()">
