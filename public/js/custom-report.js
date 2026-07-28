@@ -46,6 +46,11 @@ let customReportType = 'project';
 let customReportSelectedFields = [...customReportPresets.all];
 let customReportAppliedFields = [...customReportSelectedFields];
 let customReportQuery = '';
+const CUSTOM_REPORT_KEY_FIELD = 'projectNo';
+
+function normalizeCustomReportFields(fields) {
+  return Array.from(new Set([CUSTOM_REPORT_KEY_FIELD, ...(fields || [])]));
+}
 
 function getReportFieldGroups() {
   return customReportFields.reduce((acc, field) => {
@@ -61,6 +66,7 @@ function setCustomReportType(value) {
 }
 
 function toggleCustomReportField(key) {
+  if (key === CUSTOM_REPORT_KEY_FIELD) return;
   if (customReportSelectedFields.includes(key)) {
     customReportSelectedFields = customReportSelectedFields.filter(fieldKey => fieldKey !== key);
   } else {
@@ -70,7 +76,7 @@ function toggleCustomReportField(key) {
 }
 
 function setCustomReportPreset(type) {
-  customReportSelectedFields = [...(customReportPresets[type] || customReportPresets.all)];
+  customReportSelectedFields = normalizeCustomReportFields(customReportPresets[type] || customReportPresets.all);
   showToast(type === 'all' ? '전체 필드를 선택했습니다.' : 'AI가 목적에 맞는 필드를 추천했습니다.');
   renderCustomReport();
 }
@@ -78,14 +84,14 @@ function setCustomReportPreset(type) {
 function toggleCustomReportGroup(group, checked) {
   const keys = customReportFields.filter(field => field.group === group).map(field => field.key);
   customReportSelectedFields = checked
-    ? Array.from(new Set([...customReportSelectedFields, ...keys]))
-    : customReportSelectedFields.filter(key => !keys.includes(key));
+    ? normalizeCustomReportFields([...customReportSelectedFields, ...keys])
+    : normalizeCustomReportFields(customReportSelectedFields.filter(key => key === CUSTOM_REPORT_KEY_FIELD || !keys.includes(key)));
   renderCustomReport();
 }
 
 function applyCustomReportSearch() {
   customReportAppliedFields = customReportFields
-    .filter(field => customReportSelectedFields.includes(field.key))
+    .filter(field => normalizeCustomReportFields(customReportSelectedFields).includes(field.key))
     .map(field => field.key);
   if (!customReportAppliedFields.length) {
     showToast('최소 1개 이상의 필드를 선택해주세요.');
@@ -113,7 +119,10 @@ function getCustomReportRows() {
 function renderCustomReportFieldSelector() {
   const groups = getReportFieldGroups();
   return Object.entries(groups).map(([group, fields]) => {
-    const allChecked = fields.every(field => customReportSelectedFields.includes(field.key));
+    const selectableFields = fields.filter(field => field.key !== CUSTOM_REPORT_KEY_FIELD);
+    const allChecked = selectableFields.length
+      ? selectableFields.every(field => customReportSelectedFields.includes(field.key))
+      : true;
     return `
       <div class="custom-report-field-group">
         <label class="custom-report-group-head">
@@ -123,9 +132,10 @@ function renderCustomReportFieldSelector() {
         </label>
         <div class="custom-report-field-list">
           ${fields.map(field => `
-            <label>
-              <input type="checkbox" ${customReportSelectedFields.includes(field.key) ? 'checked' : ''} onchange="toggleCustomReportField('${field.key}')">
+            <label class="${field.key === CUSTOM_REPORT_KEY_FIELD ? 'locked' : ''}">
+              <input type="checkbox" ${customReportSelectedFields.includes(field.key) ? 'checked' : ''} ${field.key === CUSTOM_REPORT_KEY_FIELD ? 'disabled' : ''} onchange="toggleCustomReportField('${field.key}')">
               <span>${field.label}</span>
+              ${field.key === CUSTOM_REPORT_KEY_FIELD ? '<em>키값</em>' : ''}
             </label>
           `).join('')}
         </div>
@@ -167,6 +177,8 @@ function renderCustomReportTable() {
 function renderCustomReport() {
   const root = document.getElementById('s-custom-report');
   if (!root) return;
+  customReportSelectedFields = normalizeCustomReportFields(customReportSelectedFields);
+  customReportAppliedFields = normalizeCustomReportFields(customReportAppliedFields);
   const selectedCount = customReportSelectedFields.length;
   root.innerHTML = `
     <div class="custom-report-page">
@@ -201,7 +213,7 @@ function renderCustomReport() {
 
       <div class="custom-report-presets">
         <button onclick="setCustomReportPreset('all')">전체 선택</button>
-        <button onclick="customReportSelectedFields=[];renderCustomReport()">전체 해제</button>
+        <button onclick="customReportSelectedFields=[CUSTOM_REPORT_KEY_FIELD];renderCustomReport()">전체 해제</button>
         <button onclick="setCustomReportPreset('pm')">AI 추천: PM용</button>
         <button onclick="setCustomReportPreset('leader')">AI 추천: 팀장 보고용</button>
         <button onclick="setCustomReportPreset('close')">AI 추천: 종료/정산용</button>
