@@ -11685,7 +11685,7 @@ renderLaborAssignmentPanel = function(data) {
           <p class="labor-simple-caption">SCM에서 확정완료된 인력을 그대로 선택해 등록합니다. 시작일, 종료일, P레벨, 역할, 총MM은 SCM 수신값을 기준으로 반영됩니다.</p>
         </div>
         <div class="labor-actions compact">
-          <button class="labor-main-btn" onclick="openLaborScmCandidatePopupFinal()">투입가능 인력 리스트</button>
+          <button class="labor-main-btn" onclick="openLaborScmCandidatePopupFinal()">신규인력투입</button>
         </div>
       </div>
 
