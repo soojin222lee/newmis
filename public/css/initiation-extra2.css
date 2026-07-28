@@ -7956,6 +7956,135 @@
   color: #94a3b8;
   font-style: normal;
 }
+.exec-approval-panel {
+  margin: 0 0 14px;
+  padding: 14px;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  background: #fffaf7;
+}
+.exec-approval-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.exec-approval-head p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+.exec-approval-flow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0;
+}
+.exec-approval-flow div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  color: #64748b;
+  font-weight: 900;
+}
+.exec-approval-flow div.on {
+  border-color: #fb923c;
+  background: #fff7ed;
+  color: #9a3412;
+}
+.exec-approval-flow b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #ffedd5;
+  color: #ea580c;
+  font-size: 12px;
+}
+.exec-approval-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.exec-approval-kpis div {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+.exec-approval-kpis span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+.exec-approval-kpis strong {
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 950;
+}
+.exec-approval-kpis .up strong,
+.exec-approval-table .up {
+  color: #0284c7;
+}
+.exec-approval-kpis .down strong,
+.exec-approval-table .down {
+  color: #dc2626;
+}
+.exec-approval-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.exec-approval-meta span {
+  padding: 6px 10px;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  background: #fff;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 900;
+}
+.exec-approval-table-wrap {
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+.exec-approval-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+.exec-approval-table th,
+.exec-approval-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  font-size: 12px;
+}
+.exec-approval-table th {
+  background: #fff7ed;
+  color: #9a3412;
+  font-weight: 950;
+}
+.exec-approval-table td {
+  color: #0f172a;
+  font-weight: 800;
+}
+.exec-approval-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
 .setup-simple-line {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);

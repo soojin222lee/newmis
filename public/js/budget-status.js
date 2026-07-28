@@ -12058,6 +12058,11 @@ function renderAsCostPanel(data) {
 
 var renderBudgetSetupOverviewBeforeAsCost = renderBudgetSetupOverview;
 var selectedExecBudgetVersionFinal = 'v3';
+var execBudgetApprovalStateFinal = {
+  v3: { status:'작성중', approvalStatus:'미요청', requestedAt:'', approver:'김도윤 팀장', comment:'' },
+  v2: { status:'승인요청', approvalStatus:'결재중', requestedAt:'2026-07-24 14:20:00', approver:'김도윤 팀장', comment:'외주비 검수계획 보정 승인 요청' },
+  v1: { status:'승인완료', approvalStatus:'완료', requestedAt:'2026-07-21 10:10:00', approver:'김도윤 팀장', comment:'최초 실행예산 승인' },
+};
 
 function getExecBudgetVersionSnapshotsFinal(data) {
   ensureAsCostPlanAmount(data);
@@ -12066,7 +12071,7 @@ function getExecBudgetVersionSnapshotsFinal(data) {
       key:'v3',
       label:'V1.2',
       date:'2026-07-28',
-      status:'작성중',
+      status:execBudgetApprovalStateFinal.v3.status,
       owner:'이봄',
       memo:'인건비 SCM 확정 인력과 A/S비가 반영된 최신 수립안',
       budgets:{
@@ -12081,7 +12086,7 @@ function getExecBudgetVersionSnapshotsFinal(data) {
       key:'v2',
       label:'V1.1',
       date:'2026-07-24',
-      status:'승인요청',
+      status:execBudgetApprovalStateFinal.v2.status,
       owner:'이봄',
       memo:'외주비 검수계획과 재료비 상품계획 일부 보정',
       budgets:{
@@ -12096,7 +12101,7 @@ function getExecBudgetVersionSnapshotsFinal(data) {
       key:'v1',
       label:'V1.0',
       date:'2026-07-21',
-      status:'승인완료',
+      status:execBudgetApprovalStateFinal.v1.status,
       owner:'이봄',
       memo:'최초 실행예산 승인 버전',
       budgets:{
@@ -12145,6 +12150,103 @@ function selectExecBudgetVersionFinal(versionKey) {
   renderBudgetPage();
 }
 
+function getPreviousExecBudgetVersionFinal(data, versionKey = selectedExecBudgetVersionFinal) {
+  const versions = getExecBudgetVersionSnapshotsFinal(data);
+  const idx = versions.findIndex(version => version.key === versionKey);
+  return idx >= 0 ? versions[idx + 1] || null : null;
+}
+
+function requestExecBudgetApprovalFinal() {
+  const state = execBudgetApprovalStateFinal[selectedExecBudgetVersionFinal];
+  const data = BUDGET_SOURCE[currentBudgetProj];
+  const selected = getSelectedExecBudgetVersionFinal(data);
+  if (!state || !selected) return;
+  if (state.status !== '작성중') {
+    showToast('작성중 버전만 결재요청할 수 있습니다.');
+    return;
+  }
+  state.status = '승인요청';
+  state.approvalStatus = '결재중';
+  state.requestedAt = new Date().toLocaleString('ko-KR', { hour12:false });
+  state.comment = `${selected.label} 실행예산 변경분 결재요청`;
+  showToast(`${selected.label} 실행예산 결재요청을 상신했습니다.`);
+  renderBudgetPage();
+}
+
+function renderExecBudgetVersionDiffRowsFinal(data) {
+  const current = getSelectedExecBudgetVersionFinal(data);
+  const previous = getPreviousExecBudgetVersionFinal(data, current.key);
+  const labels = [
+    { key:CATS[0], label:'인건비' },
+    { key:CATS[1], label:'외주비' },
+    { key:CATS[2], label:'재료비' },
+    { key:CATS[3], label:'경비' },
+    { key:CATS[4], label:'A/S비' },
+  ];
+  if (!previous) {
+    return `<tr><td colspan="5" class="center">이전 버전이 없는 최초 실행예산입니다.</td></tr>`;
+  }
+  return labels.map(item => {
+    const before = Number(previous.budgets[item.key] || 0);
+    const after = Number(current.budgets[item.key] || 0);
+    const diff = after - before;
+    const cls = diff > 0 ? 'up' : diff < 0 ? 'down' : '';
+    return `
+      <tr>
+        <td>${item.label}</td>
+        <td class="num">${fmt(before)}원</td>
+        <td class="num">${fmt(after)}원</td>
+        <td class="num ${cls}">${diff > 0 ? '+' : ''}${fmt(diff)}원</td>
+        <td>${diff === 0 ? '변경 없음' : diff > 0 ? '계획 증액' : '계획 감액'}</td>
+      </tr>`;
+  }).join('');
+}
+
+function renderExecBudgetApprovalSummaryFinal(data) {
+  const current = getSelectedExecBudgetVersionFinal(data);
+  const previous = getPreviousExecBudgetVersionFinal(data, current.key);
+  const state = execBudgetApprovalStateFinal[current.key] || {};
+  const total = Object.values(current.budgets || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+  const previousTotal = previous ? Object.values(previous.budgets || {}).reduce((sum, value) => sum + Number(value || 0), 0) : 0;
+  const diff = previous ? total - previousTotal : total;
+  const canRequest = state.status === '작성중';
+  return `
+    <div class="exec-approval-panel">
+      <div class="exec-approval-head">
+        <div>
+          <div class="setup-eyebrow">작성중 실행예산 결재</div>
+          <div class="setup-title">${current.label} 써머리 및 변경사항 확인</div>
+          <p>${previous ? `${previous.label} 승인 버전과 비교한 뒤 결재요청을 진행합니다.` : '최초 버전으로 이전 비교 없이 결재요청을 진행합니다.'}</p>
+        </div>
+        <button class="labor-main-btn" ${canRequest ? '' : 'disabled'} onclick="requestExecBudgetApprovalFinal()">결재요청</button>
+      </div>
+      <div class="exec-approval-flow">
+        <div class="on"><b>1</b><span>써머리 확인</span></div>
+        <div class="${state.approvalStatus && state.approvalStatus !== '미요청' ? 'on' : ''}"><b>2</b><span>결재요청</span></div>
+        <div class="${state.approvalStatus === '완료' ? 'on' : ''}"><b>3</b><span>승인완료</span></div>
+        <div><b>4</b><span>ERP 전송</span></div>
+      </div>
+      <div class="exec-approval-kpis">
+        <div><span>현재 버전 총액</span><strong>${fmt(total)}원</strong></div>
+        <div><span>이전 버전 총액</span><strong>${previous ? `${fmt(previousTotal)}원` : '-'}</strong></div>
+        <div class="${diff > 0 ? 'up' : diff < 0 ? 'down' : ''}"><span>총 증감</span><strong>${diff > 0 ? '+' : ''}${fmt(diff)}원</strong></div>
+        <div><span>결재상태</span><strong>${state.approvalStatus || '-'}</strong></div>
+      </div>
+      <div class="exec-approval-meta">
+        <span>상신자 이봄</span>
+        <span>결재자 ${state.approver || '김도윤 팀장'}</span>
+        <span>상신일시 ${state.requestedAt || '-'}</span>
+        <span>${state.comment || '써머리 확인 후 결재요청 대기'}</span>
+      </div>
+      <div class="exec-approval-table-wrap">
+        <table class="exec-approval-table">
+          <thead><tr><th>계정</th><th>이전 버전</th><th>작성중 버전</th><th>증감</th><th>변경 요약</th></tr></thead>
+          <tbody>${renderExecBudgetVersionDiffRowsFinal(data)}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
 renderBudgetSetupOverview = function(data, actual, quasi) {
   ensureAsCostPlanAmount(data);
   const versions = getExecBudgetVersionSnapshotsFinal(data);
@@ -12185,6 +12287,7 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
         <span>${selectedVersion.memo}</span>
         <em>작성자 ${selectedVersion.owner}</em>
       </div>
+      ${selectedVersion.status === '작성중' || selectedVersion.status === '승인요청' ? renderExecBudgetApprovalSummaryFinal(data) : ''}
       <div class="setup-account-rows five">
         <button class="setup-account-row total" onclick="budgetSetupEditAccount=null;renderBudgetPage()">
           <span>프로젝트 총 실행 비용 <b>›</b></span>
