@@ -35,11 +35,63 @@ const customReportRows = [
   { projectNo:'IV107810', projectName:'이엔에스 시티가스 Skyline 구축', orderCompany:'E&S', contractCompany:'E&S', projectType:'원가-선투입', salesDivision:'Enterprise서비스부문', salesHead:'Enterprise Solution1본부', salesDept:'AX ERP사업개발팀', pmNo:'05360', pmName:'이정호', startDate:'2026-07-21', endDate:'2026-08-31', projectStatus:'수행', erpEndDate:'', freeMaintenanceYn:'N', finalLaborCost:660812211, overseasPmYn:'N', relatedCompanyYn:'N', finalMaterialCost:6297997200, finalAsCost:0, finalApprovedAt:'2026-07-23', budgetVersion:'V1.1', erpSendStatus:'미전송' },
 ];
 
+const customBudgetReportFields = [
+  { key:'projectNo', label:'프로젝트번호', group:'프로젝트 기본정보' },
+  { key:'customer', label:'고객사', group:'프로젝트 기본정보' },
+  { key:'projectName', label:'프로젝트명', group:'프로젝트 기본정보' },
+  { key:'ossReviewYn', label:'오픈소스라이선스 검토대상여부', group:'프로젝트 기본정보' },
+  { key:'budgetVersionNo', label:'예산버전', group:'버전/상태' },
+  { key:'projectType', label:'프로젝트유형', group:'프로젝트 기본정보' },
+  { key:'salesDivision', label:'매출귀속부문', group:'조직/PM' },
+  { key:'salesHead', label:'매출귀속본부', group:'조직/PM' },
+  { key:'projectStatus', label:'프로젝트상태', group:'버전/상태' },
+  { key:'relatedCompanyYn', label:'관계사여부', group:'프로젝트 기본정보' },
+  { key:'pmName', label:'PM', group:'조직/PM' },
+  { key:'approvalRequestedAt', label:'예산승인 요청일', group:'버전/상태' },
+  { key:'approvalCompletedAt', label:'예산승인 완료일', group:'버전/상태' },
+  { key:'previousTotalCost', label:'전버전 수행비용', group:'전버전 금액' },
+  { key:'previousLaborCost', label:'전버전 인건비', group:'전버전 금액' },
+  { key:'previousOtCost', label:'전버전 OT비', group:'전버전 금액' },
+  { key:'previousOutsourceCost', label:'전버전 외주비', group:'전버전 금액' },
+  { key:'previousMaterialCost', label:'전버전 재료비', group:'전버전 금액' },
+  { key:'previousExpenseCost', label:'전버전 경비', group:'전버전 금액' },
+  { key:'previousPjtReserve', label:'전버전 PJT손실예비비', group:'전버전 금액' },
+  { key:'previousAsCost', label:'전버전 AS비', group:'전버전 금액' },
+  { key:'previousWlbCost', label:'전버전 WLB', group:'전버전 금액' },
+  { key:'previousInternalMm', label:'전버전 내부MM', group:'전버전 금액' },
+  { key:'executionCost', label:'수행비용', group:'현재 실행예산' },
+  { key:'laborCost', label:'인건비', group:'현재 실행예산' },
+  { key:'otCost', label:'OT비', group:'현재 실행예산' },
+  { key:'outsourceCost', label:'외주비', group:'현재 실행예산' },
+  { key:'materialCost', label:'재료비', group:'현재 실행예산' },
+  { key:'expenseCost', label:'경비', group:'현재 실행예산' },
+  { key:'pjtReserve', label:'PJT손실예비비', group:'현재 실행예산' },
+  { key:'asCost', label:'AS비', group:'현재 실행예산' },
+  { key:'wlbCost', label:'WLB', group:'현재 실행예산' },
+  { key:'internalMm', label:'내부MM', group:'현재 실행예산' },
+];
+
+const customBudgetReportRows = [
+  { projectNo:'IV107816', customer:'SK에코플랜트', projectName:'SK에코플랜트 매터리얼즈 26년 기준정보 관리체계 전환_선투입', ossReviewYn:'', budgetVersionNo:1, projectType:'IV62', salesDivision:'Ackerton Partners', salesHead:'AIM본부(제조컨설팅)', projectStatus:'수행', relatedCompanyYn:'N', pmName:'정병용', approvalRequestedAt:'2026-07-28', approvalCompletedAt:'2026-07-28', previousTotalCost:0, previousLaborCost:0, previousOtCost:0, previousOutsourceCost:0, previousMaterialCost:0, previousExpenseCost:0, previousPjtReserve:0, previousAsCost:0, previousWlbCost:0, previousInternalMm:0, executionCost:0, laborCost:0, otCost:0, outsourceCost:0, materialCost:0, expenseCost:0, pjtReserve:0, asCost:0, wlbCost:0, internalMm:0 },
+  { projectNo:'IV107813', customer:'', projectName:'그룹 통합 API운영체계 구축', ossReviewYn:'', budgetVersionNo:1, projectType:'IV50', salesDivision:'제조서비스2본부', salesHead:'Digital SHE/ESG서비스팀', projectStatus:'수행', relatedCompanyYn:'Y', pmName:'여인성', approvalRequestedAt:'2026-07-27', approvalCompletedAt:'2026-07-27', previousTotalCost:0, previousLaborCost:0, previousOtCost:0, previousOutsourceCost:0, previousMaterialCost:0, previousExpenseCost:0, previousPjtReserve:0, previousAsCost:0, previousWlbCost:0, previousInternalMm:0, executionCost:1169109563, laborCost:528109563, otCost:0, outsourceCost:461000000, materialCost:100000000, expenseCost:17000000, pjtReserve:0, asCost:0, wlbCost:0, internalMm:0 },
+  { projectNo:'IV107812', customer:'SKT', projectName:'SKT 26년 Tdic EOS 보안취약점 대응 대체체계', ossReviewYn:'', budgetVersionNo:2, projectType:'IV62', salesDivision:'Cyber보안사업본부', salesHead:'보안사업개발팀', projectStatus:'수행', relatedCompanyYn:'N', pmName:'김민수', approvalRequestedAt:'2026-07-23', approvalCompletedAt:'2026-07-23', previousTotalCost:810880000, previousLaborCost:0, previousOtCost:0, previousOutsourceCost:0, previousMaterialCost:810880000, previousExpenseCost:0, previousPjtReserve:0, previousAsCost:0, previousWlbCost:0, previousInternalMm:0, executionCost:810880000, laborCost:0, otCost:0, outsourceCost:0, materialCost:810880000, expenseCost:0, pjtReserve:0, asCost:0, wlbCost:0, internalMm:0 },
+  { projectNo:'IV107810', customer:'', projectName:'이엔에스 시티가스 Skyline IT 구축 Project', ossReviewYn:'', budgetVersionNo:3, projectType:'IV62', salesDivision:'Enterprise Solution본부', salesHead:'AX ERP사업개발팀', projectStatus:'수행', relatedCompanyYn:'N', pmName:'이정호', approvalRequestedAt:'2026-07-23', approvalCompletedAt:'2026-07-23', previousTotalCost:6608122711, previousLaborCost:135243039, previousOtCost:0, previousOutsourceCost:171882472, previousMaterialCost:6297997200, previousExpenseCost:3000000, previousPjtReserve:0, previousAsCost:0, previousWlbCost:0, previousInternalMm:0, executionCost:6608122711, laborCost:135243039, otCost:0, outsourceCost:171882472, materialCost:6297997200, expenseCost:3000000, pjtReserve:0, asCost:0, wlbCost:0, internalMm:0 },
+  { projectNo:'IV107808', customer:'', projectName:'프로젝트 예산관리 시스템 구축', ossReviewYn:'', budgetVersionNo:1, projectType:'IV52', salesDivision:'전략기획부문', salesHead:'경영정보 AX CoE', projectStatus:'수행', relatedCompanyYn:'N', pmName:'홍서연', approvalRequestedAt:'2026-07-21', approvalCompletedAt:'2026-07-21', previousTotalCost:88785272, previousLaborCost:77785272, previousOtCost:0, previousOutsourceCost:0, previousMaterialCost:0, previousExpenseCost:11000000, previousPjtReserve:0, previousAsCost:0, previousWlbCost:0, previousInternalMm:0, executionCost:88785272, laborCost:77785272, otCost:0, outsourceCost:0, materialCost:0, expenseCost:11000000, pjtReserve:0, asCost:0, wlbCost:0, internalMm:0 },
+  { projectNo:'IV107805', customer:'', projectName:'AX向 To-Be 조직구조 프로젝트', ossReviewYn:'', budgetVersionNo:2, projectType:'IV56', salesDivision:'HR추진담당', salesHead:'AX교육사업2팀', projectStatus:'수행', relatedCompanyYn:'N', pmName:'조승민', approvalRequestedAt:'2026-07-22', approvalCompletedAt:'2026-07-22', previousTotalCost:91200000, previousLaborCost:0, previousOtCost:0, previousOutsourceCost:90000000, previousMaterialCost:0, previousExpenseCost:1200000, previousPjtReserve:21910000, previousAsCost:0, previousWlbCost:0, previousInternalMm:0, executionCost:94315492, laborCost:73335492, otCost:0, outsourceCost:0, materialCost:0, expenseCost:20980000, pjtReserve:0, asCost:0, wlbCost:0, internalMm:0 },
+];
+
 const customReportPresets = {
   all: customReportFields.map(field => field.key),
   pm: ['projectNo','projectName','projectType','pmName','startDate','endDate','projectStatus','budgetVersion','finalApprovedAt'],
   leader: ['projectNo','projectName','salesDept','pmName','projectStatus','finalLaborCost','finalMaterialCost','finalAsCost','erpSendStatus'],
   close: ['projectNo','projectName','endDate','projectStatus','erpEndDate','freeMaintenanceYn','finalApprovedAt','erpSendStatus'],
+};
+
+const customBudgetReportPresets = {
+  all: customBudgetReportFields.map(field => field.key),
+  pm: ['projectNo','projectName','projectType','pmName','projectStatus','budgetVersionNo','approvalCompletedAt','executionCost'],
+  leader: ['projectNo','projectName','salesDivision','salesHead','projectStatus','executionCost','laborCost','outsourceCost','materialCost','expenseCost'],
+  close: ['projectNo','projectName','projectStatus','approvalRequestedAt','approvalCompletedAt','previousTotalCost','executionCost'],
 };
 
 let customReportType = 'project';
@@ -52,8 +104,20 @@ function normalizeCustomReportFields(fields) {
   return Array.from(new Set([CUSTOM_REPORT_KEY_FIELD, ...(fields || [])]));
 }
 
+function getCustomReportFields() {
+  return customReportType === 'budget' ? customBudgetReportFields : customReportFields;
+}
+
+function getCustomReportPresets() {
+  return customReportType === 'budget' ? customBudgetReportPresets : customReportPresets;
+}
+
+function getCustomReportDataset() {
+  return customReportType === 'budget' ? customBudgetReportRows : customReportRows;
+}
+
 function getReportFieldGroups() {
-  return customReportFields.reduce((acc, field) => {
+  return getCustomReportFields().reduce((acc, field) => {
     acc[field.group] = acc[field.group] || [];
     acc[field.group].push(field);
     return acc;
@@ -62,6 +126,9 @@ function getReportFieldGroups() {
 
 function setCustomReportType(value) {
   customReportType = value;
+  const presets = getCustomReportPresets();
+  customReportSelectedFields = normalizeCustomReportFields(presets.all);
+  customReportAppliedFields = [...customReportSelectedFields];
   renderCustomReport();
 }
 
@@ -76,13 +143,14 @@ function toggleCustomReportField(key) {
 }
 
 function setCustomReportPreset(type) {
-  customReportSelectedFields = normalizeCustomReportFields(customReportPresets[type] || customReportPresets.all);
+  const presets = getCustomReportPresets();
+  customReportSelectedFields = normalizeCustomReportFields(presets[type] || presets.all);
   showToast(type === 'all' ? '전체 필드를 선택했습니다.' : 'AI가 목적에 맞는 필드를 추천했습니다.');
   renderCustomReport();
 }
 
 function toggleCustomReportGroup(group, checked) {
-  const keys = customReportFields.filter(field => field.group === group).map(field => field.key);
+  const keys = getCustomReportFields().filter(field => field.group === group).map(field => field.key);
   customReportSelectedFields = checked
     ? normalizeCustomReportFields([...customReportSelectedFields, ...keys])
     : normalizeCustomReportFields(customReportSelectedFields.filter(key => key === CUSTOM_REPORT_KEY_FIELD || !keys.includes(key)));
@@ -90,9 +158,8 @@ function toggleCustomReportGroup(group, checked) {
 }
 
 function applyCustomReportSearch() {
-  customReportAppliedFields = customReportFields
-    .filter(field => normalizeCustomReportFields(customReportSelectedFields).includes(field.key))
-    .map(field => field.key);
+  const activeFieldKeys = new Set(getCustomReportFields().map(field => field.key));
+  customReportAppliedFields = normalizeCustomReportFields(customReportSelectedFields).filter(key => activeFieldKeys.has(key));
   if (!customReportAppliedFields.length) {
     showToast('최소 1개 이상의 필드를 선택해주세요.');
     customReportAppliedFields = ['projectNo', 'projectName'];
@@ -112,8 +179,9 @@ function exportCustomReport() {
 
 function getCustomReportRows() {
   const q = customReportQuery.trim().toLowerCase();
-  if (!q) return customReportRows;
-  return customReportRows.filter(row => Object.values(row).join(' ').toLowerCase().includes(q));
+  const rows = getCustomReportDataset();
+  if (!q) return rows;
+  return rows.filter(row => Object.values(row).join(' ').toLowerCase().includes(q));
 }
 
 function renderCustomReportFieldSelector() {
@@ -135,7 +203,7 @@ function renderCustomReportFieldSelector() {
             <label class="${field.key === CUSTOM_REPORT_KEY_FIELD ? 'locked' : ''}">
               <input type="checkbox" ${customReportSelectedFields.includes(field.key) ? 'checked' : ''} ${field.key === CUSTOM_REPORT_KEY_FIELD ? 'disabled' : ''} onchange="toggleCustomReportField('${field.key}')">
               <span>${field.label}</span>
-              ${field.key === CUSTOM_REPORT_KEY_FIELD ? '<em>키값</em>' : ''}
+              ${field.key === CUSTOM_REPORT_KEY_FIELD ? '<em>키값</em>' : customReportSelectedFields.includes(field.key) ? `<em>${customReportSelectedFields.indexOf(field.key) + 1}</em>` : ''}
             </label>
           `).join('')}
         </div>
@@ -144,7 +212,10 @@ function renderCustomReportFieldSelector() {
 }
 
 function renderCustomReportTable() {
-  const fields = customReportFields.filter(field => customReportAppliedFields.includes(field.key));
+  const fieldMap = Object.fromEntries(getCustomReportFields().map(field => [field.key, field]));
+  const fields = normalizeCustomReportFields(customReportAppliedFields)
+    .map(key => fieldMap[key])
+    .filter(Boolean);
   const rows = getCustomReportRows();
   const headers = fields.map(field => `<th>${field.label}</th>`).join('');
   const body = rows.map(row => `
@@ -177,8 +248,9 @@ function renderCustomReportTable() {
 function renderCustomReport() {
   const root = document.getElementById('s-custom-report');
   if (!root) return;
-  customReportSelectedFields = normalizeCustomReportFields(customReportSelectedFields);
-  customReportAppliedFields = normalizeCustomReportFields(customReportAppliedFields);
+  const activeFieldKeys = new Set(getCustomReportFields().map(field => field.key));
+  customReportSelectedFields = normalizeCustomReportFields(customReportSelectedFields).filter(key => activeFieldKeys.has(key));
+  customReportAppliedFields = normalizeCustomReportFields(customReportAppliedFields).filter(key => activeFieldKeys.has(key));
   const selectedCount = customReportSelectedFields.length;
   root.innerHTML = `
     <div class="custom-report-page">
@@ -186,7 +258,7 @@ function renderCustomReport() {
         <div>
           <div class="setup-eyebrow">AI 레포트</div>
           <div class="setup-title">맞춤 레포트 조회</div>
-          <p>필요한 필드만 선택해서 조회하고, 조회된 컬럼 그대로 추출합니다. 기본값은 전체 필드 선택입니다.</p>
+          <p>필요한 필드만 선택해서 조회하고, 조회된 컬럼 그대로 추출합니다. 프로젝트번호는 키값이라 고정되고, 나머지는 선택한 순서대로 컬럼이 배치됩니다.</p>
         </div>
         <div class="custom-report-ai">
           <span>AI 적용 아이디어</span>
