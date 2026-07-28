@@ -11471,6 +11471,250 @@ renderMaterialItemPanel = function() {
   `;
 };
 
+var laborScmLookupOpenFinal = false;
+var selectedLaborScmCandidateIdFinal = 'scm-labor-01';
+
+const laborScmConfirmedPoolFinal = [
+  { id:'scm-labor-01', scmNo:'SCM-HR-202607-001', name:'박지훈', pLevel:'P4', role:'PM/분석설계', org:'NOVA PMO팀', startDate:'2026-07-01', endDate:'2026-12-31', totalMm:6.0, unitPrice:18000000 },
+  { id:'scm-labor-02', scmNo:'SCM-HR-202607-002', name:'김서린', pLevel:'P3', role:'Vue Front', org:'AX 개발1팀', startDate:'2026-08-01', endDate:'2027-02-28', totalMm:3.5, unitPrice:14500000 },
+  { id:'scm-labor-03', scmNo:'SCM-HR-202607-003', name:'정다은', pLevel:'P5', role:'Oracle DBA', org:'Data Platform팀', startDate:'2026-09-01', endDate:'2027-03-31', totalMm:2.8, unitPrice:21000000 },
+  { id:'scm-labor-04', scmNo:'SCM-HR-202607-004', name:'최유진', pLevel:'P2', role:'QA/검증', org:'품질혁신팀', startDate:'2026-10-01', endDate:'2027-01-31', totalMm:2.0, unitPrice:12000000 },
+  { id:'scm-labor-05', scmNo:'SCM-HR-202607-005', name:'한서우', pLevel:'P3', role:'Java Backend', org:'AX 개발2팀', startDate:'2026-08-15', endDate:'2027-05-31', totalMm:5.0, unitPrice:15000000 },
+];
+
+function buildScmLaborMonthlyMmFinal(startDate, endDate, totalMm) {
+  const months = monthRangeByDate(startDate, endDate);
+  if (!months.length) return {};
+  const total = Number(totalMm || 0);
+  const base = Math.floor((total / months.length) * 100) / 100;
+  let used = 0;
+  return months.reduce((acc, month, idx) => {
+    const mm = idx === months.length - 1 ? Number((total - used).toFixed(2)) : base;
+    used = Number((used + mm).toFixed(2));
+    acc[month] = mm;
+    return acc;
+  }, {});
+}
+
+function openLaborScmCandidatePopupFinal() {
+  laborScmLookupOpenFinal = true;
+  laborScmLastSyncedAt = new Date().toLocaleString('ko-KR', { hour12:false });
+  renderBudgetPage();
+}
+
+function closeLaborScmCandidatePopupFinal() {
+  laborScmLookupOpenFinal = false;
+  renderBudgetPage();
+}
+
+function selectLaborScmCandidateFinal(id) {
+  selectedLaborScmCandidateIdFinal = id;
+  renderBudgetPage();
+}
+
+function registerSelectedScmLaborFinal() {
+  const candidate = laborScmConfirmedPoolFinal.find(row => row.id === selectedLaborScmCandidateIdFinal);
+  if (!candidate) {
+    showToast('등록할 인력을 선택해주세요.');
+    return;
+  }
+  const rows = getLaborRows();
+  if (rows.some(row => row.scmNo === candidate.scmNo)) {
+    showToast('이미 등록된 SCM 확정 인력입니다.');
+    laborScmLookupOpenFinal = false;
+    renderBudgetPage();
+    return;
+  }
+  const monthly = buildScmLaborMonthlyMmFinal(candidate.startDate, candidate.endDate, candidate.totalMm);
+  const amount = Math.round(Number(candidate.totalMm || 0) * Number(candidate.unitPrice || 0));
+  const row = {
+    id:`lb-scm-${Date.now()}`,
+    personId:candidate.id,
+    scmNo:candidate.scmNo,
+    name:candidate.name,
+    org:candidate.org,
+    role:candidate.role,
+    pLevel:candidate.pLevel,
+    unitPrice:candidate.unitPrice,
+    startDate:candidate.startDate,
+    endDate:candidate.endDate,
+    workType:'SCM 확정',
+    totalMm:candidate.totalMm,
+    amount,
+    monthly,
+    status:'SCM 확정완료',
+    requestedAt:'SCM 확정 데이터 수신',
+    approvedAt:laborScmLastSyncedAt || new Date().toLocaleString('ko-KR', { hour12:false }),
+    scmDocNo:candidate.scmNo,
+  };
+  rows.unshift(row);
+  selectedLaborAssignmentId = row.id;
+  editingLaborAssignmentId = null;
+  laborRegistrationMode = null;
+  laborScmLookupOpenFinal = false;
+  persistBudgetLaborState();
+  syncLaborAssignmentsToBudget(currentBudgetProj);
+  showToast('SCM 확정완료 인력이 인건비 계획에 등록되었습니다.');
+  renderBudgetPage();
+}
+
+laborStatusClass = function(status) {
+  const text = String(status || '');
+  if (text.includes('확정완료') || text.includes('승인완료') || text.includes('꾨즺')) return 'done';
+  if (text.includes('대기') || text.includes('湲')) return 'wait';
+  if (text.includes('저장') || text.includes('?μ')) return 'saved';
+  return 'draft';
+};
+
+getLaborStatusLabel = function(status) {
+  const cls = laborStatusClass(status);
+  if (cls === 'done') return 'SCM 확정완료';
+  if (cls === 'wait') return 'SCM 승인대기';
+  if (cls === 'saved') return '저장완료';
+  return status || '등록';
+};
+
+syncLaborAssignmentsToBudget = function(proj = currentBudgetProj) {
+  const data = BUDGET_SOURCE[proj];
+  if (!data) return;
+  const laborCat = CATS && CATS[0] ? CATS[0] : BUDGET_ACCT_LABELS[0];
+  const approved = getLaborRows(proj).filter(row => laborStatusClass(row.status) === 'done');
+  data.months.filter(month => month.type === 'plan' && month[laborCat]).forEach(month => {
+    const baseDetails = (month[laborCat].details || []).filter(detail => detail.source !== 'laborAssignment');
+    let amount = 0;
+    const nextDetails = [];
+    approved.forEach(row => {
+      const mm = row.monthly && row.monthly[month.m] ? Number(row.monthly[month.m]) : 0;
+      if (!mm) return;
+      const rowAmount = Math.round(mm * Number(row.unitPrice || 0));
+      amount += rowAmount;
+      nextDetails.push({
+        type:'투입확정',
+        name:row.name,
+        org:row.org,
+        role:row.role,
+        mm,
+        unitPrice:row.unitPrice,
+        amount:rowAmount,
+        source:'laborAssignment',
+      });
+    });
+    month[laborCat].q = amount;
+    month[laborCat].details = [...baseDetails, ...nextDetails];
+  });
+};
+
+function selectLaborAssignmentSimpleFinal(id) {
+  selectedLaborAssignmentId = id;
+  editingLaborAssignmentId = null;
+  laborRegistrationMode = null;
+  renderBudgetPage();
+}
+
+function renderLaborScmPopupFinal() {
+  if (!laborScmLookupOpenFinal) return '';
+  const registeredScmNos = new Set(getLaborRows().map(row => row.scmNo).filter(Boolean));
+  return `
+    <div class="os-popup-backdrop" onclick="if(event.target===this)closeLaborScmCandidatePopupFinal()">
+      <div class="os-popup labor-scm-popup">
+        <div class="os-popup-head">
+          <strong>투입가능 인력 리스트</strong>
+          <button onclick="closeLaborScmCandidatePopupFinal()">×</button>
+        </div>
+        <div class="labor-sync-note">SCM에서 확정완료된 인력만 조회됩니다. 선택 후 등록하면 인건비 계획에 바로 반영됩니다.</div>
+        <div class="labor-scm-table">
+          <div class="labor-scm-head">
+            <span>선택</span><span>이름</span><span>P레벨</span><span>역할</span><span>투입기간</span><span>총MM</span><span>상태</span>
+          </div>
+          ${laborScmConfirmedPoolFinal.map(row => {
+            const selected = selectedLaborScmCandidateIdFinal === row.id;
+            const registered = registeredScmNos.has(row.scmNo);
+            return `
+              <button class="labor-scm-row ${selected ? 'active' : ''}" onclick="selectLaborScmCandidateFinal('${row.id}')" ${registered ? 'disabled' : ''}>
+                <span><input type="radio" ${selected ? 'checked' : ''} ${registered ? 'disabled' : ''}></span>
+                <strong>${row.name}</strong>
+                <span>${row.pLevel}</span>
+                <span>${row.role}</span>
+                <span>${row.startDate} ~ ${row.endDate}</span>
+                <b>${row.totalMm}MM</b>
+                <i>${registered ? '등록완료' : '확정완료'}</i>
+              </button>`;
+          }).join('')}
+        </div>
+        <div class="labor-actions right">
+          <button class="labor-sub-btn" onclick="closeLaborScmCandidatePopupFinal()">닫기</button>
+          <button class="labor-main-btn" onclick="registerSelectedScmLaborFinal()">등록</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+renderLaborAssignmentPanel = function(data) {
+  const rows = getLaborRows();
+  if (!selectedLaborAssignmentId && rows.length) selectedLaborAssignmentId = rows[0].id;
+  const selected = rows.find(row => row.id === selectedLaborAssignmentId) || rows[0] || null;
+  const totalMm = rows.reduce((sum, row) => sum + Number(row.totalMm || 0), 0);
+  const totalAmount = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const registeredRows = rows.map(row => {
+    const active = selected && selected.id === row.id;
+    return `
+      <div class="labor-reg-row scm-simple ${active ? 'active' : ''}" onclick="selectLaborAssignmentSimpleFinal('${row.id}')">
+        <div class="labor-reg-person">
+          <strong>${row.name}</strong>
+          <span>${row.org || '-'}</span>
+        </div>
+        <div>${row.role || '-'}</div>
+        <div>${row.pLevel || '-'}</div>
+        <div>${row.startDate || '-'} ~ ${row.endDate || '-'}</div>
+        <div class="labor-reg-num">${row.totalMm || 0}MM</div>
+        <div class="labor-reg-num">${fmt(row.amount || 0)}원</div>
+        <div><i class="labor-status ${laborStatusClass(row.status)}">${getLaborStatusLabel(row.status)}</i></div>
+        <div>${row.scmDocNo || row.scmNo || '-'}</div>
+      </div>`;
+  }).join('');
+  const selectedMonths = selected ? Object.entries(selected.monthly || {}).map(([month, mm]) => `
+    <span><b>${month}</b><em>${mm}MM</em><strong>${fmt(Math.round(Number(mm || 0) * Number(selected.unitPrice || 0)))}원</strong></span>
+  `).join('') : '';
+
+  return `
+    <div class="labor-panel labor-scm-simple-panel">
+      <div class="labor-panel-head">
+        <div>
+          <div class="labor-eyebrow">인건비 등록 / 수정</div>
+          <div class="labor-title">SCM 확정 인력 등록</div>
+          <p class="labor-simple-caption">SCM에서 확정완료된 인력을 그대로 선택해 등록합니다. 시작일, 종료일, P레벨, 역할, 총MM은 SCM 수신값을 기준으로 반영됩니다.</p>
+        </div>
+        <div class="labor-actions compact">
+          <button class="labor-main-btn" onclick="openLaborScmCandidatePopupFinal()">투입가능 인력 리스트</button>
+        </div>
+      </div>
+
+      <div class="os-sub-summary labor-scm-summary">
+        <div><strong>${rows.length}</strong><span>등록 인력</span></div>
+        <div><strong>${Number(totalMm.toFixed(2))}MM</strong><span>총 MM</span></div>
+        <div><strong>${fmt(totalAmount)}원</strong><span>SCM 확정 금액</span></div>
+        <p>인건비 신규 등록은 SCM 확정완료 인력만 가능합니다. 목록에서 인력을 선택하고 등록하면 월별 MM과 금액이 자동 배분됩니다.</p>
+      </div>
+
+      <div class="labor-registered-card top">
+        <div class="labor-reg-header scm-simple">
+          <span>인력</span><span>역할</span><span>P레벨</span><span>투입기간</span><span>총MM</span><span>금액</span><span>상태</span><span>SCM문서</span>
+        </div>
+        <div class="labor-reg-list">${registeredRows || '<div class="labor-empty">등록된 SCM 확정 인력이 없습니다. 투입가능 인력 리스트에서 등록해주세요.</div>'}</div>
+      </div>
+
+      ${selected ? `
+        <div class="labor-card labor-scm-detail-card">
+          <div class="labor-flow-title">
+            <strong>${selected.name} 월별 반영 내역</strong>
+            <span class="os-kind-caption">${selected.role || '-'} · ${selected.pLevel || '-'} · ${selected.startDate || '-'} ~ ${selected.endDate || '-'}</span>
+          </div>
+          <div class="labor-scm-month-grid">${selectedMonths}</div>
+        </div>` : ''}
+      ${renderLaborScmPopupFinal()}
+    </div>`;
+};
+
 var renderBudgetAccountEditorBeforeExpenseSingleFinal = renderBudgetAccountEditor;
 renderBudgetAccountEditor = function(data, account) {
   if (account !== CATS[3]) return renderBudgetAccountEditorBeforeExpenseSingleFinal(data, account);

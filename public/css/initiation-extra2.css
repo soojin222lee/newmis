@@ -8124,6 +8124,105 @@ body {
 .actr-rule {
   color: var(--warm-muted) !important;
 }
+
+.labor-simple-caption {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+.labor-scm-summary {
+  grid-template-columns: 160px 180px 220px 1fr;
+}
+.labor-reg-header.scm-simple,
+.labor-reg-row.scm-simple {
+  grid-template-columns: 1.5fr 1.1fr 0.7fr 1.45fr 0.7fr 1fr 0.9fr 1.1fr;
+}
+.labor-scm-detail-card {
+  margin-top: 16px;
+}
+.labor-scm-month-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.labor-scm-month-grid span {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  background: #fff7ed;
+}
+.labor-scm-month-grid b {
+  color: #9a3412;
+  font-size: 12px;
+}
+.labor-scm-month-grid em {
+  color: #0f172a;
+  font-style: normal;
+  font-weight: 900;
+}
+.labor-scm-month-grid strong {
+  color: #ea580c;
+  font-size: 12px;
+}
+.labor-scm-popup {
+  width: min(980px, calc(100vw - 48px));
+}
+.labor-scm-table {
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+.labor-scm-head,
+.labor-scm-row {
+  display: grid;
+  grid-template-columns: 56px 1fr 0.8fr 1.2fr 1.8fr 0.8fr 0.9fr;
+  align-items: center;
+  gap: 0;
+  min-width: 860px;
+}
+.labor-scm-head {
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 900;
+}
+.labor-scm-head span,
+.labor-scm-row span,
+.labor-scm-row strong,
+.labor-scm-row b,
+.labor-scm-row i {
+  padding: 12px;
+  border-right: 1px solid #e2e8f0;
+}
+.labor-scm-row {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+}
+.labor-scm-row:hover,
+.labor-scm-row.active {
+  background: #fff7ed;
+}
+.labor-scm-row:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.labor-scm-row strong,
+.labor-scm-row b {
+  color: #0f172a;
+}
+.labor-scm-row i {
+  color: #16a34a;
+  font-style: normal;
+  font-weight: 900;
+}
 .ai-helper-card,
 .ai-chatbox,
 .ai-scenario-grid button,
