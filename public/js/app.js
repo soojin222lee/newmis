@@ -74,6 +74,12 @@ function showProjectClose() {
   renderProjectClose();
 }
 
+function showCustomReport() {
+  setScreen('s-custom-report');
+  setNav('nav-custom-report');
+  renderCustomReport();
+}
+
 function showSysDescConcept() {
   openNavGroup('sub-sysdesc');
   setScreen('s-system-desc');
