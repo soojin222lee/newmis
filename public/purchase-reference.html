@@ -346,7 +346,7 @@
   }
   .cost-summary-row {
     display: grid;
-    grid-template-columns: 1fr 120px 210px 150px 210px;
+    grid-template-columns: 1fr 210px 160px 210px;
     align-items: center;
     gap: 6px;
     margin-bottom: 18px;
@@ -520,7 +520,7 @@
                 <th colspan="2">계약기간</th>
                 <th>회계정보</th>
                 <th>용역장소</th>
-                <th>투입원가</th>
+                <th>계약원가</th>
                 <th>견적서</th>
                 <th></th>
               </tr>
@@ -594,7 +594,7 @@
 <div class="input-cost-modal" id="input-cost-modal" onclick="if(event.target===this)closeInputCostModal()">
   <div class="input-cost-dialog">
     <div class="input-cost-head">
-      <span>투입원가</span>
+      <span>계약원가</span>
       <button onclick="closeInputCostModal()" title="닫기">×</button>
     </div>
     <div class="input-cost-body">
@@ -605,14 +605,13 @@
       </div>
 
       <div class="cost-summary-row">
-        <div class="notice">※ PROMIS의 최종승인받은 실행예산 &gt; 외주비 &gt; 실투입대상 외주비 계약 List가 조회됩니다.</div>
         <label>Item 합계금액</label>
         <input value="130,481,055" readonly />
         <label>선택한 자원 합계 금액</label>
         <input value="130,481,055" readonly />
       </div>
 
-      <h2 class="input-cost-section-title">투입확인 자원 List</h2>
+      <h2 class="input-cost-section-title">계약확인 자원 List</h2>
       <div class="input-cost-grid-wrap">
         <table class="input-cost-grid">
           <colgroup>
@@ -628,7 +627,6 @@
             <col style="width:64px" />
             <col style="width:72px" />
             <col style="width:80px" />
-            <col style="width:80px" />
           </colgroup>
           <thead>
             <tr>
@@ -637,13 +635,12 @@
               <th>프로젝트 번호</th>
               <th>라인번호</th>
               <th>업체명</th>
-              <th>투입시작일</th>
-              <th>투입종료일</th>
-              <th>투입 M/M</th>
+              <th>계약시작일</th>
+              <th>계약종료일</th>
+              <th>계약 M/M</th>
               <th>금액</th>
               <th>통화</th>
               <th>계약완료</th>
-              <th>구매요청</th>
               <th>계약번호</th>
             </tr>
           </thead>
@@ -656,10 +653,10 @@
 
 <script>
   const inputCostRows = [
-    { projectNo:'IV107121', lineNo:1, vendor:'oo주식회사', start:'2026/01/01', end:'2026/03/31', mm:'3.00', amount:'23,210,580', currency:'KRW', contracted:'Y', request:'REQ_DONE', contractNo:'4500311570' },
-    { projectNo:'IV107121', lineNo:2, vendor:'BP Korea', start:'2026/04/01', end:'2026/06/30', mm:'4.50', amount:'34,815,870', currency:'KRW', contracted:'Y', request:'REQ_DONE', contractNo:'4500312456' },
-    { projectNo:'IV107121', lineNo:3, vendor:'Vietnam Front Team', start:'2026/07/01', end:'2026/09/30', mm:'5.00', amount:'38,684,605', currency:'KRW', contracted:'N', request:'DRAFT', contractNo:'' },
-    { projectNo:'IV107121', lineNo:4, vendor:'AIM Partners', start:'2026/10/01', end:'2026/12/31', mm:'4.35', amount:'33,770,000', currency:'KRW', contracted:'N', request:'READY', contractNo:'' },
+    { projectNo:'IV107121', lineNo:1, vendor:'oo주식회사', start:'2026/01/01', end:'2026/03/31', mm:'3.00', amount:'23,210,580', currency:'KRW', contracted:'Y', contractNo:'4500311570' },
+    { projectNo:'IV107121', lineNo:2, vendor:'BP Korea', start:'2026/04/01', end:'2026/06/30', mm:'4.50', amount:'34,815,870', currency:'KRW', contracted:'Y', contractNo:'4500312456' },
+    { projectNo:'IV107121', lineNo:3, vendor:'Vietnam Front Team', start:'2026/07/01', end:'2026/09/30', mm:'5.00', amount:'38,684,605', currency:'KRW', contracted:'N', contractNo:'' },
+    { projectNo:'IV107121', lineNo:4, vendor:'AIM Partners', start:'2026/10/01', end:'2026/12/31', mm:'4.35', amount:'33,770,000', currency:'KRW', contracted:'N', contractNo:'' },
   ];
 
   function renderInputCostRows() {
@@ -674,7 +671,6 @@
       amount:'',
       currency:'',
       contracted:'',
-      request:'',
       contractNo:'',
     }));
     body.innerHTML = [...inputCostRows, ...blankRows].map((row, idx) => `
@@ -690,7 +686,6 @@
         <td class="num">${row.amount || '-'}</td>
         <td>${row.currency || '-'}</td>
         <td>${row.contracted || '-'}</td>
-        <td>${row.request || '-'}</td>
         <td>${row.contractNo || '-'}</td>
       </tr>
     `).join('');
