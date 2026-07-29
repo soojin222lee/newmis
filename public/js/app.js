@@ -8,6 +8,13 @@ const LEVEL_STYLE = {
   '낮음': { bg:'#dcfce7', color:'#166534' },
 };
 
+// AI GUIDE: 공통 화면 전환 컨트롤러입니다.
+// - index.html의 단일 페이지 안에서 .screen 영역을 show/hide 합니다.
+// - 각 show* 함수는 화면 id, 좌측 메뉴 active 상태, 화면별 render 함수를 연결합니다.
+// - 화면 업무 가이드 챗봇은 현재 .screen.active와 nav active 값을 읽어 화면 컨텍스트를 판단합니다.
+// - 신규 화면을 추가할 때는 index.html의 screen div, 좌측 메뉴 onclick, 이 파일의 show* 함수,
+//   screen-guide-chatbot.js의 screenGuideKnowledge를 함께 추가해야 합니다.
+
 let risks = [];
 
 // ── 데이터 로드 ──

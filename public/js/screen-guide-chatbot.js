@@ -1,3 +1,12 @@
+// AI GUIDE: 화면 업무 가이드 챗봇 목업입니다.
+// - 목적: 사용자가 현재 보고 있는 화면 기준으로 프론트 파일, 백엔드/API 후보, 업무 로직을 질문할 수 있게 합니다.
+// - 현재 구현: 화면별 지식(screenGuideKnowledge)을 하드코딩하고, .screen.active 값을 읽어 답변 범위를 제한합니다.
+// - 운영 구현 방향: 이 객체를 서버의 화면 메타데이터 API 또는 소스/주석 인덱스 검색 결과로 대체하면 됩니다.
+// - 중요한 규칙: URL만 믿지 않고 active screen id, active nav id, 화면 내부 상태값을 함께 사용해야 SPA 화면을 정확히 식별할 수 있습니다.
+// - 답변 품질을 높이려면 각 화면 JS 상단의 "AI GUIDE" 주석, 주요 함수 주석, 백엔드 API 명세를 함께 인덱싱합니다.
+
+// 화면별 메타데이터 사전입니다.
+// 실제 서비스에서는 이 정보를 정적 JS가 아니라 백엔드의 "화면 지식베이스"에서 내려받는 구조가 적합합니다.
 const screenGuideKnowledge = {
   's-main': {
     title: 'NEW MIS 메인',
@@ -132,6 +141,8 @@ const screenGuideDefault = {
 
 let screenGuideMessages = [];
 
+// 현재 사용자가 보고 있는 화면을 판별합니다.
+// 이 앱은 SPA라서 URL만으로 화면을 특정하기 어렵기 때문에 active screen/nav 상태를 함께 사용합니다.
 function getActiveScreenGuide() {
   const activeScreen = document.querySelector('.screen.active');
   const activeNav = document.querySelector('.nav-group-btn.active, .nav-sub-item.active, .nav-item.active');
@@ -145,6 +156,8 @@ function getActiveScreenGuide() {
   };
 }
 
+// 실행예산 화면은 내부 탭과 상세계정 상태가 중요합니다.
+// 예: 외주비 > 공사MA, 재료비 > 감가상각비처럼 같은 화면 id 안에서도 답변 범위가 달라집니다.
 function getBudgetSubContext() {
   if (typeof budgetScreenView === 'undefined') return '';
   const parts = [`view=${budgetScreenView}`];
@@ -154,6 +167,8 @@ function getBudgetSubContext() {
   return parts.join(' / ');
 }
 
+// 사용자의 질문을 현재 화면 메타데이터에 맞춰 간단히 라우팅합니다.
+// 운영 AI 버전에서는 이 함수가 LLM 호출부가 되고, meta/frontend/backend/comments를 system context로 넘기면 됩니다.
 function buildScreenGuideAnswer(question) {
   const meta = getActiveScreenGuide();
   const q = (question || '').toLowerCase();

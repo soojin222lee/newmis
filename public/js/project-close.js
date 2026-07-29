@@ -1,3 +1,9 @@
+// AI GUIDE: 프로젝트 종료 화면 로직 파일입니다.
+// - 실행예산 프로젝트 목록과 유사한 방식으로 종료 대상 프로젝트를 조회합니다.
+// - 상세 화면에서는 구매 검수 완료 여부, 산출물 등록 여부, 계약 종료일, 프로젝트 종료일을 확인합니다.
+// - 종료 가능 판단의 핵심은 구매/검수 미완료 건과 산출물 등록 누락 여부입니다.
+// - AI 화면 가이드는 프로젝트 종료 조건, 구매시스템/ERP 연동 후보, 종료 승인 체크포인트를 설명해야 합니다.
+
 let projectCloseView = 'list';
 let projectCloseCurrentKey = 'budgetMock';
 let projectCloseSearchQuery = '';
