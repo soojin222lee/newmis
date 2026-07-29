@@ -41,7 +41,7 @@ function renderAiShortcut(title, sub, action) {
 }
 
 function openPurchaseReference() {
-  const popup = window.open('/purchase-reference.html', 'purchaseReference', 'width=1480,height=860');
+  const popup = window.open('/purchase-reference-list.html', 'purchaseReferenceList', 'width=920,height=720');
   if (!popup) {
     showToast('팝업이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도해주세요.');
   } else {
