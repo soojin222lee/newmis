@@ -40,6 +40,15 @@ function renderAiShortcut(title, sub, action) {
     </button>`;
 }
 
+function openPurchaseReference() {
+  const popup = window.open('/purchase-reference.html', 'purchaseReference', 'width=1480,height=860');
+  if (!popup) {
+    showToast('팝업이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도해주세요.');
+  } else {
+    popup.opener = null;
+  }
+}
+
 function openAiBudgetMock(account) {
   openBudgetProjectScreen('budgetMock');
   budgetDetailStep = 'setup';
@@ -528,6 +537,7 @@ function renderPmDashboard() {
         </div>
         <div class="top-actions">
           ${renderRoleSwitch()}
+          <button class="schedule-open-btn purchase-ref-btn" onclick="openPurchaseReference()">구매시스템 참고</button>
           <button class="schedule-open-btn" onclick="openSchedulePanel()">일정 확인</button>
         </div>
       </div>
@@ -613,6 +623,7 @@ function renderLeadDashboard() {
         </div>
         <div class="top-actions">
           ${renderRoleSwitch()}
+          <button class="schedule-open-btn purchase-ref-btn" onclick="openPurchaseReference()">구매시스템 참고</button>
           <button class="schedule-open-btn" onclick="openSchedulePanel()">일정 확인</button>
         </div>
       </div>

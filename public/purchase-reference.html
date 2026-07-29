@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>구매시스템 참고 화면</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #111827;
+    background: #f7f7f8;
+  }
+  .purchase-shell {
+    min-width: 1180px;
+    min-height: 100vh;
+    background: #fafafa;
+  }
+  .purchase-topbar {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 0 22px;
+    border-bottom: 2px solid #ef3340;
+    background: #ffffff;
+  }
+  .purchase-logo {
+    min-width: 250px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 900;
+    color: #ef3340;
+  }
+  .purchase-logo .mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px 4px 10px 4px;
+    background: linear-gradient(135deg, #ef3340, #ff9f1c);
+  }
+  .purchase-logo small {
+    display: block;
+    color: #f97316;
+    font-size: 11px;
+    line-height: 1.1;
+  }
+  .purchase-menu {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  .purchase-menu button {
+    border: 0;
+    border-radius: 18px;
+    padding: 8px 15px;
+    background: transparent;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .purchase-menu button.active {
+    background: #ef3340;
+    color: #ffffff;
+  }
+  .purchase-util {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #6b7280;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .purchase-search {
+    width: 120px;
+    height: 30px;
+    border: 1px solid #e5e7eb;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f9fafb;
+  }
+  .purchase-subbar {
+    height: 35px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 22px;
+    border-bottom: 1px solid #d8dbe0;
+    background: #ffffff;
+    color: #4b5563;
+    font-size: 12px;
+  }
+  .purchase-tab {
+    padding: 6px 18px;
+    border-radius: 15px;
+    background: #eef0f3;
+    color: #111827;
+    font-weight: 800;
+  }
+  .purchase-layout {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+  }
+  .purchase-side {
+    min-height: calc(100vh - 91px);
+    padding-top: 8px;
+    border-right: 1px solid #e5e7eb;
+    background: #f0f1f3;
+    color: #7b8088;
+    text-align: center;
+  }
+  .purchase-side span {
+    display: block;
+    padding: 12px 0;
+    font-size: 18px;
+  }
+  .purchase-content {
+    padding: 24px 30px 48px;
+  }
+  .purchase-breadcrumb {
+    margin-bottom: 8px;
+    text-align: right;
+    color: #111827;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .purchase-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .purchase-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 24px;
+    font-weight: 900;
+  }
+  .purchase-title span {
+    color: #9ca3af;
+  }
+  .purchase-close {
+    border: 0;
+    border-radius: 10px;
+    padding: 9px 17px;
+    background: #ef3340;
+    color: #ffffff;
+    font-weight: 900;
+  }
+  .reference-note {
+    margin-bottom: 16px;
+    padding: 13px 15px;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    background: #fff7ed;
+    color: #9a3412;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .purchase-section {
+    margin-bottom: 18px;
+  }
+  .section-title {
+    margin: 0 0 8px;
+    padding-left: 8px;
+    border-left: 4px solid #ef3340;
+    color: #111827;
+    font-size: 15px;
+    font-weight: 900;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 150px minmax(320px, 420px) 1fr;
+    border: 1px solid #d9dde3;
+    background: #ffffff;
+  }
+  .form-label {
+    padding: 10px 14px;
+    background: #e8ebf0;
+    font-size: 13px;
+    font-weight: 900;
+  }
+  .form-value {
+    padding: 6px 14px;
+    border-left: 1px solid #d9dde3;
+  }
+  .form-value input {
+    width: 100%;
+    height: 30px;
+    border: 1px solid #cfd5dd;
+    border-radius: 4px;
+    padding: 0 8px;
+    background: #f9fafb;
+  }
+  .grid-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-bottom: 4px;
+    color: #111827;
+    font-size: 12px;
+    font-weight: 900;
+  }
+  .grid-toolbar button {
+    width: 24px;
+    height: 24px;
+    border: 1px solid #9ca3af;
+    border-radius: 3px;
+    background: #ffffff;
+  }
+  .purchase-grid-wrap {
+    border: 1px solid #cfd5dd;
+    background: #ffffff;
+    overflow: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 12px;
+  }
+  th, td {
+    height: 32px;
+    border-right: 1px solid #d6dae1;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 6px 8px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  th {
+    background: #e7e9ee;
+    color: #111827;
+    font-weight: 900;
+  }
+  td {
+    background: #fff7f8;
+  }
+  .selected-cell {
+    border: 2px solid #3f3f46;
+    background: #ffffff;
+  }
+  .row-arrow {
+    width: 38px;
+    background: #ef3340;
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: 900;
+  }
+  .radio-dot {
+    width: 8px;
+    height: 8px;
+    margin: 0 auto;
+    border-radius: 50%;
+    background: #ef3340;
+  }
+  .lookup {
+    color: #ef476f;
+    font-weight: 900;
+  }
+  .sum-row td {
+    background: #f0f1f3;
+    font-weight: 900;
+  }
+  .large-empty {
+    height: 260px;
+    background: #ffffff;
+  }
+</style>
+</head>
+<body>
+<div class="purchase-shell">
+  <header class="purchase-topbar">
+    <div class="purchase-logo">
+      <div class="mark"></div>
+      <div>
+        SK <small>주식회사 구매정보시스템 #개발<br>AX</small>
+      </div>
+    </div>
+    <nav class="purchase-menu">
+      <button>견적소싱요청</button>
+      <button class="active">구매요청등록</button>
+      <button>구매오더</button>
+      <button>검수/정산</button>
+      <button>협력사</button>
+      <button>Data Report</button>
+      <button>결재관리</button>
+      <button>구매업무지원</button>
+      <button>동반성장</button>
+      <button>기준정보</button>
+    </nav>
+    <div class="purchase-util">
+      <strong style="color:#1d4ed8">ProAX</strong>
+      <div class="purchase-search">통합검색</div>
+      <span>테스트진</span>
+    </div>
+  </header>
+  <div class="purchase-subbar">
+    <span>HOME</span>
+    <span class="purchase-tab">구매요청현황 ×</span>
+  </div>
+  <div class="purchase-layout">
+    <aside class="purchase-side">
+      <span>›</span>
+      <span>★</span>
+      <span>⌘</span>
+      <span>●</span>
+    </aside>
+    <main class="purchase-content">
+      <div class="purchase-breadcrumb">Home &gt; 구매요청목록 &gt; 구매요청현황</div>
+      <div class="purchase-title-row">
+        <div class="purchase-title">구매요청-외주 <span>★</span></div>
+        <button class="purchase-close" onclick="window.close()">닫기</button>
+      </div>
+      <div class="reference-note">
+        NEW MIS 외주비/재료비 등록 시 구매시스템에서 수신되는 원천 데이터를 참고하기 위한 목업 화면입니다. 실제 입력은 NEW MIS에서 진행하고, 이 화면은 원본 확인용으로 사용합니다.
+      </div>
+
+      <section class="purchase-section">
+        <h2 class="section-title">외주 구매목적</h2>
+        <div class="form-row">
+          <div class="form-label">구매목적</div>
+          <div class="form-value"><input value="T:Project(사내프로젝트)" readonly /></div>
+          <div></div>
+        </div>
+      </section>
+
+      <section class="purchase-section">
+        <h2 class="section-title">품목정보</h2>
+        <div class="grid-toolbar">
+          <span>Results : 1</span>
+          <button>⌘</button>
+          <button>☷</button>
+          <button>↓</button>
+          <button>↗</button>
+        </div>
+        <div class="purchase-grid-wrap">
+          <table>
+            <colgroup>
+              <col style="width:40px" />
+              <col style="width:22px" />
+              <col style="width:52px" />
+              <col style="width:100px" />
+              <col style="width:150px" />
+              <col style="width:150px" />
+              <col style="width:80px" />
+              <col style="width:100px" />
+              <col style="width:100px" />
+              <col style="width:80px" />
+              <col style="width:80px" />
+              <col style="width:40px" />
+              <col style="width:40px" />
+              <col style="width:40px" />
+              <col style="width:40px" />
+              <col />
+            </colgroup>
+            <thead>
+              <tr>
+                <th></th>
+                <th></th>
+                <th>항번</th>
+                <th>품목코드</th>
+                <th>품목명</th>
+                <th>상세업무</th>
+                <th>수량</th>
+                <th>단가</th>
+                <th>금액</th>
+                <th colspan="2">계약기간</th>
+                <th>회계정보</th>
+                <th>용역장소</th>
+                <th>투입원가</th>
+                <th>견적서</th>
+                <th></th>
+              </tr>
+              <tr>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th>시작일자</th>
+                <th>종료일자</th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-arrow">›</td>
+                <td><div class="radio-dot"></div></td>
+                <td>10</td>
+                <td>MP00003</td>
+                <td>APPLICATION 운영</td>
+                <td>서비스 구매</td>
+                <td>1</td>
+                <td>130,481,055</td>
+                <td>130,481,055</td>
+                <td>2026/04/01</td>
+                <td>2026/06/30</td>
+                <td class="lookup">⌕</td>
+                <td class="lookup">⌕</td>
+                <td class="lookup selected-cell">⌕</td>
+                <td class="lookup">⌕</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td class="large-empty" colspan="16"></td>
+              </tr>
+              <tr class="sum-row">
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>합계</td>
+                <td>1</td>
+                <td>130,481,055</td>
+                <td>130,481,055</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</body>
+</html>

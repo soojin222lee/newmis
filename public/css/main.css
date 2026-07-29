@@ -3726,6 +3726,14 @@ body {
 .top-actions .schedule-open-btn {
   position: static;
 }
+.top-actions .purchase-ref-btn {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+.top-actions .purchase-ref-btn:hover {
+  background: #ffe4e6;
+}
 .role-switch {
   display: inline-flex;
   padding: 3px;
