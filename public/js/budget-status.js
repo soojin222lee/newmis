@@ -5007,9 +5007,10 @@ function renderBpoRegisteredList(kind) {
   if (kind === 'travel' || kind === 'transfer' || kind === 'other') {
     return `
       <div class="bpo-list-card">
-        <div class="bpo-list-head"><span>예정월</span><span>금액</span><span>구분/설명</span><span>상태</span><span></span></div>
-        ${rows.map(row => `
+        <div class="bpo-list-head"><span>No</span><span>예정월</span><span>금액</span><span>구분/설명</span><span>상태</span><span></span></div>
+        ${rows.map((row, index) => `
           <div class="bpo-list-row">
+            <span class="bpo-row-seq">${index + 1}</span>
             <span>${row.expectedMonth || '-'}</span>
             <strong>${bpoMoney(row.amount)}</strong>
             <span>${row.transferType ? `${row.transferType} / ` : ''}${row.description || ''}</span>
@@ -5021,9 +5022,10 @@ function renderBpoRegisteredList(kind) {
   if (kind === 'construction') {
     return `
       <div class="bpo-list-card">
-        <div class="bpo-list-head contract"><span>업체 / 계약명</span><span>견적번호</span><span>금액</span><span>상태</span><span></span></div>
-        ${rows.map(row => `
-          <div class="bpo-list-row contract">
+        <div class="bpo-list-head contract ma"><span>No</span><span>업체 / 계약명</span><span>견적번호</span><span>금액</span><span>상태</span><span></span></div>
+        ${rows.map((row, index) => `
+          <div class="bpo-list-row contract ma">
+            <span class="bpo-row-seq">${index + 1}</span>
             <span><strong>${row.vendorName}</strong><i>${row.title}</i></span>
             <span>${row.quoteNo}</span>
             <strong>${bpoMoney(row.amount)}</strong>
@@ -5034,9 +5036,10 @@ function renderBpoRegisteredList(kind) {
   }
   return `
     <div class="bpo-list-card">
-      <div class="bpo-list-head contract"><span>업체 / 계약명</span><span>계약기간</span><span>계약금액</span><span>견적번호</span><span>PO번호</span><span>상태</span><span></span></div>
-      ${rows.map(row => `
+      <div class="bpo-list-head contract"><span>No</span><span>업체 / 계약명</span><span>계약기간</span><span>계약금액</span><span>견적번호</span><span>PO번호</span><span>상태</span><span></span></div>
+      ${rows.map((row, index) => `
         <div class="bpo-list-row contract">
+          <span class="bpo-row-seq">${index + 1}</span>
           <span><strong>${row.vendorName}</strong><i>${row.title}</i></span>
           <span>${row.startDate} ~ ${row.endDate}</span>
           <strong>${bpoMoney(row.amount)}</strong>
