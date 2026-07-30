@@ -108,6 +108,15 @@ const screenGuideKnowledge = {
     comments: ['사내 프로젝트와 같은 화면 구조이며 라벨만 투자프로젝트 기준으로 표시합니다.'],
     faqs: {},
   },
+  's-advance-project': {
+    title: '선투입 프로젝트',
+    route: '#advance-project',
+    frontend: ['public/js/advance-project.js'],
+    backend: ['/api/projects/advance'],
+    logic: ['선투입 프로젝트 목록', '등록/상세', '승인 처리'],
+    comments: ['투자프로젝트와 동일한 화면 구조이며 라벨과 목업 데이터만 선투입 프로젝트 기준으로 표시합니다.'],
+    faqs: {},
+  },
   's-system-desc': {
     title: '운영 가이드',
     route: '#system-desc',

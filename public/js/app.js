@@ -140,6 +140,13 @@ function showInvestmentProject() {
   renderInvestmentProject();
 }
 
+function showAdvanceProject() {
+  openNavGroup('sub-ops');
+  setScreen('s-advance-project');
+  setNav('nav-advance-project');
+  renderAdvanceProject();
+}
+
 function showInitiation() {
   initView = 'list';
   openNavGroup('sub-phase');
