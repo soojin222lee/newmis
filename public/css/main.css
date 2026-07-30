@@ -3727,12 +3727,14 @@ body {
   position: static;
 }
 .top-actions .purchase-ref-btn {
-  border-color: #fecaca;
-  background: #fff1f2;
-  color: #be123c;
+  border-color: #ef4444;
+  background: #fff;
+  color: #ef4444;
 }
 .top-actions .purchase-ref-btn:hover {
-  background: #ffe4e6;
+  border-color: #dc2626;
+  background: #fff1f2;
+  color: #dc2626;
 }
 .role-switch {
   display: inline-flex;
