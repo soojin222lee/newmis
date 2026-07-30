@@ -1,7 +1,6 @@
 // AI GUIDE: 메인 화면 대시보드와 AI 업무 시작 화면을 렌더링합니다.
-// - PM/팀장 관점의 첫 화면이며 프로젝트 바로가기, 일정, 업무일지, AI 검색 입력을 제공합니다.
+// - PM/팀장 관점의 첫 화면이며 프로젝트 바로가기, 일정, AI 검색 입력을 제공합니다.
 // - 프로젝트명을 클릭하면 실행예산 상세 수립 화면으로 이동하는 흐름이 핵심입니다.
-// - 업무일지는 사용자가 할 일을 남기면 AI가 처리 후보를 안내하는 목업 컨셉입니다.
 // - AI 화면 가이드는 사용자의 다음 행동을 안내하고, 상세 업무 질문은 실행예산/레포트 등 해당 화면으로 연결해야 합니다.
 
 function initDashboard() {
@@ -58,39 +57,6 @@ function openAiBudgetMock(account) {
 
 function openAiProjectBudget(projectKey) {
   openBudgetProjectScreen(projectKey || 'budgetMock');
-}
-
-const workDiaryItems = [
-  { day: 15, title: '검수 마지막날 준비', memo: '고객 검수 체크리스트와 미결 이슈를 확인합니다.' },
-  { day: 29, title: '월마감 전 실행예산 점검', memo: '실적/투입확정 금액과 변경 히스토리를 확인합니다.' },
-];
-
-function getWorkDiaryItems() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('workDiaryItems') || '[]');
-    return [...workDiaryItems, ...saved];
-  } catch (e) {
-    return workDiaryItems;
-  }
-}
-
-function saveWorkDiary() {
-  const dayEl = document.getElementById('diary-day');
-  const titleEl = document.getElementById('diary-title');
-  const memoEl = document.getElementById('diary-memo');
-  const day = Number(dayEl ? dayEl.value : 0);
-  const title = (titleEl ? titleEl.value : '').trim();
-  const memo = (memoEl ? memoEl.value : '').trim();
-  if (!day || !title) {
-    showToast('업무일지 날짜와 할 일을 입력해주세요.');
-    return;
-  }
-  const saved = JSON.parse(localStorage.getItem('workDiaryItems') || '[]');
-  saved.unshift({ day, title, memo });
-  localStorage.setItem('workDiaryItems', JSON.stringify(saved));
-  if (titleEl) titleEl.value = '';
-  if (memoEl) memoEl.value = '';
-  showToast(`${day}일 일정에 업무일지를 추가했습니다.`);
 }
 
 function askCostAi(forceText) {
@@ -410,27 +376,6 @@ function initDashboard() {
               </button>
             </div>
           </div>
-          <div class="work-diary-card">
-            <div class="home-section-title">업무일지</div>
-            <div class="work-diary-helper">할일을 메모해두면 AI가 업무를 처리해드려요.</div>
-            <label>
-              <span>알림 날짜</span>
-              <select id="diary-day">
-                <option value="15">7월 15일</option>
-                <option value="22">7월 22일</option>
-                <option value="29">7월 29일</option>
-              </select>
-            </label>
-            <label>
-              <span>해야 할 일</span>
-              <input id="diary-title" placeholder="예: 검수 마지막날 자료 확인">
-            </label>
-            <label>
-              <span>메모</span>
-              <textarea id="diary-memo" placeholder="달력 알림에 같이 표시할 내용을 입력하세요."></textarea>
-            </label>
-            <button onclick="saveWorkDiary()">업무일지 저장</button>
-          </div>
         </div>
       </section>
     </div>
@@ -456,16 +401,13 @@ function openSchedulePanel() {
     22: ['SCM 승인대기 건 확인'],
     29: ['월마감일', '실행예산 변경 히스토리 점검'],
   };
-  getWorkDiaryItems().forEach(item => {
-    events[item.day] = events[item.day] || [];
-    events[item.day].push(item.title);
-  });
-  const diaryRows = getWorkDiaryItems()
+  const scheduleRows = Object.entries(events)
+    .map(([day, titles]) => ({ day: Number(day), title: titles.join(' / ') }))
     .sort((a, b) => a.day - b.day)
     .map(item => `
       <div class="${item.day === 15 ? 'urgent' : item.day === 29 ? 'closing' : ''}">
         <b>${item.day}일</b>
-        <span><strong>${item.title}</strong><em>${item.memo || '업무일지에서 등록한 할 일입니다.'}</em></span>
+        <span><strong>${item.title}</strong><em>월간 일정 알림입니다.</em></span>
         <i>알림</i>
       </div>
     `).join('');
@@ -495,7 +437,7 @@ function openSchedulePanel() {
         <strong>이번 달 내 할 일</strong>
         <span>마감이 가까운 순서</span>
       </div>
-      <div class="schedule-list">${diaryRows}</div>
+      <div class="schedule-list">${scheduleRows}</div>
     </div>`;
   overlay.classList.add('open');
 }
@@ -586,27 +528,6 @@ function renderPmDashboard() {
                 <span>SK에코플랜트 배터리얼즈 26년 현업 주도 SOP 체계 구축 지원</span>
               </button>
             </div>
-          </div>
-          <div class="work-diary-card">
-            <div class="home-section-title">업무일지</div>
-            <div class="work-diary-helper">할일을 메모해두면 AI가 업무를 처리해드려요.</div>
-            <label>
-              <span>알림 날짜</span>
-              <select id="diary-day">
-                <option value="15">7월 15일</option>
-                <option value="22">7월 22일</option>
-                <option value="29">7월 29일</option>
-              </select>
-            </label>
-            <label>
-              <span>해야 할 일</span>
-              <input id="diary-title" placeholder="예: 검수 마지막날 자료 확인">
-            </label>
-            <label>
-              <span>메모</span>
-              <textarea id="diary-memo" placeholder="달력 알림에 같이 표시할 내용을 입력하세요."></textarea>
-            </label>
-            <button onclick="saveWorkDiary()">업무일지 저장</button>
           </div>
         </div>
       </section>

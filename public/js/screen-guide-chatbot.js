@@ -13,12 +13,11 @@ const screenGuideKnowledge = {
     route: '/ 또는 #main',
     frontend: ['public/js/dashboard.js', 'public/js/app.js'],
     backend: ['/api/projects', '/api/schedules', '/api/ai/guide'],
-    logic: ['PM/팀장 역할 전환', '내 프로젝트 바로 이동', '일정/업무일지 요약'],
+    logic: ['PM/팀장 역할 전환', '내 프로젝트 바로 이동', '일정 요약'],
     comments: ['메인은 업무 시작점이므로 상세 데이터보다 다음 행동을 안내하는 답변이 우선입니다.'],
     faqs: {
       '프로젝트': '메인 화면의 내 프로젝트 행을 선택하면 실행예산 상세 수립 화면으로 바로 이동합니다.',
       '일정': '오른쪽 상단 일정 확인에서 이번 달 마감, 검수, 승인 요청 일정을 확인하는 흐름입니다.',
-      '업무일지': '업무일지에 할 일을 메모하면 AI가 후속 처리 후보를 추천하는 컨셉입니다.',
     },
   },
   's-budget': {

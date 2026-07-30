@@ -3587,7 +3587,7 @@ body {
 .home-work-grid {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   margin-top: 28px;
 }
