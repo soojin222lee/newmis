@@ -73,6 +73,10 @@
     background: #fff;
     overflow: hidden;
   }
+  .section.plan-highlight {
+    border: 3px solid #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, .12);
+  }
   .section-title {
     display: flex;
     align-items: center;
@@ -83,15 +87,21 @@
     font-size: 17px;
     font-weight: 900;
   }
-  .section-title::before {
+  .section-title .title-text {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    text-align: left;
+  }
+  .section-title .title-text::before {
     content: "";
     width: 4px;
+    flex: 0 0 4px;
     height: 18px;
-    margin-right: 8px;
     border-radius: 3px;
     background: #ef4444;
   }
-  .section-title > span:first-child { display: inline-flex; align-items: center; }
   .collapse { color: #4b5563; font-size: 18px; }
   .form-grid {
     display: grid;
@@ -237,7 +247,7 @@
   </p>
 
   <section class="section">
-    <div class="section-title"><span>계약정보</span><span class="collapse">⌃</span></div>
+    <div class="section-title"><span class="title-text">계약정보</span><span class="collapse">⌃</span></div>
     <div class="form-grid">
       <div class="label">계약번호</div>
       <div class="value"><input value="4500301026" readonly /></div>
@@ -249,7 +259,7 @@
   </section>
 
   <section class="section">
-    <div class="section-title"><span>금액정보</span><span class="collapse">⌃</span></div>
+    <div class="section-title"><span class="title-text">금액정보</span><span class="collapse">⌃</span></div>
     <div class="form-grid">
       <div class="label">기검수금액</div>
       <div class="value"><input class="right" value="176,000,000" readonly /></div>
@@ -266,8 +276,8 @@
     </div>
   </section>
 
-  <section class="section">
-    <div class="section-title"><span>검수 계획</span><span class="collapse">⌃</span></div>
+  <section class="section plan-highlight">
+    <div class="section-title"><span class="title-text">검수 계획</span><span class="collapse">⌃</span></div>
     <div class="section-tip">
       계획월이 시스템월과 같은 2026-07 라인만 선택 가능합니다. 선택된 검수계획금액은 실투입정보 선택 합계와 비교됩니다.
     </div>
@@ -290,7 +300,7 @@
   </section>
 
   <section class="section">
-    <div class="section-title"><span>Item정보</span><span class="collapse">⌃</span></div>
+    <div class="section-title"><span class="title-text">Item정보</span><span class="collapse">⌃</span></div>
     <div class="result-count">Results : 1</div>
     <div class="table-wrap">
       <table>
@@ -323,7 +333,7 @@
   </section>
 
   <section class="section">
-    <div class="section-title"><span>Service정보</span><span class="collapse">⌃</span></div>
+    <div class="section-title"><span class="title-text">Service정보</span><span class="collapse">⌃</span></div>
     <div class="result-count">Results : 1</div>
     <div class="table-wrap">
       <table>
@@ -358,7 +368,7 @@
   </section>
 
   <section class="section">
-    <div class="section-title"><span>실투입정보</span><span class="collapse">⌃</span></div>
+    <div class="section-title"><span class="title-text">실투입정보</span><span class="collapse">⌃</span></div>
     <div class="section-tip">
       선택한 실투입전표 금액 합계가 위에서 선택한 검수계획금액과 동일해야 검수요청이 가능합니다.
     </div>
