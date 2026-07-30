@@ -200,6 +200,34 @@
     padding: 0 8px;
     background: #f9fafb;
   }
+  .project-info-grid {
+    display: grid;
+    grid-template-columns: 150px 1fr 150px 1fr 150px 1fr;
+    border: 1px solid #d9dde3;
+    background: #ffffff;
+  }
+  .project-info-grid .form-label,
+  .project-info-grid .form-value {
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .project-info-grid .form-value {
+    border-left: 1px solid #d9dde3;
+    border-right: 1px solid #e5e7eb;
+  }
+  .mapping-input-group {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+  }
+  .mapping-input-group button {
+    border: 0;
+    border-radius: 7px;
+    background: #111827;
+    color: #ffffff;
+    padding: 0 12px;
+    font-weight: 900;
+    cursor: pointer;
+  }
   .grid-toolbar {
     display: flex;
     align-items: center;
@@ -437,6 +465,28 @@
     width: 12px;
     height: 12px;
   }
+  .input-cost-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 10px;
+    border-top: 1px solid #d1d5db;
+    background: #ffffff;
+  }
+  .input-cost-footer button {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #111827;
+    padding: 8px 14px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .input-cost-footer button.primary {
+    border-color: #111827;
+    background: #111827;
+    color: #ffffff;
+  }
 </style>
 </head>
 <body>
@@ -486,6 +536,29 @@
       <div class="reference-note">
         NEW MIS 외주비/재료비 등록 시 구매시스템에서 수신되는 원천 데이터를 참고하기 위한 목업 화면입니다. 실제 입력은 NEW MIS에서 진행하고, 이 화면은 원본 확인용으로 사용합니다.
       </div>
+
+      <section class="purchase-section">
+        <h2 class="section-title">프로젝트정보</h2>
+        <div class="project-info-grid">
+          <div class="form-label">프로젝트명</div>
+          <div class="form-value"><input value="부서구매(CostCenter)" readonly /></div>
+          <div class="form-label">프로젝트번호</div>
+          <div class="form-value"><input value="9000000000" readonly /></div>
+          <div class="form-label">고객사명</div>
+          <div class="form-value"><input value="" readonly /></div>
+          <div class="form-label">프로젝트기간</div>
+          <div class="form-value"><input value="2026/04/01  ~  2026/06/30" readonly /></div>
+          <div class="form-label">구매요청금액</div>
+          <div class="form-value"><input value="154,288,325" readonly /></div>
+          <div class="form-label">MIS원가맵핑</div>
+          <div class="form-value new-field-highlight">
+            <div class="mapping-input-group">
+              <input id="mis-cost-mapping-field" value="미매핑" readonly />
+              <button onclick="openInputCostModal()">원가 맵핑</button>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section class="purchase-section">
         <h2 class="section-title">외주 구매목적</h2>
@@ -577,7 +650,7 @@
                 <td>2026/06/30</td>
                 <td class="lookup">⌕</td>
                 <td class="lookup">⌕</td>
-                <td class="lookup selected-cell" onclick="openInputCostModal()">⌕</td>
+                <td class="lookup">⌕</td>
                 <td class="lookup">⌕</td>
                 <td></td>
               </tr>
@@ -613,7 +686,7 @@
 <div class="input-cost-modal" id="input-cost-modal" onclick="if(event.target===this)closeInputCostModal()">
   <div class="input-cost-dialog">
     <div class="input-cost-head">
-      <span>계약원가</span>
+      <span>MIS원가맵핑</span>
       <button onclick="closeInputCostModal()" title="닫기">×</button>
     </div>
     <div class="input-cost-body">
@@ -666,6 +739,10 @@
           <tbody id="input-cost-rows"></tbody>
         </table>
       </div>
+      <div class="input-cost-footer">
+        <button onclick="closeInputCostModal()">취소</button>
+        <button class="primary" onclick="confirmInputCostMapping()">맵핑 확정</button>
+      </div>
     </div>
   </div>
 </div>
@@ -677,6 +754,7 @@
     { projectNo:'IV107121', lineNo:3, vendor:'Vietnam Front Team', start:'2026/07/01', end:'2026/09/30', mm:'5.00', amount:'38,684,605', currency:'KRW', contracted:'N', contractNo:'' },
     { projectNo:'IV107121', lineNo:4, vendor:'AIM Partners', start:'2026/10/01', end:'2026/12/31', mm:'4.35', amount:'33,770,000', currency:'KRW', contracted:'N', contractNo:'' },
   ];
+  let selectedInputCostIndex = 0;
 
   function renderInputCostRows() {
     const body = document.getElementById('input-cost-rows');
@@ -693,9 +771,9 @@
       contractNo:'',
     }));
     body.innerHTML = [...inputCostRows, ...blankRows].map((row, idx) => `
-      <tr class="${idx === 0 ? 'selected' : ''}">
-        <td class="${idx === 0 ? 'row-arrow' : ''}">${idx === 0 ? '&rsaquo;' : idx + 1}</td>
-        <td><input type="checkbox" ${idx === 0 ? 'checked' : ''} ${row.vendor ? '' : 'disabled'} /></td>
+      <tr class="${idx === selectedInputCostIndex ? 'selected' : ''}" ${row.vendor ? `onclick="selectInputCostRow(${idx})"` : ''}>
+        <td class="${idx === selectedInputCostIndex ? 'row-arrow' : ''}">${idx === selectedInputCostIndex ? '&rsaquo;' : idx + 1}</td>
+        <td><input type="checkbox" ${idx === selectedInputCostIndex ? 'checked' : ''} ${row.vendor ? '' : 'disabled'} /></td>
         <td>${row.projectNo}</td>
         <td>${row.lineNo}</td>
         <td class="${row.vendor ? 'company' : 'muted'}">${row.vendor || '-'}</td>
@@ -710,6 +788,11 @@
     `).join('');
   }
 
+  function selectInputCostRow(index) {
+    selectedInputCostIndex = index;
+    renderInputCostRows();
+  }
+
   function openInputCostModal() {
     renderInputCostRows();
     document.getElementById('input-cost-modal').classList.add('open');
@@ -717,6 +800,13 @@
 
   function closeInputCostModal() {
     document.getElementById('input-cost-modal').classList.remove('open');
+  }
+
+  function confirmInputCostMapping() {
+    const row = inputCostRows[selectedInputCostIndex] || inputCostRows[0];
+    const contractText = row.contractNo ? ` / ${row.contractNo}` : '';
+    document.getElementById('mis-cost-mapping-field').value = `${row.vendor} / ${row.amount}${contractText}`;
+    closeInputCostModal();
   }
 </script>
 </body>
