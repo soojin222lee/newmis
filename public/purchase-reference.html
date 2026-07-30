@@ -295,6 +295,24 @@
     font-weight: 900;
     cursor: pointer;
   }
+  .disabled-cost-field {
+    position: relative;
+    color: #9ca3af !important;
+    cursor: not-allowed !important;
+    background: #f3f4f6 !important;
+  }
+  .disabled-cost-field::after {
+    content: "×";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #ef3340;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1;
+    pointer-events: none;
+  }
   .sum-row td {
     background: #f0f1f3;
     font-weight: 900;
@@ -612,7 +630,7 @@
                 <th colspan="2">계약기간</th>
                 <th>회계정보</th>
                 <th>용역장소</th>
-                <th>계약원가</th>
+                <th>투입원가</th>
                 <th>견적서</th>
                 <th></th>
               </tr>
@@ -648,7 +666,7 @@
                 <td>130,481,055</td>
                 <td>2026/04/01</td>
                 <td>2026/06/30</td>
-                <td class="lookup">⌕</td>
+                <td class="lookup disabled-cost-field">⌕</td>
                 <td class="lookup">⌕</td>
                 <td class="lookup">⌕</td>
                 <td class="lookup">⌕</td>
