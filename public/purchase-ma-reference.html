@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>공사MA 구매요청</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-width: 1280px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #111827;
+    background: #f7f7f8;
+  }
+  .page { padding: 16px 18px 48px; }
+  .top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  h1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 22px;
+    font-weight: 900;
+  }
+  h1 span { color: #9ca3af; }
+  .breadcrumb {
+    margin-bottom: 8px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .btn {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    color: #111827;
+    padding: 8px 14px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .btn.primary { border-color: #ef4444; background: #ef4444; color: #fff; }
+  .btn.dark { border-color: #111827; background: #111827; color: #fff; }
+  .note {
+    margin: 0 0 16px;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    background: #fff7ed;
+    padding: 12px 14px;
+    color: #9a3412;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .section {
+    margin-bottom: 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+    font-size: 17px;
+    font-weight: 900;
+  }
+  .section-title::before {
+    content: "";
+    width: 4px;
+    height: 18px;
+    margin-right: 8px;
+    border-radius: 3px;
+    background: #ef4444;
+  }
+  .section-title > span:first-child { display: inline-flex; align-items: center; }
+  .collapse { color: #4b5563; font-size: 18px; }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 150px 1fr 150px 1fr 150px 1fr;
+    border-top: 1px solid #e5e7eb;
+  }
+  .label {
+    background: #e5e7eb;
+    padding: 10px 14px;
+    font-weight: 900;
+    border-right: 1px solid #d1d5db;
+    border-bottom: 1px solid #d1d5db;
+  }
+  .value {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 7px 12px;
+    border-right: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  input {
+    width: 100%;
+    height: 30px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #f9fafb;
+    padding: 0 10px;
+    font-family: inherit;
+    font-weight: 700;
+  }
+  .map-box {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    width: 100%;
+  }
+  .table-wrap { padding: 0 0 12px; overflow: auto; }
+  .result-count {
+    padding: 8px 12px 4px;
+    text-align: right;
+    font-weight: 900;
+  }
+  table {
+    width: 100%;
+    min-width: 1500px;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 13px;
+  }
+  th, td {
+    border: 1px solid #d1d5db;
+    padding: 9px 8px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  th {
+    background: #e5e7eb;
+    font-weight: 900;
+  }
+  td { background: #fff; }
+  tr.selected td { background: #fff1f2; }
+  .row-arrow {
+    width: 40px;
+    background: #ef4444 !important;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 900;
+  }
+  .lookup { color: #f43f5e; font-weight: 900; }
+  .sum-row td {
+    background: #f3f4f6;
+    font-weight: 900;
+  }
+  .modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(17, 24, 39, .38);
+    z-index: 50;
+  }
+  .modal.open { display: flex; }
+  .dialog {
+    width: min(1180px, calc(100vw - 60px));
+    max-height: calc(100vh - 70px);
+    overflow: auto;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, .28);
+  }
+  .dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 18px;
+    background: #111827;
+    color: #fff;
+    font-weight: 900;
+    font-size: 18px;
+  }
+  .dialog-body { padding: 16px 18px; }
+  .dialog-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 18px;
+    border-top: 1px solid #e5e7eb;
+  }
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .summary-card {
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    background: #fff7ed;
+    padding: 12px;
+  }
+  .summary-card small {
+    display: block;
+    margin-bottom: 5px;
+    color: #9a3412;
+    font-weight: 800;
+  }
+  .summary-card strong { font-size: 17px; }
+  .modal table { min-width: 1000px; }
+  .select-btn {
+    border: 1px solid #fdba74;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #9a3412;
+    padding: 5px 10px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="top">
+    <h1>공사MA 구매요청 <span>★</span></h1>
+    <div>
+      <div class="breadcrumb">Home &gt; 구매요청목록 &gt; 공사MA 구매요청</div>
+      <div class="actions">
+        <button class="btn primary">결재요청</button>
+        <button class="btn primary">반려</button>
+        <button class="btn primary">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="note">
+    구매시스템에서 접수된 공사/MA 유지보수 품목을 NEW MIS 실행예산 &gt; 외주비 &gt; 공사MA 계획과 매핑하는 참고 화면입니다.
+  </p>
+
+  <section class="section">
+    <div class="section-title"><span>유지보수 정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">유지보수유형</div>
+      <div class="value"><input value="S/W" readonly /></div>
+      <div class="label">유지보수기간</div>
+      <div class="value"><input value="2026/04/01  ~  2026/06/30" readonly /></div>
+      <div class="label">검수유형</div>
+      <div class="value"><input value="월" readonly /></div>
+      <div class="label">품목</div>
+      <div class="value"><input value="HW 유지보수 / SV00002" readonly /></div>
+      <div class="label">총금액</div>
+      <div class="value"><input value="35,304,311" readonly /></div>
+      <div class="label">예산 계획 매핑</div>
+      <div class="value">
+        <div class="map-box">
+          <input id="mapped-ma-field" value="미매핑" readonly />
+          <button class="btn dark" onclick="openMaMappingModal()">계획 매핑</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span>품목정보</span><span class="collapse">⌃</span></div>
+    <div class="result-count">Results : 3</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px"></th>
+            <th style="width:55px">항번</th>
+            <th style="width:95px">품목코드</th>
+            <th style="width:150px">품목명</th>
+            <th style="width:190px">상세업무</th>
+            <th style="width:65px">수량</th>
+            <th style="width:105px">단가</th>
+            <th style="width:115px">금액</th>
+            <th style="width:100px">요청납품일</th>
+            <th colspan="2">계약기간</th>
+            <th style="width:105px">검수집행월</th>
+            <th style="width:60px">회계정보</th>
+            <th style="width:70px">납품지정보</th>
+            <th style="width:60px">견적서</th>
+          </tr>
+          <tr>
+            <th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+            <th style="width:95px">시작일자</th>
+            <th style="width:95px">종료일자</th>
+            <th></th><th></th><th></th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="selected">
+            <td class="row-arrow">›</td>
+            <td>10</td>
+            <td>SV00002</td>
+            <td>HW 유지보수</td>
+            <td>2026/04-HW 유지보수</td>
+            <td>1</td>
+            <td style="text-align:right">11,768,100</td>
+            <td style="text-align:right">11,768,100</td>
+            <td>2026/04/30</td>
+            <td>2026/04/01</td>
+            <td>2026/04/30</td>
+            <td>2026-04</td>
+            <td class="lookup">⌕</td>
+            <td class="lookup">⌕</td>
+            <td class="lookup">⌕</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>20</td>
+            <td>SV00002</td>
+            <td>HW 유지보수</td>
+            <td>2026/05-HW 유지보수</td>
+            <td>1</td>
+            <td style="text-align:right">11,768,100</td>
+            <td style="text-align:right">11,768,100</td>
+            <td>2026/05/31</td>
+            <td>2026/05/01</td>
+            <td>2026/05/31</td>
+            <td>2026-05</td>
+            <td class="lookup">⌕</td>
+            <td class="lookup">⌕</td>
+            <td class="lookup">⌕</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>30</td>
+            <td>SV00002</td>
+            <td>HW 유지보수</td>
+            <td>2026/06-HW 유지보수</td>
+            <td>1</td>
+            <td style="text-align:right">11,768,111</td>
+            <td style="text-align:right">11,768,111</td>
+            <td>2026/06/30</td>
+            <td>2026/06/01</td>
+            <td>2026/06/30</td>
+            <td>2026-06</td>
+            <td class="lookup">⌕</td>
+            <td class="lookup">⌕</td>
+            <td class="lookup">⌕</td>
+          </tr>
+          <tr class="sum-row">
+            <td colspan="7">합계</td>
+            <td style="text-align:right">35,304,311</td>
+            <td colspan="7"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div class="modal" id="ma-mapping-modal" aria-hidden="true">
+  <div class="dialog">
+    <div class="dialog-head">
+      <span>NEW MIS MA 외주비 계획 매핑</span>
+      <button class="btn" onclick="closeMaMappingModal()">닫기</button>
+    </div>
+    <div class="dialog-body">
+      <div class="summary">
+        <div class="summary-card"><small>품목코드</small><strong>SV00002</strong></div>
+        <div class="summary-card"><small>검수유형</small><strong>월</strong></div>
+        <div class="summary-card"><small>총금액</small><strong>35,304,311원</strong></div>
+        <div class="summary-card"><small>유지보수기간</small><strong>2026-04 ~ 2026-06</strong></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:90px">선택</th>
+              <th>계획번호</th>
+              <th>프로젝트</th>
+              <th>상세계정</th>
+              <th>검수유형</th>
+              <th>계획기간</th>
+              <th>계획금액</th>
+              <th>상태</th>
+            </tr>
+          </thead>
+          <tbody id="ma-plan-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn" onclick="closeMaMappingModal()">취소</button>
+      <button class="btn dark" onclick="confirmMaMapping()">매핑 확정</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const text = {
+    projectMock: '\uC608\uC0B0\uAD00\uB9AC\uC2DC\uC2A4\uD15C \uBAA9\uC5C5\uC6A9',
+    accountMa: '\uACF5\uC0ACMA',
+    monthly: '\uC6D4',
+    quarterly: '\uBD84\uAE30',
+    recommended: '\uB9E4\uD551 \uCD94\uCC9C',
+    unmapped: '\uBBF8\uB9E4\uD551',
+    selected: '\uC120\uD0DD\uB428',
+    select: '\uC120\uD0DD',
+    won: '\uC6D0',
+  };
+  const maPlans = [
+    { id: 'MA-2026-04-001', project: '30131234-D001 / ' + text.projectMock, account: text.accountMa, inspection: text.monthly, period: '2026-04 ~ 2026-06', amount: '35,304,311', status: text.recommended },
+    { id: 'MA-2026-Q2-002', project: '30130191-D002 / i-ERP PI', account: text.accountMa, inspection: text.quarterly, period: '2026-04 ~ 2026-06', amount: '42,000,000', status: text.unmapped },
+    { id: 'MA-2026-07-003', project: '30131234-D001 / ' + text.projectMock, account: text.accountMa, inspection: text.monthly, period: '2026-07 ~ 2026-09', amount: '28,500,000', status: text.unmapped },
+  ];
+  let selectedMaPlanId = maPlans[0].id;
+
+  function renderMaPlans() {
+    const body = document.getElementById('ma-plan-body');
+    body.innerHTML = maPlans.map(plan => `
+      <tr class="${selectedMaPlanId === plan.id ? 'selected' : ''}">
+        <td><button class="select-btn" onclick="selectMaPlan('${plan.id}')">${selectedMaPlanId === plan.id ? text.selected : text.select}</button></td>
+        <td>${plan.id}</td>
+        <td>${plan.project}</td>
+        <td>${plan.account}</td>
+        <td>${plan.inspection}</td>
+        <td>${plan.period}</td>
+        <td style="text-align:right">${plan.amount}${text.won}</td>
+        <td>${plan.status}</td>
+      </tr>
+    `).join('');
+  }
+
+  function selectMaPlan(id) {
+    selectedMaPlanId = id;
+    renderMaPlans();
+  }
+
+  function openMaMappingModal() {
+    renderMaPlans();
+    document.getElementById('ma-mapping-modal').classList.add('open');
+  }
+
+  function closeMaMappingModal() {
+    document.getElementById('ma-mapping-modal').classList.remove('open');
+  }
+
+  function confirmMaMapping() {
+    const plan = maPlans.find(item => item.id === selectedMaPlanId);
+    document.getElementById('mapped-ma-field').value = plan ? `${plan.id} / ${plan.period}` : text.unmapped;
+    closeMaMappingModal();
+  }
+</script>
+</body>
+</html>
