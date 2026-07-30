@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>검수상세 - 검수계획</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-width: 1280px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #111827;
+    background: #f7f7f8;
+  }
+  .page { padding: 16px 18px 48px; }
+  .top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+  h1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 22px;
+    font-weight: 900;
+  }
+  h1 span { color: #9ca3af; }
+  .breadcrumb {
+    margin-bottom: 8px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .btn {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    color: #111827;
+    padding: 8px 14px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .btn.primary { border-color: #ef4444; background: #ef4444; color: #fff; }
+  .btn.dark { border-color: #111827; background: #111827; color: #fff; }
+  .btn:disabled {
+    border-color: #d1d5db;
+    background: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
+  }
+  .scenario-note {
+    margin: 0 0 16px;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    background: #fff7ed;
+    padding: 12px 14px;
+    color: #9a3412;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .section {
+    margin-bottom: 18px;
+    border: 1px solid #d9dde3;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+    font-size: 17px;
+    font-weight: 900;
+  }
+  .section-title::before {
+    content: "";
+    width: 4px;
+    height: 18px;
+    margin-right: 8px;
+    border-radius: 3px;
+    background: #ef4444;
+  }
+  .section-title > span:first-child { display: inline-flex; align-items: center; }
+  .collapse { color: #4b5563; font-size: 18px; }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 140px 1fr 140px 1fr 140px 1fr;
+    border-top: 1px solid #e5e7eb;
+  }
+  .label {
+    background: #e8ebf0;
+    padding: 10px 14px;
+    font-weight: 900;
+    border-right: 1px solid #d1d5db;
+    border-bottom: 1px solid #d1d5db;
+  }
+  .value {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 7px 12px;
+    border-right: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  input {
+    width: 100%;
+    height: 30px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #f9fafb;
+    padding: 0 10px;
+    font-family: inherit;
+    font-weight: 700;
+  }
+  .right { text-align: right; }
+  .section-tip {
+    padding: 10px 14px;
+    border-top: 1px solid #e5e7eb;
+    background: #fff7ed;
+    color: #9a3412;
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .table-wrap { padding: 0 0 12px; overflow: auto; }
+  .result-count {
+    padding: 8px 12px 4px;
+    text-align: right;
+    font-weight: 900;
+  }
+  table {
+    width: 100%;
+    min-width: 1180px;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 13px;
+  }
+  th, td {
+    border: 1px solid #d1d5db;
+    padding: 9px 8px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  th {
+    background: #e7e9ee;
+    font-weight: 900;
+  }
+  td { background: #fff; }
+  tr.selected td { background: #fff1f2; }
+  tr.disabled td {
+    background: #f3f4f6;
+    color: #9ca3af;
+  }
+  .row-arrow {
+    width: 40px;
+    background: #ef4444 !important;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 900;
+  }
+  .check-cell input {
+    width: 14px;
+    height: 14px;
+  }
+  .sum-row td {
+    background: #eef6f8;
+    font-weight: 900;
+  }
+  .compare-box {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .compare-card {
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    background: #fff7ed;
+    padding: 12px;
+  }
+  .compare-card small {
+    display: block;
+    margin-bottom: 5px;
+    color: #9a3412;
+    font-weight: 800;
+  }
+  .compare-card strong { font-size: 18px; }
+  .compare-card.ok strong { color: #047857; }
+  .compare-card.warn strong { color: #ef4444; }
+  .footer-actions {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fff;
+    padding: 14px;
+    box-shadow: 0 -10px 30px rgba(15, 23, 42, .08);
+  }
+  .footer-actions p {
+    margin: 0;
+    color: #4b5563;
+    font-weight: 800;
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="top">
+    <h1>검수상세 &gt; 검수계획 <span>★</span></h1>
+    <div>
+      <div class="breadcrumb">Home &gt; 검수/정산 &gt; 검수상세 &gt; 검수계획</div>
+      <div class="actions">
+        <button class="btn dark" id="request-button" onclick="requestInspection()">검수요청</button>
+        <button class="btn primary">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="scenario-note">
+    시나리오: 검수계획은 계획월이 시스템월(2026-07)인 라인만 선택할 수 있습니다. 검수요청 시 선택한 검수계획금액과 아래 실투입정보에서 선택한 실투입 금액 합계가 동일해야만 요청됩니다.
+  </p>
+
+  <section class="section">
+    <div class="section-title"><span>계약정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">계약번호</div>
+      <div class="value"><input value="4500301026" readonly /></div>
+      <div class="label">프로젝트</div>
+      <div class="value"><input value="30129338-D001" readonly /></div>
+      <div class="label">협력사</div>
+      <div class="value"><input value="애커튼테크놀로지서비스" readonly /></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span>금액정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">기검수금액</div>
+      <div class="value"><input class="right" value="176,000,000" readonly /></div>
+      <div class="label">검수금액</div>
+      <div class="value"><input class="right" value="44,000,000" readonly /></div>
+      <div class="label">전체금액</div>
+      <div class="value"><input class="right" value="220,000,000" readonly /></div>
+      <div class="label">선급금지급액</div>
+      <div class="value"><input class="right" value="44,000,000" readonly /></div>
+      <div class="label">반제완료금액</div>
+      <div class="value"><input class="right" value="0" readonly /></div>
+      <div class="label">잔액</div>
+      <div class="value"><input class="right" value="0" readonly /></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span>검수 계획</span><span class="collapse">⌃</span></div>
+    <div class="section-tip">
+      계획월이 시스템월과 같은 2026-07 라인만 선택 가능합니다. 선택된 검수계획금액은 실투입정보 선택 합계와 비교됩니다.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:44px">선택</th>
+            <th>계획월</th>
+            <th>검수계획번호</th>
+            <th>계획금액</th>
+            <th>계약번호</th>
+            <th>상세계정</th>
+            <th>선택 가능 여부</th>
+          </tr>
+        </thead>
+        <tbody id="plan-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span>Item정보</span><span class="collapse">⌃</span></div>
+    <div class="result-count">Results : 1</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px"></th>
+            <th style="width:55px">항번</th>
+            <th>품목코드</th>
+            <th>품명</th>
+            <th>내역</th>
+            <th>단가</th>
+            <th>계약금액</th>
+            <th>기검수금액</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="selected">
+            <td class="row-arrow">›</td>
+            <td>10</td>
+            <td>MP00002</td>
+            <td>APPLICATION 개발</td>
+            <td>서비스 구매</td>
+            <td class="right">220,000,000</td>
+            <td class="right">220,000,000</td>
+            <td class="right">176,000,000</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span>Service정보</span><span class="collapse">⌃</span></div>
+    <div class="result-count">Results : 1</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:55px">항번</th>
+            <th>품목코드</th>
+            <th>품명</th>
+            <th>내역</th>
+            <th>계약수량</th>
+            <th>단가</th>
+            <th>계약금액</th>
+            <th>기검수금액</th>
+            <th>검수금액</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="selected">
+            <td>10</td>
+            <td>MP00002</td>
+            <td>APPLICATION 개발</td>
+            <td>서비스 구매</td>
+            <td>1.000</td>
+            <td class="right">220,000,000</td>
+            <td class="right">220,000,000</td>
+            <td class="right">176,000,000</td>
+            <td class="right">44,000,000</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span>실투입정보</span><span class="collapse">⌃</span></div>
+    <div class="section-tip">
+      선택한 실투입전표 금액 합계가 위에서 선택한 검수계획금액과 동일해야 검수요청이 가능합니다.
+    </div>
+    <div class="result-count">Results : 2</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:44px">선택</th>
+            <th>실투입전표번호</th>
+            <th>계정코드</th>
+            <th>계정명</th>
+            <th>실투입확인일자</th>
+            <th>실투입확인금액</th>
+            <th>검수번호</th>
+          </tr>
+        </thead>
+        <tbody id="actual-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="compare-box">
+    <div class="compare-card"><small>선택 검수계획금액</small><strong id="selected-plan-amount">0원</strong></div>
+    <div class="compare-card"><small>선택 실투입금액</small><strong id="selected-actual-amount">0원</strong></div>
+    <div class="compare-card" id="compare-card"><small>비교 결과</small><strong id="compare-result">선택 필요</strong></div>
+    <div class="compare-card"><small>시스템월</small><strong>2026-07</strong></div>
+  </div>
+
+  <div class="footer-actions">
+    <p id="request-comment">검수계획과 실투입정보를 선택하면 검수요청 가능 여부가 표시됩니다.</p>
+    <button class="btn dark" id="footer-request-button" onclick="requestInspection()">검수요청</button>
+  </div>
+</main>
+
+<script>
+  const systemMonth = '2026-07';
+  const inspectionPlans = [
+    { month: '2026-06', no: 'INSP-2026-06-001', amount: 40150990, contractNo: '4500301026', account: '실투입대상 외주비', selectable: false },
+    { month: '2026-07', no: 'INSP-2026-07-001', amount: 44000000, contractNo: '4500301026', account: '실투입대상 외주비', selectable: true },
+    { month: '2026-08', no: 'INSP-2026-08-001', amount: 43800000, contractNo: '4500301026', account: '실투입대상 외주비', selectable: false },
+  ];
+  const actualInputs = [
+    { voucher: '8800456893', accountCode: '725901', accountName: '개발용역외주비', date: '2026/07/15', amount: 40150990, inspectionNo: '4001123699', checked: true },
+    { voucher: '8800463351', accountCode: '725901', accountName: '개발용역외주비', date: '2026/07/22', amount: 3849010, inspectionNo: '4001123699', checked: true },
+  ];
+  let selectedPlanIndex = 1;
+
+  function formatAmount(value) {
+    return value.toLocaleString('ko-KR') + '원';
+  }
+
+  function renderPlans() {
+    document.getElementById('plan-body').innerHTML = inspectionPlans.map((plan, index) => `
+      <tr class="${selectedPlanIndex === index ? 'selected' : ''} ${plan.selectable ? '' : 'disabled'}">
+        <td class="check-cell">
+          <input type="radio" name="inspection-plan" ${selectedPlanIndex === index ? 'checked' : ''} ${plan.selectable ? `onclick="selectPlan(${index})"` : 'disabled'} />
+        </td>
+        <td>${plan.month}</td>
+        <td>${plan.no}</td>
+        <td class="right">${formatAmount(plan.amount)}</td>
+        <td>${plan.contractNo}</td>
+        <td>${plan.account}</td>
+        <td>${plan.selectable ? '선택 가능' : '시스템월 불일치'}</td>
+      </tr>
+    `).join('');
+  }
+
+  function renderActualInputs() {
+    document.getElementById('actual-body').innerHTML = actualInputs.map((item, index) => `
+      <tr class="${item.checked ? 'selected' : ''}">
+        <td class="check-cell"><input type="checkbox" ${item.checked ? 'checked' : ''} onclick="toggleActual(${index})" /></td>
+        <td>${item.voucher}</td>
+        <td>${item.accountCode}</td>
+        <td>${item.accountName}</td>
+        <td>${item.date}</td>
+        <td class="right">${formatAmount(item.amount)}</td>
+        <td>${item.inspectionNo}</td>
+      </tr>
+    `).join('');
+  }
+
+  function selectPlan(index) {
+    if (!inspectionPlans[index].selectable) return;
+    selectedPlanIndex = index;
+    renderPlans();
+    updateCompare();
+  }
+
+  function toggleActual(index) {
+    actualInputs[index].checked = !actualInputs[index].checked;
+    renderActualInputs();
+    updateCompare();
+  }
+
+  function getSelectedActualAmount() {
+    return actualInputs.filter(item => item.checked).reduce((sum, item) => sum + item.amount, 0);
+  }
+
+  function updateCompare() {
+    const planAmount = inspectionPlans[selectedPlanIndex]?.amount || 0;
+    const actualAmount = getSelectedActualAmount();
+    const matched = planAmount > 0 && planAmount === actualAmount;
+    document.getElementById('selected-plan-amount').textContent = formatAmount(planAmount);
+    document.getElementById('selected-actual-amount').textContent = formatAmount(actualAmount);
+    document.getElementById('compare-result').textContent = matched ? '일치 - 요청 가능' : '불일치 - 요청 불가';
+    document.getElementById('compare-card').className = 'compare-card ' + (matched ? 'ok' : 'warn');
+    document.getElementById('request-button').disabled = !matched;
+    document.getElementById('footer-request-button').disabled = !matched;
+    document.getElementById('request-comment').textContent = matched
+      ? '검수계획금액과 선택 실투입금액이 동일하므로 검수요청을 진행할 수 있습니다.'
+      : '검수요청 전 선택한 검수계획금액과 실투입금액 합계가 동일해야 합니다.';
+  }
+
+  function requestInspection() {
+    const planAmount = inspectionPlans[selectedPlanIndex]?.amount || 0;
+    const actualAmount = getSelectedActualAmount();
+    if (planAmount !== actualAmount) {
+      alert('선택한 검수계획금액과 실투입금액 합계가 동일해야 검수요청할 수 있습니다.');
+      return;
+    }
+    alert('검수요청 시나리오 확인: 검수계획금액과 실투입금액이 일치합니다.');
+  }
+
+  renderPlans();
+  renderActualInputs();
+  updateCompare();
+</script>
+</body>
+</html>
