@@ -176,6 +176,15 @@
     color: #047857;
     font-weight: 900;
   }
+  .new-field-highlight {
+    position: relative;
+    border: 3px solid #ef3340 !important;
+    border-radius: 8px;
+    box-shadow: 0 0 0 3px rgba(239, 51, 64, 0.12);
+  }
+  .value.new-field-highlight {
+    background: #fff1f2;
+  }
   .modal-backdrop {
     position: fixed;
     inset: 0;
@@ -367,10 +376,10 @@
         <div class="label">출장금액</div>
         <div class="value"><input class="field right" value="1,504,735" readonly></div>
         <div class="label">NEW MIS 매핑</div>
-        <div class="value"><input class="field mapping-status" id="mapped-plan-field" value="미매핑" readonly></div>
+        <div class="value new-field-highlight"><input class="field mapping-status" id="mapped-plan-field" value="미매핑" readonly></div>
       </div>
     </div>
-    <div class="map-panel">
+    <div class="map-panel new-field-highlight">
       <div>
         <strong>NEW MIS 외주출장비 계획 매핑</strong>
         <span>사업팀이 등록한 외주출장비 계획 라인 중 이 출장비 정산 요청과 연결할 대상을 선택합니다.</span>

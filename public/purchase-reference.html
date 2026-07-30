@@ -371,6 +371,25 @@
     text-align: right;
     font-weight: 800;
   }
+  .new-field-highlight {
+    position: relative;
+    border: 3px solid #ef3340 !important;
+    border-radius: 8px;
+    box-shadow: 0 0 0 3px rgba(239, 51, 64, 0.12);
+  }
+  .input-cost-grid .new-field-col {
+    border-left: 3px solid #ef3340 !important;
+    border-right: 3px solid #ef3340 !important;
+    background: #fff1f2 !important;
+  }
+  .input-cost-grid th:nth-child(11),
+  .input-cost-grid th:nth-child(12),
+  .input-cost-grid td:nth-child(11),
+  .input-cost-grid td:nth-child(12) {
+    border-left: 3px solid #ef3340 !important;
+    border-right: 3px solid #ef3340 !important;
+    background: #fff1f2 !important;
+  }
   .input-cost-section-title {
     margin: 0 0 6px;
     padding-left: 8px;
@@ -598,13 +617,13 @@
       <button onclick="closeInputCostModal()" title="닫기">×</button>
     </div>
     <div class="input-cost-body">
-      <div class="partner-row">
+      <div class="partner-row new-field-highlight">
         <span>협력사명</span>
         <input value="5388603132" readonly />
         <input value="애커튼테크놀로지서비스" readonly />
       </div>
 
-      <div class="cost-summary-row">
+      <div class="cost-summary-row new-field-highlight">
         <label>Item 합계금액</label>
         <input value="130,481,055" readonly />
         <label>선택한 자원 합계 금액</label>
