@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>상품재료비 구매요청</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-width: 1280px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #111827;
+    background: #f7f7f8;
+  }
+  .page { padding: 16px 18px 48px; }
+  .top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  h1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 22px;
+    font-weight: 900;
+  }
+  h1 span { color: #9ca3af; }
+  .breadcrumb {
+    margin-bottom: 8px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .btn {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    color: #111827;
+    padding: 8px 14px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .btn.primary { border-color: #ef4444; background: #ef4444; color: #fff; }
+  .btn.dark { border-color: #111827; background: #111827; color: #fff; }
+  .note {
+    margin: 0 0 16px;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    background: #fff7ed;
+    padding: 12px 14px;
+    color: #9a3412;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .section {
+    margin-bottom: 18px;
+    border: 1px solid #d9dde3;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+    font-size: 17px;
+    font-weight: 900;
+  }
+  .section-title::before {
+    content: "";
+    width: 4px;
+    height: 18px;
+    margin-right: 8px;
+    border-radius: 3px;
+    background: #ef4444;
+  }
+  .section-title > span:first-child { display: inline-flex; align-items: center; }
+  .collapse { color: #4b5563; font-size: 18px; }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 150px 1fr 150px 1fr 150px 1fr;
+    border-top: 1px solid #e5e7eb;
+  }
+  .form-grid.two {
+    grid-template-columns: 150px 1fr 150px 1fr;
+  }
+  .form-grid.full {
+    grid-template-columns: 150px 1fr;
+  }
+  .label {
+    background: #e8ebf0;
+    padding: 10px 14px;
+    font-weight: 900;
+    border-right: 1px solid #d1d5db;
+    border-bottom: 1px solid #d1d5db;
+  }
+  .value {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 7px 12px;
+    border-right: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  input, textarea {
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #f9fafb;
+    padding: 0 10px;
+    font-family: inherit;
+    font-weight: 700;
+  }
+  input { height: 30px; }
+  textarea {
+    min-height: 70px;
+    padding: 10px;
+    resize: none;
+  }
+  .right { text-align: right; }
+  .map-box {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    width: 100%;
+  }
+  .new-field-highlight {
+    border: 3px solid #ef3340 !important;
+    border-radius: 8px;
+    box-shadow: 0 0 0 3px rgba(239, 51, 64, 0.12);
+    background: #fff1f2;
+  }
+  .table-wrap { padding: 0 0 12px; overflow: auto; }
+  .result-count {
+    padding: 8px 12px 4px;
+    text-align: right;
+    font-weight: 900;
+  }
+  table {
+    width: 100%;
+    min-width: 1450px;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 13px;
+  }
+  th, td {
+    border: 1px solid #d1d5db;
+    padding: 9px 8px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  th {
+    background: #e7e9ee;
+    font-weight: 900;
+  }
+  td { background: #fff; }
+  tr.selected td { background: #fff1f2; }
+  .row-arrow {
+    width: 40px;
+    background: #ef4444 !important;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 900;
+  }
+  .lookup { color: #f43f5e; font-weight: 900; }
+  .sum-row td {
+    background: #eef6f8;
+    font-weight: 900;
+  }
+  .modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(17, 24, 39, .38);
+    z-index: 50;
+  }
+  .modal.open { display: flex; }
+  .dialog {
+    width: min(1180px, calc(100vw - 60px));
+    max-height: calc(100vh - 70px);
+    overflow: auto;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, .28);
+  }
+  .dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 18px;
+    background: #111827;
+    color: #fff;
+    font-weight: 900;
+    font-size: 18px;
+  }
+  .dialog-body { padding: 16px 18px; }
+  .dialog-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 18px;
+    border-top: 1px solid #e5e7eb;
+  }
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .summary-card {
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    background: #fff7ed;
+    padding: 12px;
+  }
+  .summary-card small {
+    display: block;
+    margin-bottom: 5px;
+    color: #9a3412;
+    font-weight: 800;
+  }
+  .summary-card strong { font-size: 17px; }
+  .modal table { min-width: 1000px; }
+  .select-btn {
+    border: 1px solid #fdba74;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #9a3412;
+    padding: 5px 10px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="top">
+    <h1>구매요청-상품 <span>★</span></h1>
+    <div>
+      <div class="breadcrumb">Home &gt; 구매요청목록 &gt; 구매요청-상품</div>
+      <div class="actions">
+        <button class="btn primary">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="note">
+    구매시스템의 상품 구매요청 정보를 NEW MIS 실행예산 &gt; 재료비 &gt; 상품재료비 계획과 매핑하는 참고 화면입니다.
+  </p>
+
+  <section class="section">
+    <div class="section-title"><span>결재정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">결재유형</div>
+      <div class="value"><input value="구매요청" readonly /></div>
+      <div class="label">결재번호</div>
+      <div class="value"><input value="A260303413 / 1" readonly /></div>
+      <div class="label">결재상태</div>
+      <div class="value"><input value="승인" readonly /></div>
+      <div class="label">결재제목</div>
+      <div class="value"><input value="26년 SKAX Homepage 운영 / 올가나이즈코리아주식회사 / Alli 챗봇 (9개월)" readonly /></div>
+      <div class="label">결재요청자</div>
+      <div class="value"><input value="테윤정" readonly /></div>
+      <div class="label">결재승인일시</div>
+      <div class="value"><input value="2026/03/20 13:57" readonly /></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span>프로젝트정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">프로젝트명</div>
+      <div class="value"><input value="26년 SKAX Homepage 운영" readonly /></div>
+      <div class="label">프로젝트번호</div>
+      <div class="value"><input value="IV107112" readonly /></div>
+      <div class="label">고객사명</div>
+      <div class="value"><input value="테고4" readonly /></div>
+      <div class="label">프로젝트기간</div>
+      <div class="value"><input value="2025/12/17  ~  2026/12/31" readonly /></div>
+      <div class="label">구매요청금액</div>
+      <div class="value"><input class="right" value="27,000,000" readonly /></div>
+      <div class="label">예산 계획 매핑</div>
+      <div class="value new-field-highlight">
+        <div class="map-box">
+          <input id="mapped-product-field" value="미매핑" readonly />
+          <button class="btn dark" onclick="openProductMappingModal()">계획 매핑</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span>기본정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">구매요청번호</div>
+      <div class="value"><input value="1001038003" readonly /></div>
+      <div class="label">구매요청명</div>
+      <div class="value"><input value="26년 SKAX Homepage 운영 / 올가나이즈코리아주식회사" readonly /></div>
+      <div class="label">협력사명</div>
+      <div class="value"><input value="올가나이즈코리아주식회사 / 7338101035" readonly /></div>
+      <div class="label">협력사담당자명</div>
+      <div class="value"><input value="이원강" readonly /></div>
+      <div class="label">협력사담당자연락처</div>
+      <div class="value"><input value="025610103" readonly /></div>
+      <div class="label">협력사담당자Email</div>
+      <div class="value"><input value="wonkang.lee@allganize.ai" readonly /></div>
+      <div class="label">통화</div>
+      <div class="value"><input value="KRW" readonly /></div>
+      <div class="label">구매유형</div>
+      <div class="value"><input value="상품 / 상품(HW/SW)" readonly /></div>
+      <div class="label">구매 Buyer</div>
+      <div class="value"><input value="홍유미 / A02" readonly /></div>
+      <div class="label">구매요청부서</div>
+      <div class="value"><input value="AI IT추진팀 / 131800" readonly /></div>
+      <div class="label">구매요청자</div>
+      <div class="value"><input value="테윤정" readonly /></div>
+      <div class="label">구매요청금액</div>
+      <div class="value"><input class="right" value="27,000,000" readonly /></div>
+    </div>
+    <div class="form-grid full">
+      <div class="label">비고</div>
+      <div class="value">
+        <textarea readonly>SKAX/26년 SKAX Homepage 운영_챗봇 라이선스 갱신 / 올가나이즈</textarea>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span>품목정보</span><span class="collapse">⌃</span></div>
+    <div class="result-count">Results : 3</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px"></th>
+            <th style="width:60px">항번</th>
+            <th style="width:100px">품목코드</th>
+            <th style="width:160px">분류명</th>
+            <th style="width:220px">표준품명</th>
+            <th style="width:180px">제조사</th>
+            <th style="width:140px">모델명</th>
+            <th style="width:70px">수량</th>
+            <th style="width:110px">단가</th>
+            <th style="width:120px">금액</th>
+            <th style="width:115px">요청납품일</th>
+            <th style="width:115px">예산시작일</th>
+            <th style="width:115px">예산종료일</th>
+            <th style="width:90px">PO번호</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="selected">
+            <td class="row-arrow">›</td>
+            <td>10</td>
+            <td>SW00014</td>
+            <td>소프트웨어-경영/인사</td>
+            <td>HRMS(인사관리)</td>
+            <td>휴먼컨설팅그룹</td>
+            <td>hunel</td>
+            <td>1</td>
+            <td class="right">9,000,000</td>
+            <td class="right">9,000,000</td>
+            <td>2026/04/30</td>
+            <td>2026/04/01</td>
+            <td>2026/12/31</td>
+            <td>-</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>20</td>
+            <td>SW00014</td>
+            <td>소프트웨어-경영/인사</td>
+            <td>AI 챗봇 운영 라이선스</td>
+            <td>올가나이즈코리아</td>
+            <td>Alli</td>
+            <td>1</td>
+            <td class="right">12,000,000</td>
+            <td class="right">12,000,000</td>
+            <td>2026/04/30</td>
+            <td>2026/04/01</td>
+            <td>2026/12/31</td>
+            <td>-</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>30</td>
+            <td>SW00014</td>
+            <td>소프트웨어-경영/인사</td>
+            <td>운영지원 패키지</td>
+            <td>올가나이즈코리아</td>
+            <td>Support</td>
+            <td>1</td>
+            <td class="right">6,000,000</td>
+            <td class="right">6,000,000</td>
+            <td>2026/04/30</td>
+            <td>2026/04/01</td>
+            <td>2026/12/31</td>
+            <td>-</td>
+          </tr>
+          <tr class="sum-row">
+            <td colspan="9">합계</td>
+            <td class="right">27,000,000</td>
+            <td colspan="4"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div class="modal" id="product-mapping-modal" aria-hidden="true">
+  <div class="dialog">
+    <div class="dialog-head">
+      <span>NEW MIS 상품재료비 계획 매핑</span>
+      <button class="btn" onclick="closeProductMappingModal()">닫기</button>
+    </div>
+    <div class="dialog-body">
+      <div class="summary">
+        <div class="summary-card"><small>구매요청번호</small><strong>1001038003</strong></div>
+        <div class="summary-card"><small>구매요청금액</small><strong>27,000,000원</strong></div>
+        <div class="summary-card"><small>구매 프로젝트기간</small><strong>2025-12-17 ~ 2026-12-31</strong></div>
+        <div class="summary-card"><small>체크 기준</small><strong>금액 / 시작일 / 종료일</strong></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:90px">선택</th>
+              <th>계획번호</th>
+              <th>프로젝트</th>
+              <th>상세계정</th>
+              <th>계획금액</th>
+              <th>계획시작일</th>
+              <th>계획종료일</th>
+              <th>체크결과</th>
+            </tr>
+          </thead>
+          <tbody id="product-plan-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn" onclick="closeProductMappingModal()">취소</button>
+      <button class="btn dark" onclick="confirmProductMapping()">매핑 확정</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const productPlans = [
+    { id: 'MAT-2026-04-001', project: 'IV107112 / 26년 SKAX Homepage 운영', account: '상품재료비', amount: '27,000,000', start: '2026-04-01', end: '2026-12-31', result: '금액 일치 / 기간 확인 필요' },
+    { id: 'MAT-2026-04-002', project: '30131234-D001 / 예산관리시스템 목업용', account: '상품재료비', amount: '18,000,000', start: '2026-04-01', end: '2026-09-30', result: '금액 불일치' },
+    { id: 'MAT-2026-07-003', project: 'IV107112 / 26년 SKAX Homepage 운영', account: '상품재료비', amount: '27,000,000', start: '2026-07-01', end: '2026-12-31', result: '시작일 불일치' },
+  ];
+  let selectedProductPlanId = productPlans[0].id;
+
+  function renderProductPlans() {
+    const body = document.getElementById('product-plan-body');
+    body.innerHTML = productPlans.map(plan => `
+      <tr class="${selectedProductPlanId === plan.id ? 'selected' : ''}">
+        <td><button class="select-btn" onclick="selectProductPlan('${plan.id}')">${selectedProductPlanId === plan.id ? '선택됨' : '선택'}</button></td>
+        <td>${plan.id}</td>
+        <td>${plan.project}</td>
+        <td>${plan.account}</td>
+        <td class="right">${plan.amount}원</td>
+        <td>${plan.start}</td>
+        <td>${plan.end}</td>
+        <td>${plan.result}</td>
+      </tr>
+    `).join('');
+  }
+
+  function selectProductPlan(id) {
+    selectedProductPlanId = id;
+    renderProductPlans();
+  }
+
+  function openProductMappingModal() {
+    renderProductPlans();
+    document.getElementById('product-mapping-modal').classList.add('open');
+  }
+
+  function closeProductMappingModal() {
+    document.getElementById('product-mapping-modal').classList.remove('open');
+  }
+
+  function confirmProductMapping() {
+    const plan = productPlans.find(item => item.id === selectedProductPlanId);
+    document.getElementById('mapped-product-field').value = plan ? `${plan.id} / ${plan.amount}원` : '미매핑';
+    closeProductMappingModal();
+  }
+</script>
+</body>
+</html>
