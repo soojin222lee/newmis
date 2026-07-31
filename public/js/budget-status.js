@@ -12336,6 +12336,324 @@ renderAccountMonthlyBudgetTable = function(data, account) {
   return account === CATS[4] ? html.replaceAll(CATS[4], 'A/S비') : html;
 };
 
+// AI GUIDE: 인건비 상세 계정 목업입니다.
+// - 실투입인건비: SCM 확정완료 인력을 선택 등록하는 기존 화면을 그대로 사용합니다.
+// - 이관인건비: 이관외주비/이관재료비와 동일하게 Receiver Project만 신규 등록하고 Sender Project는 조회 전용입니다.
+// - OT비: 경비 자원계획처럼 월별 금액을 직접 키인해 인건비 예산내역에 반영합니다.
+var laborKindFinal = 'direct';
+var laborTransferEditorOpenFinal = false;
+var editingLaborTransferIdFinal = null;
+
+const laborTransferRowsByProjectFinal = {};
+const laborOtRowsByProjectFinal = {};
+
+function getLaborTransferRowsFinal(proj = currentBudgetProj) {
+  if (!laborTransferRowsByProjectFinal[proj]) {
+    laborTransferRowsByProjectFinal[proj] = [
+      { id:'lt-001', transferType:'Receiver Project', expectedMonth:'2026-09', amount:18000000, description:'PMO 분석설계 인력비 이관 수취', status:'계획', actualized:false },
+      { id:'lt-002', transferType:'Receiver Project', expectedMonth:'2027-02', amount:12500000, description:'타 프로젝트 잔여 인건비 이관 수취', status:'계획', actualized:false },
+      { id:'lt-003', transferType:'Sender Project', expectedMonth:'2026-06', amount:-7200000, description:'선행 검증 인력비 타 프로젝트 배부', status:'집행완료', actualized:true },
+    ];
+  }
+  return laborTransferRowsByProjectFinal[proj];
+}
+
+function getLaborOtRowsFinal(proj = currentBudgetProj) {
+  if (!laborOtRowsByProjectFinal[proj]) {
+    laborOtRowsByProjectFinal[proj] = [
+      { id:'ot-01', accountCode:'701301', accountName:'종업원급여-OT', carried:0, actual:3200000, monthly:[0, 0, 0, 5200000, 5800000, 6200000, 6400000, 4500000, 3000000, 0] },
+      { id:'ot-02', accountCode:'701302', accountName:'월별 OT 계획', carried:0, actual:0, monthly:[0, 0, 0, 1800000, 2200000, 2400000, 2500000, 1600000, 900000, 0] },
+    ];
+  }
+  return laborOtRowsByProjectFinal[proj];
+}
+
+function getLaborTransferAmountForMonthFinal(month) {
+  return getLaborTransferRowsFinal().reduce((sum, row) => row.expectedMonth === month ? sum + Number(row.amount || 0) : sum, 0);
+}
+
+function getLaborTransferPlanTotalFinal() {
+  return getLaborTransferRowsFinal().reduce((sum, row) => sum + Number(row.amount || 0), 0);
+}
+
+function getLaborTransferActualTotalFinal() {
+  return getLaborTransferRowsFinal().reduce((sum, row) => row.actualized ? sum + Number(row.amount || 0) : sum, 0);
+}
+
+function getLaborOtAmountForMonthFinal(month) {
+  const idx = EXPENSE_PLAN_MONTHS.indexOf(month);
+  if (idx < 0) return 0;
+  return getLaborOtRowsFinal().reduce((sum, row) => sum + Number(row.monthly[idx] || 0), 0);
+}
+
+function getLaborOtPlanTotalFinal() {
+  return getLaborOtRowsFinal().reduce((sum, row) => sum + row.monthly.reduce((s, v) => s + Number(v || 0), 0), 0);
+}
+
+function getLaborOtActualTotalFinal() {
+  return getLaborOtRowsFinal().reduce((sum, row) => sum + Number(row.actual || 0), 0);
+}
+
+function switchLaborKindFinal(kind) {
+  laborKindFinal = ['direct', 'transfer', 'ot'].includes(kind) ? kind : 'direct';
+  laborTransferEditorOpenFinal = false;
+  editingLaborTransferIdFinal = null;
+  renderBudgetPage();
+}
+
+function renderLaborKindTabsFinal() {
+  const tabs = [
+    { step:'01', label:'실투입인건비', desc:'SCM 확정 인력', active:laborKindFinal === 'direct', action:"switchLaborKindFinal('direct')" },
+    { step:'02', label:'이관인건비', desc:'Receiver/Sender 이관', active:laborKindFinal === 'transfer', action:"switchLaborKindFinal('transfer')" },
+    { step:'03', label:'OT비', desc:'월별 금액 키인', active:laborKindFinal === 'ot', action:"switchLaborKindFinal('ot')" },
+  ];
+  return `
+    <div class="cost-category-board">
+      <div class="cost-category-board-head">
+        <div>
+          <strong>상세 계정 선택</strong>
+          <span>인건비 상세 계정을 먼저 선택한 뒤 아래에서 계획을 등록하거나 수정합니다.</span>
+        </div>
+        <p>인건비는 실투입인건비, 이관인건비, OT비로 나누어 계획과 실적을 관리합니다.</p>
+      </div>
+      <div class="os-kind-tabs os-kind-tabs-strong material labor-kind-tabs">
+        ${tabs.map(tab => `
+          <button class="${tab.active ? 'active' : ''}" onclick="${tab.action}">
+            <em>${tab.step}</em>
+            <strong>${tab.label}</strong>
+            <span>${tab.desc}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+function openLaborTransferNewFinal() {
+  laborKindFinal = 'transfer';
+  editingLaborTransferIdFinal = null;
+  laborTransferEditorOpenFinal = true;
+  renderBudgetPage();
+}
+
+function closeLaborTransferEditorFinal() {
+  editingLaborTransferIdFinal = null;
+  laborTransferEditorOpenFinal = false;
+  renderBudgetPage();
+}
+
+function editLaborTransferFinal(id) {
+  const row = getLaborTransferRowsFinal().find(item => item.id === id);
+  if (!row) return;
+  if (row.transferType === 'Sender Project' || row.actualized || row.status === '집행완료') {
+    showToast('Sender Project 또는 집행완료 건은 조회만 가능합니다.');
+    return;
+  }
+  editingLaborTransferIdFinal = id;
+  laborTransferEditorOpenFinal = true;
+  laborKindFinal = 'transfer';
+  renderBudgetPage();
+}
+
+function saveLaborTransferFinal() {
+  const rows = getLaborTransferRowsFinal();
+  const editing = editingLaborTransferIdFinal ? rows.find(row => row.id === editingLaborTransferIdFinal) : null;
+  if (editing && (editing.transferType === 'Sender Project' || editing.actualized || editing.status === '집행완료')) {
+    showToast('Sender Project 또는 집행완료 건은 수정할 수 없습니다.');
+    return;
+  }
+  const amount = parseBudgetAmount(document.getElementById('labor-transfer-amount')?.value || 0);
+  if (!amount) {
+    showToast('이관인건비 금액을 입력해 주세요.');
+    return;
+  }
+  const payload = {
+    id: editing?.id || `lt-${Date.now()}`,
+    transferType:'Receiver Project',
+    expectedMonth: document.getElementById('labor-transfer-month')?.value || '2026-10',
+    amount: Math.abs(amount),
+    description: document.getElementById('labor-transfer-desc')?.value || '타 프로젝트 잔여 인건비 이관 수취',
+    status: editing?.status || '계획',
+    actualized:false,
+  };
+  if (editing) Object.assign(editing, payload);
+  else rows.unshift(payload);
+  editingLaborTransferIdFinal = null;
+  laborTransferEditorOpenFinal = false;
+  showToast('이관인건비 계획이 저장되었습니다.');
+  renderBudgetPage();
+}
+
+function renderLaborTransferFormFinal(editing) {
+  return `
+    <div class="labor-card material-transfer-form-card">
+      <div class="bpo-form-head">
+        <div>
+          <strong>${editing ? '이관인건비 계획 수정' : '이관인건비 계획 입력'}</strong>
+          <span>신규 등록은 Receiver Project만 가능하며, Sender Project는 집행완료 후 조회 전용으로 반영됩니다.</span>
+        </div>
+        <button class="labor-sub-btn" onclick="closeLaborTransferEditorFinal()">닫기</button>
+      </div>
+      <div class="labor-form os-other-form material-transfer-form">
+        <label><span>Project Type</span><input value="Receiver Project" readonly></label>
+        <label><span>이관예정월</span><input id="labor-transfer-month" type="month" value="${editing?.expectedMonth || '2026-10'}"></label>
+        <label><span>금액</span><input id="labor-transfer-amount" inputmode="numeric" value="${editing ? Math.abs(editing.amount || 0) : ''}" placeholder="예: 18000000"></label>
+        <label class="wide"><span>이관 사유</span><input id="labor-transfer-desc" value="${editing?.description || ''}" placeholder="예: 타 프로젝트 잔여 인건비 이관 수취"></label>
+      </div>
+      <div class="bpo-rule-note">
+        <strong>Receiver Project 기준</strong>
+        <span>이관인건비 신규 계획은 수취 프로젝트 기준 플러스 금액으로 등록됩니다. Sender Project 건은 집행 완료 후 조회 데이터로만 표시합니다.</span>
+      </div>
+      <div class="labor-actions">
+        <button class="labor-main-btn" onclick="saveLaborTransferFinal()">${editing ? '수정 저장' : '등록'}</button>
+      </div>
+    </div>`;
+}
+
+function renderLaborTransferPanelFinal() {
+  const rows = getLaborTransferRowsFinal();
+  const editing = editingLaborTransferIdFinal ? rows.find(row => row.id === editingLaborTransferIdFinal) : null;
+  const editorOpen = laborTransferEditorOpenFinal || !!editing;
+  const total = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const listRows = rows.map((row, idx) => {
+    const locked = row.transferType === 'Sender Project' || row.actualized || row.status === '집행완료';
+    const amountClass = row.amount < 0 ? 'danger' : 'good';
+    return `
+      <div class="bpo-list-row material-transfer-row ${editingLaborTransferIdFinal === row.id ? 'active' : ''}">
+        <span>${idx + 1}</span>
+        <span>${row.transferType || 'Receiver Project'}</span>
+        <span>${row.expectedMonth || '-'}</span>
+        <strong class="${amountClass}">${fmt(row.amount || 0)}원</strong>
+        <span>${row.description || '-'}</span>
+        <em>${row.status || '계획'}</em>
+        ${locked
+          ? '<span class="bpo-readonly-text">조회</span>'
+          : `<button class="labor-sub-btn" onclick="editLaborTransferFinal('${row.id}')">수정</button>`}
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="os-sub-summary ma material-transfer-summary">
+      <div><strong>${rows.length}</strong><span>이관인건비 건수</span></div>
+      <div><strong>${fmt(total)}원</strong><span>순 이관금액</span></div>
+      <p>신규 계획 등록은 Receiver Project만 가능합니다. Sender Project는 타 시스템에서 집행 완료 후 이관 결과로 수신되어 리스트에서 조회만 가능합니다.</p>
+    </div>
+    <div class="os-registered-card material-transfer-list-card">
+      <div class="labor-flow-title">
+        <strong>이관인건비 계획 등록</strong>
+        ${editorOpen ? '' : '<button class="labor-main-btn" onclick="openLaborTransferNewFinal()">신규등록</button>'}
+      </div>
+      <div class="bpo-list-card material-transfer-list labor-transfer-list">
+        <div class="bpo-list-head material-transfer-head">
+          <span>No</span><span>Project Type</span><span>이관예정월</span><span>금액</span><span>이관 사유</span><span>상태</span><span></span>
+        </div>
+        ${listRows || '<div class="labor-empty">등록된 이관인건비 계획이 없습니다.</div>'}
+      </div>
+    </div>
+    ${editorOpen ? renderLaborTransferFormFinal(editing) : ''}`;
+}
+
+function saveLaborOtPlanFinal() {
+  getLaborOtRowsFinal().forEach(row => {
+    row.monthly = EXPENSE_PLAN_MONTHS.map((month, idx) => {
+      const el = document.getElementById(`labor-ot-${row.id}-${idx}`);
+      return parseBudgetAmount(el ? el.value : row.monthly[idx] || 0);
+    });
+  });
+  showToast('OT비 월별 계획이 저장되었습니다.');
+  renderBudgetPage();
+}
+
+function renderLaborOtPanelFinal() {
+  const rows = getLaborOtRowsFinal();
+  const body = rows.map(row => {
+    const plan = row.monthly.reduce((sum, value) => sum + Number(value || 0), 0);
+    return `
+      <tr>
+        <td>${row.accountCode}</td>
+        <td><strong>${row.accountName}</strong></td>
+        <td class="num">${fmt(row.carried || 0)}</td>
+        <td class="num">${fmt(plan)}</td>
+        <td class="num">${fmt(row.actual || 0)}</td>
+        ${EXPENSE_PLAN_MONTHS.map((month, idx) => `
+          <td><input class="expense-month-input" id="labor-ot-${row.id}-${idx}" value="${row.monthly[idx] || 0}" inputmode="numeric"></td>
+        `).join('')}
+      </tr>`;
+  }).join('');
+  return `
+    <div class="expense-plan-panel labor-ot-panel">
+      <div class="expense-plan-head">
+        <div>
+          <div class="expense-plan-title">OT비 월별 계획 <span>총 ${rows.length}건</span></div>
+          <p>OT비는 경비 자원계획과 동일하게 월별 계획금액을 직접 입력합니다. 저장 후 인건비 예산내역의 OT비 행에 반영됩니다.</p>
+        </div>
+        <div class="expense-plan-actions">
+          <button class="labor-main-btn" onclick="saveLaborOtPlanFinal()">계획 저장</button>
+        </div>
+      </div>
+      <div class="expense-grid-wrap">
+        <table class="expense-grid-table expense-grid-table-final">
+          <thead>
+            <tr>
+              <th rowspan="2">계정코드</th>
+              <th rowspan="2">계정명</th>
+              <th rowspan="2">이전계획</th>
+              <th rowspan="2">계획</th>
+              <th rowspan="2">실적</th>
+              <th colspan="${EXPENSE_PLAN_MONTHS.length}">월별 계획</th>
+            </tr>
+            <tr>${EXPENSE_PLAN_MONTHS.map(m => `<th>${m}</th>`).join('')}</tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function renderLaborDetailPlanPanelFinal(data) {
+  if (laborKindFinal === 'transfer') return renderLaborTransferPanelFinal();
+  if (laborKindFinal === 'ot') return renderLaborOtPanelFinal();
+  return renderLaborAssignmentPanel(data);
+}
+
+var getMonthlyBudgetRowsBeforeLaborDetailFinal = getMonthlyBudgetRows;
+getMonthlyBudgetRows = function(data, account) {
+  if (account !== CATS[0]) return getMonthlyBudgetRowsBeforeLaborDetailFinal(data, account);
+  const totalActual = calcActual(data, account) + calcQuasi(data, account);
+  const transferMonths = data.months.map(mo => getLaborTransferAmountForMonthFinal(mo.m));
+  const otMonths = data.months.map(mo => getLaborOtAmountForMonthFinal(mo.m));
+  const directMonths = data.months.map((mo, idx) => Math.max(getMonthAccountValue(mo, account) - transferMonths[idx] - otMonths[idx], 0));
+  const directPlan = directMonths.reduce((sum, value) => sum + value, 0);
+  const transferPlan = transferMonths.reduce((sum, value) => sum + value, 0);
+  const otPlan = otMonths.reduce((sum, value) => sum + value, 0);
+  const transferActual = getLaborTransferActualTotalFinal();
+  const otActual = getLaborOtActualTotalFinal();
+  return [
+    { name:'실투입인건비', plan:directPlan, actual:Math.max(totalActual - transferActual - otActual, 0), remain:Math.max(directPlan - Math.max(totalActual - transferActual - otActual, 0), 0), months:directMonths },
+    { name:'이관인건비', plan:transferPlan, actual:transferActual, remain:Math.max(transferPlan - transferActual, 0), months:transferMonths },
+    { name:'OT비', plan:otPlan, actual:otActual, remain:Math.max(otPlan - otActual, 0), months:otMonths },
+  ];
+};
+
+var renderBudgetAccountEditorBeforeLaborDetailFinal = renderBudgetAccountEditor;
+renderBudgetAccountEditor = function(data, account) {
+  if (account !== CATS[0]) return renderBudgetAccountEditorBeforeLaborDetailFinal(data, account);
+  return `
+    <div class="setup-editor">
+      <div class="setup-editor-head">
+        <button class="budget-process-back" onclick="closeBudgetAccountEditor()">← 계정 선택</button>
+        <div>
+          <div class="setup-title">인건비 수정</div>
+          <div class="setup-editor-sub">실투입인건비, 이관인건비, OT비를 구분해 계획을 등록하고 월별 예산내역에 반영합니다.</div>
+        </div>
+      </div>
+      ${renderAccountMonthlyBudgetTable(data, account)}
+      <div class="labor-panel">
+        ${renderLaborKindTabsFinal()}
+        ${renderLaborDetailPlanPanelFinal(data)}
+      </div>
+    </div>`;
+};
+
 var getExecPlanAccountsBeforeAsCost = getExecPlanAccounts;
 getExecPlanAccounts = function(data, actual, quasi) {
   ensureAsCostPlanAmount(data);

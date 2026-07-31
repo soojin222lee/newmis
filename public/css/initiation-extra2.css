@@ -4234,6 +4234,12 @@
   font-weight: 950;
 }
 
+.labor-transfer-list .material-transfer-head,
+.labor-transfer-list .material-transfer-row {
+  grid-template-columns: 72px 160px 130px 160px minmax(320px, 1fr) 120px 96px;
+  min-width: 1180px;
+}
+
 .material-transfer-list .material-transfer-row > em {
   justify-content: center;
   color: #9a3412;
