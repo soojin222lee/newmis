@@ -3,6 +3,9 @@ node_modules/
 .env.*
 *.log
 
+# Runtime-generated data store (server.js saveData)
+data.json
+
 # Local editor/assistant state
 .claude/
 .restore/

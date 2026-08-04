@@ -322,11 +322,15 @@ async function saveAction() {
                   : (r.memos.length > 0 || chks.some(Boolean)) ? '검토중' : '미조치';
 
   try {
-    await fetch(`/api/risks/${r.id}/memo`, {
+    const res = await fetch(`/api/risks/${r.id}/memo`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ memo: newMemo, checks: chks, status: newStatus })
     });
-  } catch(e) {}
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+  } catch(e) {
+    showToast('⚠️ 저장에 실패했습니다. 다시 시도해 주세요.');
+    return;
+  }
 
   r.memos.push(newMemo);
   r.checks = chks;
