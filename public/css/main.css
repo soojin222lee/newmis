@@ -3727,14 +3727,18 @@ body {
   position: static;
 }
 .top-actions .purchase-ref-btn {
-  border-color: #ef4444;
-  background: #fff;
-  color: #ef4444;
+  height: 44px;
+  padding: 0 20px;
+  font-size: 15px;
+  font-weight: 700;
+  border-color: #dc2626 !important;
+  background: #ef4444 !important;
+  color: #fff !important;
 }
 .top-actions .purchase-ref-btn:hover {
-  border-color: #dc2626;
-  background: #fff1f2;
-  color: #dc2626;
+  border-color: #b91c1c !important;
+  background: #dc2626 !important;
+  color: #fff !important;
 }
 .role-switch {
   display: inline-flex;

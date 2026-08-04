@@ -362,18 +362,6 @@ function initDashboard() {
                 <strong>30131234-D001</strong>
                 <span>예산관리시스템 목업용</span>
               </button>
-              <button onclick="openAiProjectBudget('cloud')">
-                <strong>IV107786</strong>
-                <span>26년 AX Solution서비스팀 그룹웨어 사업개발 활동 관리</span>
-              </button>
-              <button onclick="openAiProjectBudget('erp')">
-                <strong>IV107785</strong>
-                <span>출입통제 시스템 노후 서버 교체</span>
-              </button>
-              <button onclick="openAiProjectBudget('mobile')">
-                <strong>IV107784</strong>
-                <span>SK에코플랜트 배터리얼즈 26년 현업 주도 SOP 체계 구축 지원</span>
-              </button>
             </div>
           </div>
         </div>
@@ -514,18 +502,6 @@ function renderPmDashboard() {
               <button onclick="openAiProjectBudget('budgetMock')">
                 <strong>30131234-D001</strong>
                 <span>예산관리시스템 목업용</span>
-              </button>
-              <button onclick="openAiProjectBudget('cloud')">
-                <strong>IV107786</strong>
-                <span>26년 AX Solution서비스팀 그룹웨어 사업개발 활동 관리</span>
-              </button>
-              <button onclick="openAiProjectBudget('erp')">
-                <strong>IV107785</strong>
-                <span>출입통제 시스템 노후 서버 교체</span>
-              </button>
-              <button onclick="openAiProjectBudget('mobile')">
-                <strong>IV107784</strong>
-                <span>SK에코플랜트 배터리얼즈 26년 현업 주도 SOP 체계 구축 지원</span>
               </button>
             </div>
           </div>
