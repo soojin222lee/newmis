@@ -534,6 +534,58 @@
   .match-badge.none { background: #f1f5f9; color: #94a3b8; }
   .input-cost-grid tr.reco-row td { background: #f0fdf4; }
   .input-cost-grid tr.reco-row.selected td { background: #dcfce7; }
+  .icm-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .icm-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #f9fafb;
+  }
+  .icm-card small { display: block; margin-bottom: 4px; color: #6b7280; font-size: 11px; font-weight: 800; }
+  .icm-card strong { color: #111827; font-size: 15px; font-weight: 900; }
+  .icm-table-wrap {
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    overflow: auto;
+  }
+  .icm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .icm-table th {
+    height: 34px;
+    padding: 0 12px;
+    background: #e6e8ed;
+    color: #111827;
+    font-weight: 900;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .icm-table td {
+    height: 34px;
+    padding: 0 12px;
+    border-top: 1px solid #eef0f3;
+    background: #ffffff;
+    white-space: nowrap;
+  }
+  .icm-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .icm-table td.company { font-weight: 900; }
+  .icm-table tr.selected td { background: #fff1f2; }
+  .icm-table tr.reco-row td { background: #f0fdf4; }
+  .icm-table tr.reco-row.selected td { background: #dcfce7; }
+  .icm-select-btn {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #111827;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .icm-table tr.selected .icm-select-btn { border-color: #111827; background: #111827; color: #ffffff; }
 </style>
 </head>
 <body>
@@ -737,59 +789,23 @@
       <button onclick="closeInputCostModal()" title="닫기">×</button>
     </div>
     <div class="input-cost-body">
-      <div class="partner-row new-field-highlight">
-        <span>협력사명</span>
-        <input value="5388603132" readonly />
-        <input value="애커튼테크놀로지서비스" readonly />
+      <div class="icm-summary">
+        <div class="icm-card"><small>협력사</small><strong>애커튼테크놀로지서비스</strong></div>
+        <div class="icm-card"><small>구매요청금액</small><strong>154,288,325원</strong></div>
+        <div class="icm-card"><small>프로젝트기간</small><strong>2026/04/01 ~ 2026/06/30</strong></div>
+        <div class="icm-card"><small>체크 기준</small><strong>금액 / 시작일 / 종료일</strong></div>
       </div>
-
-      <div class="cost-summary-row new-field-highlight">
-        <label>Item 합계금액</label>
-        <input value="154,288,325" readonly />
-        <label>선택한 자원 합계 금액</label>
-        <input value="154,288,325" readonly />
-      </div>
-
-      <div class="match-basis">
-        <span class="mb-title">매핑 판정 기준</span>
-        <span>구매요청금액 <b>154,288,325원</b></span>
-        <span>프로젝트기간 <b>2026/04/01 ~ 2026/06/30</b></span>
-        <span class="mb-note">각 자원의 금액·계약기간을 기준과 비교해 추천/일치 여부를 표시합니다.</span>
-      </div>
-
-      <h2 class="input-cost-section-title">계약확인 자원 List</h2>
-      <div class="input-cost-grid-wrap">
-        <table class="input-cost-grid">
-          <colgroup>
-            <col style="width:34px" />
-            <col style="width:26px" />
-            <col style="width:96px" />
-            <col style="width:70px" />
-            <col style="width:190px" />
-            <col style="width:80px" />
-            <col style="width:80px" />
-            <col style="width:80px" />
-            <col style="width:100px" />
-            <col style="width:64px" />
-            <col style="width:72px" />
-            <col style="width:80px" />
-            <col style="width:132px" />
-          </colgroup>
+      <div class="icm-table-wrap">
+        <table class="icm-table">
           <thead>
             <tr>
-              <th></th>
-              <th></th>
-              <th>프로젝트 번호</th>
-              <th>라인번호</th>
+              <th style="width:80px">선택</th>
+              <th>계약번호</th>
               <th>업체명</th>
+              <th>계약금액</th>
               <th>계약시작일</th>
               <th>계약종료일</th>
-              <th>계약 M/M</th>
-              <th>금액</th>
-              <th>통화</th>
-              <th>계약완료</th>
-              <th>계약번호</th>
-              <th>판정</th>
+              <th>체크결과</th>
             </tr>
           </thead>
           <tbody id="input-cost-rows"></tbody>
@@ -817,11 +833,12 @@
   function evalInputCostMatch(row) {
     if (!row.vendor) return null;
     const amountMatch = parseCostAmount(row.amount) === inputCostBasis.amount;
-    const periodMatch = row.start === inputCostBasis.start && row.end === inputCostBasis.end;
-    if (amountMatch && periodMatch) return { key: 'match', label: '매핑 추천 · 일치' };
-    if (periodMatch) return { key: 'partial', label: '기간 일치 · 금액 상이' };
-    if (amountMatch) return { key: 'partial', label: '금액 일치 · 기간 상이' };
-    return { key: 'none', label: '불일치' };
+    const startMatch = row.start === inputCostBasis.start;
+    const endMatch = row.end === inputCostBasis.end;
+    if (!amountMatch) return { key: 'none', label: '금액 불일치' };
+    if (!startMatch) return { key: 'partial', label: '금액 일치 / 시작일 불일치' };
+    if (!endMatch) return { key: 'partial', label: '금액 일치 / 종료일 불일치' };
+    return { key: 'match', label: '매핑 추천 · 일치' };
   }
   function recommendedInputCostIndex() {
     const idx = inputCostRows.findIndex(row => {
@@ -834,35 +851,18 @@
 
   function renderInputCostRows() {
     const body = document.getElementById('input-cost-rows');
-    const blankRows = Array.from({ length: 11 }).map((_, idx) => ({
-      projectNo:'IV107121',
-      lineNo: idx + 5,
-      vendor:'',
-      start:'',
-      end:'',
-      mm:'',
-      amount:'',
-      currency:'',
-      contracted:'',
-      contractNo:'',
-    }));
-    body.innerHTML = [...inputCostRows, ...blankRows].map((row, idx) => {
+    body.innerHTML = inputCostRows.map((row, idx) => {
       const match = evalInputCostMatch(row);
+      const isSel = idx === selectedInputCostIndex;
       const recoClass = match && match.key === 'match' ? 'reco-row' : '';
       return `
-      <tr class="${idx === selectedInputCostIndex ? 'selected' : ''} ${recoClass}" ${row.vendor ? `onclick="selectInputCostRow(${idx})"` : ''}>
-        <td class="${idx === selectedInputCostIndex ? 'row-arrow' : ''}">${idx === selectedInputCostIndex ? '&rsaquo;' : idx + 1}</td>
-        <td><input type="checkbox" ${idx === selectedInputCostIndex ? 'checked' : ''} ${row.vendor ? '' : 'disabled'} /></td>
-        <td>${row.projectNo}</td>
-        <td>${row.lineNo}</td>
-        <td class="${row.vendor ? 'company' : 'muted'}">${row.vendor || '-'}</td>
-        <td>${row.start || '-'}</td>
-        <td>${row.end || '-'}</td>
-        <td class="num">${row.mm || '-'}</td>
-        <td class="num">${row.amount || '-'}</td>
-        <td>${row.currency || '-'}</td>
-        <td>${row.contracted || '-'}</td>
+      <tr class="${isSel ? 'selected' : ''} ${recoClass}">
+        <td><button type="button" class="icm-select-btn" onclick="selectInputCostRow(${idx})">${isSel ? '선택됨' : '선택'}</button></td>
         <td>${row.contractNo || '-'}</td>
+        <td class="company">${row.vendor}</td>
+        <td class="num">${row.amount}원</td>
+        <td>${row.start}</td>
+        <td>${row.end}</td>
         <td>${match ? `<span class="match-badge ${match.key}">${match.label}</span>` : '-'}</td>
       </tr>`;
     }).join('');
