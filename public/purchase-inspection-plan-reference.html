@@ -278,7 +278,8 @@
   }
   .st-none { background: #f1f5f9; color: #64748b; }
   .st-created { background: #dbeafe; color: #1d4ed8; }
-  .st-inspected { background: #dcfce7; color: #166534; }
+  .st-progress { background: #fef3c7; color: #92400e; }
+  .st-done { background: #dcfce7; color: #166534; }
   .edit-ok { color: #166534; font-weight: 800; }
   .edit-lock { color: #b45309; font-weight: 800; }
   .lock-note { color: #9ca3af; font-weight: 800; font-size: 12px; }
@@ -434,6 +435,7 @@
             <th>검수계획번호</th>
             <th>검수계획금액(외주비계획)</th>
             <th>검수 상태</th>
+            <th>검수번호</th>
             <th>실투입전표</th>
             <th>실투입금액</th>
             <th>계획수정</th>
@@ -464,14 +466,18 @@
   // 검수계획 = 프로젝트별 인력계획(외주비계획)의 월별 계획을 그대로 끌어온 데이터.
   // 하나의 계약(PO)에 여러 프로젝트가 물릴 수 있어 당월 대상이 여러 건일 수 있다.
   // state: 'none'(실투입 미생성) | 'created'(생성됨·검수 전) | 'inspected'(검수완료)
+  // state: 'none'(미생성) | 'created'(생성됨·검수 전) | 'inProgress'(검수 진행중) | 'done'(검수완료)
+  // 검수번호(4000~)는 검수가 진행중이거나 완료된 건에만 부여된다.
   const planRows = [
-    { month: '2026-07', project: '30129338-D001', no: 'INSP-2026-07-001', amount: 20000000, target: true, state: 'inspected', voucher: '8800490701' },
-    { month: '2026-07', project: '30120011-D002', no: 'INSP-2026-07-014', amount: 12000000, target: true, state: 'created', voucher: '8800490702' },
-    { month: '2026-07', project: '30129338-D001', no: 'INSP-2026-07-021', amount: 6000000, target: true, state: 'none', voucher: null },
-    { month: '2026-06', project: '30129338-D001', no: 'INSP-2026-06-001', amount: 40150990, target: false, state: 'none', voucher: null },
-    { month: '2026-08', project: '30129338-D001', no: 'INSP-2026-08-001', amount: 43800000, target: false, state: 'none', voucher: null },
+    { month: '2026-07', project: '30129338-D001', no: 'INSP-2026-07-001', amount: 20000000, target: true, state: 'done', voucher: '8800490701', inspectionNo: '4001123699' },
+    { month: '2026-07', project: '30120011-D002', no: 'INSP-2026-07-014', amount: 8000000, target: true, state: 'inProgress', voucher: '8800490702', inspectionNo: '4001125512' },
+    { month: '2026-07', project: '30129338-D001', no: 'INSP-2026-07-021', amount: 6000000, target: true, state: 'created', voucher: '8800490703', inspectionNo: null },
+    { month: '2026-07', project: '30120011-D002', no: 'INSP-2026-07-033', amount: 4000000, target: true, state: 'none', voucher: null, inspectionNo: null },
+    { month: '2026-06', project: '30129338-D001', no: 'INSP-2026-06-001', amount: 40150990, target: false, state: 'none', voucher: null, inspectionNo: null },
+    { month: '2026-08', project: '30129338-D001', no: 'INSP-2026-08-001', amount: 43800000, target: false, state: 'none', voucher: null, inspectionNo: null },
   ];
-  let voucherSeq = 702; // 마지막으로 사용한 전표 시퀀스
+  let voucherSeq = 703; // 마지막으로 사용한 전표 시퀀스
+  let inspectionSeq = 4001125512; // 마지막으로 발번한 검수번호
 
   function formatAmount(value) {
     return value.toLocaleString('ko-KR') + '원';
@@ -486,10 +492,13 @@
     return targetRows().filter(row => row.state !== 'none').reduce((sum, row) => sum + row.amount, 0);
   }
   function stateLabel(state) {
-    return state === 'inspected' ? '검수완료' : state === 'created' ? '생성됨 (검수 전)' : '미생성';
+    return state === 'done' ? '검수완료' : state === 'inProgress' ? '검수 진행중' : state === 'created' ? '생성됨 (검수 전)' : '미생성';
   }
   function stateClass(state) {
-    return state === 'inspected' ? 'st-inspected' : state === 'created' ? 'st-created' : 'st-none';
+    return state === 'done' ? 'st-done' : state === 'inProgress' ? 'st-progress' : state === 'created' ? 'st-created' : 'st-none';
+  }
+  function hasInspectionNo(state) {
+    return state === 'inProgress' || state === 'done';
   }
 
   function renderMap() {
@@ -504,6 +513,7 @@
           <td class="right">${formatAmount(row.amount)}</td>
           <td>-</td>
           <td>-</td>
+          <td>-</td>
           <td class="right">-</td>
           <td>-</td>
           <td>당월 아님</td>
@@ -513,7 +523,7 @@
       let action;
       if (row.state === 'none') action = `<button class="btn dark sm" onclick="createActual('${row.no}')">실투입 생성</button>`;
       else if (row.state === 'created') action = `<button class="btn sm" onclick="cancelActual('${row.no}')">실투입 취소</button>`;
-      else action = '<span class="lock-note">취소 불가 (검수완료)</span>';
+      else action = `<span class="lock-note">취소 불가 (${row.state === 'inProgress' ? '검수 진행중' : '검수완료'})</span>`;
       return `
         <tr>
           <td>${row.month}</td>
@@ -521,6 +531,7 @@
           <td>${row.no}</td>
           <td class="right">${formatAmount(row.amount)}</td>
           <td><span class="state-badge ${stateClass(row.state)}">${stateLabel(row.state)}</span></td>
+          <td>${hasInspectionNo(row.state) && row.inspectionNo ? row.inspectionNo : '-'}</td>
           <td>${row.voucher ? row.voucher + ' <span class="src-badge">구매시스템 생성</span>' : '-'}</td>
           <td class="right">${hasActual ? formatAmount(row.amount) : '-'}</td>
           <td>${row.state === 'none' ? '<span class="edit-ok">수정 가능</span>' : '<span class="edit-lock">수정 불가 (실적 반영)</span>'}</td>
@@ -558,8 +569,8 @@
   function cancelActual(no) {
     const row = planRows.find(item => item.no === no);
     if (!row) return;
-    if (row.state === 'inspected') {
-      alert('검수완료된 건은 실투입을 취소할 수 없습니다.');
+    if (row.state === 'inProgress' || row.state === 'done') {
+      alert('검수가 ' + (row.state === 'done' ? '완료된' : '진행 중인') + ' 건은 실투입을 취소할 수 없습니다.');
       return;
     }
     if (row.state !== 'created') return;
@@ -584,7 +595,7 @@
     document.getElementById('request-button').disabled = !hasCreated;
     document.getElementById('footer-request-button').disabled = !hasCreated;
     document.getElementById('request-comment').textContent = hasCreated
-      ? ('생성된 실투입(검수 전)에 대해 검수요청할 수 있습니다. 검수완료 후에는 실투입 취소가 불가합니다.' + (contractMatched ? '' : ' 검수계획 총액이 계약금액과 다르니 필요 시 각 프로젝트 외주비계획을 조정하세요.'))
+      ? ('생성된 실투입(검수 전)에 대해 검수요청할 수 있습니다. 검수가 진행/완료되면 검수번호가 부여되고 실투입 취소가 불가합니다.' + (contractMatched ? '' : ' 검수계획 총액이 계약금액과 다르니 필요 시 각 프로젝트 외주비계획을 조정하세요.'))
       : '당월 대상 검수계획에서 [실투입 생성]으로 실투입을 만든 뒤 검수요청하세요.';
   }
 
@@ -594,10 +605,14 @@
       alert('검수요청할 생성 실투입이 없습니다. 먼저 [실투입 생성]으로 실투입을 만드세요.');
       return;
     }
-    created.forEach(row => { row.state = 'inspected'; });
+    created.forEach(row => {
+      inspectionSeq += 1;
+      row.state = 'inProgress';
+      row.inspectionNo = String(inspectionSeq);
+    });
     renderMap();
     updateCompare();
-    alert('검수요청이 완료되었습니다. 검수완료 건은 실투입을 취소할 수 없습니다.');
+    alert('검수요청이 완료되어 검수번호가 발번되었습니다. 검수가 진행 중인 건은 실투입을 취소할 수 없습니다.');
   }
 
   renderMap();
