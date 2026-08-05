@@ -283,6 +283,16 @@
   .edit-ok { color: #166534; font-weight: 800; }
   .edit-lock { color: #b45309; font-weight: 800; }
   .lock-note { color: #9ca3af; font-weight: 800; font-size: 12px; }
+  .final-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #ede9fe;
+    color: #4c1d95;
+    font-size: 10px;
+    font-weight: 800;
+  }
+  .ver-date { color: #94a3b8; font-size: 11px; font-weight: 700; }
   .plan-basis {
     display: flex;
     align-items: center;
@@ -422,7 +432,7 @@
   <section class="section plan-highlight">
     <div class="section-title"><span class="title-text">검수계획 · 실투입 매핑</span><span class="collapse">⌃</span></div>
     <div class="section-tip">
-      검수계획(프로젝트 인력계획의 월별 외주비계획)에 실투입전표를 1:1로 매핑합니다. 당월 대상 계획은 한 줄씩 실투입을 생성/취소할 수 있습니다. 실투입을 생성하면 실행예산에 실적으로 반영되어 해당 검수계획(외주비계획) 수정이 불가하고, 검수완료된 건은 실투입을 취소할 수 없습니다.
+      검수계획은 각 프로젝트 실행예산 외주비계획의 최종(승인) 버전에서 가져옵니다. 가져온 실행예산 버전을 함께 표시하며, 각 계획에 실투입전표를 1:1로 매핑합니다. 당월 대상 계획은 한 줄씩 실투입을 생성/취소할 수 있습니다. 실투입을 생성하면 실행예산에 실적으로 반영되어 해당 외주비계획 수정이 불가하고, 검수가 진행/완료된 건은 실투입을 취소할 수 없습니다.
     </div>
     <div class="plan-basis" id="plan-total-basis"></div>
     <div class="result-count" id="map-count">Results : 0</div>
@@ -432,7 +442,7 @@
           <tr>
             <th>계획월</th>
             <th>프로젝트</th>
-            <th>검수계획번호</th>
+            <th>실행예산 버전</th>
             <th>검수계획금액(외주비계획)</th>
             <th>검수 상태</th>
             <th>검수번호</th>
@@ -468,13 +478,14 @@
   // state: 'none'(실투입 미생성) | 'created'(생성됨·검수 전) | 'inspected'(검수완료)
   // state: 'none'(미생성) | 'created'(생성됨·검수 전) | 'inProgress'(검수 진행중) | 'done'(검수완료)
   // 검수번호(4000~)는 검수가 진행중이거나 완료된 건에만 부여된다.
+  // 검수계획은 각 프로젝트 실행예산 외주비계획의 최종(승인) 버전에서 가져온다.
   const planRows = [
-    { month: '2026-07', project: '30129338-D001', no: 'INSP-2026-07-001', amount: 20000000, target: true, state: 'done', voucher: '8800490701', inspectionNo: '4001123699' },
-    { month: '2026-07', project: '30120011-D002', no: 'INSP-2026-07-014', amount: 8000000, target: true, state: 'inProgress', voucher: '8800490702', inspectionNo: '4001125512' },
-    { month: '2026-07', project: '30129338-D001', no: 'INSP-2026-07-021', amount: 6000000, target: true, state: 'created', voucher: '8800490703', inspectionNo: null },
-    { month: '2026-07', project: '30120011-D002', no: 'INSP-2026-07-033', amount: 4000000, target: true, state: 'none', voucher: null, inspectionNo: null },
-    { month: '2026-06', project: '30129338-D001', no: 'INSP-2026-06-001', amount: 40150990, target: false, state: 'none', voucher: null, inspectionNo: null },
-    { month: '2026-08', project: '30129338-D001', no: 'INSP-2026-08-001', amount: 43800000, target: false, state: 'none', voucher: null, inspectionNo: null },
+    { month: '2026-07', project: '30129338-D001', no: 'INSP-2026-07-001', amount: 20000000, target: true, state: 'done', voucher: '8800490701', inspectionNo: '4001123699', budgetVersion: 'V3', budgetVersionDate: '2026-07-20' },
+    { month: '2026-07', project: '30120011-D002', no: 'INSP-2026-07-014', amount: 8000000, target: true, state: 'inProgress', voucher: '8800490702', inspectionNo: '4001125512', budgetVersion: 'V4', budgetVersionDate: '2026-07-22' },
+    { month: '2026-07', project: '30129338-D001', no: 'INSP-2026-07-021', amount: 6000000, target: true, state: 'created', voucher: '8800490703', inspectionNo: null, budgetVersion: 'V3', budgetVersionDate: '2026-07-20' },
+    { month: '2026-07', project: '30120011-D002', no: 'INSP-2026-07-033', amount: 4000000, target: true, state: 'none', voucher: null, inspectionNo: null, budgetVersion: 'V4', budgetVersionDate: '2026-07-22' },
+    { month: '2026-06', project: '30129338-D001', no: 'INSP-2026-06-001', amount: 40150990, target: false, state: 'none', voucher: null, inspectionNo: null, budgetVersion: 'V3', budgetVersionDate: '2026-07-20' },
+    { month: '2026-08', project: '30129338-D001', no: 'INSP-2026-08-001', amount: 43800000, target: false, state: 'none', voucher: null, inspectionNo: null, budgetVersion: 'V3', budgetVersionDate: '2026-07-20' },
   ];
   let voucherSeq = 703; // 마지막으로 사용한 전표 시퀀스
   let inspectionSeq = 4001125512; // 마지막으로 발번한 검수번호
@@ -509,7 +520,7 @@
         <tr class="disabled">
           <td>${row.month}</td>
           <td>${row.project}</td>
-          <td>${row.no}</td>
+          <td>${row.budgetVersion} <span class="final-badge">최종</span><br><span class="ver-date">${row.budgetVersionDate} 승인</span></td>
           <td class="right">${formatAmount(row.amount)}</td>
           <td>-</td>
           <td>-</td>
@@ -528,7 +539,7 @@
         <tr>
           <td>${row.month}</td>
           <td>${row.project}</td>
-          <td>${row.no}</td>
+          <td>${row.budgetVersion} <span class="final-badge">최종</span><br><span class="ver-date">${row.budgetVersionDate} 승인</span></td>
           <td class="right">${formatAmount(row.amount)}</td>
           <td><span class="state-badge ${stateClass(row.state)}">${stateLabel(row.state)}</span></td>
           <td>${hasInspectionNo(row.state) && row.inspectionNo ? row.inspectionNo : '-'}</td>
