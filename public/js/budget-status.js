@@ -9015,6 +9015,7 @@ function renderBudgetPage() {
 function renderTotalBudgetBar(budget, actual, quasi, remain, projName='', dplus=0, stage='') {
   const rate     = budget > 0 ? (actual / budget * 100).toFixed(1) : 0;
   const quaRate  = budget > 0 ? (quasi  / budget * 100).toFixed(1) : 0;
+  const remRate  = budget > 0 ? (Math.max(remain, 0) / budget * 100).toFixed(1) : 0;
   const rateColor = rate >= 90 ? '#dc2626' : rate >= 70 ? '#d97706' : '#1d4ed8';
 
   // 프로그레스바 너비 (실집행 + 투입확정 합산이 100% 초과 안 하도록 클램프)
@@ -9037,22 +9038,25 @@ function renderTotalBudgetBar(budget, actual, quasi, remain, projName='', dplus=
       <!-- 하단: 4개 지표 + 프로그레스바 + 집행률 -->
       <div class="tbb-body">
         <div class="tbb-metrics">
-          <div class="tbb-metric">
+          <div class="tbb-metric tbb-metric-plan">
             <span class="tbb-mlabel">계획예산</span>
             <span class="tbb-mval">${fmt(budget)}<span class="tbb-unit">원</span></span>
+            <span class="tbb-msub">프로젝트 총액</span>
           </div>
-          <div class="tbb-arrow">→</div>
           <div class="tbb-metric tbb-metric-act">
             <span class="tbb-mlabel">실집행</span>
             <span class="tbb-mval tbb-act">${fmt(actual)}<span class="tbb-unit">원</span></span>
+            <span class="tbb-msub">집행 ${rate}%</span>
           </div>
           <div class="tbb-metric tbb-metric-qua">
             <span class="tbb-mlabel">투입확정</span>
             <span class="tbb-mval tbb-qua">${fmt(quasi)}<span class="tbb-unit">원</span></span>
+            <span class="tbb-msub">확정 ${quaRate}%</span>
           </div>
           <div class="tbb-metric tbb-metric-rem">
             <span class="tbb-mlabel">투입미정</span>
             <span class="tbb-mval tbb-rem">${fmt(Math.max(remain,0))}<span class="tbb-unit">원</span></span>
+            <span class="tbb-msub">잔여 ${remRate}%</span>
           </div>
         </div>
         <div class="tbb-right">
@@ -12072,7 +12076,7 @@ function getExecBudgetVersionSnapshotsFinal(data) {
   return [
     {
       key:'v3',
-      label:'V1.2',
+      label:'V3',
       date:'2026-07-28',
       status:execBudgetApprovalStateFinal.v3.status,
       owner:'이봄',
@@ -12087,7 +12091,7 @@ function getExecBudgetVersionSnapshotsFinal(data) {
     },
     {
       key:'v2',
-      label:'V1.1',
+      label:'V2',
       date:'2026-07-24',
       status:execBudgetApprovalStateFinal.v2.status,
       owner:'이봄',
@@ -12102,7 +12106,7 @@ function getExecBudgetVersionSnapshotsFinal(data) {
     },
     {
       key:'v1',
-      label:'V1.0',
+      label:'V1',
       date:'2026-07-21',
       status:execBudgetApprovalStateFinal.v1.status,
       owner:'이봄',
@@ -12312,6 +12316,44 @@ function renderBudgetApprovalLineFinal(data) {
     </div>`;
 }
 
+function budgetVersionTotalFinal(version) {
+  return Object.values(version.budgets || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+}
+
+// 선택 버전 상세 내역(읽기 전용): 계정별 금액 + 총액
+function renderBudgetVersionDetailFinal(version) {
+  const accounts = [
+    { key:CATS[0], label:'인건비' },
+    { key:CATS[1], label:'외주비' },
+    { key:CATS[2], label:'재료비' },
+    { key:CATS[3], label:'경비' },
+    { key:CATS[4], label:'A/S비' },
+  ];
+  const total = budgetVersionTotalFinal(version);
+  const approved = version.status === '승인완료';
+  const rows = accounts.map(item => `
+    <div class="vdc-row">
+      <span>${item.label}</span>
+      <strong>${fmt(version.budgets[item.key] || 0)}원</strong>
+    </div>`).join('');
+  return `
+    <div class="version-detail-card">
+      <div class="vdc-head">
+        <div>
+          <strong>${version.label} 상세 내역</strong>
+          <span class="vdc-meta">${version.date} · 작성자 ${version.owner}</span>
+        </div>
+        <span class="vdc-status ${approved ? 'done' : ''}">${version.status}</span>
+      </div>
+      <div class="vdc-memo">${version.memo}</div>
+      <div class="vdc-rows">${rows}</div>
+      <div class="vdc-total">
+        <span>${approved ? '승인 총액' : '작성 총액'}</span>
+        <strong>${fmt(total)}원</strong>
+      </div>
+    </div>`;
+}
+
 renderBudgetSetupOverview = function(data, actual, quasi) {
   ensureAsCostPlanAmount(data);
   const versions = getExecBudgetVersionSnapshotsFinal(data);
@@ -12342,15 +12384,12 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
         <div class="setup-version-tabs vertical" aria-label="실행예산 버전 목록">
           ${versions.map(version => `
             <button class="setup-version-pill ${selectedVersion.key === version.key ? 'active' : ''}" onclick="selectExecBudgetVersionFinal('${version.key}')">
-              <strong>${version.label} ${version.date}</strong>
-              <span>${version.status}</span>
+              <strong>${version.label} · ${version.date}</strong>
+              <span class="svp-total">${version.status === '승인완료' ? '승인 총액' : '총액'} ${fmt(budgetVersionTotalFinal(version))}원</span>
+              <span class="svp-status">${version.status}</span>
             </button>`).join('')}
         </div>
-        <div class="setup-version-note">
-          <strong>${selectedVersion.label}</strong>
-          <span>${selectedVersion.memo}</span>
-          <em>작성자 ${selectedVersion.owner}</em>
-        </div>
+        ${renderBudgetVersionDetailFinal(selectedVersion)}
         <div class="setup-stage-actions">
           ${selectedVersion.status === '작성중'
             ? `<button class="labor-main-btn" onclick="goBudgetSetupStage('edit')">이 버전 계정별 작성 →</button>`
