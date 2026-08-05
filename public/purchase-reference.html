@@ -505,6 +505,35 @@
     background: #111827;
     color: #ffffff;
   }
+  .match-basis {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 0 0 12px;
+    padding: 10px 14px;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    background: #f0fdf4;
+    font-size: 12px;
+    color: #166534;
+  }
+  .match-basis .mb-title { font-weight: 900; }
+  .match-basis b { color: #14532d; }
+  .match-basis .mb-note { color: #4b5563; font-weight: 600; }
+  .match-badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+  .match-badge.match { background: #dcfce7; color: #166534; }
+  .match-badge.partial { background: #fef3c7; color: #92400e; }
+  .match-badge.none { background: #f1f5f9; color: #94a3b8; }
+  .input-cost-grid tr.reco-row td { background: #f0fdf4; }
+  .input-cost-grid tr.reco-row.selected td { background: #dcfce7; }
 </style>
 </head>
 <body>
@@ -716,9 +745,16 @@
 
       <div class="cost-summary-row new-field-highlight">
         <label>Item 합계금액</label>
-        <input value="130,481,055" readonly />
+        <input value="154,288,325" readonly />
         <label>선택한 자원 합계 금액</label>
-        <input value="130,481,055" readonly />
+        <input value="154,288,325" readonly />
+      </div>
+
+      <div class="match-basis">
+        <span class="mb-title">매핑 판정 기준</span>
+        <span>구매요청금액 <b>154,288,325원</b></span>
+        <span>프로젝트기간 <b>2026/04/01 ~ 2026/06/30</b></span>
+        <span class="mb-note">각 자원의 금액·계약기간을 기준과 비교해 추천/일치 여부를 표시합니다.</span>
       </div>
 
       <h2 class="input-cost-section-title">계약확인 자원 List</h2>
@@ -737,6 +773,7 @@
             <col style="width:64px" />
             <col style="width:72px" />
             <col style="width:80px" />
+            <col style="width:132px" />
           </colgroup>
           <thead>
             <tr>
@@ -752,6 +789,7 @@
               <th>통화</th>
               <th>계약완료</th>
               <th>계약번호</th>
+              <th>판정</th>
             </tr>
           </thead>
           <tbody id="input-cost-rows"></tbody>
@@ -768,11 +806,31 @@
 <script>
   const inputCostRows = [
     { projectNo:'IV107121', lineNo:1, vendor:'oo주식회사', start:'2026/01/01', end:'2026/03/31', mm:'3.00', amount:'23,210,580', currency:'KRW', contracted:'Y', contractNo:'4500311570' },
-    { projectNo:'IV107121', lineNo:2, vendor:'BP Korea', start:'2026/04/01', end:'2026/06/30', mm:'4.50', amount:'34,815,870', currency:'KRW', contracted:'Y', contractNo:'4500312456' },
+    { projectNo:'IV107121', lineNo:2, vendor:'BP Korea', start:'2026/04/01', end:'2026/06/30', mm:'4.50', amount:'154,288,325', currency:'KRW', contracted:'Y', contractNo:'4500312456' },
     { projectNo:'IV107121', lineNo:3, vendor:'Vietnam Front Team', start:'2026/07/01', end:'2026/09/30', mm:'5.00', amount:'38,684,605', currency:'KRW', contracted:'N', contractNo:'' },
     { projectNo:'IV107121', lineNo:4, vendor:'AIM Partners', start:'2026/10/01', end:'2026/12/31', mm:'4.35', amount:'33,770,000', currency:'KRW', contracted:'N', contractNo:'' },
   ];
-  let selectedInputCostIndex = 0;
+  const inputCostBasis = { amount: 154288325, start: '2026/04/01', end: '2026/06/30' };
+  function parseCostAmount(value) {
+    return Number(String(value).replace(/[^0-9]/g, '')) || 0;
+  }
+  function evalInputCostMatch(row) {
+    if (!row.vendor) return null;
+    const amountMatch = parseCostAmount(row.amount) === inputCostBasis.amount;
+    const periodMatch = row.start === inputCostBasis.start && row.end === inputCostBasis.end;
+    if (amountMatch && periodMatch) return { key: 'match', label: '매핑 추천 · 일치' };
+    if (periodMatch) return { key: 'partial', label: '기간 일치 · 금액 상이' };
+    if (amountMatch) return { key: 'partial', label: '금액 일치 · 기간 상이' };
+    return { key: 'none', label: '불일치' };
+  }
+  function recommendedInputCostIndex() {
+    const idx = inputCostRows.findIndex(row => {
+      const match = evalInputCostMatch(row);
+      return match && match.key === 'match';
+    });
+    return idx >= 0 ? idx : 0;
+  }
+  let selectedInputCostIndex = recommendedInputCostIndex();
 
   function renderInputCostRows() {
     const body = document.getElementById('input-cost-rows');
@@ -788,8 +846,11 @@
       contracted:'',
       contractNo:'',
     }));
-    body.innerHTML = [...inputCostRows, ...blankRows].map((row, idx) => `
-      <tr class="${idx === selectedInputCostIndex ? 'selected' : ''}" ${row.vendor ? `onclick="selectInputCostRow(${idx})"` : ''}>
+    body.innerHTML = [...inputCostRows, ...blankRows].map((row, idx) => {
+      const match = evalInputCostMatch(row);
+      const recoClass = match && match.key === 'match' ? 'reco-row' : '';
+      return `
+      <tr class="${idx === selectedInputCostIndex ? 'selected' : ''} ${recoClass}" ${row.vendor ? `onclick="selectInputCostRow(${idx})"` : ''}>
         <td class="${idx === selectedInputCostIndex ? 'row-arrow' : ''}">${idx === selectedInputCostIndex ? '&rsaquo;' : idx + 1}</td>
         <td><input type="checkbox" ${idx === selectedInputCostIndex ? 'checked' : ''} ${row.vendor ? '' : 'disabled'} /></td>
         <td>${row.projectNo}</td>
@@ -802,8 +863,9 @@
         <td>${row.currency || '-'}</td>
         <td>${row.contracted || '-'}</td>
         <td>${row.contractNo || '-'}</td>
-      </tr>
-    `).join('');
+        <td>${match ? `<span class="match-badge ${match.key}">${match.label}</span>` : '-'}</td>
+      </tr>`;
+    }).join('');
   }
 
   function selectInputCostRow(index) {
