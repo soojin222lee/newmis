@@ -1170,6 +1170,7 @@ function openBudgetProjectScreen(k) {
   currentBudgetProj = k;
   budgetScreenView = 'detail';
   budgetDetailStep = 'setup';
+  budgetSetupStage = 'history';
   budgetSetupEditAccount = null;
   budgetTransferEditMode = false;
   budgetHistorySelectedVersion = (budgetTransferHistory[k] || [])[0]?.version || null;
@@ -10329,9 +10330,7 @@ function renderBudgetPage() {
   const totQuasi = CATS.reduce((s,c)=>s+quasi[c],0);
   const totRemain= totBudget - totActual - totQuasi;
 
-  const setupBody = budgetSetupEditAccount
-    ? renderBudgetAccountEditor(data, budgetSetupEditAccount)
-    : renderBudgetSetupOverview(data, actual, quasi);
+  const setupBody = renderBudgetSetupOverview(data, actual, quasi);
 
   document.getElementById('budget-body').innerHTML = `
     <button class="mc-back-btn" onclick="budgetScreenView='list';budgetDetailStep='overview';renderBudgetPage()">← 목록으로</button>
@@ -10349,15 +10348,7 @@ function renderBudgetPage() {
         </div>`
       : budgetDetailStep === 'confirm'
         ? renderBudgetConfirmScreen(data, actual, quasi)
-        : `
-          <div class="budget-process-head">
-            <button class="budget-process-back" onclick="budgetScreenView='list';budgetDetailStep='setup';budgetSetupEditAccount=null;renderBudgetPage()">← 목록으로</button>
-            <div>
-              <div class="budget-process-title">상세 예산 수립</div>
-              <div class="budget-process-sub">전체 프로젝트 계획을 확인하고, 4대 계정을 펼쳐 상세 항목까지 검토합니다.</div>
-            </div>
-          </div>
-          ${setupBody}`}
+        : setupBody}
   `;
 }
 
@@ -12259,6 +12250,68 @@ function renderExecBudgetApprovalSummaryFinal(data) {
     </div>`;
 }
 
+// ── 실행예산 상세: 이력 → 계정별 작성 → 결재 3단계 흐름 ──
+var budgetSetupStage = 'history'; // 'history' | 'edit' | 'approval'
+
+function goBudgetSetupStage(stage) {
+  budgetSetupStage = stage;
+  if (stage !== 'edit') budgetSetupEditAccount = null;
+  renderBudgetPage();
+}
+
+// 신규 버전 생성(목업): 작성중 버전이 있으면 이어서 작성, 없으면 최신 승인본 복제 안내
+function createBudgetVersionFinal() {
+  const data = BUDGET_SOURCE[currentBudgetProj];
+  const versions = getExecBudgetVersionSnapshotsFinal(data);
+  const draft = versions.find(v => v.status === '작성중');
+  budgetSetupEditAccount = null;
+  budgetSetupStage = 'edit';
+  if (draft) {
+    selectedExecBudgetVersionFinal = draft.key;
+    showToast(`${draft.label} 작성중 버전에서 계정별 작성을 이어갑니다.`);
+  } else {
+    showToast('최신 승인본을 복제한 신규 작성중 버전을 생성했습니다.');
+  }
+  renderBudgetPage();
+}
+
+function renderBudgetFlowStepperFinal() {
+  const steps = [
+    { key:'history',  no:'1', label:'이력' },
+    { key:'edit',     no:'2', label:'계정별 작성' },
+    { key:'approval', no:'3', label:'결재' },
+  ];
+  return `
+    <div class="budget-flow-stepper" role="tablist" aria-label="실행예산 진행 단계">
+      ${steps.map(s => `
+        <button class="bfs-step ${budgetSetupStage === s.key ? 'active' : ''}" onclick="goBudgetSetupStage('${s.key}')">
+          <span class="bfs-no">${s.no}</span><span class="bfs-label">${s.label}</span>
+        </button>`).join('<span class="bfs-arrow" aria-hidden="true">→</span>')}
+    </div>`;
+}
+
+// 결재라인: 기안자 → 팀장승인
+function renderBudgetApprovalLineFinal(data) {
+  const current = getSelectedExecBudgetVersionFinal(data);
+  const state = execBudgetApprovalStateFinal[current.key] || {};
+  const requested = state.approvalStatus && state.approvalStatus !== '미요청';
+  const approved = state.approvalStatus === '완료';
+  return `
+    <div class="exec-approval-line" aria-label="결재라인">
+      <div class="eal-node done">
+        <span class="eal-role">기안자</span>
+        <strong>이봄</strong>
+        <em>${state.requestedAt ? '상신 ' + state.requestedAt : '작성중'}</em>
+      </div>
+      <span class="eal-arrow" aria-hidden="true">→</span>
+      <div class="eal-node ${approved ? 'done' : requested ? 'active' : 'wait'}">
+        <span class="eal-role">팀장 승인</span>
+        <strong>${state.approver || '김도윤 팀장'}</strong>
+        <em>${approved ? '승인완료' : requested ? '결재중' : '대기'}</em>
+      </div>
+    </div>`;
+}
+
 renderBudgetSetupOverview = function(data, actual, quasi) {
   ensureAsCostPlanAmount(data);
   const versions = getExecBudgetVersionSnapshotsFinal(data);
@@ -12272,6 +12325,51 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
     { key:CATS[4], label:'A/S비' },
   ];
   const totalBudget = accounts.reduce((sum, item) => sum + (viewData.plan[item.key] || 0), 0);
+  const stepper = renderBudgetFlowStepperFinal();
+
+  // ── ① 이력 ──
+  if (budgetSetupStage === 'history') {
+    return `
+      <div class="setup-overview compact">
+        ${stepper}
+        <div class="setup-stage-head">
+          <div>
+            <div class="setup-title">실행예산 이력</div>
+            <div class="setup-editor-sub">버전을 선택해 열람하거나, 신규 버전을 생성해 작성을 시작합니다.</div>
+          </div>
+          <button class="labor-main-btn" onclick="createBudgetVersionFinal()">＋ 신규 버전 생성</button>
+        </div>
+        <div class="setup-version-tabs vertical" aria-label="실행예산 버전 목록">
+          ${versions.map(version => `
+            <button class="setup-version-pill ${selectedVersion.key === version.key ? 'active' : ''}" onclick="selectExecBudgetVersionFinal('${version.key}')">
+              <strong>${version.label} ${version.date}</strong>
+              <span>${version.status}</span>
+            </button>`).join('')}
+        </div>
+        <div class="setup-version-note">
+          <strong>${selectedVersion.label}</strong>
+          <span>${selectedVersion.memo}</span>
+          <em>작성자 ${selectedVersion.owner}</em>
+        </div>
+        <div class="setup-stage-actions">
+          ${selectedVersion.status === '작성중'
+            ? `<button class="labor-main-btn" onclick="goBudgetSetupStage('edit')">이 버전 계정별 작성 →</button>`
+            : `<button class="labor-sub-btn" onclick="goBudgetSetupStage('edit')">계정 내역 보기 →</button>`}
+        </div>
+      </div>`;
+  }
+
+  // ── ③ 결재 ──
+  if (budgetSetupStage === 'approval') {
+    return `
+      <div class="setup-overview compact">
+        ${stepper}
+        ${renderBudgetApprovalLineFinal(data)}
+        ${renderExecBudgetApprovalSummaryFinal(data)}
+      </div>`;
+  }
+
+  // ── ② 계정별 작성 ──
   const rows = accounts.map(item => {
     const budget = viewData.plan[item.key] || 0;
     return `
@@ -12286,20 +12384,12 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
 
   return `
     <div class="setup-overview compact">
-      <div class="setup-version-tabs" aria-label="실행예산 버전 선택">
-        ${versions.map(version => `
-          <button class="setup-version-pill ${selectedVersion.key === version.key ? 'active' : ''}" onclick="selectExecBudgetVersionFinal('${version.key}')">
-            <strong>${version.label} ${version.date}</strong>
-            <span>${version.status}</span>
-          </button>
-        `).join('')}
-      </div>
+      ${stepper}
       <div class="setup-version-note">
-        <strong>${selectedVersion.label}</strong>
+        <strong>${selectedVersion.label} 계정별 작성</strong>
         <span>${selectedVersion.memo}</span>
-        <em>작성자 ${selectedVersion.owner}</em>
+        <em>작성자 ${selectedVersion.owner} · 상태 ${selectedVersion.status}</em>
       </div>
-      ${selectedVersion.status === '작성중' || selectedVersion.status === '승인요청' ? renderExecBudgetApprovalSummaryFinal(data) : ''}
       <div class="setup-account-rows five">
         <button class="setup-account-row total" onclick="budgetSetupEditAccount=null;renderBudgetPage()">
           <span>프로젝트 총 실행 비용 <b>›</b></span>
@@ -12307,8 +12397,11 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
         </button>
         ${rows}
       </div>
-    </div>
-    ${expanded}`;
+      ${expanded}
+      <div class="setup-stage-actions right">
+        <button class="labor-main-btn" onclick="goBudgetSetupStage('approval')">결재 상신 →</button>
+      </div>
+    </div>`;
 };
 
 var renderBudgetAccountEditorBeforeAsCost = renderBudgetAccountEditor;
