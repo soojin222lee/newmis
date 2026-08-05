@@ -432,7 +432,7 @@
   <section class="section plan-highlight">
     <div class="section-title"><span class="title-text">검수계획 · 실투입 매핑</span><span class="collapse">⌃</span></div>
     <div class="section-tip">
-      검수계획은 각 프로젝트 실행예산 외주비계획의 최종(승인) 버전에서 가져옵니다. 가져온 실행예산 버전을 함께 표시하며, 각 계획에 실투입전표를 1:1로 매핑합니다. 당월 대상 계획은 한 줄씩 실투입을 생성/취소할 수 있습니다. 실투입을 생성하면 실행예산에 실적으로 반영되어 해당 외주비계획 수정이 불가하고, 검수가 진행/완료된 건은 실투입을 취소할 수 없습니다.
+      검수계획은 각 프로젝트 실행예산 외주비계획의 최종(승인) 버전에서 가져옵니다. 가져온 실행예산 버전을 함께 표시하며, 각 계획에 실투입전표를 1:1로 매핑합니다. 당월 대상 계획은 한 줄씩 실투입을 생성/취소할 수 있습니다. 검수는 검수 전 실투입 전표를 선택(여러 건 가능)해 [검수요청]으로 진행하며, 선택한 실투입들은 하나의 검수번호로 묶입니다. 실투입을 생성하면 실행예산에 실적으로 반영되어 해당 외주비계획 수정이 불가하고, 검수가 진행/완료된 건은 실투입을 취소할 수 없습니다.
     </div>
     <div class="plan-basis" id="plan-total-basis"></div>
     <div class="result-count" id="map-count">Results : 0</div>
@@ -440,6 +440,7 @@
       <table>
         <thead>
           <tr>
+            <th style="width:44px">선택</th>
             <th>계획월</th>
             <th>프로젝트</th>
             <th>실행예산 버전</th>
@@ -489,6 +490,7 @@
   ];
   let voucherSeq = 703; // 마지막으로 사용한 전표 시퀀스
   let inspectionSeq = 4001125512; // 마지막으로 발번한 검수번호
+  const selected = new Set(); // 검수 대상으로 선택한 실투입 전표(row.no)
 
   function formatAmount(value) {
     return value.toLocaleString('ko-KR') + '원';
@@ -518,6 +520,7 @@
       if (!row.target) {
         return `
         <tr class="disabled">
+          <td></td>
           <td>${row.month}</td>
           <td>${row.project}</td>
           <td>${row.budgetVersion} <span class="final-badge">최종</span><br><span class="ver-date">${row.budgetVersionDate} 승인</span></td>
@@ -537,6 +540,7 @@
       else action = `<span class="lock-note">취소 불가 (${row.state === 'inProgress' ? '검수 진행중' : '검수완료'})</span>`;
       return `
         <tr>
+          <td class="check-cell">${row.state === 'created' ? `<input type="checkbox" ${selected.has(row.no) ? 'checked' : ''} onclick="toggleSelect('${row.no}')" />` : ''}</td>
           <td>${row.month}</td>
           <td>${row.project}</td>
           <td>${row.budgetVersion} <span class="final-badge">최종</span><br><span class="ver-date">${row.budgetVersionDate} 승인</span></td>
@@ -587,10 +591,18 @@
     if (row.state !== 'created') return;
     row.state = 'none';
     row.voucher = null;
+    selected.delete(row.no);
     renderMap();
     renderPlanTotalBasis();
     updateCompare();
     alert(row.project + ' / ' + row.no + ' 실투입전표가 취소되었습니다.\n검수계획(외주비계획) 수정이 다시 가능합니다.');
+  }
+
+  function toggleSelect(no) {
+    if (selected.has(no)) selected.delete(no);
+    else selected.add(no);
+    renderMap();
+    updateCompare();
   }
 
   function updateCompare() {
@@ -598,32 +610,37 @@
     const created = createdTotal();
     const contractMatched = total === contractInspectionAmount;
     const hasCreated = targetRows().some(row => row.state === 'created');
+    const selectedCount = targetRows().filter(row => row.state === 'created' && selected.has(row.no)).length;
     document.getElementById('c-contract').textContent = formatAmount(contractInspectionAmount);
     document.getElementById('c-plan').textContent = formatAmount(total);
     document.getElementById('c-actual').textContent = formatAmount(created);
     document.getElementById('c-verdict').textContent = contractMatched ? '일치' : '불일치 (경고)';
     document.getElementById('c-verdict-card').className = 'compare-card ' + (contractMatched ? 'ok' : 'warn');
-    document.getElementById('request-button').disabled = !hasCreated;
-    document.getElementById('footer-request-button').disabled = !hasCreated;
-    document.getElementById('request-comment').textContent = hasCreated
-      ? ('생성된 실투입(검수 전)에 대해 검수요청할 수 있습니다. 검수가 진행/완료되면 검수번호가 부여되고 실투입 취소가 불가합니다.' + (contractMatched ? '' : ' 검수계획 총액이 계약금액과 다르니 필요 시 각 프로젝트 외주비계획을 조정하세요.'))
-      : '당월 대상 검수계획에서 [실투입 생성]으로 실투입을 만든 뒤 검수요청하세요.';
+    document.getElementById('request-button').disabled = selectedCount === 0;
+    document.getElementById('footer-request-button').disabled = selectedCount === 0;
+    document.getElementById('request-comment').textContent = selectedCount > 0
+      ? ('선택한 실투입 ' + selectedCount + '건을 묶어 검수요청할 수 있습니다. 검수요청 시 하나의 검수번호가 부여되고 이후 취소가 불가합니다.' + (contractMatched ? '' : ' 검수계획 총액이 계약금액과 다르니 필요 시 각 프로젝트 외주비계획을 조정하세요.'))
+      : hasCreated
+        ? '검수할 실투입 전표를 선택(여러 건 가능)한 뒤 [검수요청]하세요.'
+        : '당월 대상 검수계획에서 [실투입 생성]으로 실투입을 만든 뒤, 검수 전 실투입 전표를 선택해 검수요청하세요.';
   }
 
   function requestInspection() {
-    const created = targetRows().filter(row => row.state === 'created');
-    if (!created.length) {
-      alert('검수요청할 생성 실투입이 없습니다. 먼저 [실투입 생성]으로 실투입을 만드세요.');
+    const rows = targetRows().filter(row => row.state === 'created' && selected.has(row.no));
+    if (!rows.length) {
+      alert('검수할 실투입 전표를 선택하세요. (검수 전 실투입 전표만 선택 가능하며, 여러 건 선택할 수 있습니다.)');
       return;
     }
-    created.forEach(row => {
-      inspectionSeq += 1;
+    inspectionSeq += 1;
+    const inspectionNo = String(inspectionSeq);
+    rows.forEach(row => {
       row.state = 'inProgress';
-      row.inspectionNo = String(inspectionSeq);
+      row.inspectionNo = inspectionNo;
+      selected.delete(row.no);
     });
     renderMap();
     updateCompare();
-    alert('검수요청이 완료되어 검수번호가 발번되었습니다. 검수가 진행 중인 건은 실투입을 취소할 수 없습니다.');
+    alert(rows.length + '건의 실투입 전표를 묶어 검수요청했습니다.\n검수번호 ' + inspectionNo + '가 발번되었으며, 검수가 진행 중인 건은 실투입을 취소할 수 없습니다.');
   }
 
   renderMap();
