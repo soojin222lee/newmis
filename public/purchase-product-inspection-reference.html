@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>검수상세 - 상품 검수 계획</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-width: 1280px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #111827;
+    background: #f7f7f8;
+  }
+  .page { padding: 16px 18px 48px; }
+  .top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+  h1 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 22px; font-weight: 900; }
+  h1 span.star { color: #f59e0b; }
+  h1 .ptype-chip { font-size: 12px; font-weight: 900; padding: 3px 10px; border-radius: 999px; background: #ede9fe; color: #4c1d95; }
+  .breadcrumb { margin-bottom: 8px; text-align: right; font-size: 12px; font-weight: 700; color: #2563eb; }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .btn { border: 1px solid #d1d5db; border-radius: 8px; background: #fff; color: #111827; padding: 8px 14px; font-weight: 900; cursor: pointer; }
+  .btn.primary { border-color: #ef4444; background: #ef4444; color: #fff; }
+  .btn.dark { border-color: #111827; background: #111827; color: #fff; }
+  .btn:disabled { border-color: #d1d5db; background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
+  .scenario-note {
+    margin: 0 0 16px; border: 1px solid #fed7aa; border-radius: 10px;
+    background: #fff7ed; padding: 12px 14px; color: #9a3412; font-size: 13px; font-weight: 800;
+  }
+  .section { margin-bottom: 18px; border: 1px solid #d9dde3; border-radius: 8px; background: #fff; overflow: hidden; }
+  .section.plan-highlight { border: 3px solid #7c3aed; box-shadow: 0 0 0 3px rgba(124, 58, 237, .12); }
+  .section-title {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px; border-bottom: 1px solid #e5e7eb; background: #fff; font-size: 17px; font-weight: 900;
+  }
+  .section-title .title-text { display: inline-flex; align-items: center; gap: 8px; }
+  .section-title .title-text::before { content: ""; width: 4px; height: 18px; border-radius: 3px; background: #ef4444; }
+  .section.plan-highlight .title-text::before { background: #7c3aed; }
+  .collapse { color: #4b5563; font-size: 18px; }
+  .form-grid { display: grid; grid-template-columns: 120px 1fr 120px 1fr 120px 1fr; border-top: 1px solid #e5e7eb; }
+  .form-grid.two { grid-template-columns: 120px 1fr 120px 1fr; }
+  .label { background: #e8ebf0; padding: 10px 14px; font-weight: 900; border-right: 1px solid #d1d5db; border-bottom: 1px solid #d1d5db; font-size: 13px; }
+  .label.req::after { content: " *"; color: #ef4444; }
+  .value { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 7px 12px; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+  .value.span { grid-column: 2 / -1; }
+  input, select { width: 100%; height: 30px; border: 1px solid #d1d5db; border-radius: 4px; background: #f9fafb; padding: 0 10px; font-family: inherit; font-weight: 700; font-size: 13px; }
+  input.req-field { background: #fffbeb; border-color: #fbbf24; }
+  input[readonly] { background: #f3f4f6; }
+  textarea { width: 100%; min-height: 70px; border: 1px solid #d1d5db; border-radius: 4px; background: #f9fafb; padding: 8px 10px; font-family: inherit; font-weight: 700; resize: vertical; }
+  .right { text-align: right; }
+  .section-tip { padding: 10px 14px; border-top: 1px solid #e5e7eb; background: #f5f3ff; color: #5b21b6; font-size: 12px; font-weight: 800; }
+  .table-wrap { padding: 0 0 12px; overflow: auto; }
+  .result-count { padding: 8px 12px 4px; text-align: right; font-weight: 900; font-size: 13px; }
+  table { width: 100%; min-width: 1180px; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+  th, td { border: 1px solid #d1d5db; padding: 8px 8px; text-align: center; vertical-align: middle; }
+  th { background: #e7e9ee; font-weight: 900; }
+  td { background: #fff; }
+  td.left { text-align: left; }
+  td .qty-input { height: 28px; text-align: right; background: #fffbeb; border-color: #fbbf24; }
+  td .qty-input.over { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
+  .row-arrow { width: 34px; background: #ef4444 !important; color: #fff; font-weight: 900; }
+  .attach-box {
+    margin: 12px 14px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #fafafa;
+    min-height: 90px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-weight: 800; font-size: 13px;
+  }
+  .plan-basis { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin: 12px 14px; padding: 12px 14px; border-radius: 10px; border: 1px solid #e5e7eb; font-size: 13px; font-weight: 800; }
+  .plan-basis.ok { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+  .plan-basis.warn { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+  .plan-basis b { color: inherit; }
+  .plan-basis .final-badge { display: inline-block; padding: 2px 7px; border-radius: 999px; background: #ede9fe; color: #4c1d95; font-size: 10px; font-weight: 800; }
+  .plan-basis-verdict { padding: 3px 10px; border-radius: 999px; font-weight: 900; font-size: 12px; }
+  .plan-basis.ok .plan-basis-verdict { background: #dcfce7; color: #166534; }
+  .plan-basis.warn .plan-basis-verdict { background: #fee2e2; color: #b91c1c; }
+  .compare-box { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .compare-card { border: 1px solid #ddd6fe; border-radius: 10px; background: #f5f3ff; padding: 12px; }
+  .compare-card small { display: block; margin-bottom: 5px; color: #5b21b6; font-weight: 800; font-size: 12px; }
+  .compare-card strong { font-size: 18px; font-weight: 900; }
+  .compare-card.ok strong { color: #047857; }
+  .compare-card.warn strong { color: #ef4444; }
+  .footer-actions {
+    position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-top: 20px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; padding: 14px;
+    box-shadow: 0 -10px 30px rgba(15, 23, 42, .08);
+  }
+  .footer-actions p { margin: 0; color: #4b5563; font-weight: 800; font-size: 13px; }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="top">
+    <h1>검수상세 (4500312233 / 900000000) <span class="star">★</span> <span class="ptype-chip">상품 수량검수</span></h1>
+    <div>
+      <div class="breadcrumb">Home &gt; 검수/정산 &gt; 검수/대금지급 &gt; 검수관리</div>
+      <div class="actions">
+        <button class="btn">임시저장</button>
+        <button class="btn primary" id="request-button" onclick="requestInspection()">검수요청</button>
+        <button class="btn">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="scenario-note">
+    시나리오(상품 수량검수): 상품재료비는 Item별 수량을 입력해 검수합니다. 검수 가능한 금액은 실행예산 재료비 계획(이번달 검수계획)까지이며, 검수금액 합계가 그 금액을 넘지 않는 선에서만 검수요청할 수 있습니다. (금액이 정확히 같을 필요는 없습니다.)
+  </p>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">기본정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">계약번호/차수</div>
+      <div class="value"><input value="4500312233" readonly /><input value="1" readonly style="max-width:60px" /></div>
+      <div class="label">계약명</div>
+      <div class="value span"><input value="SKAX / MS-EA 추가분(M365 200Copy) / 씨앤토트(주)" readonly /></div>
+
+      <div class="label">검수번호/차수</div>
+      <div class="value"><input value="" readonly /><input value="" readonly style="max-width:60px" /></div>
+      <div class="label">검수내역</div>
+      <div class="value span"><input value="1차 검수_SKAX / MS-EA 추가분(M365 200Copy) / 씨앤토트(주)" readonly /></div>
+
+      <div class="label">계약금액</div>
+      <div class="value"><input class="right" value="15,600,000" readonly /></div>
+      <div class="label">계약기간</div>
+      <div class="value"><input value="2026/07/23  ~  2026/09/30" readonly /></div>
+      <div class="label">통화</div>
+      <div class="value"><input value="원화" readonly /></div>
+
+      <div class="label req">검수타임</div>
+      <div class="value"><select class="req-field"><option>1차 검수</option><option>2차 검수</option><option>최종 검수</option></select></div>
+      <div class="label">검수자</div>
+      <div class="value"><input value="이수진" readonly /></div>
+      <div class="label">협력사</div>
+      <div class="value"><input value="1148645028" readonly style="max-width:120px" /><input value="씨앤토트(주)" readonly /></div>
+
+      <div class="label">검수메모</div>
+      <div class="value span"><textarea placeholder="검수 관련 메모를 입력하세요."></textarea></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">금액정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">기검수금액</div>
+      <div class="value"><input class="right" value="0" readonly /></div>
+      <div class="label">검수금액</div>
+      <div class="value"><input class="right" id="amt-inspect" value="0" readonly /></div>
+      <div class="label">전체금액</div>
+      <div class="value"><input class="right" value="15,600,000" readonly /></div>
+      <div class="label">선급금지급액</div>
+      <div class="value"><input class="right" value="0" readonly /></div>
+      <div class="label">반제완료금액</div>
+      <div class="value"><input class="right" value="0" readonly /></div>
+      <div class="label">잔액</div>
+      <div class="value"><input class="right" id="amt-remain" value="15,600,000" readonly /></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">첨부파일</span><span class="collapse">⌃</span></div>
+    <div class="section-tip">검수 진행 시 반드시 증빙서류를 첨부하시기 바랍니다.</div>
+    <div class="attach-box">이곳을 더블클릭 또는 파일을 드래그 하세요. (최대 100개 / 총 1000.00 MB 제한)</div>
+  </section>
+
+  <section class="section plan-highlight">
+    <div class="section-title"><span class="title-text">실행예산 재료비 검수계획 (이번달 검수 가능 금액)</span><span class="collapse">⌃</span></div>
+    <div class="section-tip">
+      검수 가능한 금액은 실행예산 재료비 계획의 최종 버전에서 세운 이번달 검수계획 금액까지입니다. 아래 Item 수량검수 금액 합계가 이 금액을 넘지 않는 선에서만 검수요청할 수 있습니다.
+    </div>
+    <div class="plan-basis" id="plan-basis"></div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">Item정보 (수량검수)</span><span class="collapse">⌃</span></div>
+    <div class="result-count" id="item-count">Results : 0</div>
+    <div class="table-wrap">
+      <table>
+        <colgroup>
+          <col style="width:34px" />
+          <col style="width:55px" />
+          <col style="width:110px" />
+          <col style="width:110px" />
+          <col style="width:220px" />
+          <col style="width:90px" />
+          <col style="width:90px" />
+          <col style="width:90px" />
+          <col style="width:110px" />
+          <col style="width:110px" />
+          <col style="width:130px" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th></th>
+            <th>항번</th>
+            <th>품목코드</th>
+            <th>품명</th>
+            <th>내역</th>
+            <th>계약수량</th>
+            <th>완료수량</th>
+            <th>미완료수량</th>
+            <th>검수수량</th>
+            <th>단가</th>
+            <th>검수금액</th>
+          </tr>
+        </thead>
+        <tbody id="item-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="compare-box">
+    <div class="compare-card"><small>이번달 검수 가능 금액</small><strong id="c-ceiling">0원</strong></div>
+    <div class="compare-card"><small>검수금액 합계</small><strong id="c-total">0원</strong></div>
+    <div class="compare-card"><small>잔여 검수 가능 금액</small><strong id="c-left">0원</strong></div>
+    <div class="compare-card" id="c-verdict-card"><small>검수 가능 여부</small><strong id="c-verdict">-</strong></div>
+  </div>
+
+  <div class="footer-actions">
+    <p id="request-comment">Item 검수수량을 입력하세요. 검수금액 합계가 이번달 검수 가능 금액을 넘지 않으면 검수요청할 수 있습니다.</p>
+    <button class="btn primary" id="footer-request-button" onclick="requestInspection()">검수요청</button>
+  </div>
+</main>
+
+<script>
+  // 이번달 검수 가능 금액 = 실행예산 재료비 계획(최종 버전)의 이번달 검수계획 금액
+  const materialPlan = { budgetVersion: 'V3', budgetVersionDate: '2026-07-20', month: '2026-07', ceiling: 10000000 };
+
+  // Item정보: 상품(재료비) 수량검수 대상. 미완료수량 범위 내에서 검수수량 입력.
+  const items = [
+    { seq: 10, code: 'SW00051', name: 'MS-EA', detail: 'M365 E3 Full User', contractQty: 200, doneQty: 0, price: 64600, inspectQty: 0 },
+    { seq: 20, code: 'SW00051', name: 'MS-EA', detail: 'Defender Cloud Apps', contractQty: 200, doneQty: 0, price: 7000, inspectQty: 0 },
+    { seq: 30, code: 'SW00051', name: 'MS-EA', detail: 'Microsoft Entra ID P2', contractQty: 200, doneQty: 0, price: 6400, inspectQty: 0 },
+  ];
+
+  function formatAmount(value) { return value.toLocaleString('ko-KR') + '원'; }
+  function undoneQty(item) { return item.contractQty - item.doneQty; }
+  function itemAmount(item) { return item.inspectQty * item.price; }
+  function inspectTotal() { return items.reduce((sum, item) => sum + itemAmount(item), 0); }
+
+  function renderItems() {
+    document.getElementById('item-count').textContent = 'Results : ' + items.length;
+    document.getElementById('item-body').innerHTML = items.map((item, index) => {
+      const over = itemAmount(item) > 0 && inspectTotal() > materialPlan.ceiling;
+      return `
+        <tr>
+          <td class="row-arrow">${index === 0 ? '›' : ''}</td>
+          <td>${item.seq}</td>
+          <td>${item.code}</td>
+          <td>${item.name}</td>
+          <td class="left">${item.detail}</td>
+          <td class="right">${item.contractQty.toLocaleString('ko-KR')}</td>
+          <td class="right">${item.doneQty.toLocaleString('ko-KR')}</td>
+          <td class="right">${undoneQty(item).toLocaleString('ko-KR')}</td>
+          <td><input class="qty-input ${over ? 'over' : ''}" id="qty-${index}" inputmode="numeric" value="${item.inspectQty}"
+                 onchange="setInspectQty(${index}, this.value)" oninput="setInspectQty(${index}, this.value)" /></td>
+          <td class="right">${item.price.toLocaleString('ko-KR')}</td>
+          <td class="right">${formatAmount(itemAmount(item))}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  function setInspectQty(index, raw) {
+    const item = items[index];
+    let qty = parseInt(String(raw).replace(/[^0-9]/g, ''), 10);
+    if (isNaN(qty) || qty < 0) qty = 0;
+    if (qty > undoneQty(item)) {
+      qty = undoneQty(item);
+      alert(item.name + ' (' + item.detail + ') 검수수량은 미완료수량 ' + undoneQty(item).toLocaleString('ko-KR') + '을(를) 초과할 수 없습니다.');
+    }
+    item.inspectQty = qty;
+    renderItems();
+    updateSummary();
+  }
+
+  function renderPlanBasis() {
+    const el = document.getElementById('plan-basis');
+    const total = inspectTotal();
+    const over = total > materialPlan.ceiling;
+    el.className = 'plan-basis ' + (over ? 'warn' : 'ok');
+    const leftOrOver = over
+      ? '초과 ' + formatAmount(total - materialPlan.ceiling)
+      : '잔여 ' + formatAmount(materialPlan.ceiling - total);
+    el.innerHTML = `
+      <span>실행예산 재료비 버전 <b>${materialPlan.budgetVersion}</b> <span class="final-badge">최종</span> · ${materialPlan.budgetVersionDate} 승인</span>
+      <span>이번달(${materialPlan.month}) 검수 가능 금액 <b>${formatAmount(materialPlan.ceiling)}</b></span>
+      <span>현재 검수금액 <b>${formatAmount(total)}</b></span>
+      <span class="plan-basis-verdict">${over ? '금액 초과 · 수량을 줄이세요' : leftOrOver}</span>`;
+  }
+
+  function updateSummary() {
+    const total = inspectTotal();
+    const left = materialPlan.ceiling - total;
+    const over = total > materialPlan.ceiling;
+    const canRequest = total > 0 && !over;
+    document.getElementById('amt-inspect').value = total.toLocaleString('ko-KR');
+    document.getElementById('amt-remain').value = (15600000 - total).toLocaleString('ko-KR');
+    document.getElementById('c-ceiling').textContent = formatAmount(materialPlan.ceiling);
+    document.getElementById('c-total').textContent = formatAmount(total);
+    document.getElementById('c-left').textContent = over ? '-' + formatAmount(total - materialPlan.ceiling) : formatAmount(left);
+    document.getElementById('c-verdict').textContent = total === 0 ? '수량 입력 필요' : over ? '금액 초과 · 요청 불가' : '검수 가능';
+    document.getElementById('c-verdict-card').className = 'compare-card ' + (over ? 'warn' : total > 0 ? 'ok' : '');
+    document.getElementById('request-button').disabled = !canRequest;
+    document.getElementById('footer-request-button').disabled = !canRequest;
+    document.getElementById('request-comment').textContent = total === 0
+      ? 'Item 검수수량을 입력하세요. 검수금액 합계가 이번달 검수 가능 금액을 넘지 않으면 검수요청할 수 있습니다.'
+      : over
+        ? '검수금액 합계가 이번달 검수 가능 금액을 ' + formatAmount(total - materialPlan.ceiling) + ' 초과했습니다. 수량을 줄여 금액을 맞춰주세요.'
+        : '검수금액 합계가 이번달 검수 가능 금액 이내입니다. 검수요청할 수 있습니다. (금액이 정확히 같을 필요는 없습니다.)';
+    renderPlanBasis();
+  }
+
+  function requestInspection() {
+    const total = inspectTotal();
+    if (total <= 0) {
+      alert('검수할 Item 수량을 입력하세요.');
+      return;
+    }
+    if (total > materialPlan.ceiling) {
+      alert('검수금액 합계(' + formatAmount(total) + ')가 이번달 검수 가능 금액(' + formatAmount(materialPlan.ceiling) + ')을 초과했습니다.\n수량을 줄여 금액을 맞춘 뒤 검수요청하세요.');
+      return;
+    }
+    alert('상품 수량검수 요청이 완료되었습니다.\n검수금액 ' + formatAmount(total) + ' (이번달 검수 가능 금액 ' + formatAmount(materialPlan.ceiling) + ' 이내)');
+  }
+
+  renderItems();
+  updateSummary();
+</script>
+</body>
+</html>
