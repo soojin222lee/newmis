@@ -305,11 +305,21 @@ function fmt(n) {
 }
 
 // ── 초기화 ──
-(async function init() {
-  await loadRisks();
-  initDashboard();
-  initRiskHistory();
-  initBudgetStatus();
-  initMonthlyClose();
-  showMain();
-})();
+// app.js가 가장 먼저 로드되지만, 아래 init은 다른 화면 스크립트(dashboard/budget-status 등)의
+// 정의를 필요로 한다. DOMContentLoaded 시점에는 모든 동기 스크립트가 실행 완료되므로,
+// 그때 초기화해 로드 순서/지연에 관계없이 안전하게 만든다.
+function bootstrapApp() {
+  (async function init() {
+    await loadRisks();
+    initDashboard();
+    initRiskHistory();
+    initBudgetStatus();
+    initMonthlyClose();
+    showMain();
+  })();
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrapApp);
+} else {
+  bootstrapApp();
+}
