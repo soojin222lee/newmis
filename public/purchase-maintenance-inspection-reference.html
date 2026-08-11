@@ -92,7 +92,7 @@
   </div>
 
   <p class="scenario-note">
-    시나리오(유지보수 검수): 유지보수 검수금액은 실행예산 유지보수 계획금액과 <b>완전히 동일</b>해야 검수요청할 수 있습니다. 금액이 다르면 검수할 수 없으며, 실행예산 유지보수 계획을 다시 수립(재승인)한 뒤 진행해야 합니다.
+    시나리오(유지보수 검수): 유지보수 검수금액은 실행예산 유지보수 계획금액의 <b>±10%(10% 안짝)</b> 이내면 검수요청할 수 있습니다. 허용범위를 벗어나면 검수할 수 없으며, 실행예산 유지보수 계획을 다시 수립(재승인)한 뒤 진행해야 합니다.
   </p>
 
   <section class="section">
@@ -152,9 +152,9 @@
   </section>
 
   <section class="section plan-highlight">
-    <div class="section-title"><span class="title-text">실행예산 유지보수 계획금액 (완전 동일 검수)</span><span class="collapse">⌃</span></div>
+    <div class="section-title"><span class="title-text">실행예산 유지보수 계획금액 (±10% 이내 검수)</span><span class="collapse">⌃</span></div>
     <div class="section-tip">
-      유지보수 검수금액은 실행예산 유지보수 계획의 최종 버전에서 세운 이번 검수 대상 금액과 완전히 동일해야 합니다. 금액이 다르면 검수할 수 없고, 실행예산 유지보수 계획을 다시 수립(재승인)해야 합니다.
+      유지보수 검수금액은 실행예산 유지보수 계획의 최종 버전에서 세운 이번 검수 대상 금액의 ±10%(10% 안짝) 이내면 검수할 수 있습니다. 허용범위를 벗어나면 검수할 수 없고, 실행예산 유지보수 계획을 다시 수립(재승인)해야 합니다.
     </div>
     <div class="plan-basis" id="plan-basis"></div>
   </section>
@@ -199,7 +199,7 @@
     <div class="compare-card"><small>실행예산 유지보수 계획금액</small><strong id="c-plan">0원</strong></div>
     <div class="compare-card"><small>검수금액</small><strong id="c-inspect">0원</strong></div>
     <div class="compare-card"><small>차이</small><strong id="c-diff">0원</strong></div>
-    <div class="compare-card" id="c-verdict-card"><small>완전 동일 여부</small><strong id="c-verdict">-</strong></div>
+    <div class="compare-card" id="c-verdict-card"><small>±10% 이내 여부</small><strong id="c-verdict">-</strong></div>
   </div>
 
   <div class="footer-actions">
@@ -226,6 +226,16 @@
   function formatAmount(value) { return value.toLocaleString('ko-KR') + '원'; }
   function targetItem() { return items.find(item => item.status === 'target'); }
   function inspectAmount() { const t = targetItem(); return t ? t.inspectAmount : 0; }
+  // 검수금액이 계획금액의 ±10%(10% 안짝) 이내면 검수 가능. 벗어나면 실행예산 재수립 필요.
+  const TOL = 0.10;
+  function bandLower() { return Math.round(maintPlan.amount * (1 - TOL)); }
+  function bandUpper() { return Math.round(maintPlan.amount * (1 + TOL)); }
+  function bandState(a) {
+    if (a <= 0) return 'empty';
+    if (a > bandUpper()) return 'over';
+    if (a < bandLower()) return 'under';
+    return 'in';
+  }
   function statusLabel(s) { return s === 'done' ? '검수완료' : s === 'target' ? '검수 대상' : '검수 미도래'; }
   function statusClass(s) { return s === 'done' ? 'st-done' : s === 'target' ? 'st-target' : 'st-future'; }
 
@@ -237,8 +247,7 @@
       if (item.status === 'done') {
         inspectCell = `<td class="right">${formatAmount(item.doneAmount)}</td>`;
       } else if (item.status === 'target') {
-        const matched = item.inspectAmount === maintPlan.amount;
-        const cls = item.inspectAmount === 0 ? '' : matched ? 'good' : 'bad';
+        const cls = item.inspectAmount === 0 ? '' : bandState(item.inspectAmount) === 'in' ? 'good' : 'bad';
         inspectCell = `<td><input class="amt-input ${cls}" id="amt-${index}" inputmode="numeric" value="${item.inspectAmount.toLocaleString('ko-KR')}"
                          onchange="setInspectAmount(${index}, this.value)" oninput="setInspectAmount(${index}, this.value)" /></td>`;
       } else {
@@ -279,14 +288,14 @@
   function renderPlanBasis() {
     const el = document.getElementById('plan-basis');
     const amount = inspectAmount();
-    const matched = amount === maintPlan.amount;
-    el.className = 'plan-basis ' + (matched ? 'ok' : 'warn');
-    const verdict = amount === 0
-      ? '검수금액 입력 필요'
-      : matched ? '완전 동일 · 검수 가능' : '금액 불일치 · 실행예산 재수립 필요';
+    const st = bandState(amount);
+    el.className = 'plan-basis ' + (st === 'in' || st === 'empty' ? 'ok' : 'warn');
+    const verdict = st === 'empty' ? '검수금액 입력 필요'
+      : st === 'in' ? '계획 ±10% 이내 · 검수 가능'
+      : (st === 'over' ? '계획 +10% 초과' : '계획 −10% 미만') + ' · 실행예산 재수립 필요';
     el.innerHTML = `
       <span>실행예산 유지보수 버전 <b>${maintPlan.budgetVersion}</b> <span class="final-badge">최종</span> · ${maintPlan.budgetVersionDate} 승인</span>
-      <span>이번 검수 대상(${maintPlan.period}) 계획금액 <b>${formatAmount(maintPlan.amount)}</b></span>
+      <span>이번 검수 대상(${maintPlan.period}) 계획금액 <b>${formatAmount(maintPlan.amount)}</b> (허용 ±10%: ${formatAmount(bandLower())} ~ ${formatAmount(bandUpper())})</span>
       <span>현재 검수금액 <b>${formatAmount(amount)}</b></span>
       <span class="plan-basis-verdict">${verdict}</span>`;
   }
@@ -294,21 +303,22 @@
   function updateSummary() {
     const amount = inspectAmount();
     const diff = amount - maintPlan.amount;
-    const matched = diff === 0 && amount > 0;
+    const st = bandState(amount);
+    const ok = st === 'in';
     document.getElementById('amt-inspect').value = amount.toLocaleString('ko-KR');
     document.getElementById('amt-remain').value = (27165000 - amount).toLocaleString('ko-KR');
     document.getElementById('c-plan').textContent = formatAmount(maintPlan.amount);
     document.getElementById('c-inspect').textContent = formatAmount(amount);
     document.getElementById('c-diff').textContent = (diff > 0 ? '+' : '') + formatAmount(diff);
-    document.getElementById('c-verdict').textContent = amount === 0 ? '금액 입력 필요' : matched ? '완전 동일 · 가능' : '불일치 · 불가';
-    document.getElementById('c-verdict-card').className = 'compare-card ' + (matched ? 'ok' : amount > 0 ? 'warn' : '');
-    document.getElementById('request-button').disabled = !matched;
-    document.getElementById('footer-request-button').disabled = !matched;
-    document.getElementById('request-comment').textContent = amount === 0
-      ? '검수 대상 회차의 검수금액을 실행예산 유지보수 계획금액과 동일하게 입력해야 검수요청할 수 있습니다.'
-      : matched
-        ? '검수금액이 실행예산 유지보수 계획금액과 완전히 동일합니다. 검수요청할 수 있습니다.'
-        : '검수금액이 실행예산 유지보수 계획금액(' + formatAmount(maintPlan.amount) + ')과 ' + formatAmount(Math.abs(diff)) + ' ' + (diff > 0 ? '많습니다' : '적습니다') + '. 금액이 다르면 검수할 수 없으며, 실행예산 유지보수 계획을 다시 수립(재승인)해야 합니다.';
+    document.getElementById('c-verdict').textContent = st === 'empty' ? '금액 입력 필요' : ok ? '계획 ±10% 이내 · 가능' : (st === 'over' ? '계획 +10% 초과' : '계획 −10% 미만') + ' · 불가';
+    document.getElementById('c-verdict-card').className = 'compare-card ' + (ok ? 'ok' : amount > 0 ? 'warn' : '');
+    document.getElementById('request-button').disabled = !ok;
+    document.getElementById('footer-request-button').disabled = !ok;
+    document.getElementById('request-comment').textContent = st === 'empty'
+      ? '검수 대상 회차의 검수금액을 입력하세요. 실행예산 유지보수 계획금액의 ±10%(' + formatAmount(bandLower()) + ' ~ ' + formatAmount(bandUpper()) + ') 이내면 검수요청할 수 있습니다.'
+      : ok
+        ? '검수금액이 실행예산 유지보수 계획금액의 ±10% 이내입니다. 검수요청할 수 있습니다.'
+        : '검수금액이 계획금액(' + formatAmount(maintPlan.amount) + ')의 ±10% 허용범위를 벗어났습니다. 허용범위를 벗어나면 검수할 수 없으며, 실행예산 유지보수 계획을 다시 수립(재승인)해야 합니다.';
     renderPlanBasis();
   }
 
@@ -318,11 +328,11 @@
       alert('검수 대상 회차의 검수금액을 입력하세요.');
       return;
     }
-    if (amount !== maintPlan.amount) {
-      alert('검수금액(' + formatAmount(amount) + ')이 실행예산 유지보수 계획금액(' + formatAmount(maintPlan.amount) + ')과 다릅니다.\n유지보수는 계획금액과 완전히 동일해야 검수할 수 있습니다.\n금액이 맞지 않으면 실행예산 유지보수 계획을 다시 수립(재승인)한 뒤 진행하세요.');
+    if (bandState(amount) !== 'in') {
+      alert('검수금액(' + formatAmount(amount) + ')이 실행예산 유지보수 계획금액(' + formatAmount(maintPlan.amount) + ')의 ±10% 허용범위(' + formatAmount(bandLower()) + ' ~ ' + formatAmount(bandUpper()) + ')를 벗어났습니다.\n허용범위를 벗어나면 검수할 수 없으며, 실행예산 유지보수 계획을 다시 수립(재승인)한 뒤 진행하세요.');
       return;
     }
-    alert('유지보수 검수요청이 완료되었습니다.\n검수금액 ' + formatAmount(amount) + ' (실행예산 유지보수 계획금액과 완전 동일)');
+    alert('유지보수 검수요청이 완료되었습니다.\n검수금액 ' + formatAmount(amount) + ' (실행예산 유지보수 계획금액 ±10% 이내)');
   }
 
   renderItems();

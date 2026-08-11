@@ -85,7 +85,7 @@
   </div>
 
   <p class="scenario-note">
-    시나리오(실투입 비대상 외주): ITEM/Service 라인을 선택하고 검수금액을 직접 키인해 검수합니다. 검수금액 합계는 NEW MIS 실행예산의 실투입 비대상 외주 검수계획금액 이내여야 하며, 계획 금액을 넘지 않는 선에서만 검수할 수 있습니다.
+    시나리오(실투입 비대상 외주): ITEM/Service 라인을 선택하고 검수금액을 직접 키인해 검수합니다. 검수금액 합계가 NEW MIS 실행예산의 실투입 비대상 외주 검수계획금액의 ±10%(10% 안짝) 이내면 검수할 수 있습니다. (정확히 같을 필요 없습니다.)
   </p>
 
   <section class="section">
@@ -142,9 +142,9 @@
   </section>
 
   <section class="section plan-highlight">
-    <div class="section-title"><span class="title-text">NEW MIS 실투입 비대상 외주 검수계획금액 (계획 이내 검수)</span><span class="collapse">⌃</span></div>
+    <div class="section-title"><span class="title-text">NEW MIS 실투입 비대상 외주 검수계획금액 (±10% 이내 검수)</span><span class="collapse">⌃</span></div>
     <div class="section-tip">
-      검수금액 합계는 NEW MIS 실행예산의 실투입 비대상 외주 검수계획(최종 버전)금액 이내여야 합니다. 계획 금액을 넘지 않는 선에서만 검수할 수 있습니다. (금액이 정확히 같을 필요는 없습니다.)
+      검수금액 합계는 NEW MIS 실행예산의 실투입 비대상 외주 검수계획(최종 버전)금액의 ±10%(10% 안짝) 이내여야 합니다. 허용범위를 벗어나면 검수할 수 없습니다.
     </div>
     <div class="plan-basis" id="plan-basis"></div>
   </section>
@@ -188,10 +188,10 @@
   </section>
 
   <div class="compare-box">
-    <div class="compare-card"><small>검수계획금액 (한도)</small><strong id="c-ceiling">0원</strong></div>
+    <div class="compare-card"><small>검수계획금액 (±10% 허용)</small><strong id="c-ceiling">0원</strong></div>
     <div class="compare-card"><small>검수금액 합계</small><strong id="c-total">0원</strong></div>
-    <div class="compare-card"><small>잔여 검수 가능 금액</small><strong id="c-left">0원</strong></div>
-    <div class="compare-card" id="c-verdict-card"><small>계획 이내 여부</small><strong id="c-verdict">-</strong></div>
+    <div class="compare-card"><small>상한(+10%)까지 여유</small><strong id="c-left">0원</strong></div>
+    <div class="compare-card" id="c-verdict-card"><small>±10% 이내 여부</small><strong id="c-verdict">-</strong></div>
   </div>
 
   <div class="footer-actions">
@@ -201,8 +201,8 @@
 </main>
 
 <script>
-  // NEW MIS 실행예산의 실투입 비대상 외주 검수계획금액(최종 버전). 검수금액 합계는 이 금액 이내여야 함.
-  const outPlan = { budgetVersion: 'V3', budgetVersionDate: '2026-07-20', month: '2026-07', ceiling: 60000000 };
+  // NEW MIS 실행예산의 실투입 비대상 외주 검수계획금액(최종 버전). 검수금액 합계는 이 금액의 ±10% 이내여야 함.
+  const outPlan = { budgetVersion: 'V3', budgetVersionDate: '2026-07-20', month: '2026-07', ceiling: 54000000 };
 
   // ITEM/Service 라인(동일 항번으로 연결). 라인 선택 + 검수금액 키인.
   const lines = [
@@ -213,6 +213,16 @@
   function undoneAmount(line) { return line.contractAmount - line.doneAmount; }
   function selectedTotal() { return lines.filter(l => l.selected).reduce((sum, l) => sum + l.inspectAmount, 0); }
   function findLine(seq) { return lines.find(l => l.seq === seq); }
+  // 검수금액 합계가 검수계획금액의 ±10%(10% 안짝) 이내면 검수 가능.
+  const TOL = 0.10;
+  function bandLower() { return Math.round(outPlan.ceiling * (1 - TOL)); }
+  function bandUpper() { return Math.round(outPlan.ceiling * (1 + TOL)); }
+  function bandState(total) {
+    if (total <= 0) return 'empty';
+    if (total > bandUpper()) return 'over';
+    if (total < bandLower()) return 'under';
+    return 'in';
+  }
 
   function renderItems() {
     document.getElementById('item-count').textContent = 'Results : ' + lines.length;
@@ -231,7 +241,7 @@
 
   function renderServices() {
     document.getElementById('svc-count').textContent = 'Results : ' + lines.length;
-    const over = selectedTotal() > outPlan.ceiling;
+    const over = selectedTotal() > bandUpper();
     document.getElementById('svc-body').innerHTML = lines.map((line, index) => {
       const inputOver = line.selected && over && line.inspectAmount > 0;
       return `
@@ -275,36 +285,41 @@
   function renderPlanBasis() {
     const el = document.getElementById('plan-basis');
     const total = selectedTotal();
-    const over = total > outPlan.ceiling;
-    el.className = 'plan-basis ' + (over ? 'warn' : 'ok');
-    const leftOrOver = over ? '초과 ' + formatAmount(total - outPlan.ceiling) : '잔여 ' + formatAmount(outPlan.ceiling - total);
+    const st = bandState(total);
+    el.className = 'plan-basis ' + (st === 'in' || st === 'empty' ? 'ok' : 'warn');
+    const verdict = st === 'empty' ? '선택·금액 입력 필요'
+      : st === 'over' ? '계획 +10% 초과 · 금액을 줄이세요'
+      : st === 'under' ? '계획 −10% 미만 · 금액을 늘리세요'
+      : '계획 ±10% 이내 · 검수 가능';
     el.innerHTML = `
       <span>실행예산 외주(비대상) 버전 <b>${outPlan.budgetVersion}</b> <span class="final-badge">최종</span> · ${outPlan.budgetVersionDate} 승인</span>
-      <span>검수계획금액(한도) <b>${formatAmount(outPlan.ceiling)}</b></span>
+      <span>검수계획금액 <b>${formatAmount(outPlan.ceiling)}</b> (허용 ±10%: ${formatAmount(bandLower())} ~ ${formatAmount(bandUpper())})</span>
       <span>검수금액 합계 <b>${formatAmount(total)}</b></span>
-      <span class="plan-basis-verdict">${over ? '계획 초과 · 금액을 줄이세요' : leftOrOver}</span>`;
+      <span class="plan-basis-verdict">${verdict}</span>`;
   }
 
   function updateSummary() {
     const total = selectedTotal();
-    const over = total > outPlan.ceiling;
+    const st = bandState(total);
     const anySelected = lines.some(l => l.selected);
-    const canRequest = total > 0 && !over && anySelected;
+    const canRequest = st === 'in' && anySelected;
     document.getElementById('amt-inspect').value = total.toLocaleString('ko-KR');
     document.getElementById('amt-total').value = total.toLocaleString('ko-KR');
     document.getElementById('amt-remain').value = (156600000 - total).toLocaleString('ko-KR');
     document.getElementById('c-ceiling').textContent = formatAmount(outPlan.ceiling);
     document.getElementById('c-total').textContent = formatAmount(total);
-    document.getElementById('c-left').textContent = over ? '-' + formatAmount(total - outPlan.ceiling) : formatAmount(outPlan.ceiling - total);
-    document.getElementById('c-verdict').textContent = total === 0 ? '선택·금액 입력 필요' : over ? '계획 초과 · 불가' : '계획 이내 · 가능';
-    document.getElementById('c-verdict-card').className = 'compare-card ' + (over ? 'warn' : total > 0 ? 'ok' : '');
+    document.getElementById('c-left').textContent = st === 'over' ? '-' + formatAmount(total - bandUpper()) : formatAmount(bandUpper() - total);
+    document.getElementById('c-verdict').textContent = st === 'empty' ? '선택·금액 입력 필요' : st === 'over' ? '계획 +10% 초과 · 불가' : st === 'under' ? '계획 −10% 미만 · 불가' : '계획 ±10% 이내 · 가능';
+    document.getElementById('c-verdict-card').className = 'compare-card ' + (st === 'in' ? 'ok' : st === 'empty' ? '' : 'warn');
     document.getElementById('request-button').disabled = !canRequest;
     document.getElementById('footer-request-button').disabled = !canRequest;
-    document.getElementById('request-comment').textContent = total === 0
-      ? 'ITEM/Service 라인을 선택하고 검수금액을 키인하세요. 검수금액 합계가 검수계획금액 이내면 검수할 수 있습니다.'
-      : over
-        ? '검수금액 합계가 검수계획금액을 ' + formatAmount(total - outPlan.ceiling) + ' 초과했습니다. 금액을 줄여 계획 이내로 맞춰주세요.'
-        : '검수금액 합계가 검수계획금액 이내입니다. 검수할 수 있습니다. (계획 금액과 정확히 같을 필요는 없습니다.)';
+    document.getElementById('request-comment').textContent = st === 'empty'
+      ? 'ITEM/Service 라인을 선택하고 검수금액을 키인하세요. 검수금액 합계가 검수계획금액의 ±10%(' + formatAmount(bandLower()) + ' ~ ' + formatAmount(bandUpper()) + ') 이내면 검수할 수 있습니다.'
+      : st === 'over'
+        ? '검수금액 합계가 검수계획금액의 +10%(' + formatAmount(bandUpper()) + ')를 초과했습니다. 금액을 줄여주세요.'
+        : st === 'under'
+          ? '검수금액 합계가 검수계획금액의 −10%(' + formatAmount(bandLower()) + ') 미만입니다. 금액을 늘려주세요.'
+          : '검수금액 합계가 검수계획금액의 ±10% 이내입니다. 검수할 수 있습니다. (정확히 같을 필요 없습니다.)';
     renderPlanBasis();
   }
 
@@ -314,11 +329,11 @@
       alert('검수할 라인을 선택하고 검수금액을 키인하세요.');
       return;
     }
-    if (total > outPlan.ceiling) {
-      alert('검수금액 합계(' + formatAmount(total) + ')가 검수계획금액(' + formatAmount(outPlan.ceiling) + ')을 초과했습니다.\n계획 금액을 넘지 않는 선에서만 검수할 수 있습니다.');
+    if (bandState(total) !== 'in') {
+      alert('검수금액 합계(' + formatAmount(total) + ')가 검수계획금액의 ±10% 허용범위(' + formatAmount(bandLower()) + ' ~ ' + formatAmount(bandUpper()) + ')를 벗어났습니다.\n금액을 조정해 허용범위 이내로 맞춘 뒤 검수하세요.');
       return;
     }
-    alert('실투입 비대상 외주 검수가 완료되었습니다.\n검수금액 ' + formatAmount(total) + ' (검수계획금액 ' + formatAmount(outPlan.ceiling) + ' 이내)');
+    alert('실투입 비대상 외주 검수가 완료되었습니다.\n검수금액 ' + formatAmount(total) + ' (검수계획금액 ±10% 이내)');
   }
 
   renderItems();

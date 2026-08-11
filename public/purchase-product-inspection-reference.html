@@ -109,7 +109,7 @@
   </div>
 
   <p class="scenario-note">
-    시나리오(상품 수량검수): 상품재료비는 Item별 수량을 입력해 검수합니다. 검수 가능한 금액은 실행예산 재료비 계획(이번달 검수계획)까지이며, 검수금액 합계가 그 금액을 넘지 않는 선에서만 검수요청할 수 있습니다. (금액이 정확히 같을 필요는 없습니다.)
+    시나리오(상품 수량검수): 상품재료비는 Item별 수량을 입력해 검수합니다. 검수금액 합계가 실행예산 재료비 검수계획금액의 ±10%(10% 안짝) 이내면 검수요청할 수 있습니다. (계획과 정확히 같을 필요는 없습니다.)
   </p>
 
   <section class="section">
@@ -171,7 +171,7 @@
   <section class="section plan-highlight">
     <div class="section-title"><span class="title-text">실행예산 재료비 검수계획 (이번달 검수 가능 금액)</span><span class="collapse">⌃</span></div>
     <div class="section-tip">
-      검수 가능한 금액은 실행예산 재료비 계획의 최종 버전에서 세운 이번달 검수계획 금액까지입니다. 아래 Item 수량검수 금액 합계가 이 금액을 넘지 않는 선에서만 검수요청할 수 있습니다.
+      검수 기준은 실행예산 재료비 계획의 최종 버전에서 세운 이번달 검수계획 금액입니다. 아래 Item 수량검수 금액 합계가 계획금액의 ±10%(10% 안짝) 이내면 검수요청할 수 있습니다.
     </div>
     <div class="plan-basis" id="plan-basis"></div>
   </section>
@@ -215,10 +215,10 @@
   </section>
 
   <div class="compare-box">
-    <div class="compare-card"><small>이번달 검수 가능 금액</small><strong id="c-ceiling">0원</strong></div>
+    <div class="compare-card"><small>검수계획금액 (±10% 허용)</small><strong id="c-ceiling">0원</strong></div>
     <div class="compare-card"><small>검수금액 합계</small><strong id="c-total">0원</strong></div>
-    <div class="compare-card"><small>잔여 검수 가능 금액</small><strong id="c-left">0원</strong></div>
-    <div class="compare-card" id="c-verdict-card"><small>검수 가능 여부</small><strong id="c-verdict">-</strong></div>
+    <div class="compare-card"><small>상한(+10%)까지 여유</small><strong id="c-left">0원</strong></div>
+    <div class="compare-card" id="c-verdict-card"><small>±10% 이내 여부</small><strong id="c-verdict">-</strong></div>
   </div>
 
   <div class="footer-actions">
@@ -242,11 +242,21 @@
   function undoneQty(item) { return item.contractQty - item.doneQty; }
   function itemAmount(item) { return item.inspectQty * item.price; }
   function inspectTotal() { return items.reduce((sum, item) => sum + itemAmount(item), 0); }
+  // 검수는 검수계획금액의 ±10%(10% 안짝) 이내면 가능. (완벽히 일치할 필요 없음)
+  const TOL = 0.10;
+  function bandLower() { return Math.round(materialPlan.ceiling * (1 - TOL)); }
+  function bandUpper() { return Math.round(materialPlan.ceiling * (1 + TOL)); }
+  function bandState(total) {
+    if (total <= 0) return 'empty';
+    if (total > bandUpper()) return 'over';
+    if (total < bandLower()) return 'under';
+    return 'in';
+  }
 
   function renderItems() {
     document.getElementById('item-count').textContent = 'Results : ' + items.length;
     document.getElementById('item-body').innerHTML = items.map((item, index) => {
-      const over = itemAmount(item) > 0 && inspectTotal() > materialPlan.ceiling;
+      const over = itemAmount(item) > 0 && inspectTotal() > bandUpper();
       return `
         <tr>
           <td class="row-arrow">${index === 0 ? '›' : ''}</td>
@@ -281,37 +291,39 @@
   function renderPlanBasis() {
     const el = document.getElementById('plan-basis');
     const total = inspectTotal();
-    const over = total > materialPlan.ceiling;
-    el.className = 'plan-basis ' + (over ? 'warn' : 'ok');
-    const leftOrOver = over
-      ? '초과 ' + formatAmount(total - materialPlan.ceiling)
-      : '잔여 ' + formatAmount(materialPlan.ceiling - total);
+    const st = bandState(total);
+    el.className = 'plan-basis ' + (st === 'in' || st === 'empty' ? 'ok' : 'warn');
+    const verdict = st === 'empty' ? '수량 입력 필요'
+      : st === 'over' ? '계획 +10% 초과 · 수량을 줄이세요'
+      : st === 'under' ? '계획 −10% 미만 · 수량을 더 검수하세요'
+      : '계획 ±10% 이내 · 검수 가능';
     el.innerHTML = `
       <span>실행예산 재료비 버전 <b>${materialPlan.budgetVersion}</b> <span class="final-badge">최종</span> · ${materialPlan.budgetVersionDate} 승인</span>
-      <span>이번달(${materialPlan.month}) 검수 가능 금액 <b>${formatAmount(materialPlan.ceiling)}</b></span>
+      <span>이번달(${materialPlan.month}) 검수계획금액 <b>${formatAmount(materialPlan.ceiling)}</b> (허용 ±10%: ${formatAmount(bandLower())} ~ ${formatAmount(bandUpper())})</span>
       <span>현재 검수금액 <b>${formatAmount(total)}</b></span>
-      <span class="plan-basis-verdict">${over ? '금액 초과 · 수량을 줄이세요' : leftOrOver}</span>`;
+      <span class="plan-basis-verdict">${verdict}</span>`;
   }
 
   function updateSummary() {
     const total = inspectTotal();
-    const left = materialPlan.ceiling - total;
-    const over = total > materialPlan.ceiling;
-    const canRequest = total > 0 && !over;
+    const st = bandState(total);
+    const canRequest = st === 'in';
     document.getElementById('amt-inspect').value = total.toLocaleString('ko-KR');
     document.getElementById('amt-remain').value = (15600000 - total).toLocaleString('ko-KR');
     document.getElementById('c-ceiling').textContent = formatAmount(materialPlan.ceiling);
     document.getElementById('c-total').textContent = formatAmount(total);
-    document.getElementById('c-left').textContent = over ? '-' + formatAmount(total - materialPlan.ceiling) : formatAmount(left);
-    document.getElementById('c-verdict').textContent = total === 0 ? '수량 입력 필요' : over ? '금액 초과 · 요청 불가' : '검수 가능';
-    document.getElementById('c-verdict-card').className = 'compare-card ' + (over ? 'warn' : total > 0 ? 'ok' : '');
+    document.getElementById('c-left').textContent = st === 'over' ? '-' + formatAmount(total - bandUpper()) : formatAmount(bandUpper() - total);
+    document.getElementById('c-verdict').textContent = st === 'empty' ? '수량 입력 필요' : st === 'over' ? '계획 +10% 초과 · 불가' : st === 'under' ? '계획 −10% 미만 · 불가' : '계획 ±10% 이내 · 가능';
+    document.getElementById('c-verdict-card').className = 'compare-card ' + (st === 'in' ? 'ok' : st === 'empty' ? '' : 'warn');
     document.getElementById('request-button').disabled = !canRequest;
     document.getElementById('footer-request-button').disabled = !canRequest;
-    document.getElementById('request-comment').textContent = total === 0
-      ? 'Item 검수수량을 입력하세요. 검수금액 합계가 이번달 검수 가능 금액을 넘지 않으면 검수요청할 수 있습니다.'
-      : over
-        ? '검수금액 합계가 이번달 검수 가능 금액을 ' + formatAmount(total - materialPlan.ceiling) + ' 초과했습니다. 수량을 줄여 금액을 맞춰주세요.'
-        : '검수금액 합계가 이번달 검수 가능 금액 이내입니다. 검수요청할 수 있습니다. (금액이 정확히 같을 필요는 없습니다.)';
+    document.getElementById('request-comment').textContent = st === 'empty'
+      ? 'Item 검수수량을 입력하세요. 검수금액 합계가 검수계획금액의 ±10%(' + formatAmount(bandLower()) + ' ~ ' + formatAmount(bandUpper()) + ') 이내면 검수요청할 수 있습니다.'
+      : st === 'over'
+        ? '검수금액 합계가 검수계획금액의 +10%(' + formatAmount(bandUpper()) + ')를 초과했습니다. 수량을 줄여주세요.'
+        : st === 'under'
+          ? '검수금액 합계가 검수계획금액의 −10%(' + formatAmount(bandLower()) + ') 미만입니다. 수량을 더 검수해 주세요.'
+          : '검수금액 합계가 검수계획금액의 ±10% 이내입니다. 검수요청할 수 있습니다. (정확히 같을 필요 없습니다.)';
     renderPlanBasis();
   }
 
@@ -321,11 +333,12 @@
       alert('검수할 Item 수량을 입력하세요.');
       return;
     }
-    if (total > materialPlan.ceiling) {
-      alert('검수금액 합계(' + formatAmount(total) + ')가 이번달 검수 가능 금액(' + formatAmount(materialPlan.ceiling) + ')을 초과했습니다.\n수량을 줄여 금액을 맞춘 뒤 검수요청하세요.');
+    const st = bandState(total);
+    if (st !== 'in') {
+      alert('검수금액 합계(' + formatAmount(total) + ')가 검수계획금액의 ±10% 허용범위(' + formatAmount(bandLower()) + ' ~ ' + formatAmount(bandUpper()) + ')를 벗어났습니다.\n수량을 조정해 허용범위 이내로 맞춘 뒤 검수요청하세요.');
       return;
     }
-    alert('상품 수량검수 요청이 완료되었습니다.\n검수금액 ' + formatAmount(total) + ' (이번달 검수 가능 금액 ' + formatAmount(materialPlan.ceiling) + ' 이내)');
+    alert('상품 수량검수 요청이 완료되었습니다.\n검수금액 ' + formatAmount(total) + ' (검수계획금액 ±10% 이내)');
   }
 
   renderItems();
