@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>검수상세 - 실투입 비대상 외주 계획</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; min-width: 1280px; font-family: 'Noto Sans KR', sans-serif; color: #111827; background: #f7f7f8; }
+  .page { padding: 16px 18px 48px; }
+  .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+  h1 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 22px; font-weight: 900; }
+  h1 span.star { color: #f59e0b; }
+  h1 .ptype-chip { font-size: 12px; font-weight: 900; padding: 3px 10px; border-radius: 999px; background: #ffedd5; color: #9a3412; }
+  .breadcrumb { margin-bottom: 8px; text-align: right; font-size: 12px; font-weight: 700; color: #2563eb; }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .btn { border: 1px solid #d1d5db; border-radius: 8px; background: #fff; color: #111827; padding: 8px 14px; font-weight: 900; cursor: pointer; }
+  .btn.primary { border-color: #ef4444; background: #ef4444; color: #fff; }
+  .btn.amber { border-color: #d97706; background: #d97706; color: #fff; }
+  .btn.sm { padding: 5px 10px; font-size: 12px; }
+  .btn:disabled { border-color: #d1d5db; background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
+  .scenario-note { margin: 0 0 16px; border: 1px solid #fed7aa; border-radius: 10px; background: #fff7ed; padding: 12px 14px; color: #9a3412; font-size: 13px; font-weight: 800; }
+  .section { margin-bottom: 18px; border: 1px solid #d9dde3; border-radius: 8px; background: #fff; overflow: hidden; }
+  .section.plan-highlight { border: 3px solid #d97706; box-shadow: 0 0 0 3px rgba(217, 119, 6, .12); }
+  .section-title { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid #e5e7eb; background: #fff; font-size: 17px; font-weight: 900; }
+  .section-title .title-text { display: inline-flex; align-items: center; gap: 8px; }
+  .section-title .title-text::before { content: ""; width: 4px; height: 18px; border-radius: 3px; background: #ef4444; }
+  .section.plan-highlight .title-text::before { background: #d97706; }
+  .collapse { color: #4b5563; font-size: 18px; }
+  .form-grid { display: grid; grid-template-columns: 120px 1fr 120px 1fr 120px 1fr; border-top: 1px solid #e5e7eb; }
+  .label { background: #e8ebf0; padding: 10px 14px; font-weight: 900; border-right: 1px solid #d1d5db; border-bottom: 1px solid #d1d5db; font-size: 13px; }
+  .label.req::after { content: " *"; color: #ef4444; }
+  .value { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 7px 12px; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+  .value.span { grid-column: 2 / -1; }
+  input, select { width: 100%; height: 30px; border: 1px solid #d1d5db; border-radius: 4px; background: #f9fafb; padding: 0 10px; font-family: inherit; font-weight: 700; font-size: 13px; }
+  input.req-field { background: #fffbeb; border-color: #fbbf24; }
+  input[readonly] { background: #f3f4f6; }
+  textarea { width: 100%; min-height: 70px; border: 1px solid #d1d5db; border-radius: 4px; background: #f9fafb; padding: 8px 10px; font-family: inherit; font-weight: 700; resize: vertical; }
+  .right { text-align: right; }
+  .section-tip { padding: 10px 14px; border-top: 1px solid #e5e7eb; background: #fff7ed; color: #9a3412; font-size: 12px; font-weight: 800; }
+  .table-wrap { padding: 0 0 12px; overflow: auto; }
+  .result-count { padding: 8px 12px 4px; text-align: right; font-weight: 900; font-size: 13px; }
+  table { width: 100%; min-width: 1180px; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+  th, td { border: 1px solid #d1d5db; padding: 8px 8px; text-align: center; vertical-align: middle; }
+  th { background: #e7e9ee; font-weight: 900; }
+  td { background: #fff; }
+  td.left { text-align: left; }
+  tr.selected td { background: #fff7ed; }
+  .check-cell input { width: 15px; height: 15px; }
+  td .amt-input { height: 28px; text-align: right; background: #fffbeb; border-color: #fbbf24; }
+  td .amt-input.over { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
+  td .amt-input:disabled { background: #f3f4f6; border-color: #e5e7eb; }
+  .attach-box { margin: 12px 14px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #fafafa; min-height: 70px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-weight: 800; font-size: 13px; }
+  .plan-basis { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin: 12px 14px; padding: 12px 14px; border-radius: 10px; border: 1px solid #e5e7eb; font-size: 13px; font-weight: 800; }
+  .plan-basis.ok { border-color: #fed7aa; background: #fff7ed; color: #9a3412; }
+  .plan-basis.warn { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+  .plan-basis b { color: inherit; }
+  .plan-basis .final-badge { display: inline-block; padding: 2px 7px; border-radius: 999px; background: #ede9fe; color: #4c1d95; font-size: 10px; font-weight: 800; }
+  .plan-basis-verdict { padding: 3px 10px; border-radius: 999px; font-weight: 900; font-size: 12px; }
+  .plan-basis.ok .plan-basis-verdict { background: #ffedd5; color: #9a3412; }
+  .plan-basis.warn .plan-basis-verdict { background: #fee2e2; color: #b91c1c; }
+  .compare-box { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .compare-card { border: 1px solid #fed7aa; border-radius: 10px; background: #fff7ed; padding: 12px; }
+  .compare-card small { display: block; margin-bottom: 5px; color: #9a3412; font-weight: 800; font-size: 12px; }
+  .compare-card strong { font-size: 18px; font-weight: 900; }
+  .compare-card.ok strong { color: #047857; }
+  .compare-card.warn strong { color: #ef4444; }
+  .footer-actions { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; padding: 14px; box-shadow: 0 -10px 30px rgba(15, 23, 42, .08); }
+  .footer-actions p { margin: 0; color: #4b5563; font-weight: 800; font-size: 13px; }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="top">
+    <h1>검수상세 (4500310534 / 900000000) <span class="star">★</span> <span class="ptype-chip">실투입 비대상 외주</span></h1>
+    <div>
+      <div class="breadcrumb">Home &gt; 검수/정산 &gt; 검수/대금지급 &gt; 검수관리</div>
+      <div class="actions">
+        <button class="btn amber" id="request-button" onclick="requestInspection()">검수증</button>
+        <button class="btn primary">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="scenario-note">
+    시나리오(실투입 비대상 외주): ITEM/Service 라인을 선택하고 검수금액을 직접 키인해 검수합니다. 검수금액 합계는 NEW MIS 실행예산의 실투입 비대상 외주 검수계획금액 이내여야 하며, 계획 금액을 넘지 않는 선에서만 검수할 수 있습니다.
+  </p>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">기본정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">계약번호/차수</div>
+      <div class="value"><input value="4500310534" readonly /><input value="1" readonly style="max-width:60px" /></div>
+      <div class="label">계약명</div>
+      <div class="value span"><input value="SKAX / ISAC 인프라 설치·공사(전문직/제안/기타) / 협력사" readonly /></div>
+
+      <div class="label">검수번호/차수</div>
+      <div class="value"><input value="" readonly /><input value="" readonly style="max-width:60px" /></div>
+      <div class="label">검수내역</div>
+      <div class="value span"><input value="1차 검수_SKAX / ISAC 인프라 설치·공사 / 협력사" readonly /></div>
+
+      <div class="label">계약금액</div>
+      <div class="value"><input class="right" value="156,600,000" readonly /></div>
+      <div class="label">계약기간</div>
+      <div class="value"><input value="2026/06/01  ~  2026/12/31" readonly /></div>
+      <div class="label">통화</div>
+      <div class="value"><input value="원화" readonly /></div>
+
+      <div class="label req">검수타임</div>
+      <div class="value"><select class="req-field"><option>1차 검수</option><option>2차 검수</option></select></div>
+      <div class="label">검수자</div>
+      <div class="value"><input value="이수진" readonly /></div>
+      <div class="label">협력사</div>
+      <div class="value"><input value="2208181381" readonly style="max-width:120px" /><input value="협력사(주)" readonly /></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">금액정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">기검수금액</div>
+      <div class="value"><input class="right" value="0" readonly /></div>
+      <div class="label">검수금액</div>
+      <div class="value"><input class="right" id="amt-inspect" value="0" readonly /></div>
+      <div class="label">전체금액</div>
+      <div class="value"><input class="right" id="amt-total" value="0" readonly /></div>
+      <div class="label">선급금지급액</div>
+      <div class="value"><input class="right" value="0" readonly /></div>
+      <div class="label">반제완료금액</div>
+      <div class="value"><input class="right" value="0" readonly /></div>
+      <div class="label">잔액</div>
+      <div class="value"><input class="right" id="amt-remain" value="156,600,000" readonly /></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">첨부파일</span><span class="collapse">⌃</span></div>
+    <div class="section-tip">검수 진행 시 반드시 증빙서류를 첨부하시기 바랍니다.</div>
+    <div class="attach-box">SKAX ISAC Report 6월.pptx (301.84 KB) · 1개 첨부됨</div>
+  </section>
+
+  <section class="section plan-highlight">
+    <div class="section-title"><span class="title-text">NEW MIS 실투입 비대상 외주 검수계획금액 (계획 이내 검수)</span><span class="collapse">⌃</span></div>
+    <div class="section-tip">
+      검수금액 합계는 NEW MIS 실행예산의 실투입 비대상 외주 검수계획(최종 버전)금액 이내여야 합니다. 계획 금액을 넘지 않는 선에서만 검수할 수 있습니다. (금액이 정확히 같을 필요는 없습니다.)
+    </div>
+    <div class="plan-basis" id="plan-basis"></div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">Item정보</span><span class="collapse">⌃</span></div>
+    <div class="result-count" id="item-count">Results : 0</div>
+    <div class="table-wrap">
+      <table>
+        <colgroup>
+          <col style="width:44px" /><col style="width:55px" /><col style="width:110px" /><col style="width:220px" />
+          <col style="width:120px" /><col style="width:140px" /><col style="width:140px" /><col style="width:140px" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>선택</th><th>항번</th><th>품목코드</th><th>품명</th><th>내역</th><th>단가</th><th>계약금액</th><th>기검수금액</th>
+          </tr>
+        </thead>
+        <tbody id="item-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">Service정보 (라인 선택 · 검수금액 키인)</span><span class="collapse">⌃</span></div>
+    <div class="result-count" id="svc-count">Results : 0</div>
+    <div class="table-wrap">
+      <table>
+        <colgroup>
+          <col style="width:44px" /><col style="width:55px" /><col style="width:100px" /><col style="width:200px" /><col style="width:70px" />
+          <col style="width:130px" /><col style="width:130px" /><col style="width:120px" /><col style="width:150px" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>선택</th><th>항번</th><th>품목코드</th><th>품명</th><th>계약수량</th><th>단가</th><th>계약금액</th><th>기검수금액</th><th>검수금액</th>
+          </tr>
+        </thead>
+        <tbody id="svc-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="compare-box">
+    <div class="compare-card"><small>검수계획금액 (한도)</small><strong id="c-ceiling">0원</strong></div>
+    <div class="compare-card"><small>검수금액 합계</small><strong id="c-total">0원</strong></div>
+    <div class="compare-card"><small>잔여 검수 가능 금액</small><strong id="c-left">0원</strong></div>
+    <div class="compare-card" id="c-verdict-card"><small>계획 이내 여부</small><strong id="c-verdict">-</strong></div>
+  </div>
+
+  <div class="footer-actions">
+    <p id="request-comment">ITEM/Service 라인을 선택하고 검수금액을 키인하세요. 검수금액 합계가 검수계획금액 이내면 검수할 수 있습니다.</p>
+    <button class="btn amber" id="footer-request-button" onclick="requestInspection()">검수증</button>
+  </div>
+</main>
+
+<script>
+  // NEW MIS 실행예산의 실투입 비대상 외주 검수계획금액(최종 버전). 검수금액 합계는 이 금액 이내여야 함.
+  const outPlan = { budgetVersion: 'V3', budgetVersionDate: '2026-07-20', month: '2026-07', ceiling: 60000000 };
+
+  // ITEM/Service 라인(동일 항번으로 연결). 라인 선택 + 검수금액 키인.
+  const lines = [
+    { seq: 10, code: 'MP00008', name: '설치/공사/전문직/제안/기타', detail: '서비스 구매', qty: 1, price: 156600000, contractAmount: 156600000, doneAmount: 0, inspectAmount: 52200000, selected: true },
+  ];
+
+  function formatAmount(value) { return value.toLocaleString('ko-KR') + '원'; }
+  function undoneAmount(line) { return line.contractAmount - line.doneAmount; }
+  function selectedTotal() { return lines.filter(l => l.selected).reduce((sum, l) => sum + l.inspectAmount, 0); }
+  function findLine(seq) { return lines.find(l => l.seq === seq); }
+
+  function renderItems() {
+    document.getElementById('item-count').textContent = 'Results : ' + lines.length;
+    document.getElementById('item-body').innerHTML = lines.map(line => `
+      <tr class="${line.selected ? 'selected' : ''}">
+        <td class="check-cell"><input type="checkbox" ${line.selected ? 'checked' : ''} onclick="toggleSelect(${line.seq})" /></td>
+        <td>${line.seq}</td>
+        <td>${line.code}</td>
+        <td class="left">${line.name}</td>
+        <td>${line.detail}</td>
+        <td class="right">${line.price.toLocaleString('ko-KR')}</td>
+        <td class="right">${line.contractAmount.toLocaleString('ko-KR')}</td>
+        <td class="right">${line.doneAmount.toLocaleString('ko-KR')}</td>
+      </tr>`).join('');
+  }
+
+  function renderServices() {
+    document.getElementById('svc-count').textContent = 'Results : ' + lines.length;
+    const over = selectedTotal() > outPlan.ceiling;
+    document.getElementById('svc-body').innerHTML = lines.map((line, index) => {
+      const inputOver = line.selected && over && line.inspectAmount > 0;
+      return `
+      <tr class="${line.selected ? 'selected' : ''}">
+        <td class="check-cell"><input type="checkbox" ${line.selected ? 'checked' : ''} onclick="toggleSelect(${line.seq})" /></td>
+        <td>${line.seq}</td>
+        <td>${line.code}</td>
+        <td class="left">${line.name}</td>
+        <td class="right">${line.qty.toLocaleString('ko-KR')}</td>
+        <td class="right">${line.price.toLocaleString('ko-KR')}</td>
+        <td class="right">${line.contractAmount.toLocaleString('ko-KR')}</td>
+        <td class="right">${line.doneAmount.toLocaleString('ko-KR')}</td>
+        <td><input class="amt-input ${inputOver ? 'over' : ''}" id="amt-${index}" inputmode="numeric"
+               value="${line.inspectAmount.toLocaleString('ko-KR')}" ${line.selected ? '' : 'disabled'}
+               onchange="setInspectAmount(${line.seq}, this.value)" oninput="setInspectAmount(${line.seq}, this.value)" /></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function toggleSelect(seq) {
+    const line = findLine(seq);
+    line.selected = !line.selected;
+    renderItems();
+    renderServices();
+    updateSummary();
+  }
+
+  function setInspectAmount(seq, raw) {
+    const line = findLine(seq);
+    let amount = parseInt(String(raw).replace(/[^0-9]/g, ''), 10);
+    if (isNaN(amount) || amount < 0) amount = 0;
+    if (amount > undoneAmount(line)) {
+      amount = undoneAmount(line);
+      alert('검수금액은 미검수 잔액 ' + formatAmount(undoneAmount(line)) + '을(를) 초과할 수 없습니다.');
+    }
+    line.inspectAmount = amount;
+    renderServices();
+    updateSummary();
+  }
+
+  function renderPlanBasis() {
+    const el = document.getElementById('plan-basis');
+    const total = selectedTotal();
+    const over = total > outPlan.ceiling;
+    el.className = 'plan-basis ' + (over ? 'warn' : 'ok');
+    const leftOrOver = over ? '초과 ' + formatAmount(total - outPlan.ceiling) : '잔여 ' + formatAmount(outPlan.ceiling - total);
+    el.innerHTML = `
+      <span>실행예산 외주(비대상) 버전 <b>${outPlan.budgetVersion}</b> <span class="final-badge">최종</span> · ${outPlan.budgetVersionDate} 승인</span>
+      <span>검수계획금액(한도) <b>${formatAmount(outPlan.ceiling)}</b></span>
+      <span>검수금액 합계 <b>${formatAmount(total)}</b></span>
+      <span class="plan-basis-verdict">${over ? '계획 초과 · 금액을 줄이세요' : leftOrOver}</span>`;
+  }
+
+  function updateSummary() {
+    const total = selectedTotal();
+    const over = total > outPlan.ceiling;
+    const anySelected = lines.some(l => l.selected);
+    const canRequest = total > 0 && !over && anySelected;
+    document.getElementById('amt-inspect').value = total.toLocaleString('ko-KR');
+    document.getElementById('amt-total').value = total.toLocaleString('ko-KR');
+    document.getElementById('amt-remain').value = (156600000 - total).toLocaleString('ko-KR');
+    document.getElementById('c-ceiling').textContent = formatAmount(outPlan.ceiling);
+    document.getElementById('c-total').textContent = formatAmount(total);
+    document.getElementById('c-left').textContent = over ? '-' + formatAmount(total - outPlan.ceiling) : formatAmount(outPlan.ceiling - total);
+    document.getElementById('c-verdict').textContent = total === 0 ? '선택·금액 입력 필요' : over ? '계획 초과 · 불가' : '계획 이내 · 가능';
+    document.getElementById('c-verdict-card').className = 'compare-card ' + (over ? 'warn' : total > 0 ? 'ok' : '');
+    document.getElementById('request-button').disabled = !canRequest;
+    document.getElementById('footer-request-button').disabled = !canRequest;
+    document.getElementById('request-comment').textContent = total === 0
+      ? 'ITEM/Service 라인을 선택하고 검수금액을 키인하세요. 검수금액 합계가 검수계획금액 이내면 검수할 수 있습니다.'
+      : over
+        ? '검수금액 합계가 검수계획금액을 ' + formatAmount(total - outPlan.ceiling) + ' 초과했습니다. 금액을 줄여 계획 이내로 맞춰주세요.'
+        : '검수금액 합계가 검수계획금액 이내입니다. 검수할 수 있습니다. (계획 금액과 정확히 같을 필요는 없습니다.)';
+    renderPlanBasis();
+  }
+
+  function requestInspection() {
+    const total = selectedTotal();
+    if (!lines.some(l => l.selected) || total <= 0) {
+      alert('검수할 라인을 선택하고 검수금액을 키인하세요.');
+      return;
+    }
+    if (total > outPlan.ceiling) {
+      alert('검수금액 합계(' + formatAmount(total) + ')가 검수계획금액(' + formatAmount(outPlan.ceiling) + ')을 초과했습니다.\n계획 금액을 넘지 않는 선에서만 검수할 수 있습니다.');
+      return;
+    }
+    alert('실투입 비대상 외주 검수가 완료되었습니다.\n검수금액 ' + formatAmount(total) + ' (검수계획금액 ' + formatAmount(outPlan.ceiling) + ' 이내)');
+  }
+
+  renderItems();
+  renderServices();
+  updateSummary();
+</script>
+</body>
+</html>
