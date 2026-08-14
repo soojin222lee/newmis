@@ -186,6 +186,66 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
   background: var(--sk-ink) !important; color: #fff !important; border-color: var(--sk-ink) !important;
 }
 
+/* ==========================================================================
+   실행예산 화면 — 레퍼런스 톤(깔끔한 박스/테이블/필터/버전필)
+   ========================================================================== */
+.exec-budget-title {
+  font-size: 22px !important; font-weight: 900 !important; color: #16151f !important;
+  letter-spacing: -0.4px; margin-bottom: 14px !important;
+}
+/* 필터 패널 */
+.exec-filter-panel {
+  background: #fff !important; border: 1px solid var(--sk-border) !important; border-radius: 14px !important;
+  box-shadow: 0 6px 18px rgba(15,23,42,.05) !important; padding: 14px 16px !important;
+}
+.exec-filter-field span { color: #6b7480 !important; font-weight: 800 !important; font-size: 12px !important; }
+.exec-filter-field input, .exec-filter-field select {
+  border: 1px solid var(--sk-border-strong) !important; border-radius: 9px !important;
+  background: #fbfcfe !important; height: 34px !important;
+}
+.exec-filter-field input:focus, .exec-filter-field select:focus {
+  border-color: var(--sk-blue) !important; outline: none !important; box-shadow: 0 0 0 3px var(--sk-blue-soft) !important;
+}
+/* 리스트 헤더 액션 */
+.exec-total strong { color: var(--sk-blue) !important; }
+.exec-primary-btn {
+  background: var(--sk-ink) !important; border: 1px solid var(--sk-ink) !important; color: #fff !important;
+  border-radius: 10px !important; font-weight: 800 !important;
+}
+.exec-text-btn {
+  background: #fff !important; border: 1px solid var(--sk-border-strong) !important; color: #37414f !important;
+  border-radius: 10px !important; font-weight: 700 !important;
+}
+/* 프로젝트 테이블 카드 + 헤더/행 */
+.proj-table-card {
+  background: #fff !important; border: 1px solid var(--sk-border) !important; border-radius: 14px !important;
+  box-shadow: 0 6px 18px rgba(15,23,42,.05) !important; overflow: hidden;
+}
+.exec-budget-table thead th, .proj-table thead th {
+  background: var(--sk-head) !important; color: #3d4a5c !important; font-weight: 800 !important;
+  border-bottom: 1px solid var(--sk-border-strong) !important;
+}
+.exec-budget-table td, .proj-table td { border-bottom: 1px solid #eef1f5 !important; }
+.exec-budget-table tbody tr:hover td, .proj-table tbody tr:hover td { background: var(--sk-blue-soft) !important; }
+
+/* 상세 — 버전 필(주황 하드코딩 제거 → SK) */
+.setup-version-pill {
+  border: 1px solid var(--sk-border-strong) !important; background: #fff !important; color: #37414f !important;
+}
+.setup-version-tabs .setup-version-pill:hover { border-color: var(--sk-blue) !important; background: var(--sk-blue-soft) !important; box-shadow: none !important; }
+.setup-version-tabs .setup-version-pill.active { border-color: var(--sk-blue) !important; background: var(--sk-blue-soft) !important; color: var(--sk-blue-deep) !important; box-shadow: none !important; }
+.setup-version-pill span { border: 1px solid var(--sk-border) !important; background: #f4f6fa !important; color: #55606f !important; }
+/* 상세 카드/계정행 */
+.version-detail-card { border: 1px solid var(--sk-border) !important; border-radius: 14px !important; }
+.setup-account-row {
+  border: 1px solid var(--sk-border) !important; border-radius: 12px !important; background: #fff !important;
+}
+.setup-account-row.active, .setup-account-row.total { border-color: var(--sk-blue) !important; }
+/* 상세 테이블 헤더 */
+.exec-approval-table th, .account-monthly-table th, .setup-plan-table th {
+  background: var(--sk-head) !important; color: #3d4a5c !important; border-bottom: 1px solid var(--sk-border-strong) !important;
+}
+
 /* 스크롤바 */
 * { scrollbar-color: #cbd3de transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
