@@ -421,6 +421,32 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
 .setup-account-rows.five .setup-account-row.active { background: var(--sk-blue-soft) !important; border-color: var(--sk-blue) !important; }
 .setup-account-rows.five .setup-account-row.active strong { color: var(--sk-blue-deep) !important; }
 
+/* ==========================================================================
+   마우스 오버(hover) 주황 제거 → 블루/중립
+   ========================================================================== */
+.labor-sync-btn:hover,
+.os-kind-tabs button:hover, .os-kind-tabs > *:hover,
+.material-quote-line:hover, .material-quote-group:hover,
+.os-quote-item:hover,
+.os-lookup-field button:hover, .os-lookup-input button:hover,
+.custom-report-presets button:hover,
+.labor-scm-row:hover, .labor-reg-row:hover,
+.labor-candidate:hover, .labor-row:hover,
+.excel-btn:hover, .view-toggle-btn:hover {
+  background: var(--sk-blue-soft) !important;
+  background-image: none !important;
+  border-color: var(--sk-blue) !important;
+  color: var(--sk-blue-deep) !important;
+}
+.view-toggle-btn.active:hover, .fivetier-btn:hover {
+  background: var(--sk-blue) !important; background-image: none !important; color: #fff !important; border-color: var(--sk-blue) !important;
+}
+/* 활성 탭/행은 hover 시에도 검정 유지 */
+.os-kind-tabs > *.active:hover, .os-kind-tabs button.active:hover,
+.material-quote-line.active:hover, .material-quote-group.active:hover {
+  background: var(--sk-ink) !important; color: #fff !important; border-color: var(--sk-ink) !important;
+}
+
 /* 스크롤바 */
 * { scrollbar-color: #cbd3de transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
