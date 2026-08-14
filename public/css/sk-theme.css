@@ -541,6 +541,6 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
 .work-diary-card, .account-monthly-card, .as-cost-panel, .df-ext-card, .df-timing-card,
 .main-split-panel, .apv-doc-box, .pcd-box, .pcd-report-box {
   background: #ffffff !important;
-  border-color: transparent !important;
+  border: 1px solid #e4e2da !important;   /* 미색 테두리로 각진 네모 구분 */
   border-radius: 4px !important;
 }
