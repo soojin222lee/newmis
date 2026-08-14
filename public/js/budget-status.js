@@ -3894,7 +3894,7 @@ function renderBpoKindTabsV2Final() {
             <em>${item.no}</em>
             <strong>${item.label}</strong>
             <span>${item.desc}</span>
-            ${outsourceKind === item.id ? '<i>선택됨</i>' : ''}
+            ${outsourceKind === item.id ? '' : ''}
           </button>`).join('')}
       </div>
     </div>`;
@@ -3992,7 +3992,7 @@ function renderOutsourceKindTabs() {
             <em>${item.no}</em>
             <strong>${item.label}</strong>
             <span>${item.desc}</span>
-            ${outsourceKind === item.id ? '<i>선택됨</i>' : ''}
+            ${outsourceKind === item.id ? '' : ''}
           </button>`).join('')}
       </div>
     </div>`;
@@ -4951,7 +4951,7 @@ function renderOutsourceKindTabs() {
           <span class="os-kind-step">${item.step}</span>
           <strong>${item.label}</strong>
           <em>${item.desc}</em>
-          ${outsourceKind === item.id ? '<b>선택됨</b>' : ''}
+          ${outsourceKind === item.id ? '' : ''}
         </button>`).join('')}
     </div>`;
 }
@@ -5442,7 +5442,7 @@ function renderOutsourceKindTabs() {
           <span class="os-kind-step">${item.step}</span>
           <strong>${item.label}</strong>
           <em>${item.desc}</em>
-          ${outsourceKind === item.id ? '<b>선택됨</b>' : ''}
+          ${outsourceKind === item.id ? '' : ''}
         </button>
       `).join('')}
     </div>`;
