@@ -9016,15 +9016,22 @@ function renderTotalBudgetBar(budget, actual, quasi, remain, projName='', dplus=
   const rate     = budget > 0 ? (actual / budget * 100).toFixed(1) : 0;
   const quaRate  = budget > 0 ? (quasi  / budget * 100).toFixed(1) : 0;
   const remRate  = budget > 0 ? (Math.max(remain, 0) / budget * 100).toFixed(1) : 0;
-  const rateColor = rate >= 90 ? '#dc2626' : rate >= 70 ? '#d97706' : '#1d4ed8';
-
-  // 프로그레스바 너비 (실집행 + 투입확정 합산이 100% 초과 안 하도록 클램프)
-  const actW = Math.min(parseFloat(rate),   100);
-  const quaW = Math.min(parseFloat(quaRate), 100 - actW);
+  // 레퍼런스 대시보드 스타일 KPI 카드(라벨 + 큰 컬러 숫자 + 카드별 진행바 + %)
+  const card = (label, val, sub, pct, cls, pctText) => `
+    <div class="tbb-kpi tbb-kpi-${cls}">
+      <div class="tbb-kpi-head">
+        <span class="tbb-kpi-label">${label}</span>
+        <span class="tbb-kpi-val">${val}<em>원</em></span>
+      </div>
+      <div class="tbb-kpi-sub">${sub}</div>
+      <div class="tbb-kpi-barrow">
+        <div class="tbb-kpi-bar"><div class="tbb-kpi-fill" style="width:${Math.min(parseFloat(pct) || 0, 100)}%"></div></div>
+        <span class="tbb-kpi-pct">${pctText}</span>
+      </div>
+    </div>`;
 
   return `
     <div class="tbb-card">
-      <!-- 상단: 타이틀 -->
       <div class="tbb-top">
         <div class="tbb-top-left">
           <div class="tbb-proj-info">
@@ -9034,45 +9041,11 @@ function renderTotalBudgetBar(budget, actual, quasi, remain, projName='', dplus=
           </div>
         </div>
       </div>
-
-      <!-- 하단: 4개 지표 + 프로그레스바 + 집행률 -->
-      <div class="tbb-body">
-        <div class="tbb-metrics">
-          <div class="tbb-metric tbb-metric-plan">
-            <span class="tbb-mlabel">계획예산</span>
-            <span class="tbb-mval">${fmt(budget)}<span class="tbb-unit">원</span></span>
-            <span class="tbb-msub">프로젝트 총액</span>
-          </div>
-          <div class="tbb-metric tbb-metric-act">
-            <span class="tbb-mlabel">실집행</span>
-            <span class="tbb-mval tbb-act">${fmt(actual)}<span class="tbb-unit">원</span></span>
-            <span class="tbb-msub">집행 ${rate}%</span>
-          </div>
-          <div class="tbb-metric tbb-metric-qua">
-            <span class="tbb-mlabel">투입확정</span>
-            <span class="tbb-mval tbb-qua">${fmt(quasi)}<span class="tbb-unit">원</span></span>
-            <span class="tbb-msub">확정 ${quaRate}%</span>
-          </div>
-          <div class="tbb-metric tbb-metric-rem">
-            <span class="tbb-mlabel">투입미정</span>
-            <span class="tbb-mval tbb-rem">${fmt(Math.max(remain,0))}<span class="tbb-unit">원</span></span>
-            <span class="tbb-msub">잔여 ${remRate}%</span>
-          </div>
-        </div>
-        <div class="tbb-right">
-          <div class="tbb-rate-num" style="color:${rateColor}">${rate}<span class="tbb-rate-pct">%</span></div>
-          <div class="tbb-rate-label">실적집행률</div>
-        </div>
-      </div>
-
-      <!-- 프로그레스바 -->
-      <div class="tbb-bar-wrap">
-        <div class="tbb-bar-fill tbb-bar-act" style="width:${actW}%"></div>
-        <div class="tbb-bar-fill tbb-bar-qua" style="width:${quaW}%"></div>
-      </div>
-      <div class="tbb-bar-legend">
-        <span><span class="tbb-dot tbb-dot-act"></span>실집행 ${rate}%</span>
-        <span><span class="tbb-dot tbb-dot-qua"></span>투입확정 ${quaRate}%</span>
+      <div class="tbb-kpis">
+        ${card('계획예산', fmt(budget), '프로젝트 총액', 100, 'plan', '기준')}
+        ${card('실집행', fmt(actual), '계획 대비 집행률', rate, 'act', rate + '%')}
+        ${card('투입확정', fmt(quasi), '계획 대비 확정률', quaRate, 'qua', quaRate + '%')}
+        ${card('투입미정', fmt(Math.max(remain, 0)), '계획 대비 잔여율', remRate, 'rem', remRate + '%')}
       </div>
     </div>`;
 }

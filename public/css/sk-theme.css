@@ -270,6 +270,28 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
 .tbb-dot-act { background: var(--sk-blue) !important; }
 .tbb-dot-qua { background: #f5a623 !important; }
 
+/* KPI 카드형(레퍼런스 대시보드 스타일) */
+.tbb-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.tbb-kpi { background: #fff; border: 1px solid var(--sk-border); border-radius: 14px; padding: 14px 16px 13px; }
+.tbb-kpi-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.tbb-kpi-label { font-size: 14px; font-weight: 800; color: #3a4354; white-space: nowrap; }
+.tbb-kpi-val { font-size: 22px; font-weight: 900; letter-spacing: -0.6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbb-kpi-val em { font-size: 12px; font-weight: 700; color: #9aa4b2; font-style: normal; margin-left: 2px; }
+.tbb-kpi-sub { font-size: 12px; font-weight: 700; color: #8a94a6; margin-top: 4px; }
+.tbb-kpi-barrow { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.tbb-kpi-bar { flex: 1; height: 8px; background: #eef1f6; border-radius: 999px; overflow: hidden; }
+.tbb-kpi-fill { height: 100%; border-radius: 999px; }
+.tbb-kpi-pct { font-size: 12px; font-weight: 800; color: #6b7480; min-width: 46px; text-align: right; }
+.tbb-kpi-plan .tbb-kpi-val { color: #16151f; }
+.tbb-kpi-plan .tbb-kpi-fill { background: #c3cbd6; }
+.tbb-kpi-act .tbb-kpi-val { color: var(--sk-blue); }
+.tbb-kpi-act .tbb-kpi-fill { background: var(--sk-blue); }
+.tbb-kpi-qua .tbb-kpi-val { color: #e07b12; }
+.tbb-kpi-qua .tbb-kpi-fill { background: #f5a623; }
+.tbb-kpi-rem .tbb-kpi-val { color: #1b8f63; }
+.tbb-kpi-rem .tbb-kpi-fill { background: #22b07d; }
+@media (max-width: 900px) { .tbb-kpis { grid-template-columns: repeat(2, 1fr); } }
+
 /* 탭 그룹 — 레퍼런스 아이콘 필(활성 = 검정 필, 기본 = 흰 필) */
 .os-kind-tabs > *, .bpo-kind-tabs button, .budget-account-tabs button,
 .actual-detail-tabs button, .actr-history-tab, .bps-toggle button {
