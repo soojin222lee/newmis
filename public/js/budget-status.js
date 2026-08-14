@@ -912,7 +912,7 @@ function renderBudgetOverviewGraph(forMain = false, filterKey = null) {
   }).join('');
 
   const colHead = forMain ? `
-    <div style="display:grid;grid-template-columns:${gridCols};gap:12px;padding:8px 20px;font-size:11px;font-weight:600;color:#94a3b8;border-bottom:1px solid #f1f5f9;background:#fafbfd">
+    <div style="display:grid;grid-template-columns:${gridCols};gap:12px;padding:8px 20px;font-size:13px;font-weight:600;color:#94a3b8;border-bottom:1px solid #f1f5f9;background:#fafbfd">
       <div>프로젝트</div><div style="padding-left:4px">일정 / 예산 소진율</div>
       <div style="text-align:center">단계</div><div style="text-align:center">리스크</div><div style="text-align:right">편차</div>
     </div>` : '';
@@ -921,7 +921,7 @@ function renderBudgetOverviewGraph(forMain = false, filterKey = null) {
     <div class="card bov-card">
       <div class="card-head">
         <span class="card-title">예산 통합 현황</span>
-        <div style="display:flex;align-items:center;gap:14px;font-size:12px;color:#64748b">
+        <div style="display:flex;align-items:center;gap:14px;font-size:14px;color:#64748b">
           <div style="display:flex;align-items:center;gap:5px"><div style="width:28px;height:4px;background:#3b82f6;border-radius:2px"></div>일정 진행</div>
           <div style="display:flex;align-items:center;gap:5px"><div style="width:28px;height:4px;background:#94a3b8;border-radius:2px;border:1px dashed #94a3b8"></div>예산 소진</div>
           <div style="display:flex;align-items:center;gap:5px"><div style="width:2px;height:14px;background:#ef4444"></div>오늘</div>
@@ -934,7 +934,7 @@ function renderBudgetOverviewGraph(forMain = false, filterKey = null) {
         </div>
         ${rows}
       </div>
-      <div style="padding:8px 20px;font-size:11px;color:#94a3b8;border-top:1px solid #f1f5f9;background:#fafbfc">
+      <div style="padding:8px 20px;font-size:13px;color:#94a3b8;border-top:1px solid #f1f5f9;background:#fafbfc">
         ※ 예산 소진율이 일정 진행률보다 높으면 과다 집행 위험. 세로 점선(│)은 일정 기준 선입니다. ${forMain ? '클릭 시 예산현황 상세 조회.' : '프로젝트 클릭 시 상세 조회.'}
       </div>
     </div>`;
@@ -8757,7 +8757,7 @@ function buildBudgetProjectCards() {
           <div class="ipc-name">${m.name}</div>
           <span class="ipc-stage" style="${m.stageSt}">${m.stage}</span>
         </div>
-        <div style="margin:12px 0 4px;font-size:12px;color:#64748b;display:flex;justify-content:space-between">
+        <div style="margin:12px 0 4px;font-size:14px;color:#64748b;display:flex;justify-content:space-between">
           <span>집행률</span><span style="font-weight:700;color:${barColor}">${rate}%</span>
         </div>
         <div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-bottom:14px">
@@ -8765,21 +8765,21 @@ function buildBudgetProjectCards() {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
           <div style="background:#f8fafc;border-radius:8px;padding:10px 12px">
-            <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">총예산</div>
-            <div style="font-size:13px;font-weight:700;color:#1e293b">${fmt(budget)}원</div>
+            <div style="font-size:13px;color:#94a3b8;margin-bottom:4px">총예산</div>
+            <div style="font-size:15px;font-weight:700;color:#1e293b">${fmt(budget)}원</div>
           </div>
           <div style="background:#f8fafc;border-radius:8px;padding:10px 12px">
-            <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">집행액</div>
-            <div style="font-size:13px;font-weight:700;color:#1d4ed8">${fmt(spent)}원</div>
+            <div style="font-size:13px;color:#94a3b8;margin-bottom:4px">집행액</div>
+            <div style="font-size:15px;font-weight:700;color:#1d4ed8">${fmt(spent)}원</div>
           </div>
           <div style="background:#f8fafc;border-radius:8px;padding:10px 12px">
-            <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">투입미정</div>
-            <div style="font-size:13px;font-weight:700;color:${remain < budget*0.1 ? '#dc2626' : '#166534'}">${fmt(remain)}원</div>
+            <div style="font-size:13px;color:#94a3b8;margin-bottom:4px">투입미정</div>
+            <div style="font-size:15px;font-weight:700;color:${remain < budget*0.1 ? '#dc2626' : '#166534'}">${fmt(remain)}원</div>
           </div>
         </div>
         <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:12px;color:#94a3b8">${m.start} ~ ${m.end}</span>
-          <span style="font-size:11px;padding:3px 8px;border-radius:20px;${m.riskSt}">${m.riskChip}</span>
+          <span style="font-size:14px;color:#94a3b8">${m.start} ~ ${m.end}</span>
+          <span style="font-size:13px;padding:3px 8px;border-radius:20px;${m.riskSt}">${m.riskChip}</span>
         </div>
       </div>`;
   }).join('');
@@ -9148,7 +9148,7 @@ function renderAccountTransferTable(data, actual, quasi, remain) {
           return `<span class="actr-log-chip" style="color:${color};border-color:${color}">${c} <strong>${sign}${fmt(v)}</strong> <span class="actr-log-dir">${dir}</span></span>`;
         }).join('')}
         ${ACCT_LABELS.every(c => (transfer[c]||0) === 0)
-          ? '<span style="color:#94a3b8;font-size:13px">이관 내역 없음</span>' : ''}
+          ? '<span style="color:#94a3b8;font-size:15px">이관 내역 없음</span>' : ''}
       </div>
     </div>`;
 }
@@ -9301,7 +9301,7 @@ function renderAccountTransferTable(data, actual, quasi, remain) {
       ${budgetTransferEditMode ? `<div class="actr-edit-guide">조정배분 금액을 수정한 뒤 저장하세요. 합계는 ${fmt(sumInit)}원으로 유지되어야 합니다.</div>` : ''}
       <div class="actr-transfer-log">
         <span class="actr-log-title">이관 내역</span>
-        ${transferLog || '<span style="color:#94a3b8;font-size:13px">이관 내역 없음</span>'}
+        ${transferLog || '<span style="color:#94a3b8;font-size:15px">이관 내역 없음</span>'}
       </div>
       <div class="actr-history">
         <div class="actr-history-title">버전 변경 히스토리</div>

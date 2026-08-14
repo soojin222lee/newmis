@@ -137,7 +137,7 @@ function renderWGList() {
         <td>${p.pm}</td>
         <td>${p.wgLeader}</td>
         <td>${p.revDept}</td>
-        <td style="white-space:nowrap;font-size:12px">${p.start}<br><span style="color:#94a3b8">~ ${p.end}</span></td>
+        <td style="white-space:nowrap;font-size:14px">${p.start}<br><span style="color:#94a3b8">~ ${p.end}</span></td>
         <td class="pt-center">
           <span class="ipc-status-badge" style="background:${st.bg};color:${st.color}">${p.status}</span>
         </td>
@@ -146,7 +146,7 @@ function renderWGList() {
             <div style="flex:1;height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden">
               <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px"></div>
             </div>
-            <span style="font-size:11px;color:#64748b;white-space:nowrap">${done}/${total}</span>
+            <span style="font-size:13px;color:#64748b;white-space:nowrap">${done}/${total}</span>
           </div>
         </td>
       </tr>`;
@@ -158,7 +158,7 @@ function renderWGList() {
         <div class="page-title">W/G 프로젝트</div>
         <div class="page-sub">운영 W/G 등록 및 비용·손익 현황 조회</div>
       </div>
-      <button class="save-btn" onclick="wgView='register';renderWGRegister()" style="margin-top:4px;font-size:12px;padding:6px 14px">+ 프로젝트 등록</button>
+      <button class="save-btn" onclick="wgView='register';renderWGRegister()" style="margin-top:4px;font-size:14px;padding:6px 14px">+ 프로젝트 등록</button>
     </div>
 
     <div class="proj-list-toolbar">
@@ -211,16 +211,16 @@ function renderWGDetail() {
     <div class="wg-detail-topbar">
       <button class="mc-back-btn" onclick="closeWGDetail()">← 목록</button>
       <div style="flex:1">
-        <div style="font-size:12px;color:#94a3b8;margin-bottom:2px">${p.code}</div>
-        <div style="font-size:18px;font-weight:800;color:#1e293b">${p.name}</div>
+        <div style="font-size:14px;color:#94a3b8;margin-bottom:2px">${p.code}</div>
+        <div style="font-size:20px;font-weight:800;color:#1e293b">${p.name}</div>
       </div>
-      <span class="ipc-status-badge" style="background:${st.bg};color:${st.color};font-size:13px;padding:6px 14px">${p.status}</span>
+      <span class="ipc-status-badge" style="background:${st.bg};color:${st.color};font-size:15px;padding:6px 14px">${p.status}</span>
     </div>
 
     <!-- 버전 바 -->
     <div class="wg-version-bar">
       <span class="wg-version-chip active">${p.version} &nbsp; ${p.versionDate} &nbsp;
-        <span style="background:${st.bg};color:${st.color};padding:2px 8px;border-radius:99px;font-size:11px">${p.status}</span>
+        <span style="background:${st.bg};color:${st.color};padding:2px 8px;border-radius:99px;font-size:13px">${p.status}</span>
       </span>
     </div>
 
@@ -254,20 +254,20 @@ function renderWGDetail() {
     ${p.status === '기안중' ? `
     <div class="reg-erp-bar">
       <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:20px">⏳</span>
+        <span style="font-size:22px">⏳</span>
         <div>
-          <div style="font-size:13px;font-weight:700;color:#166534">결재 진행 중</div>
-          <div style="font-size:12px;color:#64748b;margin-top:2px">승인이 완료되면 ERP IF를 통해 프로젝트가 자동 생성됩니다.</div>
+          <div style="font-size:15px;font-weight:700;color:#166534">결재 진행 중</div>
+          <div style="font-size:14px;color:#64748b;margin-top:2px">승인이 완료되면 ERP IF를 통해 프로젝트가 자동 생성됩니다.</div>
         </div>
       </div>
       <button class="save-btn" onclick="approveWGProject('${wgSelectedId}')">✅ 승인 처리</button>
     </div>` : p.status === '승인완료' ? `
     <div class="reg-erp-bar reg-erp-done" style="margin-bottom:24px">
       <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:20px">✅</span>
+        <span style="font-size:22px">✅</span>
         <div>
-          <div style="font-size:13px;font-weight:700;color:#1d4ed8">ERP 등록 완료</div>
-          <div style="font-size:12px;color:#64748b;margin-top:2px">승인 완료 후 ERP IF를 통해 프로젝트가 생성되었습니다.</div>
+          <div style="font-size:15px;font-weight:700;color:#1d4ed8">ERP 등록 완료</div>
+          <div style="font-size:14px;color:#64748b;margin-top:2px">승인 완료 후 ERP IF를 통해 프로젝트가 생성되었습니다.</div>
         </div>
       </div>
     </div>` : ''}`;
@@ -285,7 +285,7 @@ function buildWGApproval(approval) {
     return `
       <div class="apv-doc-box">
         <div class="apv-doc-role">${a.role}</div>
-        <div class="apv-doc-title" style="font-size:11px;color:#94a3b8;margin-bottom:6px">${a.type}</div>
+        <div class="apv-doc-title" style="font-size:13px;color:#94a3b8;margin-bottom:6px">${a.type}</div>
         <div class="apv-doc-name">${a.name}</div>
         <div class="apv-doc-status" style="background:${s.bg};color:${s.color};margin:6px auto 4px">${s.label}</div>
         <div class="apv-doc-date">${a.date || '—'}</div>
@@ -389,8 +389,8 @@ function renderWGRegister() {
     <div class="wg-detail-topbar">
       <button class="mc-back-btn" onclick="wgView='list';renderWGList()">← 목록</button>
       <div style="flex:1">
-        <div style="font-size:18px;font-weight:800;color:#1e293b">W/G 프로젝트 등록</div>
-        <div style="font-size:12px;color:#64748b;margin-top:2px">결재 상신 후 ERP IF를 통해 프로젝트가 생성됩니다.</div>
+        <div style="font-size:20px;font-weight:800;color:#1e293b">W/G 프로젝트 등록</div>
+        <div style="font-size:14px;color:#64748b;margin-top:2px">결재 상신 후 ERP IF를 통해 프로젝트가 생성됩니다.</div>
       </div>
     </div>
 

@@ -50,7 +50,7 @@ function renderCpBriefing() {
         <td>
           <div style="display:flex;align-items:center;gap:6px">
             <span class="cp-dot" style="background:${pc}"></span>
-            <span style="font-size:13px;font-weight:700;color:${pc}">${PROJ_NAMES[r.proj]||''}</span>
+            <span style="font-size:15px;font-weight:700;color:${pc}">${PROJ_NAMES[r.proj]||''}</span>
           </div>
         </td>
         <td>
@@ -286,9 +286,9 @@ function renderCpHistory() {
             <td><div class="cell-name">${r.title}</div><div class="cell-sub">${r.sub}</div></td>
             <td><span class="badge" style="background:${lvS.bg};color:${lvS.color}">${r.level}</span></td>
             <td><span class="badge ${sc(r.status)}">${r.status}</span></td>
-            <td style="font-size:14px">${last ? last.who : '—'}</td>
-            <td style="font-size:14px;color:#64748b">${last ? last.when.slice(0,5) : '—'}</td>
-            <td style="font-size:12px;color:#94a3b8;text-align:center">${r.memos.length}건</td>
+            <td style="font-size:16px">${last ? last.who : '—'}</td>
+            <td style="font-size:16px;color:#64748b">${last ? last.when.slice(0,5) : '—'}</td>
+            <td style="font-size:14px;color:#94a3b8;text-align:center">${r.memos.length}건</td>
           </tr>`;
       }).join('');
 
@@ -423,9 +423,9 @@ function renderPhaseHistory() {
             </td>
             <td><span class="badge" style="background:${ts.bg};color:${ts.color}">${h.type}</span></td>
             <td><div class="cell-name">${h.title}</div></td>
-            <td style="font-size:14px;color:#64748b">${h.date}</td>
+            <td style="font-size:16px;color:#64748b">${h.date}</td>
             <td><span class="badge" style="background:${ss.bg};color:${ss.color}">${h.status}</span></td>
-            <td style="font-size:13px;color:#475569">${h.approver}</td>
+            <td style="font-size:15px;color:#475569">${h.approver}</td>
           </tr>`;
       }).join('');
 

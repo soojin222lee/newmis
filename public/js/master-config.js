@@ -523,7 +523,7 @@ function buildPhaseDefSection() {
   function buildCard(t) {
     const rows = t.phases.map(p => `
       <tr>
-        <td style="white-space:nowrap;font-size:12px;font-weight:600;color:#1e293b;width:110px">${p.name}</td>
+        <td style="white-space:nowrap;font-size:14px;font-weight:600;color:#1e293b;width:110px">${p.name}</td>
         <td>
           <div class="mc-budget-bar-wrap">
             <div class="mc-budget-bar-range" style="left:${p.cumMin}%;width:${p.cumMax - p.cumMin}%;background:${t.color}30;border:1px solid ${t.color}70"></div>
@@ -531,7 +531,7 @@ function buildPhaseDefSection() {
             <span class="mc-budget-bar-label" style="left:${Math.min(p.cumMax - 3, 94)}%;color:${t.color}">${p.cumMax}%</span>
           </div>
         </td>
-        <td style="text-align:center;font-size:11px;font-weight:700;color:${t.color};white-space:nowrap;width:100px">${p.cumMin}% ~ ${p.cumMax}%</td>
+        <td style="text-align:center;font-size:13px;font-weight:700;color:${t.color};white-space:nowrap;width:100px">${p.cumMin}% ~ ${p.cumMax}%</td>
         <td class="mc-note">${p.note}</td>
         <td><button class="mc-edit-btn" disabled>수정</button></td>
       </tr>`).join('');
@@ -541,7 +541,7 @@ function buildPhaseDefSection() {
       <div class="mc-budget-type-head" style="background:${t.bg};border-left:4px solid ${t.color}">
         <div style="display:flex;align-items:center;gap:10px">
           <span class="mc-code-badge" style="background:${t.color};color:#fff">${t.code}</span>
-          <span style="font-size:13px;font-weight:700;color:${t.color}">${t.label}</span>
+          <span style="font-size:15px;font-weight:700;color:${t.color}">${t.label}</span>
           <span class="mc-type-mini" style="background:${t.color}18;color:${t.color}">${t.basis}</span>
         </div>
         <span class="mc-note">${t.desc}</span>
@@ -598,19 +598,19 @@ function buildRiskCriteriaSection() {
   const levelCards = levels.map(l => `
     <div class="mc-risk-level-card" style="border-top:4px solid ${l.color}">
       <div class="mc-risk-level-head" style="background:${l.bg}">
-        <span class="mc-badge" style="background:${l.bg};color:${l.color};font-size:13px">${l.level}</span>
+        <span class="mc-badge" style="background:${l.bg};color:${l.color};font-size:15px">${l.level}</span>
       </div>
       <div class="mc-risk-level-body">
         <div class="mc-rule-label" style="margin-bottom:6px">감지 조건</div>
         ${l.conditions.map(c=>`<div class="mc-risk-cond">· ${c}</div>`).join('')}
         <div class="mc-rule-label" style="margin-top:10px;margin-bottom:4px">조치 기준</div>
-        <div style="font-size:12px;color:#475569;font-weight:600">${l.action}</div>
+        <div style="font-size:14px;color:#475569;font-weight:600">${l.action}</div>
       </div>
     </div>`).join('');
 
   const catRows = categories.map(c => `
     <tr>
-      <td><span style="font-size:16px">${c.icon}</span> <strong>${c.cat}</strong></td>
+      <td><span style="font-size:18px">${c.icon}</span> <strong>${c.cat}</strong></td>
       <td>
         ${c.rules.map(r=>`<div class="mc-risk-cond">· ${r}</div>`).join('')}
       </td>

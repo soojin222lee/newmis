@@ -184,8 +184,8 @@ function buildConceptSection() {
         </div>
       </div>
       <div class="sd-scope-note">
-        <span style="font-size:13px;font-weight:700;color:#1e293b">📌 적용 범위 안내</span><br>
-        <span style="font-size:13px;color:#475569;line-height:1.8">
+        <span style="font-size:15px;font-weight:700;color:#1e293b">📌 적용 범위 안내</span><br>
+        <span style="font-size:15px;color:#475569;line-height:1.8">
           현재 메뉴는 <strong>선행 프로세스가 정의된 수주형 사업(SI, OS, TC)</strong> 위주로 구성되어 있습니다.<br>
           Cloud나 투자 프로젝트 등은 관리 포인트·주기가 명확해지는 시점에 해당 유형에 맞게 별도 커스터마이징할 예정입니다.
         </span>

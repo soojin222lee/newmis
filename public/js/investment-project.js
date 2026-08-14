@@ -110,7 +110,7 @@ function renderInvList() {
         <td>${p.requestDept}</td>
         <td>${p.responseDept}</td>
         <td style="font-weight:700;color:#1d4ed8;text-align:right;white-space:nowrap">${fmt(total)}원</td>
-        <td style="white-space:nowrap;font-size:12px">${p.period.replace(' ~ ','<br><span style="color:#94a3b8">~ ') + '</span>'}</td>
+        <td style="white-space:nowrap;font-size:14px">${p.period.replace(' ~ ','<br><span style="color:#94a3b8">~ ') + '</span>'}</td>
         <td class="pt-center">
           <span class="ipc-status-badge" style="background:${st.bg};color:${st.color}">${p.status}</span>
         </td>
@@ -119,7 +119,7 @@ function renderInvList() {
             <div style="flex:1;height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden">
               <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px"></div>
             </div>
-            <span style="font-size:11px;color:#64748b;white-space:nowrap">${done}/${p.approval.length}</span>
+            <span style="font-size:13px;color:#64748b;white-space:nowrap">${done}/${p.approval.length}</span>
           </div>
         </td>
       </tr>`;
@@ -131,7 +131,7 @@ function renderInvList() {
         <div class="page-title">투자프로젝트</div>
         <div class="page-sub">투자프로젝트 등록·조회</div>
       </div>
-      <button class="save-btn" onclick="invBudgetRows=[{name:'',materials:0,labor:0,outsource:0,expense:0}];invView='register';renderInvRegister()" style="margin-top:4px;font-size:12px;padding:6px 14px">+ 프로젝트 등록</button>
+      <button class="save-btn" onclick="invBudgetRows=[{name:'',materials:0,labor:0,outsource:0,expense:0}];invView='register';renderInvRegister()" style="margin-top:4px;font-size:14px;padding:6px 14px">+ 프로젝트 등록</button>
     </div>
 
     <div class="proj-list-toolbar">
@@ -185,16 +185,16 @@ function renderInvDetail() {
     <div class="wg-detail-topbar">
       <button class="mc-back-btn" onclick="closeInvDetail()">← 목록</button>
       <div style="flex:1">
-        <div style="font-size:12px;color:#94a3b8;margin-bottom:2px">${p.code}</div>
-        <div style="font-size:18px;font-weight:800;color:#1e293b">${p.name}</div>
+        <div style="font-size:14px;color:#94a3b8;margin-bottom:2px">${p.code}</div>
+        <div style="font-size:20px;font-weight:800;color:#1e293b">${p.name}</div>
       </div>
-      <span class="ipc-status-badge" style="background:${st.bg};color:${st.color};font-size:13px;padding:6px 14px">${p.status}</span>
+      <span class="ipc-status-badge" style="background:${st.bg};color:${st.color};font-size:15px;padding:6px 14px">${p.status}</span>
     </div>
 
     <!-- 버전 바 -->
     <div class="wg-version-bar">
       <span class="wg-version-chip active">${p.version} &nbsp; ${p.versionDate} &nbsp;
-        <span style="background:${st.bg};color:${st.color};padding:2px 8px;border-radius:99px;font-size:11px">${p.status}</span>
+        <span style="background:${st.bg};color:${st.color};padding:2px 8px;border-radius:99px;font-size:13px">${p.status}</span>
       </span>
     </div>
 
@@ -216,7 +216,7 @@ function renderInvDetail() {
     <!-- 프로젝트 개요 -->
     <div class="card" style="margin-bottom:16px">
       <div class="card-head"><span class="card-title">프로젝트 개요</span></div>
-      <div style="padding:16px 20px;font-size:14px;color:#475569;line-height:1.8">${p.overview}</div>
+      <div style="padding:16px 20px;font-size:16px;color:#475569;line-height:1.8">${p.overview}</div>
     </div>
 
     <!-- 총예산액 -->
@@ -231,20 +231,20 @@ function renderInvDetail() {
     ${p.status === '기안중' ? `
     <div class="reg-erp-bar">
       <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:20px">⏳</span>
+        <span style="font-size:22px">⏳</span>
         <div>
-          <div style="font-size:13px;font-weight:700;color:#166534">결재 진행 중</div>
-          <div style="font-size:12px;color:#64748b;margin-top:2px">승인이 완료되면 ERP IF를 통해 프로젝트가 자동 생성됩니다.</div>
+          <div style="font-size:15px;font-weight:700;color:#166534">결재 진행 중</div>
+          <div style="font-size:14px;color:#64748b;margin-top:2px">승인이 완료되면 ERP IF를 통해 프로젝트가 자동 생성됩니다.</div>
         </div>
       </div>
       <button class="save-btn" onclick="approveInvProject('${invSelectedId}')">✅ 승인 처리</button>
     </div>` : p.status === '승인' ? `
     <div class="reg-erp-bar reg-erp-done" style="margin-bottom:24px">
       <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:20px">✅</span>
+        <span style="font-size:22px">✅</span>
         <div>
-          <div style="font-size:13px;font-weight:700;color:#1d4ed8">ERP 등록 완료</div>
-          <div style="font-size:12px;color:#64748b;margin-top:2px">승인 완료 후 ERP IF를 통해 프로젝트가 생성되었습니다.</div>
+          <div style="font-size:15px;font-weight:700;color:#1d4ed8">ERP 등록 완료</div>
+          <div style="font-size:14px;color:#64748b;margin-top:2px">승인 완료 후 ERP IF를 통해 프로젝트가 생성되었습니다.</div>
         </div>
       </div>
     </div>` : ''}`;
@@ -261,7 +261,7 @@ function buildInvApproval(approval) {
     return `
       <div class="apv-doc-box">
         <div class="apv-doc-role">${a.role}</div>
-        <div class="apv-doc-title" style="font-size:11px;color:#94a3b8;margin-bottom:6px">${a.type}</div>
+        <div class="apv-doc-title" style="font-size:13px;color:#94a3b8;margin-bottom:6px">${a.type}</div>
         <div class="apv-doc-name">${a.name}</div>
         <div class="apv-doc-status" style="background:${s.bg};color:${s.color};margin:6px auto 4px">${a.status}</div>
         <div class="apv-doc-date">${a.date || '—'}</div>
@@ -315,8 +315,8 @@ function renderInvRegister() {
     <div class="wg-detail-topbar">
       <button class="mc-back-btn" onclick="invView='list';renderInvList()">← 목록</button>
       <div style="flex:1">
-        <div style="font-size:18px;font-weight:800;color:#1e293b">투자프로젝트 등록</div>
-        <div style="font-size:12px;color:#64748b;margin-top:2px">결재 상신 후 ERP IF를 통해 프로젝트가 생성됩니다.</div>
+        <div style="font-size:20px;font-weight:800;color:#1e293b">투자프로젝트 등록</div>
+        <div style="font-size:14px;color:#64748b;margin-top:2px">결재 상신 후 ERP IF를 통해 프로젝트가 생성됩니다.</div>
       </div>
     </div>
 

@@ -191,12 +191,12 @@ function renderPhasePage() {
     <div class="phase-kpi-row">
       <div class="kpi-card">
         <div class="kpi-label">현재 단계</div>
-        <div class="kpi-value" style="font-size:22px">${d.phases[d.currentPhaseIdx].name}</div>
+        <div class="kpi-value" style="font-size:24px">${d.phases[d.currentPhaseIdx].name}</div>
         <div class="kpi-sub">${d.phases[d.currentPhaseIdx].status}</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">전체 일정</div>
-        <div class="kpi-value" style="font-size:18px">${d.planStart} ~ ${d.planEnd}</div>
+        <div class="kpi-value" style="font-size:20px">${d.planStart} ~ ${d.planEnd}</div>
         <div class="kpi-sub">계획 기준</div>
       </div>
       <div class="kpi-card">
@@ -225,7 +225,7 @@ function renderPhasePage() {
       ${delayBadge}
       <div class="ph-name">${curMark}${p.name}</div>
       <div class="ph-status">${p.status}</div>
-      ${rDot ? `<div style="font-size:11px;margin-top:2px">${rDot}</div>` : ''}
+      ${rDot ? `<div style="font-size:13px;margin-top:2px">${rDot}</div>` : ''}
     </div>`;
   }).join('');
 
@@ -243,7 +243,7 @@ function renderPhasePage() {
       <td>${p.planS} ~ ${p.planE}</td>
       <td>${actPeriod}</td>
       <td>${badge}</td>
-      <td style="color:#64748b;font-size:12px">${p.comment || '—'}</td>
+      <td style="color:#64748b;font-size:14px">${p.comment || '—'}</td>
     </tr>`;
   }).join('');
 
@@ -254,14 +254,14 @@ function renderPhasePage() {
     const barClr = rate > 110 ? '#ef4444' : rate > 95 ? '#f59e0b' : '#10b981';
     return `<tr ${rowBg}>
       <td style="font-weight:600">${p.name}</td>
-      <td class="td-amount" style="font-size:13px">${fmt(p.budget)}</td>
-      <td class="td-amount" style="font-size:13px;color:${p.spent>0?'#1e293b':'#94a3b8'}">${p.spent > 0 ? fmt(p.spent) : '—'}</td>
+      <td class="td-amount" style="font-size:15px">${fmt(p.budget)}</td>
+      <td class="td-amount" style="font-size:15px;color:${p.spent>0?'#1e293b':'#94a3b8'}">${p.spent > 0 ? fmt(p.spent) : '—'}</td>
       <td>${p.spent > 0
         ? `<div style="display:flex;align-items:center;gap:6px">
             <div style="width:64px;height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden"><div style="width:${Math.min(rate,100)}%;height:100%;background:${barClr};border-radius:3px"></div></div>
-            <span style="font-size:12px;font-weight:600;color:${rate>100?'#ef4444':'#475569'}">${rate}%</span>
+            <span style="font-size:14px;font-weight:600;color:${rate>100?'#ef4444':'#475569'}">${rate}%</span>
           </div>`
-        : '<span style="color:#94a3b8;font-size:12px">—</span>'
+        : '<span style="color:#94a3b8;font-size:14px">—</span>'
       }</td>
     </tr>`;
   }).join('');
@@ -273,11 +273,11 @@ function renderPhasePage() {
         const sc = r.status==='조치완료' ? 'badge-done' : r.status==='검토중' ? 'badge-review' : 'badge-pending';
         return `<div class="risk-row">
           <span class="badge" style="background:${ls.bg};color:${ls.color};min-width:44px;text-align:center">${r.level}</span>
-          <span style="flex:1;font-size:13px">${r.title}</span>
+          <span style="flex:1;font-size:15px">${r.title}</span>
           <span class="badge ${sc}">${r.status}</span>
         </div>`;
       }).join('')
-    : '<div style="color:#94a3b8;font-size:13px;padding:8px 0">해당 단계 리스크 없음</div>';
+    : '<div style="color:#94a3b8;font-size:15px;padding:8px 0">해당 단계 리스크 없음</div>';
 
   // ⑤ 주요 이슈
   const issuesHtml = d.issues.length
@@ -286,13 +286,13 @@ function renderPhasePage() {
         return `<div class="issue-row">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
             <div class="issue-title">${iss.title}</div>
-            <span style="font-size:11px;color:${sc};font-weight:700;white-space:nowrap;margin-left:12px">${iss.status}</span>
+            <span style="font-size:13px;color:${sc};font-weight:700;white-space:nowrap;margin-left:12px">${iss.status}</span>
           </div>
           <div class="issue-action">▷ ${iss.action}</div>
           <div class="issue-meta">${iss.date}</div>
         </div>`;
       }).join('')
-    : '<div style="color:#94a3b8;font-size:13px;padding:8px 0">주요 이슈 없음</div>';
+    : '<div style="color:#94a3b8;font-size:15px;padding:8px 0">주요 이슈 없음</div>';
 
   // AI 보고서 섹션1 텍스트 생성
   const s1 = genSection1(d);
@@ -308,7 +308,7 @@ function renderPhasePage() {
     <div class="card" style="margin-bottom:20px;padding:20px 24px">
       <div class="card-head" style="margin-bottom:14px">
         <span class="card-title">단계별 진행 현황</span>
-        <span style="font-size:12px;color:#94a3b8">단계를 클릭하면 해당 단계 보고서를 확인합니다</span>
+        <span style="font-size:14px;color:#94a3b8">단계를 클릭하면 해당 단계 보고서를 확인합니다</span>
       </div>
       <div class="phase-timeline">${timelineHtml}</div>
     </div>
@@ -316,7 +316,7 @@ function renderPhasePage() {
     <div class="card" style="margin-bottom:20px;padding:20px 24px">
       <div class="card-head" style="margin-bottom:16px">
         <span class="card-title">승인 이력</span>
-        <span style="font-size:12px;color:#94a3b8">단계보고 생성 및 직책자 승인 기록</span>
+        <span style="font-size:14px;color:#94a3b8">단계보고 생성 및 직책자 승인 기록</span>
       </div>
       ${approvalHistoryHtml}
     </div>
@@ -324,8 +324,8 @@ function renderPhasePage() {
     <div class="report-panel">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
         <div>
-          <div style="font-size:17px;font-weight:800;color:#1e293b">${ph.name} 단계 보고서</div>
-          <div style="font-size:13px;color:#64748b;margin-top:4px">계획 기간: ${ph.planS} ~ ${ph.planE} · 상태: <strong>${ph.status}</strong></div>
+          <div style="font-size:19px;font-weight:800;color:#1e293b">${ph.name} 단계 보고서</div>
+          <div style="font-size:15px;color:#64748b;margin-top:4px">계획 기간: ${ph.planS} ~ ${ph.planE} · 상태: <strong>${ph.status}</strong></div>
         </div>
       </div>
 
@@ -349,22 +349,22 @@ function renderPhasePage() {
           </table>
         </div>
         <div class="margin-panel">
-          <div style="font-size:13px;color:#64748b;font-weight:600;margin-bottom:12px">마진율 현황</div>
+          <div style="font-size:15px;color:#64748b;font-weight:600;margin-bottom:12px">마진율 현황</div>
           <div class="margin-compare">
             <div>
-              <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">현재 마진율</div>
+              <div style="font-size:13px;color:#94a3b8;margin-bottom:4px">현재 마진율</div>
               <div class="margin-val" style="color:${marginColor}">${d.currentMargin.toFixed(1)}%</div>
             </div>
-            <div style="font-size:28px;color:#cbd5e1;padding-top:10px">→</div>
+            <div style="font-size:30px;color:#cbd5e1;padding-top:10px">→</div>
             <div>
-              <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">목표 마진율</div>
+              <div style="font-size:13px;color:#94a3b8;margin-bottom:4px">목표 마진율</div>
               <div class="margin-val" style="color:#1e293b">${d.targetMargin.toFixed(1)}%</div>
             </div>
           </div>
-          <div style="margin-top:12px;font-size:12px;color:${marginColor};font-weight:600">
+          <div style="margin-top:12px;font-size:14px;color:${marginColor};font-weight:600">
             ${marginDiff >= 0 ? `✅ 목표 대비 +${marginDiff.toFixed(1)}%p 초과` : `⚠️ 목표 대비 ${Math.abs(marginDiff).toFixed(1)}%p 미달`}
           </div>
-          <div style="margin-top:8px;font-size:12px;color:#64748b">
+          <div style="margin-top:8px;font-size:14px;color:#64748b">
             예산 소진율 <strong>${spentPct}%</strong> · ${fmt(d.spent)}원 / ${fmt(d.budget)}원
           </div>
         </div>
@@ -416,7 +416,7 @@ function buildApprovalBar(rpt, idx) {
       <div class="approval-status">
         <span class="ap-label">보고서 상태</span>
         <span class="ap-value ap-review">검토중</span>
-        <span style="font-size:12px;color:#94a3b8;margin-left:8px">AI 생성 ${rpt.generatedAt}</span>
+        <span style="font-size:14px;color:#94a3b8;margin-left:8px">AI 생성 ${rpt.generatedAt}</span>
       </div>
       <div style="display:flex;gap:8px">
         <button class="ap-generate-btn" style="background:#f1f5f9;color:#475569" onclick="generatePhaseReport(${idx})">재생성</button>
@@ -428,7 +428,7 @@ function buildApprovalBar(rpt, idx) {
     <div class="approval-status">
       <span class="ap-label">보고서 상태</span>
       <span class="ap-value ap-approved">승인완료</span>
-      <span style="font-size:12px;color:#94a3b8;margin-left:8px">승인자: ${rpt.approver} · ${rpt.approvedAt}</span>
+      <span style="font-size:14px;color:#94a3b8;margin-left:8px">승인자: ${rpt.approver} · ${rpt.approvedAt}</span>
     </div>
     <span class="ap-approved-badge">✅ 승인완료</span>
   </div>`;
@@ -507,12 +507,12 @@ function buildApprovalHistory(d) {
     return `<tr style="${rowStyle}">
       <td>${phBadge}</td>
       <td>${statusBadge}</td>
-      <td style="font-size:12px;color:#475569">${timeline}</td>
+      <td style="font-size:14px;color:#475569">${timeline}</td>
       <td style="text-align:right">
         ${rpt.status === '미생성'
-          ? `<button class="ap-generate-btn" style="padding:5px 12px;font-size:12px" onclick="selectPhaseIdx(${i});generatePhaseReport(${i})">AI 생성</button>`
+          ? `<button class="ap-generate-btn" style="padding:5px 12px;font-size:14px" onclick="selectPhaseIdx(${i});generatePhaseReport(${i})">AI 생성</button>`
           : rpt.status === '검토중'
-            ? `<button class="ap-approve-btn" style="padding:5px 12px;font-size:12px" onclick="selectPhaseIdx(${i});openApproveModal(${i})">승인</button>`
+            ? `<button class="ap-approve-btn" style="padding:5px 12px;font-size:14px" onclick="selectPhaseIdx(${i});openApproveModal(${i})">승인</button>`
             : ''
         }
       </td>

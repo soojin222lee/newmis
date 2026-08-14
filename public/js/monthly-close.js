@@ -164,15 +164,15 @@ function renderMcProjectList() {
           <div class="pt-name">${PROJ_NAMES[k]}</div>
           <div class="pt-sub">PM ${PM_NAMES[k]}</div>
         </td>
-        <td class="pt-center">${closedMonths.length}<span style="color:#94a3b8;font-size:11px">회</span></td>
-        <td class="pt-center" style="font-size:12px">${lastM ? lastM.m : '—'}</td>
-        <td style="text-align:right;font-weight:700;white-space:nowrap">${fmt(cumActual)}<span style="font-weight:400;color:#94a3b8;font-size:11px">원</span></td>
+        <td class="pt-center">${closedMonths.length}<span style="color:#94a3b8;font-size:13px">회</span></td>
+        <td class="pt-center" style="font-size:14px">${lastM ? lastM.m : '—'}</td>
+        <td style="text-align:right;font-weight:700;white-space:nowrap">${fmt(cumActual)}<span style="font-weight:400;color:#94a3b8;font-size:13px">원</span></td>
         <td style="min-width:110px">
           <div style="display:flex;align-items:center;gap:6px">
             <div style="flex:1;height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden">
               <div style="height:100%;width:${Math.min(100,execRate)}%;background:${rateColor};border-radius:3px"></div>
             </div>
-            <span style="font-size:11px;color:${rateColor};font-weight:700;white-space:nowrap">${execRate}%</span>
+            <span style="font-size:13px;color:${rateColor};font-weight:700;white-space:nowrap">${execRate}%</span>
           </div>
         </td>
         <td class="pt-center">
@@ -249,17 +249,17 @@ function renderMcListView() {
       </div>
       <div class="kpi-card">
         <div class="kpi-label">누적 전송액</div>
-        <div class="kpi-value" style="font-size:20px">${fmt(cumActual)}<span class="unit" style="font-size:13px">원</span></div>
+        <div class="kpi-value" style="font-size:22px">${fmt(cumActual)}<span class="unit" style="font-size:15px">원</span></div>
         <div class="kpi-sub">실적 + 당월 합계</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">최종 마감월</div>
-        <div class="kpi-value" style="font-size:20px">${lastM ? lastM.m.slice(2).replace('-','.') : '—'}</div>
+        <div class="kpi-value" style="font-size:22px">${lastM ? lastM.m.slice(2).replace('-','.') : '—'}</div>
         <div class="kpi-sub">${lastM ? lastM.m + ' 23:59 자동전송' : ''}</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">총 예산 대비 집행률</div>
-        <div class="kpi-value" style="font-size:20px;color:${cumActual/totalPlan > 0.9 ? '#ef4444' : '#1e293b'}">${totalPlan > 0 ? (cumActual/totalPlan*100).toFixed(1) : 0}<span class="unit">%</span></div>
+        <div class="kpi-value" style="font-size:22px;color:${cumActual/totalPlan > 0.9 ? '#ef4444' : '#1e293b'}">${totalPlan > 0 ? (cumActual/totalPlan*100).toFixed(1) : 0}<span class="unit">%</span></div>
         <div class="kpi-sub">예산 ${fmt(totalPlan)}원</div>
       </div>
     </div>`;
@@ -297,7 +297,7 @@ function renderMcListView() {
         <div class="mc-hist-m-sub">${m.m} 23:59</div>
       </td>
       <td>${statusBadge}</td>
-      <td class="mc-hist-total">${fmt(total)}<span style="font-size:11px;color:#94a3b8;font-weight:400">원</span></td>
+      <td class="mc-hist-total">${fmt(total)}<span style="font-size:13px;color:#94a3b8;font-weight:400">원</span></td>
       <td class="mc-hist-cats">${catBars}</td>
       <td class="mc-hist-action">
         <button class="mc-detail-btn" onclick="event.stopPropagation();openMcDetail('${m.m}')">상세 보기 →</button>
@@ -431,7 +431,7 @@ function renderMcDetailView() {
       const v    = exp > 0 ? Math.round(exp * (EXP_RATIO[sub] || 0)) : 0;
       const cls  = snapTdCls(m.m);
       const isSel = m.m === mcSelectedMonth;
-      return `<td class="${cls}${isSel ? ' td-selected' : ''}" style="font-size:12px;color:#64748b">${v > 0 ? fmt(v) : '—'}</td>`;
+      return `<td class="${cls}${isSel ? ' td-selected' : ''}" style="font-size:14px;color:#64748b">${v > 0 ? fmt(v) : '—'}</td>`;
     }).join('');
   }
 
@@ -459,7 +459,7 @@ function renderMcDetailView() {
         const subPlan = d.planSub[sub] || 0;
         rows.push(`<tr class="data-row mc-sub-row${mcGungbiOpen ? '' : ' mc-sub-hidden'}">
           <td class="td-cat mc-sub-cat">↳ ${sub}</td>
-          <td class="td-plan" style="font-size:12px;color:#94a3b8">${subPlan > 0 ? fmt(subPlan) : '—'}</td>
+          <td class="td-plan" style="font-size:14px;color:#94a3b8">${subPlan > 0 ? fmt(subPlan) : '—'}</td>
           ${subCells(sub)}
         </tr>`);
       });
@@ -493,9 +493,9 @@ function renderMcDetailView() {
       </div>
       <div class="mc-detail-badge-wrap">
         ${isCurrentMonth
-          ? `<span class="mc-hist-badge current" style="font-size:13px;padding:6px 16px">당월 마감</span>`
-          : `<span class="mc-hist-badge done" style="font-size:13px;padding:6px 16px">✓ 전송 완료</span>`}
-        <div style="font-size:22px;font-weight:900;color:#1e293b;margin-top:4px">${fmt(total)}<span style="font-size:14px;color:#94a3b8;font-weight:400">원</span></div>
+          ? `<span class="mc-hist-badge current" style="font-size:15px;padding:6px 16px">당월 마감</span>`
+          : `<span class="mc-hist-badge done" style="font-size:15px;padding:6px 16px">✓ 전송 완료</span>`}
+        <div style="font-size:24px;font-weight:900;color:#1e293b;margin-top:4px">${fmt(total)}<span style="font-size:16px;color:#94a3b8;font-weight:400">원</span></div>
       </div>
     </div>
 
@@ -510,7 +510,7 @@ function renderMcDetailView() {
       <div class="card-head">
         <span class="card-title">마감 시점 기준 전체 현황</span>
         <div style="display:flex;align-items:center;gap:16px">
-          <span style="font-size:12px;color:#94a3b8">📅 ${mcSelectedMonth} 23:59 스냅샷</span>
+          <span style="font-size:14px;color:#94a3b8">📅 ${mcSelectedMonth} 23:59 스냅샷</span>
           <div class="budget-legend">
             <div class="legend-item"><div class="legend-dot" style="background:#dbeafe"></div>실적</div>
             <div class="legend-item"><div class="legend-dot" style="background:#fca5a5"></div>당월</div>

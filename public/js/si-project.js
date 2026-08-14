@@ -147,11 +147,11 @@ function renderSIList() {
         <td>${p.pm}</td>
         <td>${p.revOrg}</td>
         <td>${p.mainDept}</td>
-        <td style="white-space:nowrap;font-size:12px">${p.start}<br><span style="color:#94a3b8">~ ${p.end}</span></td>
+        <td style="white-space:nowrap;font-size:14px">${p.start}<br><span style="color:#94a3b8">~ ${p.end}</span></td>
         <td class="pt-center">
           <span class="ipc-status-badge" style="background:${st.bg};color:${st.color}">${p.stage}</span>
         </td>
-        <td style="font-size:11px;color:#94a3b8;white-space:nowrap">🔄 ${p.lastSync}</td>
+        <td style="font-size:13px;color:#94a3b8;white-space:nowrap">🔄 ${p.lastSync}</td>
       </tr>`;
   }).join('') : `<tr><td colspan="8" class="proj-no-result">🔍 검색 결과가 없습니다.</td></tr>`;
 
@@ -161,7 +161,7 @@ function renderSIList() {
         <div class="page-title">수주형 프로젝트</div>
         <div class="page-sub">CRM 연동 프로젝트 기본정보 등록 및 변경이력 조회</div>
       </div>
-      <button class="save-btn" onclick="siView='register';renderSIProject()" style="margin-top:4px;font-size:12px;padding:6px 14px">+ 신규 등록</button>
+      <button class="save-btn" onclick="siView='register';renderSIProject()" style="margin-top:4px;font-size:14px;padding:6px 14px">+ 신규 등록</button>
     </div>
 
     <div class="proj-list-toolbar">
@@ -203,27 +203,27 @@ function renderSIRegister() {
     <div class="wg-detail-topbar">
       <button class="mc-back-btn" onclick="siView='list';renderSIList()">← 목록</button>
       <div>
-        <div style="font-size:18px;font-weight:800;color:#1e293b">수주형 프로젝트 신규 등록</div>
-        <div style="font-size:13px;color:#64748b;margin-top:2px">CRM 계약완료 프로젝트를 조회하여 등록합니다.</div>
+        <div style="font-size:20px;font-weight:800;color:#1e293b">수주형 프로젝트 신규 등록</div>
+        <div style="font-size:15px;color:#64748b;margin-top:2px">CRM 계약완료 프로젝트를 조회하여 등록합니다.</div>
       </div>
     </div>
 
     <!-- 안내 배너 -->
     <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;margin-bottom:20px">
-      <span style="font-size:20px;flex-shrink:0">ℹ️</span>
-      <span style="font-size:13px;font-weight:600;color:#1d4ed8">CRM에서 최종계약완료 된 프로젝트만 수행 프로젝트 등록이 가능합니다.</span>
+      <span style="font-size:22px;flex-shrink:0">ℹ️</span>
+      <span style="font-size:15px;font-weight:600;color:#1d4ed8">CRM에서 최종계약완료 된 프로젝트만 수행 프로젝트 등록이 가능합니다.</span>
     </div>
 
     <div class="card" style="margin-bottom:16px">
       <div class="card-head"><span class="card-title">CRM 프로젝트 조회</span></div>
       <div style="padding:20px 24px">
-        <div style="font-size:12px;font-weight:600;color:#64748b;margin-bottom:8px">프로젝트 코드 또는 수행 PM 이름 <span style="color:#ef4444">*</span></div>
+        <div style="font-size:14px;font-weight:600;color:#64748b;margin-bottom:8px">프로젝트 코드 또는 수행 PM 이름 <span style="color:#ef4444">*</span></div>
         <div style="display:flex;gap:10px;max-width:560px">
           <input id="si-reg-code" class="reg-input" placeholder="예: PJ2026-N004  " style="flex:1"
             onkeydown="if(event.key==='Enter')siMockFetch()">
           <button class="save-btn" style="white-space:nowrap;padding:9px 22px" onclick="siMockFetch()">조회</button>
         </div>
-        <div style="font-size:12px;color:#94a3b8;margin-top:6px">
+        <div style="font-size:14px;color:#94a3b8;margin-top:6px">
           프로젝트 코드 또는 CRM에 등록된 수행 PM 이름으로 조회 가능합니다.
         </div>
         <div id="si-results-area" style="margin-top:16px"></div>
@@ -248,7 +248,7 @@ function siMockFetch() {
 
   if (!siRegResults.length) {
     area.innerHTML = `
-      <div style="padding:14px 18px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;font-size:13px;color:#991b1b">
+      <div style="padding:14px 18px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;font-size:15px;color:#991b1b">
         ⚠️ CRM에서 최종계약완료 된 프로젝트를 찾을 수 없습니다. 코드 또는 PM 이름을 다시 확인해주세요.
       </div>`;
     return;
@@ -262,7 +262,7 @@ function siMockFetch() {
 
   // 복수 결과 → 선택 목록
   area.innerHTML = `
-    <div style="font-size:13px;font-weight:600;color:#475569;margin-bottom:10px">
+    <div style="font-size:15px;font-weight:600;color:#475569;margin-bottom:10px">
       총 <strong>${siRegResults.length}건</strong> 조회되었습니다. 등록할 프로젝트를 선택하세요.
     </div>
     <div style="border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden">
@@ -271,10 +271,10 @@ function siMockFetch() {
           style="padding:14px 18px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background 0.12s;display:flex;align-items:center;justify-content:space-between;gap:12px"
           onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
           <div>
-            <div style="font-weight:700;font-size:14px;color:#1e293b">${p.name}</div>
-            <div style="font-size:12px;color:#94a3b8;margin-top:4px">${p.code} &nbsp;·&nbsp; PM: <strong style="color:#475569">${p.pm}</strong> &nbsp;·&nbsp; ${p.customer}</div>
+            <div style="font-weight:700;font-size:16px;color:#1e293b">${p.name}</div>
+            <div style="font-size:14px;color:#94a3b8;margin-top:4px">${p.code} &nbsp;·&nbsp; PM: <strong style="color:#475569">${p.pm}</strong> &nbsp;·&nbsp; ${p.customer}</div>
           </div>
-          <span style="font-size:11px;padding:4px 12px;background:#dcfce7;color:#166534;border-radius:99px;white-space:nowrap;flex-shrink:0">${p.status}</span>
+          <span style="font-size:13px;padding:4px 12px;background:#dcfce7;color:#166534;border-radius:99px;white-space:nowrap;flex-shrink:0">${p.status}</span>
         </div>`).join('')}
     </div>`;
 }
@@ -284,7 +284,7 @@ function siRegSelectProject(idx) {
   const p = siRegSelected;
 
   document.getElementById('si-results-area').innerHTML = `
-    <div style="padding:10px 16px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;font-size:13px;color:#166534;margin-bottom:2px">
+    <div style="padding:10px 16px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;font-size:15px;color:#166534;margin-bottom:2px">
       ✅ <strong>${p.name}</strong> (${p.code}) — CRM 기본정보를 가져왔습니다. 내용을 확인 후 등록하세요.
     </div>`;
 
@@ -367,16 +367,16 @@ function renderSIDetail() {
     <div class="wg-detail-topbar">
       <button class="mc-back-btn" onclick="closeSIDetail()">← 목록</button>
       <div style="flex:1">
-        <div style="font-size:12px;color:#94a3b8;margin-bottom:2px">${p.code}</div>
-        <div style="font-size:18px;font-weight:800;color:#1e293b">${p.name}</div>
+        <div style="font-size:14px;color:#94a3b8;margin-bottom:2px">${p.code}</div>
+        <div style="font-size:20px;font-weight:800;color:#1e293b">${p.name}</div>
       </div>
-      <span class="ipc-status-badge" style="background:${st.bg};color:${st.color};font-size:13px;padding:6px 14px">${p.stage}</span>
+      <span class="ipc-status-badge" style="background:${st.bg};color:${st.color};font-size:15px;padding:6px 14px">${p.stage}</span>
     </div>
 
     <!-- 프로젝트 진행 단계 프로그레스 -->
     <div class="card si-progress-card" style="margin-bottom:16px">
       <div style="padding:20px 28px">
-        <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:14px;letter-spacing:0.3px">프로젝트 진행 단계</div>
+        <div style="font-size:14px;font-weight:600;color:#94a3b8;margin-bottom:14px;letter-spacing:0.3px">프로젝트 진행 단계</div>
         <div class="si-progress-row">${buildSIProgressBar(p.stage)}</div>
       </div>
     </div>
@@ -385,7 +385,7 @@ function renderSIDetail() {
     <div class="card" style="margin-bottom:16px">
       <div class="card-head">
         <span class="card-title">기본정보</span>
-        <span style="font-size:12px;color:#94a3b8">🔄 마지막 동기화: ${p.lastSync} (${p.ifSource})</span>
+        <span style="font-size:14px;color:#94a3b8">🔄 마지막 동기화: ${p.lastSync} (${p.ifSource})</span>
       </div>
       <div class="si-basic-grid" style="padding:16px 24px 20px">
         ${buildSIFieldReadonly([
@@ -446,7 +446,7 @@ function buildSIStageDots(currentStage, mini = false) {
     const isDone    = i <= currentIdx;
     return `<div class="apv-stage-item">
       <div class="apv-stage-dot ${isDone ? 'done' : ''}"></div>
-      <div class="apv-stage-role" style="font-size:9px">${s.replace('완료','')}</div>
+      <div class="apv-stage-role" style="font-size:11px">${s.replace('완료','')}</div>
     </div>${i < SI_STAGES.length - 1 ? '<div class="apv-stage-line"></div>' : ''}`;
   }).join('');
 }
@@ -521,11 +521,11 @@ function buildSIPhaseSection(p, projId) {
 
       <!-- 안내 배너 -->
       <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;background:${noticeBg};border:1.5px solid ${noticeBdr};border-radius:10px;margin-bottom:18px">
-        <span style="font-size:16px;flex-shrink:0;margin-top:1px">${noticeIcon}</span>
+        <span style="font-size:18px;flex-shrink:0;margin-top:1px">${noticeIcon}</span>
         <div>
-          <div style="font-size:12px;font-weight:700;color:${noticeClr};margin-bottom:3px">데이터 입력 방식 안내</div>
-          <div style="font-size:12px;color:${noticeClr};line-height:1.6">${noticeMsg}</div>
-          <div style="margin-top:8px;font-size:11px;color:#64748b;line-height:1.6">
+          <div style="font-size:14px;font-weight:700;color:${noticeClr};margin-bottom:3px">데이터 입력 방식 안내</div>
+          <div style="font-size:14px;color:${noticeClr};line-height:1.6">${noticeMsg}</div>
+          <div style="margin-top:8px;font-size:13px;color:#64748b;line-height:1.6">
             <span class="si-if-badge" style="margin-right:6px">IF·ERP</span> 선행 시스템 인터페이스 수신 (읽기전용) &nbsp;|&nbsp;
             <span class="si-if-badge si-if-manual" style="margin-right:6px">PM 입력</span> PM 직접 입력 (편집 가능)
           </div>
@@ -534,15 +534,15 @@ function buildSIPhaseSection(p, projId) {
 
       <!-- 헤더 -->
       <div class="si-phase-header">
-        <div style="flex:0 0 160px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">단계</div>
-        <div style="flex:1;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">기간 (시작일 ~ 종료일)</div>
-        <div style="flex:0 0 120px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase">진행상태</div>
+        <div style="flex:0 0 160px;font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase">단계</div>
+        <div style="flex:1;font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase">기간 (시작일 ~ 종료일)</div>
+        <div style="flex:0 0 120px;font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase">진행상태</div>
       </div>
 
       <!-- 단계 행 목록 -->
       <div class="si-phase-list">${rows}</div>
 
-      <div id="si-phase-save-msg-${projId}" style="display:none;font-size:12px;color:#166534;margin-top:10px">✓ 저장되었습니다</div>
+      <div id="si-phase-save-msg-${projId}" style="display:none;font-size:14px;color:#166534;margin-top:10px">✓ 저장되었습니다</div>
     </div>
   </div>`;
 }
@@ -602,16 +602,16 @@ renderSIDetail = function() {
     <div class="wg-detail-topbar">
       <button class="mc-back-btn" onclick="closeSIDetail()">← 목록</button>
       <div style="flex:1">
-        <div style="font-size:12px;color:#94a3b8;margin-bottom:2px">${p.code}</div>
-        <div style="font-size:18px;font-weight:800;color:#1e293b">${p.name}</div>
+        <div style="font-size:14px;color:#94a3b8;margin-bottom:2px">${p.code}</div>
+        <div style="font-size:20px;font-weight:800;color:#1e293b">${p.name}</div>
       </div>
-      <span class="ipc-status-badge" style="background:${st.bg};color:${st.color};font-size:13px;padding:6px 14px">${p.stage}</span>
+      <span class="ipc-status-badge" style="background:${st.bg};color:${st.color};font-size:15px;padding:6px 14px">${p.stage}</span>
     </div>
 
     <div class="card" style="margin-bottom:16px">
       <div class="card-head">
         <span class="card-title">기본정보</span>
-        <span style="font-size:12px;color:#94a3b8">마지막 동기화 ${p.lastSync} (${p.ifSource})</span>
+        <span style="font-size:14px;color:#94a3b8">마지막 동기화 ${p.lastSync} (${p.ifSource})</span>
       </div>
       <div class="si-basic-grid" style="padding:16px 24px 20px">
         ${buildSIFieldReadonly([

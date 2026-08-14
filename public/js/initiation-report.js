@@ -233,8 +233,8 @@ function renderInitiationList() {
           <div class="pt-sub">${d.projectType} · ${d.contractType} · ${d.methodology}</div>
         </td>
         <td>${p.pm}</td>
-        <td style="font-size:12px;white-space:nowrap">${p.start}<br><span style="color:#94a3b8">~ ${p.end}</span></td>
-        <td style="text-align:right;font-weight:700;white-space:nowrap">${fmt(p.budget)}<span style="font-weight:400;color:#94a3b8;font-size:11px">원</span></td>
+        <td style="font-size:14px;white-space:nowrap">${p.start}<br><span style="color:#94a3b8">~ ${p.end}</span></td>
+        <td style="text-align:right;font-weight:700;white-space:nowrap">${fmt(p.budget)}<span style="font-weight:400;color:#94a3b8;font-size:13px">원</span></td>
         <td class="pt-center">
           <span class="ipc-status-badge" style="background:${statusBg[d.status]};color:${statusColor[d.status]}">${statusLabel[d.status]}</span>
         </td>
@@ -243,7 +243,7 @@ function renderInitiationList() {
             <div style="flex:1;height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden">
               <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px"></div>
             </div>
-            <span style="font-size:11px;color:#64748b;white-space:nowrap">${doneCount}/${stages.length}</span>
+            <span style="font-size:13px;color:#64748b;white-space:nowrap">${doneCount}/${stages.length}</span>
           </div>
         </td>
       </tr>`;
@@ -478,7 +478,7 @@ function buildApprovalDoc(d, p) {
     </div>
     ${d.status === 'AI생성' ? `
     <div style="margin-top:16px">
-      <button class="init-action-btn btn-generate" style="width:auto;padding:10px 20px;font-size:13px" onclick="requestApproval()">
+      <button class="init-action-btn btn-generate" style="width:auto;padding:10px 20px;font-size:15px" onclick="requestApproval()">
         📋 결재 요청 발송
       </button>
     </div>` : ''}`;
@@ -523,9 +523,9 @@ function buildMethodologySection(d, isEditable) {
   } else {
     const mIcon={'폭포수':'🌊','애자일':'⚡','하이브리드':'🔀'};
     return `<div style="display:flex;align-items:center;gap:12px">
-      <span style="font-size:24px">${mIcon[d.methodology]}</span>
-      <div><div style="font-size:16px;font-weight:700">${d.methodology}</div>
-      ${d.methodology!=='폭포수'?`<div style="font-size:13px;color:#64748b;margin-top:3px">Sprint 주기: ${d.sprintMonths}개월</div>`:''}</div>
+      <span style="font-size:26px">${mIcon[d.methodology]}</span>
+      <div><div style="font-size:18px;font-weight:700">${d.methodology}</div>
+      ${d.methodology!=='폭포수'?`<div style="font-size:15px;color:#64748b;margin-top:3px">Sprint 주기: ${d.sprintMonths}개월</div>`:''}</div>
     </div>
     <div class="method-desc" style="margin-top:12px">${desc[d.methodology]}</div>`;
   }
@@ -542,7 +542,7 @@ function buildPhaseTable(d, p, isEditable) {
         ?`<div class="month-stepper"><button onclick="adjPhaseMonths(${i},-1)">−</button><span id="pm-${i}">${ph.months}</span><button onclick="adjPhaseMonths(${i},1)">+</button></div>`
         :`${ph.months}개월`}</td>
       <td class="phase-tbl-cell">${isEditable
-        ?`<div style="display:flex;align-items:center;gap:8px"><input class="pct-input" id="pct-${i}" type="number" min="0" max="100" value="${ph.budgetPct}" onchange="onPctChange()"><span style="font-size:13px;color:#64748b">%</span></div>`
+        ?`<div style="display:flex;align-items:center;gap:8px"><input class="pct-input" id="pct-${i}" type="number" min="0" max="100" value="${ph.budgetPct}" onchange="onPctChange()"><span style="font-size:15px;color:#64748b">%</span></div>`
         :`${ph.budgetPct}%`}</td>
       <td class="phase-tbl-amt">${fmt(amt)}원</td>
       <td class="phase-tbl-bar"><div class="phase-bar-bg"><div class="phase-bar-fill" id="pbar-${i}" style="width:${ph.budgetPct}%"></div></div></td>
@@ -558,7 +558,7 @@ function buildPhaseTable(d, p, isEditable) {
       <td>${fmt(p.budget)}원</td><td></td>
     </tr></tfoot>
   </table>
-  <div style="margin-top:10px;font-size:13px;color:#64748b">기간: ${p.start} ~ ${p.end} · 총 예산: ${fmt(p.budget)}원</div>`;
+  <div style="margin-top:10px;font-size:15px;color:#64748b">기간: ${p.start} ~ ${p.end} · 총 예산: ${fmt(p.budget)}원</div>`;
 }
 
 function buildApprovalPanel(d, p) {
