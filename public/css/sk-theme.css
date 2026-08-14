@@ -5,34 +5,36 @@
 
 /* ── 디자인 토큰 ── */
 :root {
-  /* 흑백(그레이스케일) 톤 — 강조는 검정, 배경/보더는 회색 */
-  --sk-red: #17161f;
-  --sk-red-deep: #000000;
-  --sk-blue: #17161f;         /* 강조 = 검정 */
-  --sk-blue-deep: #000000;
-  --sk-blue-soft: #eceef1;    /* 선택/연한 배경 = 연회색 */
-  --sk-ink: #17161f;
-  --sk-page: #f4f5f6;
+  /* 밝은 컬러 톤 — 흰 바탕 + 빨강/파랑/노랑/초록 강조 */
+  --sk-red: #ea002c;
+  --sk-red-deep: #b80022;
+  --sk-blue: #2f6bed;
+  --sk-blue-deep: #1746a0;
+  --sk-blue-soft: #eaf1fd;
+  --sk-yellow: #f5a623;
+  --sk-green: #22b07d;
+  --sk-ink: #17161f;          /* 검정 필/메인 탭 활성 */
+  --sk-page: #f6f7f9;         /* 밝은 배경 */
   --sk-card: #ffffff;
-  --sk-border: #e6e8eb;
-  --sk-border-strong: #cbd0d6;
-  --sk-head: #f1f2f4;         /* 테이블 헤더 = 회색 */
-  --sk-text: #1b1b1f;
-  --sk-muted: #7c828c;
-  --sk-pos: #1b1b1f;          /* 양수 = 진회색 */
-  --sk-neg: #1b1b1f;          /* 음수 = 진회색 */
+  --sk-border: #e7eaef;
+  --sk-border-strong: #d3d9e2;
+  --sk-head: #eef2f7;         /* 테이블 헤더 = 연블루그레이 */
+  --sk-text: #1c2432;
+  --sk-muted: #8a94a6;
+  --sk-pos: #2f6bed;          /* 양수 = 파랑 */
+  --sk-neg: #ea002c;          /* 음수 = 빨강 */
 
-  /* 기존 warm 테마 변수 재정의 → 흑백 */
+  /* 기존 warm 테마 변수 재정의 → 컬러 팔레트 */
   --warm-bg: #ffffff;
   --warm-panel: #ffffff;
-  --warm-panel-soft: #f1f2f4;
-  --warm-line: #e6e8eb;
-  --warm-line-strong: #17161f;
-  --warm-primary: #17161f;
-  --warm-primary-deep: #000000;
-  --warm-accent: #17161f;
-  --warm-text: #1b1b1f;
-  --warm-muted: #7c828c;
+  --warm-panel-soft: #eef2f7;
+  --warm-line: #e7eaef;
+  --warm-line-strong: #2f6bed;
+  --warm-primary: #2f6bed;
+  --warm-primary-deep: #1746a0;
+  --warm-accent: #ea002c;
+  --warm-text: #1c2432;
+  --warm-muted: #8a94a6;
   --warm-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
@@ -301,12 +303,12 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
 .tbb-kpi-pct { font-size: 12px; font-weight: 800; color: #6b7480; min-width: 46px; text-align: right; }
 .tbb-kpi-plan .tbb-kpi-val { color: #16151f; }
 .tbb-kpi-plan .tbb-kpi-fill { background: #c3cbd6; }
-.tbb-kpi-act .tbb-kpi-val { color: #16151f; }
-.tbb-kpi-act .tbb-kpi-fill { background: #17161f; }
-.tbb-kpi-qua .tbb-kpi-val { color: #16151f; }
-.tbb-kpi-qua .tbb-kpi-fill { background: #7c828c; }
-.tbb-kpi-rem .tbb-kpi-val { color: #16151f; }
-.tbb-kpi-rem .tbb-kpi-fill { background: #a9b0ba; }
+.tbb-kpi-act .tbb-kpi-val { color: var(--sk-blue); }
+.tbb-kpi-act .tbb-kpi-fill { background: var(--sk-blue); }
+.tbb-kpi-qua .tbb-kpi-val { color: #e07b12; }
+.tbb-kpi-qua .tbb-kpi-fill { background: var(--sk-yellow); }
+.tbb-kpi-rem .tbb-kpi-val { color: #1b8f63; }
+.tbb-kpi-rem .tbb-kpi-fill { background: var(--sk-green); }
 @media (max-width: 900px) { .tbb-kpis { grid-template-columns: repeat(2, 1fr); } }
 
 /* 탭 그룹 — 레퍼런스 아이콘 필(활성 = 검정 필, 기본 = 흰 필) */
@@ -372,6 +374,15 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
 .os-kind-tabs > *.active em { color: rgba(255,255,255,.7) !important; }
 .os-kind-tabs > *.active strong, .os-kind-tabs > *.active span { color: #fff !important; }
 .os-kind-tabs > *.active span { color: rgba(255,255,255,.8) !important; }
+
+/* 잔여 warm 그라디언트(주황) 제거 */
+.ai-send-btn, .ai-send-btn.light {
+  background-image: none !important; background: var(--sk-blue) !important; color: #fff !important; border-color: var(--sk-blue) !important;
+}
+.bar-fill, .setup-account-progress i, .expm-bar-fill {
+  background-image: none !important; background: var(--sk-blue) !important;
+}
+.tbb-bar-act, .tbb-bar-qua { background-image: none !important; }
 
 /* 스크롤바 */
 * { scrollbar-color: #cbd3de transparent; }
