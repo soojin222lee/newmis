@@ -448,40 +448,48 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
 }
 
 /* ==========================================================================
-   상세 계정 선택 → "Account 매출" 스타일 세그먼트 탭
-   (연회색 바 + 라벨만, 활성 = 흰 필 + 파란 보더/텍스트)
+   상세 계정 선택 → 상단 탭 바(이력/계정별 작성/결재)와 동일한 가로 탭 바
+   (흰 바 + 라벨만, 활성 = 검정 필 + 흰 글씨)
    ========================================================================== */
 .cost-category-board { background: transparent !important; border: 0 !important; padding: 0 !important; }
-.os-kind-tabs, .labor-kind-tabs, .material-kind-tabs {
-  display: inline-flex !important; flex-wrap: wrap; align-items: center; gap: 4px !important;
-  background: #eef0f3 !important; background-image: none !important;
-  border: 1px solid var(--sk-border) !important; border-radius: 12px !important; padding: 5px !important;
+.os-kind-tabs, .labor-kind-tabs, .material-kind-tabs, .bpo-kind-tabs {
+  display: flex !important; flex-direction: row !important; flex-wrap: wrap !important;
+  align-items: center; gap: 4px !important; width: fit-content !important; max-width: 100% !important;
+  background: #fff !important; background-image: none !important;
+  border: 1px solid var(--sk-border) !important; border-radius: 12px !important; padding: 6px !important;
+  box-shadow: 0 4px 12px rgba(15,23,42,.04) !important;
 }
-.os-kind-tabs > *, .labor-kind-tabs > *, .material-kind-tabs > * {
+.os-kind-tabs > *, .labor-kind-tabs > *, .material-kind-tabs > *, .bpo-kind-tabs > *,
+.os-kind-tabs button, .bpo-kind-tabs button {
+  flex: 0 0 auto !important; width: auto !important; flex-basis: auto !important;
   display: inline-flex !important; align-items: center; justify-content: center; gap: 0 !important;
+  min-width: 0 !important; min-height: 0 !important; height: auto !important;
   background: transparent !important; background-image: none !important;
   border: 1px solid transparent !important; border-radius: 9px !important;
-  padding: 8px 18px !important; min-width: 0 !important; box-shadow: none !important; cursor: pointer;
+  padding: 9px 16px !important; box-shadow: none !important; cursor: pointer;
 }
-.os-kind-tabs > * em, .os-kind-tabs > * span,
-.labor-kind-tabs > * em, .labor-kind-tabs > * span,
-.material-kind-tabs > * em, .material-kind-tabs > * span { display: none !important; }
-.os-kind-tabs > * strong, .labor-kind-tabs > * strong, .material-kind-tabs > * strong {
-  color: #5a6473 !important; font-size: 14px !important; font-weight: 800 !important; white-space: nowrap;
+.os-kind-tabs > * em, .os-kind-tabs > * span, .os-kind-tabs > * i,
+.labor-kind-tabs > * em, .labor-kind-tabs > * span, .labor-kind-tabs > * i,
+.material-kind-tabs > * em, .material-kind-tabs > * span, .material-kind-tabs > * i,
+.bpo-kind-tabs > * em, .bpo-kind-tabs > * span, .bpo-kind-tabs > * i { display: none !important; }
+.os-kind-tabs > * strong, .labor-kind-tabs > * strong, .material-kind-tabs > * strong, .bpo-kind-tabs > * strong {
+  color: #6b7480 !important; font-size: 14px !important; font-weight: 800 !important; white-space: nowrap;
 }
-.os-kind-tabs > *:hover:not(.active), .labor-kind-tabs > *:hover:not(.active), .material-kind-tabs > *:hover:not(.active) {
-  background: rgba(255,255,255,0.55) !important; border-color: transparent !important;
+.os-kind-tabs > *:hover:not(.active), .labor-kind-tabs > *:hover:not(.active),
+.material-kind-tabs > *:hover:not(.active), .bpo-kind-tabs > *:hover:not(.active) {
+  background: #f3f6fb !important; border-color: transparent !important;
 }
-.os-kind-tabs button.active, .labor-kind-tabs button.active, .material-kind-tabs button.active,
-.os-kind-tabs > *.active, .labor-kind-tabs > *.active, .material-kind-tabs > *.active,
-.os-kind-tabs button.active:hover, .os-kind-tabs > *.active:hover, .labor-kind-tabs > *.active:hover {
-  background: #ffffff !important; background-image: none !important; color: var(--sk-blue-deep) !important;
-  border: 1px solid var(--sk-blue) !important; box-shadow: 0 1px 3px rgba(47,107,237,.15) !important;
+.os-kind-tabs button.active, .os-kind-tabs > *.active,
+.labor-kind-tabs button.active, .labor-kind-tabs > *.active,
+.material-kind-tabs button.active, .material-kind-tabs > *.active,
+.bpo-kind-tabs button.active, .bpo-kind-tabs > *.active,
+.os-kind-tabs button.active:hover, .os-kind-tabs > *.active:hover, .bpo-kind-tabs button.active:hover {
+  background: var(--sk-ink) !important; background-image: none !important;
+  border: 1px solid var(--sk-ink) !important; box-shadow: none !important;
 }
 .os-kind-tabs button.active strong, .os-kind-tabs > *.active strong,
-.labor-kind-tabs > *.active strong, .material-kind-tabs > *.active strong {
-  color: var(--sk-blue-deep) !important;
-}
+.labor-kind-tabs > *.active strong, .material-kind-tabs > *.active strong,
+.bpo-kind-tabs button.active strong, .bpo-kind-tabs > *.active strong { color: #fff !important; }
 
 /* 스크롤바 */
 * { scrollbar-color: #cbd3de transparent; }
