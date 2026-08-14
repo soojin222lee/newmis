@@ -169,6 +169,23 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
 .state-badge, .match-badge, .target-badge, .done-badge, .own-badge, .alloc-badge,
 .setup-version-pill, .bfs-step { border-radius: 999px; }
 
+/* 세그먼트 토글/탭 — 레퍼런스 필 스타일(활성 = SK 잉크) */
+.role-switch { background: #eef1f6 !important; border: 0 !important; border-radius: 10px !important; padding: 3px !important; }
+.role-switch button {
+  border: 0 !important; background: transparent !important; color: #5a6473 !important;
+  font-weight: 800 !important; border-radius: 8px !important; padding: 6px 14px !important;
+}
+.role-switch button.active { background: var(--sk-ink) !important; color: #fff !important; box-shadow: 0 2px 6px rgba(23,22,31,.18); }
+
+/* 화면 내 탭 그룹 활성 상태(클래스가 .active/.on/.selected 인 경우) → SK 잉크 필 */
+.budget-account-tabs button.active, .budget-account-tabs button.on,
+.actr-history-tab.active, .actr-history-tab.on,
+.bpo-kind-tabs button.active, .bpo-kind-tabs button.on,
+.bps-toggle button.active, .bps-toggle button.on,
+.actual-detail-tabs button.active, .actual-detail-tabs button.on {
+  background: var(--sk-ink) !important; color: #fff !important; border-color: var(--sk-ink) !important;
+}
+
 /* 스크롤바 */
 * { scrollbar-color: #cbd3de transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
