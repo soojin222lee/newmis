@@ -544,3 +544,52 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
   border: 1px solid #e4e2da !important;   /* 미색 테두리로 각진 네모 구분 */
   border-radius: 4px !important;
 }
+
+/* ==========================================================================
+   계정 요약 타일(신선 디자인) — 컬러 액센트 + 비중 바, 총액 = 다크 타일
+   ========================================================================== */
+.acct-tile-group {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 1280px) { .acct-tile-group { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px)  { .acct-tile-group { grid-template-columns: repeat(2, 1fr); } }
+
+.acct-tile {
+  display: flex; flex-direction: column; gap: 11px;
+  text-align: left; padding: 15px 16px 14px;
+  background: #fff !important; border: 1px solid #e4e2da !important; border-radius: 4px !important;
+  cursor: pointer; transition: border-color .14s ease, transform .14s ease;
+}
+.acct-tile:hover { border-color: var(--tile-c, #2f6bed) !important; transform: translateY(-2px); }
+.acct-tile.active { outline: 2px solid var(--tile-c, #2f6bed); outline-offset: -1px; border-color: var(--tile-c, #2f6bed) !important; }
+
+.acct-tile-top { display: flex; align-items: center; gap: 7px; }
+.acct-tile-dot { width: 8px; height: 8px; border-radius: 2px; background: var(--tile-c, #2f6bed); flex: 0 0 auto; }
+.acct-tile-name { font-size: 14px; font-weight: 800; color: #55606f; }
+.acct-tile-share { margin-left: auto; font-size: 13px; font-weight: 800; color: #98a2b3; }
+.acct-tile-arrow { margin-left: auto; font-size: 15px; font-weight: 800; color: #9aa2b5; }
+
+.acct-tile-val { font-size: 20px; font-weight: 900; color: #16151f; letter-spacing: -0.6px; line-height: 1.1; }
+.acct-tile-val em { font-size: 13px; font-weight: 700; color: #98a2b3; font-style: normal; margin-left: 3px; }
+
+.acct-tile-bar { height: 5px; border-radius: 999px; background: #eef0f3; overflow: hidden; }
+.acct-tile-bar i { display: block; height: 100%; border-radius: 999px; background: var(--tile-c, #2f6bed); transition: width .3s ease; }
+.acct-tile-foot { font-size: 12px; font-weight: 700; color: #aab2c4; }
+
+/* 컬러 변형 */
+.acct-tile.a-blue   { --tile-c: #2f6bed; }
+.acct-tile.a-red    { --tile-c: #ea002c; }
+.acct-tile.a-yellow { --tile-c: #f5a623; }
+.acct-tile.a-green  { --tile-c: #22b07d; }
+.acct-tile.a-sky    { --tile-c: #38a6e6; }
+
+/* 총액 = 다크(잉크) 타일 */
+.acct-tile-total { background: var(--sk-ink) !important; border-color: var(--sk-ink) !important; }
+.acct-tile-total:hover { border-color: var(--sk-ink) !important; }
+.acct-tile-total.active { outline-color: var(--sk-ink); border-color: var(--sk-ink) !important; }
+.acct-tile-total .acct-tile-name { color: #fff; }
+.acct-tile-total .acct-tile-val  { color: #fff; }
+.acct-tile-total .acct-tile-val em { color: #aab2c4; }
+.acct-tile-total .acct-tile-foot { color: #9aa2b5; }

@@ -8575,6 +8575,29 @@ function closeBudgetAccountEditor() {
   renderBudgetPage();
 }
 
+// ── 계정 요약 타일(신선 디자인) ──
+// 계정별 컬러 액센트 + 좌측정렬 금액 + 총액 대비 비중 바. 총액은 다크(잉크) 타일.
+const ACCT_TILE_COLOR = { '인건비':'a-blue', '외주비':'a-red', '재료비':'a-yellow', '경비':'a-green', 'A/S비':'a-sky' };
+function renderAcctTile({ label, value, total, maxVal, active, onclick, isTotal }) {
+  if (isTotal) {
+    return `
+      <button class="acct-tile acct-tile-total ${active ? 'active' : ''}" onclick="${onclick}">
+        <div class="acct-tile-top"><span class="acct-tile-name">${label}</span><span class="acct-tile-arrow">→</span></div>
+        <strong class="acct-tile-val">${fmt(value)}<em>원</em></strong>
+        <div class="acct-tile-foot">전체 합계 · 100%</div>
+      </button>`;
+  }
+  const share = total > 0 ? Math.round((value / total) * 1000) / 10 : 0;
+  const barW = maxVal > 0 ? Math.round((value / maxVal) * 100) : 0;
+  const cls = ACCT_TILE_COLOR[label] || 'a-blue';
+  return `
+    <button class="acct-tile ${cls} ${active ? 'active' : ''}" onclick="${onclick}">
+      <div class="acct-tile-top"><span class="acct-tile-dot"></span><span class="acct-tile-name">${label}</span><span class="acct-tile-share">${share}%</span></div>
+      <strong class="acct-tile-val">${fmt(value)}<em>원</em></strong>
+      <div class="acct-tile-bar"><i style="width:${barW}%"></i></div>
+    </button>`;
+}
+
 function renderBudgetSetupOverview(data, actual, quasi) {
   const accounts = [
     { key:'인건비' },
@@ -8584,14 +8607,15 @@ function renderBudgetSetupOverview(data, actual, quasi) {
   ];
 
   const totalBudget = accounts.reduce((sum, { key }) => sum + (data.plan[key] || 0), 0);
-  const rows = accounts.map(({ key }) => {
-    const budget = data.plan[key] || 0;
-    return `
-      <button class="setup-account-row ${budgetSetupEditAccount === key ? 'active' : ''}" onclick="openBudgetAccountEditor('${key}')">
-        <span>${key}<b>›</b></span>
-        <strong>${fmt(budget)}원</strong>
-      </button>`;
-  }).join('');
+  const maxVal = Math.max(...accounts.map(({ key }) => data.plan[key] || 0), 1);
+  const rows = accounts.map(({ key }) => renderAcctTile({
+    label: key,
+    value: data.plan[key] || 0,
+    total: totalBudget,
+    maxVal,
+    active: budgetSetupEditAccount === key,
+    onclick: `openBudgetAccountEditor('${key}')`,
+  })).join('');
   const expanded = budgetSetupEditAccount
     ? `<div class="setup-expanded-detail">${renderBudgetAccountEditor(data, budgetSetupEditAccount)}</div>`
     : '';
@@ -8602,12 +8626,9 @@ function renderBudgetSetupOverview(data, actual, quasi) {
         <strong>V1.0 2026-07-21</strong>
         <span>승인완료</span>
       </div>
-      <div class="setup-simple-line">
-        <button class="setup-total-row" onclick="showBudgetSummaryGrid()">
-          <span>프로젝트 총 실행 비용 <b>›</b></span>
-          <strong>${fmt(totalBudget)}원</strong>
-        </button>
-        <div class="setup-account-row-group">${rows}</div>
+      <div class="acct-tile-group">
+        ${renderAcctTile({ label:'프로젝트 총 실행 비용', value: totalBudget, isTotal:true, active:false, onclick:`showBudgetSummaryGrid()` })}
+        ${rows}
       </div>
       ${expanded}
     </div>`;
@@ -12382,14 +12403,15 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
   }
 
   // ── ② 계정별 작성 ──
-  const rows = accounts.map(item => {
-    const budget = viewData.plan[item.key] || 0;
-    return `
-      <button class="setup-account-row ${budgetSetupEditAccount === item.key ? 'active' : ''}" onclick="openBudgetAccountEditor('${item.key}')">
-        <span>${item.label}<b>›</b></span>
-        <strong>${fmt(budget)}원</strong>
-      </button>`;
-  }).join('');
+  const maxVal = Math.max(...accounts.map(item => viewData.plan[item.key] || 0), 1);
+  const rows = accounts.map(item => renderAcctTile({
+    label: item.label,
+    value: viewData.plan[item.key] || 0,
+    total: totalBudget,
+    maxVal,
+    active: budgetSetupEditAccount === item.key,
+    onclick: `openBudgetAccountEditor('${item.key}')`,
+  })).join('');
   const expanded = budgetSetupEditAccount
     ? `<div class="setup-expanded-detail">${renderBudgetAccountEditor(viewData, budgetSetupEditAccount)}</div>`
     : '';
@@ -12402,11 +12424,8 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
         <span>${selectedVersion.memo}</span>
         <em>작성자 ${selectedVersion.owner} · 상태 ${selectedVersion.status}</em>
       </div>
-      <div class="setup-account-rows five">
-        <button class="setup-account-row total" onclick="budgetSetupEditAccount=null;renderBudgetPage()">
-          <span>프로젝트 총 실행 비용 <b>›</b></span>
-          <strong>${fmt(totalBudget)}원</strong>
-        </button>
+      <div class="acct-tile-group">
+        ${renderAcctTile({ label:'프로젝트 총 실행 비용', value: totalBudget, isTotal:true, active: budgetSetupEditAccount === null, onclick:`budgetSetupEditAccount=null;renderBudgetPage()` })}
         ${rows}
       </div>
       ${expanded}
