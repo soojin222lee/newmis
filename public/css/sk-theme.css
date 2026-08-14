@@ -317,6 +317,45 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
   border-bottom: 1px solid #eef1f5 !important;
 }
 
+/* ==========================================================================
+   계정별 작성 stage — 주황 제거하고 깔끔하게(레퍼런스 탭 톤)
+   ========================================================================== */
+/* V3 계정별 작성 노트 */
+.setup-version-note {
+  background: #fff !important; background-image: none !important;
+  border: 1px solid var(--sk-border) !important; border-radius: 12px !important;
+}
+.setup-version-note strong { color: var(--sk-red) !important; }
+.setup-version-note span, .setup-version-note em { color: #6b7480 !important; }
+
+/* 편집기 보조 문구 */
+.setup-editor-sub, .setup-stage-head .setup-editor-sub { color: #8a94a6 !important; }
+.setup-title, .setup-stage-head .setup-title { color: #16151f !important; }
+
+/* 계정 카드: 총/활성/기본 (주황 배경 제거) */
+.setup-account-rows.five .setup-account-row.total,
+.setup-account-rows .setup-account-row.total,
+.setup-account-row.total { background: #fff !important; background-image: none !important; border-color: var(--sk-border-strong) !important; }
+.setup-account-rows .setup-account-row.total b,
+.setup-account-rows .setup-account-row.total strong { color: #16151f !important; }
+.setup-account-row.active { background: var(--sk-blue-soft) !important; background-image: none !important; border-color: var(--sk-blue) !important; }
+.setup-account-row.active b, .setup-account-row.active strong { color: var(--sk-blue-deep) !important; }
+
+/* 상세 계정 선택 보드 + 탭(인건비/재료비 kind tabs) */
+.cost-category-board { background: #f6f8fb !important; background-image: none !important; border: 1px solid var(--sk-border) !important; border-radius: 14px !important; }
+.os-kind-tabs, .os-kind-tabs-strong, .labor-kind-tabs, .material-kind-tabs { background: transparent !important; background-image: none !important; }
+.os-kind-tabs > *, .labor-kind-tabs > *, .material-kind-tabs > * {
+  background: #fff !important; background-image: none !important;
+  border: 1px solid var(--sk-border) !important; border-radius: 14px !important;
+}
+.os-kind-tabs > * em { color: #9aa4b2 !important; }
+.os-kind-tabs > * strong { color: #1c2432 !important; }
+.os-kind-tabs > * span { color: #8a94a6 !important; }
+.os-kind-tabs > *.active { background: var(--sk-ink) !important; background-image: none !important; border-color: var(--sk-ink) !important; }
+.os-kind-tabs > *.active em { color: rgba(255,255,255,.7) !important; }
+.os-kind-tabs > *.active strong, .os-kind-tabs > *.active span { color: #fff !important; }
+.os-kind-tabs > *.active span { color: rgba(255,255,255,.8) !important; }
+
 /* 스크롤바 */
 * { scrollbar-color: #cbd3de transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
