@@ -305,8 +305,8 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
 .tbb-kpi-plan .tbb-kpi-fill { background: #c3cbd6; }
 .tbb-kpi-act .tbb-kpi-val { color: var(--sk-blue); }
 .tbb-kpi-act .tbb-kpi-fill { background: var(--sk-blue); }
-.tbb-kpi-qua .tbb-kpi-val { color: #e07b12; }
-.tbb-kpi-qua .tbb-kpi-fill { background: var(--sk-yellow); }
+.tbb-kpi-qua .tbb-kpi-val { color: #1f8fce; }
+.tbb-kpi-qua .tbb-kpi-fill { background: #38a6e6; }
 .tbb-kpi-rem .tbb-kpi-val { color: #1b8f63; }
 .tbb-kpi-rem .tbb-kpi-fill { background: var(--sk-green); }
 @media (max-width: 900px) { .tbb-kpis { grid-template-columns: repeat(2, 1fr); } }
