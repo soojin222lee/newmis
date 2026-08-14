@@ -14,7 +14,7 @@
   --sk-yellow: #f5a623;
   --sk-green: #22b07d;
   --sk-ink: #17161f;          /* 검정 필/메인 탭 활성 */
-  --sk-page: #f6f7f9;         /* 밝은 배경 */
+  --sk-page: #f2f2ee;         /* 미색(오프화이트) 배경 */
   --sk-card: #ffffff;
   --sk-border: #e7eaef;
   --sk-border-strong: #d3d9e2;
@@ -511,4 +511,36 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
 *, *::before, *::after {
   box-shadow: none !important;
   text-shadow: none !important;
+}
+
+/* ==========================================================================
+   플랫 화이트 카드 + 각진 모서리 (참고 대시보드 스타일)
+   - 전체 배경은 미색(--sk-page), 안쪽 구분 박스는 테두리 없는 흰 네모.
+   - 모서리는 둥글지 않게 각지게(4px) 통일.
+   ========================================================================== */
+.card, .bov-card, .tbb-card, .total-card,
+.budget-table-card, .exec-table-card, .budget-detail-table-card, .proj-table-card,
+.version-detail-card, .exec-filter-panel, .cost-category-board, .cost-category-card,
+.kpi-card, .budget-kpi-card, .tbb-kpi, .closure-metric-card, .si-progress-card,
+.my-project-card, .init-proj-card, .ai-helper-card, .lead-panel, .lead-ai-card,
+.lead-chatbox, .ai-chatbox, .lead-dashboard,
+.actr-wrap, .actr-history-panel, .labor-month-card, .labor-card, .labor-panel,
+.labor-registered-card, .labor-scm-detail-card, .labor-scm-if-panel, .labor-edit-flow-card,
+.setup-overview, .setup-editor, .setup-plan-card, .budget-lite-card,
+.material-panel, .material-detail-card, .material-entry-card, .material-dep-form-card,
+.material-transfer-form-card,
+.outsource-panel, .bpo-panel, .bpo-board, .bpo-form-card, .os-registered-card,
+.os-quote-decision-card, .os-inspection-card, .os-transfer-entry-card, .os-travel-entry-card,
+.expense-plan-panel, .expense-middle-card, .expense-erp-box, .expm-box,
+.margin-panel, .report-panel, .report-ai-box, .schedule-panel, .screen-guide-panel,
+.cp-brief-card, .cp-status-board, .cp-status-card, .bcp-mail-card,
+.ric-cal-card, .dept-card, .sd-card, .sd-effect-card, .sd-step-card,
+.mc-section-card, .mc-cat-card, .mc-rule-card, .mc-phase-card, .mc-layout-card,
+.mc-budget-type-card, .mc-risk-level-card,
+.custom-report-field-card, .custom-report-result-card, .interim-section-card,
+.work-diary-card, .account-monthly-card, .as-cost-panel, .df-ext-card, .df-timing-card,
+.main-split-panel, .apv-doc-box, .pcd-box, .pcd-report-box {
+  background: #ffffff !important;
+  border-color: transparent !important;
+  border-radius: 4px !important;
 }
