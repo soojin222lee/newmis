@@ -6,159 +6,52 @@
 <title>PM 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="/css/main.css?v=20260729-purchase-reference01" />
 <link rel="stylesheet" href="/css/initiation-extra.css" />
 <link rel="stylesheet" href="/css/initiation-extra2.css?v=20260729-screen-guide01" />
+<link rel="stylesheet" href="/css/sk-theme.css?v=20260805-sk01" />
 </head>
 <body>
 
-<button class="menu-open-button" id="menu-open-button" onclick="toggleSideMenu()">메뉴열기</button>
-
 <div class="shell">
-  <!-- ── Sidebar ── -->
-  <aside class="sidebar">
-    <div class="sidebar-logo" onclick="showMain()" style="cursor:pointer">
-      <div class="logo-mark">PM System</div>
-      <div class="logo-name">프로젝트 관리</div>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="nav-section-label">운영 안내 (임시)</div>
-
-      <div class="nav-group-btn" id="ngbtn-sub-sysdesc" onclick="toggleNavGroup('sub-sysdesc')">
-        <span><span class="nav-icon">📋</span> 운영 가이드</span>
-        <span class="ng-arrow">›</span>
+  <!-- ── Top nav ── -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="tb-left">
+        <div class="tb-brand nav-group-btn" id="nav-main-brand" onclick="showMain()">
+          <span class="tb-brand-mark">SK</span>
+          <span class="tb-brand-sub">주식회사<br>AX</span>
+        </div>
+        <nav class="topnav">
+          <button class="nav-group-btn topnav-item" id="nav-main" onclick="showMain()">Dashboard</button>
+          <div class="topnav-drop">
+            <button class="nav-group-btn topnav-item" id="ngbtn-sub-ops">프로젝트 정보 <span class="tb-caret">▾</span></button>
+            <div class="topnav-menu" id="sub-ops">
+              <button class="nav-sub-item" id="nav-si-project" onclick="showSIProject()">수주형 프로젝트</button>
+              <button class="nav-sub-item" id="nav-wg-project" onclick="showWGProject()">W/G 프로젝트</button>
+              <button class="nav-sub-item" id="nav-internal-project" onclick="showInternalProject()">사내 프로젝트</button>
+              <button class="nav-sub-item" id="nav-investment-project" onclick="showInvestmentProject()">투자프로젝트</button>
+              <button class="nav-sub-item" id="nav-advance-project" onclick="showAdvanceProject()">선투입 프로젝트</button>
+            </div>
+          </div>
+          <button class="nav-group-btn topnav-item" id="nav-budget" onclick="showBudget()">실행예산</button>
+          <button class="nav-group-btn topnav-item" id="nav-project-close" onclick="showProjectClose()">프로젝트 종료</button>
+          <button class="nav-group-btn topnav-item" id="nav-custom-report" onclick="showCustomReport()">맞춤 레포트</button>
+          <button class="nav-group-btn topnav-item" id="nav-monthly" onclick="showMonthlyClose()">월 마감</button>
+        </nav>
       </div>
-      <div class="nav-sub" id="sub-sysdesc">
-        <div class="nav-sub-item" onclick="showSysDescConcept()" id="nav-sysdesc-concept">
-          <span>💡</span> 프로젝트 운영 컨셉
+      <div class="tb-right">
+        <button class="tb-icon-btn" onclick="showSysDescConcept()" title="운영 가이드">📖 운영 가이드</button>
+        <div class="tb-user">
+          <div class="tb-user-name">이봄 님</div>
+          <div class="tb-user-role">프로젝트 매니저</div>
         </div>
-        <div class="nav-sub-item" onclick="showSysDescProcess()" id="nav-sysdesc-process">
-          <span>⚙️</span> 운영 프로세스
-        </div>
-        <div class="nav-sub-item" onclick="showSysDescData()" id="nav-sysdesc-data">
-          <span>🔗</span> 데이터 흐름
-        </div>
-        <div class="nav-sub-item" onclick="showSysDescDepts()" id="nav-sysdesc-depts">
-          <span>🏢</span> 운영 기준 및 R&R
-        </div>
-      </div>
-
-      <div class="nav-divider"></div>
-      <div class="nav-section-label">메뉴</div>
-      <!-- 프로젝트 관리 -->
-      <div class="nav-group-btn" id="ngbtn-sub-ops" onclick="toggleNavGroup('sub-ops')">
-        <span><span class="nav-icon">🗂</span> 프로젝트 정보</span>
-        <span class="ng-arrow">›</span>
-      </div>
-      <div class="nav-sub" id="sub-ops">
-        <div class="nav-sub-item" onclick="showSIProject()" id="nav-si-project">
-          <span>🏗</span> 수주형 프로젝트
-        </div>
-        <div class="nav-sub-item" onclick="showWGProject()" id="nav-wg-project">
-          <span>📁</span> W/G 프로젝트
-        </div>
-        <div class="nav-sub-item" onclick="showInternalProject()" id="nav-internal-project">
-          <span>🏢</span> 사내 프로젝트
-        </div>
-        <div class="nav-sub-item" onclick="showInvestmentProject()" id="nav-investment-project">
-          <span>💹</span> 투자프로젝트
-        </div>
-        <div class="nav-sub-item" onclick="showAdvanceProject()" id="nav-advance-project">
-          <span>🚀</span> 선투입 프로젝트
-        </div>
-      </div>
-
-      <!-- 실행예산 / 월 마감 (대메뉴) -->
-      <div class="nav-group-btn" id="nav-budget" onclick="showBudget()">
-        <span><span class="nav-icon">💰</span> 실행예산</span>
-      </div>
-      <div class="nav-group-btn" id="nav-project-close" onclick="showProjectClose()">
-        <span><span class="nav-icon">🏁</span> 프로젝트 종료</span>
-      </div>
-      <div class="nav-group-btn" id="nav-custom-report" onclick="showCustomReport()">
-        <span><span class="nav-icon">📑</span> 맞춤 레포트</span>
-      </div>
-      <div class="nav-group-btn" id="nav-monthly" onclick="showMonthlyClose()">
-        <span><span class="nav-icon">📅</span> 월 마감</span>
-      </div>
-
-      <!-- 프로젝트 체크포인트 -->
-      <div class="nav-group-btn" id="ngbtn-sub-cp" onclick="toggleNavGroup('sub-cp')" style="display:none">
-        <span><span class="nav-icon">📌</span> 프로젝트 체크포인트</span>
-        <span class="ng-arrow">›</span>
-      </div>
-      <div class="nav-sub" id="sub-cp" style="display:none">
-        <div class="nav-sub-item" onclick="showCpCurrent()" id="nav-cp-current">
-          <span>📊</span> 체크포인트 현황
-        </div>
-        <div class="nav-sub-item" onclick="showCpBriefing()" id="nav-cp-briefing">
-          <span>📤</span> 브리핑
-        </div>
-        <div class="nav-sub-item" onclick="showCpStatus()" id="nav-cp-status">
-          <span>🔄</span> 대응 현황
-        </div>
-        <div class="nav-sub-item" onclick="showCpHistory()" id="nav-cp-history">
-          <span>📋</span> 조치 이력
-        </div>
-      </div>
-
-      <!-- 프로젝트 단계 보고 -->
-      <div class="nav-group-btn" id="ngbtn-sub-phase" onclick="toggleNavGroup('sub-phase')" style="display:none">
-        <span><span class="nav-icon">📝</span> 프로젝트 단계 보고</span>
-        <span class="ng-arrow">›</span>
-      </div>
-      <div class="nav-sub" id="sub-phase" style="display:none">
-        <div class="nav-sub-item" onclick="showInitiation()" id="nav-initiation">
-          <span>🚀</span> 착수 보고
-        </div>
-        <div class="nav-sub-item" onclick="showInterim()" id="nav-interim">
-          <span>📊</span> 중간 보고
-        </div>
-        <div class="nav-sub-item" onclick="showClosure()" id="nav-closure">
-          <span>🏁</span> 종료 보고
-        </div>
-        <div class="nav-sub-item" onclick="showPhaseHistory()" id="nav-phase-history">
-          <span>🗂</span> 보고 이력 조회
-        </div>
-      </div>
-
-      <!-- 기준정보 설정 (관리자) -->
-      <div class="nav-group-btn admin-nav-group" id="ngbtn-sub-master" onclick="toggleNavGroup('sub-master')" style="display:none">
-        <span><span class="nav-icon">⚙️</span> 기준정보 설정 <span class="nav-admin-badge">관리자</span></span>
-        <span class="ng-arrow">›</span>
-      </div>
-      <div class="nav-sub" id="sub-master" style="display:none">
-        <div class="nav-sub-item" onclick="showMasterBudgetRate()" id="nav-master-budget">
-          <span>📊</span> 예산 소진율 기준
-        </div>
-        <div class="nav-sub-item" onclick="showMasterReportLayout()" id="nav-master-report">
-          <span>📋</span> 보고서 레이아웃
-        </div>
-        <div class="nav-sub-item" onclick="showMasterMethodology()" id="nav-master-method">
-          <span>🔧</span> 개발방법론
-        </div>
-        <div class="nav-sub-item" onclick="showMasterDevEnv()" id="nav-master-devenv">
-          <span>💻</span> 개발환경
-        </div>
-        <div class="nav-sub-item" onclick="showMasterMMRate()" id="nav-master-mmrate">
-          <span>💰</span> 인건비 단가 기준
-        </div>
-        <div class="nav-sub-item" onclick="showMasterPhase()" id="nav-master-phase">
-          <span>📐</span> 예산 사용 기준 정의
-        </div>
-        <div class="nav-sub-item" onclick="showMasterRiskCriteria()" id="nav-master-risk">
-          <span>⚠️</span> 리스크 분류 기준
-        </div>
-      </div>
-    </nav>
-    <div class="sidebar-footer">
-      <div class="user-avatar">Lee</div>
-      <div class="user-info">
-        <div class="user-name">이봄</div>
-        <div class="user-role">프로젝트 매니저</div>
+        <button class="tb-power" title="로그아웃" aria-label="로그아웃">⏻</button>
+        <button class="tb-apps" onclick="openPurchaseReference()" title="구매시스템 참고 화면" aria-label="구매시스템 참고 화면">▦</button>
       </div>
     </div>
-  </aside>
+  </header>
 
   <!-- ── Main ── -->
   <main class="main">
