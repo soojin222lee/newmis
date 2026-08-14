@@ -246,6 +246,55 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
   background: var(--sk-head) !important; color: #3d4a5c !important; border-bottom: 1px solid var(--sk-border-strong) !important;
 }
 
+/* ==========================================================================
+   실행예산 상세 — KPI 색깔 타일 / 탭 필 / 표 정리
+   ========================================================================== */
+/* KPI 카드 & 색깔 타일 */
+.tbb-card { border-radius: 16px !important; padding: 16px 20px 12px !important; }
+.tbb-metric {
+  background: #f7f9fc !important; border: 1px solid var(--sk-border) !important; border-radius: 12px !important;
+  padding: 11px 14px !important;
+}
+.tbb-metric-plan { border-left: 3px solid #9aa4b2 !important; }
+.tbb-metric-act  { border-left: 3px solid var(--sk-blue) !important; }
+.tbb-metric-qua  { border-left: 3px solid #f5a623 !important; }
+.tbb-metric-rem  { border-left: 3px solid #22b07d !important; }
+.tbb-card .tbb-mval { color: #16151f !important; }
+.tbb-card .tbb-act { color: var(--sk-blue) !important; }
+.tbb-card .tbb-qua { color: #b4740a !important; }
+.tbb-card .tbb-rem { color: #1b8f63 !important; }
+.tbb-rate-num { color: var(--sk-blue) !important; }
+/* 진행바/도트 SK */
+.tbb-bar-act { background: var(--sk-blue) !important; }
+.tbb-bar-qua { background: #f5a623 !important; }
+.tbb-dot-act { background: var(--sk-blue) !important; }
+.tbb-dot-qua { background: #f5a623 !important; }
+
+/* 탭 그룹 — 레퍼런스 아이콘 필(활성 = 검정 필, 기본 = 흰 필) */
+.os-kind-tabs > *, .bpo-kind-tabs button, .budget-account-tabs button,
+.actual-detail-tabs button, .actr-history-tab, .bps-toggle button {
+  border-radius: 999px !important;
+}
+.os-kind-tabs .active, .os-kind-tabs button.active,
+.bpo-kind-tabs button.active, .budget-account-tabs button.active,
+.actual-detail-tabs button.active, .actr-history-tab.active, .actr-history-tab.on,
+.bps-toggle button.active {
+  background: var(--sk-ink) !important; color: #fff !important; border-color: var(--sk-ink) !important;
+}
+
+/* 상세 테이블 공통 — 헤더 틴트 + 얇은 라인 */
+.account-monthly-table th, .as-cost-table th, .labor-table th,
+.budget-lite-table th, .actr-table th, .budget-detail-table th,
+.bcp-table th, .bps-table th, .bpo-list-table th {
+  background: var(--sk-head) !important; color: #3d4a5c !important;
+  border-bottom: 1px solid var(--sk-border-strong) !important;
+}
+.account-monthly-table td, .as-cost-table td, .labor-table td,
+.budget-lite-table td, .actr-table td, .budget-detail-table td,
+.bcp-table td, .bps-table td, .bpo-list-table td {
+  border-bottom: 1px solid #eef1f5 !important;
+}
+
 /* 스크롤바 */
 * { scrollbar-color: #cbd3de transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
