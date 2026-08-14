@@ -384,6 +384,43 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
 }
 .tbb-bar-act, .tbb-bar-qua { background-image: none !important; }
 
+/* ==========================================================================
+   계정 카드 재디자인 + 주황 그림자 제거
+   ========================================================================== */
+/* 주황 box-shadow → 중립 */
+.mc-back-btn, .labor-sub-btn, .budget-process-back, .schedule-open-btn,
+.exec-text-btn, .reset-btn, .setup-account-row {
+  box-shadow: none !important;
+}
+.labor-main-btn, .budget-next-btn, .save-btn, .exec-primary-btn, .ai-send-btn {
+  box-shadow: 0 4px 12px rgba(23, 22, 31, 0.16) !important;
+}
+.setup-account-row::before, .setup-account-row::after { box-shadow: none !important; }
+
+/* 계정 카드 그리드 재디자인 */
+.setup-account-rows.five { gap: 12px !important; }
+.setup-account-row {
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.05) !important;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+  padding: 14px 16px !important;
+}
+.setup-account-row:hover {
+  border-color: var(--sk-blue) !important;
+  box-shadow: 0 8px 20px rgba(47, 107, 237, 0.12) !important;
+  transform: translateY(-1px);
+}
+.setup-account-row > span, .setup-account-row b { color: #55606f !important; }
+.setup-account-row strong { color: #16151f !important; }
+.setup-account-row b { color: #b7c0cc !important; font-weight: 700; }  /* › 화살표 연하게 */
+/* 총 실행 비용 카드 — 강조(연한 블루 틴트 + 잉크 보더) */
+.setup-account-rows.five .setup-account-row.total {
+  background: #f6f9fe !important; border-color: var(--sk-ink) !important;
+}
+.setup-account-rows.five .setup-account-row.total strong { color: var(--sk-ink) !important; }
+/* 선택된 계정 */
+.setup-account-rows.five .setup-account-row.active { background: var(--sk-blue-soft) !important; border-color: var(--sk-blue) !important; }
+.setup-account-rows.five .setup-account-row.active strong { color: var(--sk-blue-deep) !important; }
+
 /* 스크롤바 */
 * { scrollbar-color: #cbd3de transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
