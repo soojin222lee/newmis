@@ -270,6 +270,22 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
 .tbb-dot-act { background: var(--sk-blue) !important; }
 .tbb-dot-qua { background: #f5a623 !important; }
 
+/* 실행예산 상세 상단 스텝 → 레퍼런스 탭 바(이력/계정별 작성/결재) */
+.budget-flow-stepper {
+  display: inline-flex !important; align-items: center; gap: 4px !important;
+  background: #fff !important; border: 1px solid var(--sk-border) !important; border-radius: 12px !important;
+  padding: 6px !important; margin-bottom: 18px !important; box-shadow: 0 4px 12px rgba(15,23,42,.04);
+}
+.bfs-arrow { display: none !important; }
+.bfs-step {
+  border: 0 !important; background: transparent !important; box-shadow: none !important;
+  border-radius: 9px !important; padding: 9px 18px !important; color: #6b7480 !important;
+  font-size: 14px !important; font-weight: 800 !important;
+}
+.bfs-step:hover { color: var(--sk-ink) !important; background: #f3f6fb !important; }
+.bfs-step.active { background: var(--sk-ink) !important; color: #fff !important; }
+.bfs-step .bfs-no { display: none !important; }
+
 /* KPI 카드형(레퍼런스 대시보드 스타일) */
 .tbb-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .tbb-kpi { background: #fff; border: 1px solid var(--sk-border); border-radius: 14px; padding: 14px 16px 13px; }
