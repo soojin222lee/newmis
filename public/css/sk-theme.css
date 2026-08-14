@@ -5,33 +5,34 @@
 
 /* ── 디자인 토큰 ── */
 :root {
-  --sk-red: #ea002c;
-  --sk-red-deep: #b80022;
-  --sk-blue: #2f6bed;
-  --sk-blue-deep: #1746a0;
-  --sk-blue-soft: #eaf1fd;
-  --sk-ink: #17161f;         /* 검정 필/강조 텍스트 */
-  --sk-page: #f4f5f7;
+  /* 흑백(그레이스케일) 톤 — 강조는 검정, 배경/보더는 회색 */
+  --sk-red: #17161f;
+  --sk-red-deep: #000000;
+  --sk-blue: #17161f;         /* 강조 = 검정 */
+  --sk-blue-deep: #000000;
+  --sk-blue-soft: #eceef1;    /* 선택/연한 배경 = 연회색 */
+  --sk-ink: #17161f;
+  --sk-page: #f4f5f6;
   --sk-card: #ffffff;
-  --sk-border: #e7eaef;
-  --sk-border-strong: #d3d9e2;
-  --sk-head: #eef3fb;         /* 테이블 헤더 틴트 */
-  --sk-text: #1c2432;
-  --sk-muted: #7a8493;
-  --sk-pos: #2f6bed;          /* 양수 파랑 */
-  --sk-neg: #ea002c;          /* 음수 빨강 */
+  --sk-border: #e6e8eb;
+  --sk-border-strong: #cbd0d6;
+  --sk-head: #f1f2f4;         /* 테이블 헤더 = 회색 */
+  --sk-text: #1b1b1f;
+  --sk-muted: #7c828c;
+  --sk-pos: #1b1b1f;          /* 양수 = 진회색 */
+  --sk-neg: #1b1b1f;          /* 음수 = 진회색 */
 
-  /* 기존 warm 테마 변수 재정의 → SK 팔레트 */
+  /* 기존 warm 테마 변수 재정의 → 흑백 */
   --warm-bg: #ffffff;
   --warm-panel: #ffffff;
-  --warm-panel-soft: #eef3fb;
-  --warm-line: #e7eaef;
-  --warm-line-strong: #2f6bed;
-  --warm-primary: #2f6bed;
-  --warm-primary-deep: #1746a0;
-  --warm-accent: #ea002c;
-  --warm-text: #1c2432;
-  --warm-muted: #7a8493;
+  --warm-panel-soft: #f1f2f4;
+  --warm-line: #e6e8eb;
+  --warm-line-strong: #17161f;
+  --warm-primary: #17161f;
+  --warm-primary-deep: #000000;
+  --warm-accent: #17161f;
+  --warm-text: #1b1b1f;
+  --warm-muted: #7c828c;
   --warm-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
@@ -300,12 +301,12 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
 .tbb-kpi-pct { font-size: 12px; font-weight: 800; color: #6b7480; min-width: 46px; text-align: right; }
 .tbb-kpi-plan .tbb-kpi-val { color: #16151f; }
 .tbb-kpi-plan .tbb-kpi-fill { background: #c3cbd6; }
-.tbb-kpi-act .tbb-kpi-val { color: var(--sk-blue); }
-.tbb-kpi-act .tbb-kpi-fill { background: var(--sk-blue); }
-.tbb-kpi-qua .tbb-kpi-val { color: #e07b12; }
-.tbb-kpi-qua .tbb-kpi-fill { background: #f5a623; }
-.tbb-kpi-rem .tbb-kpi-val { color: #1b8f63; }
-.tbb-kpi-rem .tbb-kpi-fill { background: #22b07d; }
+.tbb-kpi-act .tbb-kpi-val { color: #16151f; }
+.tbb-kpi-act .tbb-kpi-fill { background: #17161f; }
+.tbb-kpi-qua .tbb-kpi-val { color: #16151f; }
+.tbb-kpi-qua .tbb-kpi-fill { background: #7c828c; }
+.tbb-kpi-rem .tbb-kpi-val { color: #16151f; }
+.tbb-kpi-rem .tbb-kpi-fill { background: #a9b0ba; }
 @media (max-width: 900px) { .tbb-kpis { grid-template-columns: repeat(2, 1fr); } }
 
 /* 탭 그룹 — 레퍼런스 아이콘 필(활성 = 검정 필, 기본 = 흰 필) */
