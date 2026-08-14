@@ -157,7 +157,7 @@
 .interim-layout { display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: start; }
 .interim-sidebar {
   background: #fff; border: 1px solid #e8ecf3; border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(30,41,59,0.05); position: sticky; top: 20px; overflow: hidden;
+  box-shadow: none; position: sticky; top: 20px; overflow: hidden;
 }
 .interim-sb-head { padding: 16px 18px; border-bottom: 1px solid #f1f5f9; background: #fafbfd; }
 .interim-sb-title  { font-size: 13px; font-weight: 700; color: #1e293b; }
