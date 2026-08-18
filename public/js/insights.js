@@ -107,9 +107,8 @@ function insightsHtml() {
       <div class="ins-projsel">
         <span class="ins-projsel-l">분석할 프로젝트</span>
         <div class="ins-projsel-tabs">
-          ${INS_PROJECTS.map((pp, i) => `<button class="ins-proj ${i === insProject ? 'on' : ''}" onclick="selectInsProject(${i})">${pp.name}<em class="ins-proj-rate ${pp.rate >= 80 ? 'hot' : ''}">${pp.rate.toFixed(0)}%</em></button>`).join('')}
+          ${INS_PROJECTS.map((pp, i) => `<button class="ins-proj ${i === insProject ? 'on' : ''}" onclick="selectInsProject(${i})">${pp.name}</button>`).join('')}
         </div>
-        <div class="ins-proj-status ${p.status === '관리필요' ? 'warn' : 'ok'}">${p.status}</div>
       </div>
 
       <div class="ins-tabs">
