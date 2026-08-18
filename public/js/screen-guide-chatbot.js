@@ -280,8 +280,8 @@ function initScreenGuideChatbot() {
   root.id = 'screen-guide-root';
   root.className = 'screen-guide-root';
   root.innerHTML = `
-    <button class="screen-guide-fab" onclick="toggleScreenGuide()" title="화면 업무 가이드">
-      <span>AI</span>
+    <button class="screen-guide-fab" onclick="toggleScreenGuide()" title="개발자용 · 화면 가이드">
+      <span>개발자용</span>
     </button>
     <section class="screen-guide-panel" aria-label="화면 업무 가이드 챗봇">
       <header>

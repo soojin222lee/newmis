@@ -596,8 +596,8 @@ function renderPmDashboard() {
             </svg>
           </span>
           <input id="ai-main-query" type="text" placeholder="메뉴, 프로젝트, 실행예산 무엇이든 물어보세요"
-            onkeydown="if(event.key==='Enter') askCostAi()">
-          <button class="home2-search-send" onclick="askCostAi()" aria-label="질문하기">↑</button>
+            onkeydown="if(event.key==='Enter') askFromHome()">
+          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
         </div>
 
         <div id="home-insight-block">${renderHomeInsightBlock()}</div>

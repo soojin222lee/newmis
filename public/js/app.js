@@ -290,6 +290,84 @@ function showMasterRiskCriteria() {
   renderMasterConfig('risk-criteria');
 }
 
+// ── 우측 하단 바로가기 → AI 대화 팝업 ──
+const AI_CHAT_META = {
+  navi:  { title:'Budget Navi',  sub:'단계별 프로젝트 수행 가이드',
+           greet:'안녕하세요, Budget Navi예요. 지금 프로젝트 수행 단계를 기준으로 다음 할 일을 단계별로 안내해 드릴게요. 무엇부터 볼까요?' },
+  q:     { title:'Budget Q',     sub:'예산 Q&A',
+           greet:'안녕하세요, Budget Q예요. 예산·계정·정산 무엇이든 물어보세요.' },
+  pilot: { title:'Budget Pilot', sub:'AI 예산 편성 도우미',
+           greet:'안녕하세요, Budget Pilot이에요. 프로젝트 규모와 기간을 알려주시면 계정별 실행예산 초안을 제안해 드릴게요.' },
+};
+let aiChatKind = 'q';
+
+function openQuickShortcut(kind) { openAiChat(kind); }
+
+// 메인 "무엇이든 물어보세요"와 연결 — 같은 대화 팝업으로 이어짐
+function askFromHome() {
+  const input = document.getElementById('ai-main-query');
+  const q = input ? input.value.trim() : '';
+  if (input) input.value = '';
+  openAiChat('q', q || undefined);
+}
+
+function openAiChat(kind, initialQuery) {
+  aiChatKind = AI_CHAT_META[kind] ? kind : 'q';
+  const meta = AI_CHAT_META[aiChatKind];
+  document.getElementById('ai-chat-title').textContent = meta.title;
+  document.getElementById('ai-chat-sub').textContent = meta.sub;
+  const body = document.getElementById('ai-chat-body');
+  body.innerHTML = '';
+  appendChatMsg('ai', meta.greet);
+  document.getElementById('ai-chat-overlay').classList.add('open');
+  const input = document.getElementById('ai-chat-query');
+  input.value = '';
+  setTimeout(() => input.focus(), 50);
+  if (initialQuery) { input.value = initialQuery; sendAiChat(); }
+}
+
+function closeAiChat() { document.getElementById('ai-chat-overlay').classList.remove('open'); }
+
+function appendChatMsg(who, text) {
+  const body = document.getElementById('ai-chat-body');
+  const div = document.createElement('div');
+  div.className = 'ai-chat-msg ' + (who === 'user' ? 'me' : 'ai');
+  div.textContent = text;
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+}
+
+function sendAiChat() {
+  const input = document.getElementById('ai-chat-query');
+  const text = (input.value || '').trim();
+  if (!text) return;
+  appendChatMsg('user', text);
+  input.value = '';
+  const body = document.getElementById('ai-chat-body');
+  const typing = document.createElement('div');
+  typing.className = 'ai-chat-msg ai typing';
+  typing.textContent = '● ● ●';
+  body.appendChild(typing);
+  body.scrollTop = body.scrollHeight;
+  setTimeout(() => { typing.remove(); appendChatMsg('ai', aiChatReply(aiChatKind, text)); }, 550);
+}
+
+// 목업 응답 (추후 실제 LLM 호출로 교체 가능한 지점)
+function aiChatReply(kind, text) {
+  if (/외주비|인건비|재료비|경비|예산|계정/.test(text)) {
+    return '관련 실행예산 내역을 확인할 수 있어요. 실행예산 화면에서 해당 계정을 열면 계획·실적·잔여를 바로 보여드립니다.';
+  }
+  if (/마감|정산/.test(text)) {
+    return '이번 달 마감 일정과 미결 항목을 정리해 드릴게요. 월 마감 화면에서 확인할 수 있습니다.';
+  }
+  const byKind = {
+    navi:  '현재 단계 기준 다음 할 일은 "8월 실적 마감 확정"입니다. 이어서 단계별로 안내해 드릴까요?',
+    q:     '질문을 이해했어요. 근거가 필요한 수치는 원문 전표까지 연결해 답변드릴 수 있습니다.',
+    pilot: '프로젝트 규모·기간을 알려주시면 인건비·외주비 등 계정별 초안 금액을 제안해 드릴게요.',
+  };
+  return byKind[kind] || '무엇을 도와드릴까요?';
+}
+
 // ── 토스트 ──
 function showToast(msg) {
   const el = document.getElementById('toast');
