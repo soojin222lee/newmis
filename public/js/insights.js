@@ -79,6 +79,12 @@ function showInsights(tab) {
   renderInsights();
 }
 function selectInsProject(i) { insProject = i; renderInsights(); }
+function scrollInsProj(dir) {
+  const t = document.getElementById('ins-proj-track');
+  if (!t) return;
+  const max = t.scrollWidth - t.clientWidth;
+  t.scrollLeft = Math.max(0, Math.min(max, t.scrollLeft + dir * 240));
+}
 function renderInsights() {
   const el = document.getElementById('s-insights');
   if (el) el.innerHTML = insightsHtml();
@@ -104,11 +110,12 @@ function insightsHtml() {
         </div>
       </div>
 
-      <div class="ins-projsel">
-        <span class="ins-projsel-l">분석할 프로젝트</span>
-        <div class="ins-projsel-tabs">
-          ${INS_PROJECTS.map((pp, i) => `<button class="ins-proj ${i === insProject ? 'on' : ''}" onclick="selectInsProject(${i})">${pp.name}</button>`).join('')}
+      <div class="hm-ptabs-carousel ins-proj-carousel">
+        <button class="hm-ptabs-arrow" onclick="scrollInsProj(-1)" aria-label="이전 프로젝트">‹</button>
+        <div class="hm-ptabs-track" id="ins-proj-track">
+          ${INS_PROJECTS.map((pp, i) => `<button class="hm-ptab ${i === insProject ? 'active' : ''}" onclick="selectInsProject(${i})"><span class="hm-ptab-name">${pp.name}</span></button>`).join('')}
         </div>
+        <button class="hm-ptabs-arrow" onclick="scrollInsProj(1)" aria-label="다음 프로젝트">›</button>
       </div>
 
       <div class="ins-tabs">

@@ -326,3 +326,18 @@
 .ins-ask-btn:hover { background: #000; }
 
 @media (max-width: 1080px) { .ins-kpi-panel { flex-wrap: wrap; } .ins-kpi2 { flex: 1 1 40%; border-top: 1px solid #f1f0ea; } }
+
+/* 프로젝트 선택 캐러셀(My Work 스타일) */
+.ins-proj-carousel { margin: 8px 0 20px !important; }
+
+/* 인사이트 화면 전체를 흰색 바탕으로 (My Work처럼 흰 캔버스 안에 콘텐츠) */
+#s-insights { background: var(--sk-page); margin: -22px -26px -60px; padding: 26px 26px 48px; min-height: calc(100vh - 60px); }
+#s-insights .ins-panel, #s-insights .ins-kpi-panel, #s-insights .ins-ai,
+#s-insights .ins-c3, #s-insights .rp-card { background: #fff; }
+
+/* My Work처럼 미색 테두리 */
+#s-insights .ins-panel, #s-insights .ins-kpi-panel, #s-insights .ins-ai,
+#s-insights .ins-c3, #s-insights .rp-card, #s-insights .ins-kpi,
+#s-insights .ins-ask, #s-insights .ins-col-menu { border-color: #e4e2da !important; }
+#s-insights .ins-kpi2 { border-left-color: #efeee7 !important; }
+#s-insights .ins-tabs { border-bottom-color: #e4e2da !important; }
