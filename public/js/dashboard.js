@@ -472,16 +472,20 @@ const HOME_PROJECTS = [
 const HOME_INSIGHTS = [
   { proj:'skon', sev:'danger', tag:'이상징후', title:'8월 외주비가 계획 대비 18% 증가했어요',
     why:'협력사 3사 추가 투입(+190백만). 이 추세가 유지되면 연말 예상원가가 +540백만 상승합니다.',
-    actions:[ {label:'원가 상세 보기', pri:true, onclick:"openAiProjectBudget('budgetMock')"}, {label:'담당자에게 전달'}, {label:'이번 달 무시'} ] },
+    aiReason:'최근 3개월 외주비 실적을 계획선과 비교한 결과 8월 집행액이 계획을 18% 초과했습니다. 신규 계약 3건이 승인 예산에 없던 항목으로 확인됐고, 초과가 2개월 연속이라 일시적 변동이 아닌 구조적 초과로 판단했습니다.',
+    primary:{ label:'원가 상세 보기', onclick:"openAiProjectBudget('budgetMock')" } },
   { proj:'skon', sev:'danger', tag:'정합성', title:'실행예산 승인 이후 계약금액이 변경됐어요',
     why:'승인본 대비 2건의 계약금액이 상향 조정되었습니다. 재승인 또는 변경 사유 등록이 필요합니다.',
-    actions:[ {label:'변경 내역 보기', pri:true, onclick:"openAiProjectBudget('budgetMock')"}, {label:'재승인 상신'} ] },
+    aiReason:'승인된 실행예산 스냅샷과 현재 계약 마스터를 대조했을 때 2건의 계약금액이 승인 이후 상향(+37백만)됐습니다. 변경 사유나 재승인 이력이 없어 통제 밖 변경으로 분류했습니다.',
+    primary:{ label:'변경 내역 보기', onclick:"openAiProjectBudget('budgetMock')" } },
   { proj:'logi', sev:'warning', tag:'추천', title:'정산 진입 전 실행예산 변경을 권장해요',
     why:'ERP 실적과 MIS 계획 간 84백만 차이가 있습니다. 정산 단계 진입 전 정리하는 것이 안전합니다.',
-    actions:[ {label:'변경 초안 만들기', pri:true, onclick:"openAiProjectBudget('budgetMock')"}, {label:'나중에'} ] },
+    aiReason:'ERP 확정 실적과 MIS 계획을 계정별로 대사한 결과 3개 계정에서 합계 84백만 차이가 확인됐습니다. 정산 단계 진입 후에는 실행예산 수정이 제한되므로, 진입 전 변경을 권장했습니다.',
+    primary:{ label:'변경 초안 만들기', onclick:"openAiProjectBudget('budgetMock')" } },
   { proj:'migr', sev:'warning', tag:'확인', title:'9월 인력계획 확정이 필요해요',
     why:'9월 투입 인력계획이 아직 미확정 상태입니다. 확정 후 실행예산에 반영해야 원가 추정이 정확해집니다.',
-    actions:[ {label:'인력계획 열기', pri:true, onclick:"openAiProjectBudget('budgetMock')"}, {label:'담당자에게 전달'} ] },
+    aiReason:'9월 투입 예정 인력 중 4명의 배정이 미확정 상태입니다. 인건비는 실행예산의 34%를 차지해 미확정 시 월 원가 추정 오차가 커지므로 우선 확정이 필요하다고 판단했습니다.',
+    primary:{ label:'인력계획 열기', onclick:"openAiProjectBudget('budgetMock')" } },
 ];
 
 let homeSelectedProject = 'all';
@@ -494,6 +498,21 @@ function toggleHomeInsight(head) {
   const body = acc.querySelector('.hm-acc-body');
   if (body.hasAttribute('hidden')) { body.removeAttribute('hidden'); acc.classList.add('open'); }
   else { body.setAttribute('hidden', ''); acc.classList.remove('open'); }
+}
+
+function toggleAiReason(btn) {
+  const body = btn.closest('.hm-acc-body');
+  const panel = body.querySelector('.hm-ai-reason');
+  if (panel.hasAttribute('hidden')) { panel.removeAttribute('hidden'); btn.classList.add('on'); btn.textContent = 'AI 판단 근거 ▲'; }
+  else { panel.setAttribute('hidden', ''); btn.classList.remove('on'); btn.textContent = 'AI 판단 근거'; }
+}
+
+function doneInsight(btn) {
+  const acc = btn.closest('.hm-acc');
+  const body = acc.querySelector('.hm-acc-body');
+  acc.classList.add('done');
+  body.setAttribute('hidden', ''); acc.classList.remove('open');
+  if (typeof showToast === 'function') showToast('확인 완료로 처리했어요.');
 }
 
 function selectHomeProject(id) {
@@ -537,8 +556,11 @@ function renderHomeInsightBlock() {
       <div class="hm-acc-body" hidden>
         <div class="hm-why">${it.why}</div>
         <div class="hm-acc-actions">
-          ${it.actions.map(a => `<button class="hm-btn${a.pri ? ' pri' : ''}" ${a.onclick ? `onclick="${a.onclick}"` : ''}>${a.label}</button>`).join('')}
+          <button class="hm-btn pri" onclick="${it.primary.onclick}">${it.primary.label}</button>
+          <button class="hm-btn" onclick="toggleAiReason(this)">AI 판단 근거</button>
+          <button class="hm-btn" onclick="doneInsight(this)">확인 완료</button>
         </div>
+        <div class="hm-ai-reason" hidden><span class="hm-ai-reason-label">분석 근거</span>${it.aiReason}</div>
       </div>
     </div>`).join('') : `<div class="hm-empty">이 프로젝트는 지금 확인할 항목이 없어요. 정상 범위입니다.</div>`;
 

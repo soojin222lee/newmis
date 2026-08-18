@@ -794,3 +794,16 @@ button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: tr
 }
 .hm-ptabs-track::-webkit-scrollbar { display: none; }
 .hm-ptabs-track .hm-ptab { flex: 0 0 auto; }
+
+/* ==========================================================================
+   홈 인사이트 — "왜?" AI 판단 근거 패널 + 확인 완료 상태
+   ========================================================================== */
+.hm-ai-reason {
+  margin-top: 10px; margin-left: 0;
+  background: #eef4ff; border: 1px solid #d7e3fb; border-radius: 12px;
+  padding: 12px 14px; font-size: 13px; color: #3a4658; line-height: 1.65;
+}
+.hm-ai-reason-label { display: block; font-size: 12px; font-weight: 800; color: var(--sk-blue-deep); margin-bottom: 5px; }
+.hm-btn.on { background: var(--sk-blue-soft) !important; border-color: var(--sk-blue) !important; color: var(--sk-blue-deep) !important; }
+.hm-acc.done { opacity: .5; }
+.hm-acc.done .hm-acc-title { text-decoration: line-through; }
