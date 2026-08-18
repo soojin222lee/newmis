@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="/css/initiation-extra2.css?v=20260814-fontbump" />
 <link rel="stylesheet" href="/css/sk-theme.css?v=20260814-split2" />
 <link rel="stylesheet" href="/css/home.css?v=20260814-feed2" />
-<link rel="stylesheet" href="/css/ai-agent.css?v=20260814-setup" />
+<link rel="stylesheet" href="/css/ai-agent.css?v=20260814-setup2" />
 <link rel="stylesheet" href="/css/si-project.css?v=20260814-split2" />
 <link rel="stylesheet" href="/css/insights.css?v=20260814-insborder2" />
 </head>
@@ -108,6 +108,18 @@
       <button class="sg-x" onclick="closeSetupGuide()" aria-label="닫기">✕</button>
     </div>
     <div class="sg-body">
+      <div class="sg-claude">
+        <div class="sg-claude-top"><span class="sg-claude-badge">추천</span>Claude Code로 자동 셋업</div>
+        <p>아래 링크를 <b>Claude Code에서 열면</b> Claude가 알아서 소스를 받고, <code>develop</code> 브랜치로 전환하고, 서버를 실행하고, 담당 화면 브랜치까지 만들어 줘요.</p>
+        <div class="sg-claude-link">
+          <code>https://claude.ai/claude-code/onboard/NjtaO-J6OC7x</code>
+          <button class="sg-copy" onclick="copySetupText('https://claude.ai/claude-code/onboard/NjtaO-J6OC7x', this)">복사</button>
+        </div>
+        <p class="sg-hint">전제: GitHub 레포(<code>soojin222lee/newmis</code>) 접근 권한 + Node.js 설치.</p>
+      </div>
+
+      <div class="sg-or">또는 직접 셋업</div>
+
       <p class="sg-lead">빌드가 필요 없는 <b>정적 SPA</b>예요. Node.js만 있으면 바로 실행됩니다. 외부 라이브러리가 없어 <code>npm install</code>도 필요 없어요.</p>
 
       <div class="sg-repo">

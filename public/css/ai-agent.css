@@ -239,6 +239,20 @@
 .sg-x:hover { background: #e7e6df; color: var(--sk-ink); }
 .sg-body { padding: 18px 22px 22px; overflow-y: auto; }
 .sg-lead { font-size: 13.5px; color: #45505f; line-height: 1.6; margin: 0 0 16px; }
+
+/* Claude Code 자동 셋업 콜아웃 */
+.sg-claude { background: #eef4ff; border: 1px solid #d3e0f8; border-radius: 12px; padding: 14px 16px; margin-bottom: 6px; }
+.sg-claude-top { display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 900; color: var(--sk-blue-deep); letter-spacing: -0.3px; margin-bottom: 8px; }
+.sg-claude-badge { font-size: 11px; font-weight: 800; color: #fff; background: var(--sk-blue); padding: 2px 8px; border-radius: 6px; letter-spacing: 0; }
+.sg-claude p { font-size: 13px; color: #45505f; line-height: 1.6; margin: 0; }
+.sg-claude-link { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #d3e0f8; border-radius: 9px; padding: 9px 11px; margin: 10px 0 6px; }
+.sg-claude-link code { flex: 1 1 auto; background: none; padding: 0; color: var(--sk-blue-deep); font-weight: 700; overflow-x: auto; white-space: nowrap; }
+.sg-claude-link .sg-copy { position: static; flex: 0 0 auto; background: var(--sk-blue); color: #fff; }
+.sg-claude-link .sg-copy:hover { background: var(--sk-blue-deep); }
+.sg-claude .sg-hint { margin-top: 4px !important; }
+
+.sg-or { display: flex; align-items: center; gap: 12px; font-size: 12px; font-weight: 800; color: #aab2c0; margin: 16px 0 14px; }
+.sg-or::before, .sg-or::after { content: ''; flex: 1 1 auto; height: 1px; background: #eceae3; }
 .sg-body code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: #f3f4f7; color: #20304d; padding: 1px 6px; border-radius: 5px; }
 
 .sg-repo { display: flex; align-items: center; gap: 8px; background: #f7f8fb; border: 1px solid #e6e9f0; border-radius: 10px; padding: 10px 12px; margin-bottom: 18px; }
