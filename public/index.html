@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="/css/initiation-extra2.css?v=20260814-fontbump" />
 <link rel="stylesheet" href="/css/sk-theme.css?v=20260814-split2" />
 <link rel="stylesheet" href="/css/home.css?v=20260814-feed2" />
-<link rel="stylesheet" href="/css/ai-agent.css?v=20260814-navi" />
+<link rel="stylesheet" href="/css/ai-agent.css?v=20260814-setup" />
 <link rel="stylesheet" href="/css/si-project.css?v=20260814-split2" />
 <link rel="stylesheet" href="/css/insights.css?v=20260814-insborder2" />
 </head>
@@ -57,6 +57,9 @@
         </nav>
       </div>
       <div class="tb-right">
+        <button class="tb-guide" onclick="openSetupGuide()" title="팀 개발 셋업 가이드">
+          <span class="tb-guide-ic">&lt;/&gt;</span>셋업 가이드
+        </button>
         <div class="tb-user">
           <div class="tb-user-name">이봄 님</div>
           <div class="tb-user-role">프로젝트 매니저</div>
@@ -92,6 +95,72 @@
       <div class="screen" id="s-phase-history"></div>
     </div>
   </main>
+</div>
+
+<!-- ════ MODAL: 팀 개발 셋업 가이드 ════ -->
+<div class="setup-guide-overlay" id="setup-guide-overlay" onclick="if(event.target===this)closeSetupGuide()">
+  <div class="setup-guide-modal" role="dialog" aria-modal="true" aria-label="팀 개발 셋업 가이드">
+    <div class="sg-head">
+      <div>
+        <div class="sg-eyebrow">TEAM ONBOARDING</div>
+        <strong>팀 개발 셋업 가이드</strong>
+      </div>
+      <button class="sg-x" onclick="closeSetupGuide()" aria-label="닫기">✕</button>
+    </div>
+    <div class="sg-body">
+      <p class="sg-lead">빌드가 필요 없는 <b>정적 SPA</b>예요. Node.js만 있으면 바로 실행됩니다. 외부 라이브러리가 없어 <code>npm install</code>도 필요 없어요.</p>
+
+      <div class="sg-repo">
+        <span class="sg-repo-l">GIT REPO</span>
+        <code id="sg-repo-url">https://github.com/soojin222lee/newmis.git</code>
+        <button class="sg-copy" onclick="copySetupText('https://github.com/soojin222lee/newmis.git', this)">복사</button>
+      </div>
+
+      <div class="sg-step">
+        <div class="sg-step-n">1</div>
+        <div class="sg-step-main">
+          <h4>레포 클론 &amp; 실행</h4>
+          <div class="sg-code">
+            <pre>git clone https://github.com/soojin222lee/newmis.git
+cd newmis
+git checkout develop
+npm start</pre>
+            <button class="sg-copy" onclick="copySetupCode(this)">복사</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sg-step">
+        <div class="sg-step-n">2</div>
+        <div class="sg-step-main">
+          <h4>브라우저 접속</h4>
+          <p><code>http://localhost:57291</code> — 변경이 안 보이면 <b>Ctrl+Shift+R</b>(하드 리로드).</p>
+        </div>
+      </div>
+
+      <div class="sg-step">
+        <div class="sg-step-n">3</div>
+        <div class="sg-step-main">
+          <h4>내 담당 화면 확인</h4>
+          <p>루트의 <code>CONTRIBUTING.md</code> — <b>화면 = 소스파일 = 담당자</b> 표에서 자기 화면의 JS/CSS 파일만 수정하세요. 공유 파일(<code>index.html</code> · <code>app.js</code> · <code>sk-theme.css</code>)만 조율하면 충돌이 거의 없어요.</p>
+        </div>
+      </div>
+
+      <div class="sg-step">
+        <div class="sg-step-n">4</div>
+        <div class="sg-step-main">
+          <h4>작업 브랜치 &amp; PR</h4>
+          <p><code>develop</code>이 팀 통합 브랜치예요. 여기서 화면별 브랜치를 따서 작업하고 <code>develop</code>으로 PR 하세요.</p>
+          <div class="sg-code">
+            <pre>git checkout develop &amp;&amp; git pull
+git checkout -b feature/&lt;내화면&gt;-&lt;이름&gt;</pre>
+            <button class="sg-copy" onclick="copySetupCode(this)">복사</button>
+          </div>
+          <p class="sg-hint">예: <code>feature/insights-jieun</code>. <code>main</code>은 안정 배포본이라 직접 커밋하지 않아요.</p>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ════ MODAL: AI 리스크 조치 ════ -->
@@ -229,7 +298,7 @@
 
 <div id="toast"></div>
 
-<script src="/js/app.js?v=20260814-costsplit"></script>
+<script src="/js/app.js?v=20260814-setup"></script>
 <script src="/js/dashboard.js?v=20260814-feed2"></script>
 <script src="/js/risk-history.js?v=20260814-fontbump"></script>
 <script src="/js/budget-status.js?v=20260814-split1"></script>

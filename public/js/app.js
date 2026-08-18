@@ -409,6 +409,18 @@ function openAiChat(entry, initialQuery) {
 }
 function closeAiChat() { document.getElementById('ai-chat-overlay').classList.remove('open'); }
 
+// ── 팀 개발 셋업 가이드 (상단 우측 버튼) ──
+function openSetupGuide() { const el = document.getElementById('setup-guide-overlay'); if (el) el.classList.add('open'); }
+function closeSetupGuide() { const el = document.getElementById('setup-guide-overlay'); if (el) el.classList.remove('open'); }
+function copySetupText(text, btn) {
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => flashCopied(btn)).catch(() => {});
+}
+function copySetupCode(btn) {
+  const pre = btn.parentElement.querySelector('pre');
+  if (pre) copySetupText(pre.innerText, btn);
+}
+function flashCopied(btn) { if (!btn) return; const t = btn.textContent; btn.textContent = '복사됨'; setTimeout(() => { btn.textContent = t; }, 1200); }
+
 // ── 메시지 렌더 ──
 function aiUserMsg(text) {
   const body = document.getElementById('ai-chat-body');

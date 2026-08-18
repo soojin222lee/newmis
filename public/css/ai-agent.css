@@ -210,3 +210,53 @@
 .navi-step.active .navi-step-d { color: #55606f; }
 .navi-step-cta { margin-top: 2px; }
 
+/* ==========================================================================
+   팀 개발 셋업 가이드 — 상단 우측 버튼 + 모달
+   ========================================================================== */
+.tb-guide {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #eef3fb; border: 1px solid #d3e0f5; color: var(--sk-blue-deep);
+  border-radius: 9px; padding: 7px 12px; margin-right: 4px;
+  font-size: 13px; font-weight: 800; letter-spacing: -0.2px; cursor: pointer; white-space: nowrap;
+  transition: background .14s ease, border-color .14s ease, transform .12s ease;
+}
+.tb-guide:hover { background: #e2ecfb; border-color: var(--sk-blue); transform: translateY(-1px); }
+.tb-guide-ic { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; font-weight: 700; color: var(--sk-blue); }
+
+.setup-guide-overlay {
+  position: fixed; inset: 0; z-index: 200; display: none;
+  background: rgba(20, 24, 33, 0.42); align-items: center; justify-content: center; padding: 24px;
+}
+.setup-guide-overlay.open { display: flex; }
+.setup-guide-modal {
+  background: #fff; width: 100%; max-width: 560px; max-height: 86vh; overflow: hidden;
+  border-radius: 16px; box-shadow: 0 24px 60px rgba(20, 24, 33, 0.28); display: flex; flex-direction: column;
+}
+.sg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 22px 16px; border-bottom: 1px solid #eceae3; }
+.sg-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: 0.5px; color: var(--sk-blue); margin-bottom: 4px; }
+.sg-head strong { font-size: 18px; font-weight: 900; color: var(--sk-ink); letter-spacing: -0.4px; }
+.sg-x { flex: 0 0 auto; background: #f2f2ee; border: none; border-radius: 8px; width: 30px; height: 30px; font-size: 14px; color: #6b7585; cursor: pointer; }
+.sg-x:hover { background: #e7e6df; color: var(--sk-ink); }
+.sg-body { padding: 18px 22px 22px; overflow-y: auto; }
+.sg-lead { font-size: 13.5px; color: #45505f; line-height: 1.6; margin: 0 0 16px; }
+.sg-body code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: #f3f4f7; color: #20304d; padding: 1px 6px; border-radius: 5px; }
+
+.sg-repo { display: flex; align-items: center; gap: 8px; background: #f7f8fb; border: 1px solid #e6e9f0; border-radius: 10px; padding: 10px 12px; margin-bottom: 18px; }
+.sg-repo-l { font-size: 10.5px; font-weight: 800; letter-spacing: 0.4px; color: #8a94a6; flex: 0 0 auto; }
+.sg-repo code { flex: 1 1 auto; background: none; padding: 0; overflow-x: auto; white-space: nowrap; }
+
+.sg-step { display: flex; gap: 13px; padding-bottom: 18px; }
+.sg-step:last-child { padding-bottom: 0; }
+.sg-step-n { flex: 0 0 24px; width: 24px; height: 24px; border-radius: 50%; background: #20304d; color: #fff; font-size: 12px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+.sg-step-main { flex: 1 1 auto; min-width: 0; }
+.sg-step-main h4 { font-size: 14.5px; font-weight: 900; color: var(--sk-ink); margin: 2px 0 8px; letter-spacing: -0.3px; }
+.sg-step-main p { font-size: 13px; color: #55606f; line-height: 1.6; margin: 0; }
+.sg-hint { margin-top: 8px !important; font-size: 12px !important; color: #8a94a6 !important; }
+
+.sg-code { position: relative; background: #1c2331; border-radius: 10px; padding: 12px 14px; margin: 2px 0; }
+.sg-code pre { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.7; color: #e6ebf5; white-space: pre-wrap; word-break: break-all; }
+.sg-copy { position: absolute; top: 9px; right: 9px; background: rgba(255,255,255,0.12); border: none; color: #cdd6e6; font-size: 11.5px; font-weight: 700; padding: 4px 9px; border-radius: 6px; cursor: pointer; }
+.sg-copy:hover { background: rgba(255,255,255,0.22); color: #fff; }
+.sg-repo .sg-copy { position: static; flex: 0 0 auto; background: #e7ecf4; color: var(--sk-blue-deep); }
+.sg-repo .sg-copy:hover { background: #d7e0ee; }
+
