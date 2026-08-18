@@ -198,6 +198,21 @@ button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: tr
 .hm-card .up { color: var(--sk-red); font-weight: 800; }
 .hm-card .down { color: var(--sk-blue); font-weight: 800; }
 
+/* 접기/펼치기 — 기본 접힘 */
+.hm-card-head { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
+.hm-card-headmain { flex: 1 1 auto; min-width: 0; }
+.hm-card-head .hm-card-title { margin: 0 0 7px !important; }
+.hm-card-sum { font-size: 13px; color: #55606f; line-height: 1.5; letter-spacing: -0.2px; }
+.hm-card-sum b { color: #16151f; font-weight: 900; }
+.hm-card-sum em { font-style: normal; font-weight: 800; }
+.hm-chev { flex: 0 0 auto; color: #b3bcc9; font-size: 18px; line-height: 1; margin-top: 2px; transition: transform .18s ease; }
+.hm-card:hover .hm-chev { color: #7c8798; }
+.hm-card.open .hm-chev { transform: rotate(180deg); }
+.hm-card.open .hm-card-head .hm-card-title { margin-bottom: 13px !important; }
+.hm-card.open .hm-card-sum { display: none; }
+.hm-card-body { display: none; margin-top: 13px; }
+.hm-card.open .hm-card-body { display: block; }
+
 /* 예산 점검 — 숫자 변화 */
 .hm-metrics { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
 .hm-metric { background: #f7f8fb; border-radius: 10px; padding: 10px 14px; min-width: 92px; }

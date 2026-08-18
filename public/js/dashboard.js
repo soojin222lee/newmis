@@ -539,6 +539,9 @@ let homeSelectedProject = 'all';
 let homeCat = 'all';
 const homeFeedState = {}; // key → 'reflected' | 'done'
 
+// 카드는 기본 접힘. 헤더 클릭 시 펼침(재렌더 없이 클래스 토글).
+function toggleFeedCard(el) { const c = el.closest('.hm-card'); if (c) c.classList.toggle('open'); }
+
 function feedKey(it) { return it.proj + '|' + it.title; }
 function homeProjName(id) { const p = HOME_PROJECTS.find(x => x.id === id); return p ? p.name : ''; }
 function homeFeedByProj() { return HOME_FEED.filter(i => homeSelectedProject === 'all' || i.proj === homeSelectedProject); }
@@ -626,10 +629,25 @@ function feedActionsHtml(it, key) {
   </div>`;
 }
 
+function feedCardHead(it, sum) {
+  const tag = it.cat === 'budget'
+    ? `<span class="hm-dot hm-${it.sev}"></span><span class="hm-tag hm-${it.sev}">예산 점검 · ${it.sub}</span>`
+    : `<span class="hm-tag work">업무 반영 · ${it.sub}</span>`;
+  return `<div class="hm-card-head" onclick="toggleFeedCard(this)">
+    <div class="hm-card-headmain">
+      <div class="hm-card-top">${tag}<span class="hm-card-proj">${homeProjName(it.proj)}</span></div>
+      <h3 class="hm-card-title">${it.title}</h3>
+      <div class="hm-card-sum">${sum}</div>
+    </div>
+    <span class="hm-chev" aria-hidden="true">⌄</span>
+  </div>`;
+}
+
 function feedBudgetCard(it, key) {
-  let metrics = '';
+  let metrics = '', sum = '';
   if (it.change) {
     const c = it.change;
+    sum = `<b>${c.from}</b> → <b>${c.to}</b> <em class="up">${c.delta} (${c.pct})</em>`;
     metrics = `<div class="hm-metrics">
       <div class="hm-metric"><span class="hm-m-l">${c.fromL}</span><b class="hm-m-v">${c.from}</b></div>
       <span class="hm-arrow">→</span>
@@ -639,6 +657,7 @@ function feedBudgetCard(it, key) {
     <div class="hm-impact"><span class="hm-impact-l">예상 영향</span>${it.impact.note} · ${it.impact.label} <b class="up">${it.impact.value}</b> ${it.impact.tail}</div>`;
   } else if (it.dual) {
     const d = it.dual;
+    sum = `<b>${d.left}</b> → <b>${d.right}</b> <em class="up">${d.delta}</em>`;
     metrics = `<div class="hm-metrics">
       <div class="hm-metric"><span class="hm-m-l">${d.leftL}</span><b class="hm-m-v">${d.left}</b></div>
       <span class="hm-arrow">→</span>
@@ -648,27 +667,31 @@ function feedBudgetCard(it, key) {
     <div class="hm-impact">${it.note}</div>`;
   }
   return `<div class="hm-card budget">
-    <div class="hm-card-top"><span class="hm-dot hm-${it.sev}"></span><span class="hm-tag hm-${it.sev}">예산 점검 · ${it.sub}</span><span class="hm-card-proj">${homeProjName(it.proj)}</span></div>
-    <h3 class="hm-card-title">${it.title}</h3>
-    ${metrics}
-    ${feedActionsHtml(it, key)}
+    ${feedCardHead(it, sum)}
+    <div class="hm-card-body">
+      ${metrics}
+      ${feedActionsHtml(it, key)}
+    </div>
   </div>`;
 }
 
 function feedWorkCard(it, key) {
   const f = it.flow;
+  const iCls = /-/.test(f.iVal) ? 'down' : 'up';
+  const sum = `${f.sVal}${f.sDelta ? ` <em class="${/-/.test(f.sDelta) ? 'down' : 'up'}">${f.sDelta}</em>` : ''} · ${f.iL} <em class="${iCls}">${f.iVal}</em> · <b>${f.aVal}</b>`;
   return `<div class="hm-card work">
-    <div class="hm-card-top"><span class="hm-tag work">업무 반영 · ${it.sub}</span><span class="hm-card-proj">${homeProjName(it.proj)}</span></div>
-    <h3 class="hm-card-title">${it.title}</h3>
-    <div class="hm-flow">
-      <div class="hm-flow-step"><div class="hm-flow-l">${f.sL}</div><div class="hm-flow-sub">${f.sSub}</div><div class="hm-flow-v">${f.sVal}${f.sDelta ? ` <em class="${/-/.test(f.sDelta) ? 'down' : 'up'}">${f.sDelta}</em>` : ''}</div></div>
-      <span class="hm-flow-arrow">→</span>
-      <div class="hm-flow-step"><div class="hm-flow-l">${f.iL}</div><div class="hm-flow-sub">${f.iSub}</div><div class="hm-flow-v ${/-/.test(f.iVal) ? 'down' : 'up'}">${f.iVal}</div></div>
-      <span class="hm-flow-arrow">→</span>
-      <div class="hm-flow-step accent"><div class="hm-flow-l">${f.aL}</div><div class="hm-flow-sub">${f.aSub}</div><div class="hm-flow-v">${f.aVal}</div></div>
+    ${feedCardHead(it, sum)}
+    <div class="hm-card-body">
+      <div class="hm-flow">
+        <div class="hm-flow-step"><div class="hm-flow-l">${f.sL}</div><div class="hm-flow-sub">${f.sSub}</div><div class="hm-flow-v">${f.sVal}${f.sDelta ? ` <em class="${/-/.test(f.sDelta) ? 'down' : 'up'}">${f.sDelta}</em>` : ''}</div></div>
+        <span class="hm-flow-arrow">→</span>
+        <div class="hm-flow-step"><div class="hm-flow-l">${f.iL}</div><div class="hm-flow-sub">${f.iSub}</div><div class="hm-flow-v ${iCls}">${f.iVal}</div></div>
+        <span class="hm-flow-arrow">→</span>
+        <div class="hm-flow-step accent"><div class="hm-flow-l">${f.aL}</div><div class="hm-flow-sub">${f.aSub}</div><div class="hm-flow-v">${f.aVal}</div></div>
+      </div>
+      ${it.note ? `<div class="hm-impact">${it.note}</div>` : ''}
+      ${feedActionsHtml(it, key)}
     </div>
-    ${it.note ? `<div class="hm-impact">${it.note}</div>` : ''}
-    ${feedActionsHtml(it, key)}
   </div>`;
 }
 
