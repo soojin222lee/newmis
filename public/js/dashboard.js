@@ -581,7 +581,7 @@ function renderPmDashboard() {
       <section class="home2-main centered">
         <div class="home2-hero center">
           <h1>좋은 아침이에요, 봄님</h1>
-          <p>담당 9개 프로젝트 중 <b>3개</b>에서 계획과 실제가 벌어지고 있어요</p>
+          <p>담당 9개 프로젝트 중 <b>3개</b>에서 계획과 실적이 벌어지고 있어요</p>
         </div>
 
         <div class="home2-search">
