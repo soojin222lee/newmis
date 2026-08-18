@@ -14,7 +14,10 @@ npm start        # = node server.js  → http://localhost:57291
 | 화면 | 상단 메뉴 | screen id | JS 파일 | CSS 파일 |
 |---|---|---|---|---|
 | My Work(홈) | My Work | `s-main` | `js/dashboard.js` | `css/home.css` |
-| 수행원가 | 수행원가(원가현황/조정/이력) | `s-budget` | `js/budget-status.js` + `budget-status-2~5.js` (5분할) | `css/sk-theme.css`의 "실행예산/계정" 섹션 |
+| 수행원가(공유 렌더러) | 수행원가 | `s-budget` | `js/budget-status.js` + `budget-status-2~5.js` (5분할) | `css/sk-theme.css`의 "실행예산/계정" 섹션 |
+| └ 원가현황 | 수행원가 > 원가현황 | `s-budget`(costMode `status`) | `js/budget-cost-status.js` | (공유) |
+| └ 원가조정 | 수행원가 > 원가조정 | `s-budget`(costMode `adjust`) | `js/budget-cost-adjust.js` | (공유) |
+| └ 변경 이력 | 수행원가 > 변경 이력 | `s-budget`(costMode `history`) | `js/budget-cost-history.js` | (공유) |
 | 인사이트 | 인사이트 > 종합현황 | `s-insights` | `js/insights.js` | `css/insights.css` |
 | 맞춤 레포트 | 인사이트 > 맞춤 레포트 | `s-custom-report` | `js/custom-report.js` | (공용) |
 | 수주형 프로젝트 | 프로젝트 | `s-si-project` | `js/si-project.js` | `css/si-project.css` |
@@ -36,9 +39,16 @@ npm start        # = node server.js  → http://localhost:57291
 
 ## URL 라우팅 (해시 = 소스파일명)
 화면 이동 시 URL 해시가 소스파일명으로 갱신되고, 그 URL로 새로고침·직접 접속·뒤로가기가 됩니다.
-예: `#/dashboard`(홈) · `#/budget-status`(수행원가) · `#/insights` · `#/si-project`.
+예: `#/dashboard`(홈) · `#/insights` · `#/si-project`.
 라우터는 `app.js`의 `setScreen()` → `updateHashForScreen()`, `window.onhashchange` → `routeFromHash()`,
 최초 로드는 `routeInitial()`이 담당합니다. 새 화면은 위 4번의 매핑 2곳만 등록하면 자동 연결됩니다.
+
+**한 화면에 여러 하위 메뉴가 있을 때(수행원가):** 수행원가는 `s-budget` 한 화면을 `costMode`
+(`status`/`adjust`/`history`)로 나눠 쓰므로, `SCREEN_ROUTES['s-budget']`을 **함수**로 두어 costMode에 따라
+`#/budget-status` · `#/budget-adjust` · `#/budget-history` 중 하나로 해석합니다. 각 하위 메뉴의 진입 함수
+(`showCost*` / `openCost*`)와 라우트 등록(`ROUTE_ACTIONS['budget-*']`)은 전용 파일
+`budget-cost-status.js` / `budget-cost-adjust.js` / `budget-cost-history.js`가 각각 소유하며,
+이 파일들은 **반드시 `budget-status-5.js` 뒤에 로드**해야 합니다(공유 `costMode`·`openBudgetProjectScreen` 참조).
 
 ## CSS 로드 순서(캐스케이드)
 ```

@@ -62,14 +62,11 @@ function activateBudgetScreenFinal() {
 }
 
 // 수행원가 진입 모드: 'status'(원가현황) | 'adjust'(원가조정) | 'history'(변경 이력)
+// 공유 상태만 여기서 선언한다. 각 하위 메뉴의 진입/라우트 함수는 전용 파일로 분리:
+//   원가현황 → budget-cost-status.js  (#/budget-status)
+//   원가조정 → budget-cost-adjust.js  (#/budget-adjust)
+//   변경 이력 → budget-cost-history.js (#/budget-history)
 var costMode = 'history';
-function showCostStatus() { costMode = 'status'; showBudget(); }
-function showCostAdjust() { costMode = 'adjust'; showBudget(); }
-function showCostHistory() { costMode = 'history'; showBudget(); }
-// 특정 프로젝트의 수행원가 뷰로 바로 이동(홈 Work Feed 등에서 사용)
-function openCostStatus(k) { costMode = 'status'; openBudgetProjectScreen(k || 'budgetMock'); }
-function openCostAdjust(k) { costMode = 'adjust'; openBudgetProjectScreen(k || 'budgetMock'); }
-function openCostHistory(k) { costMode = 'history'; openBudgetProjectScreen(k || 'budgetMock'); }
 
 openBudgetProjectScreen = function(projectKey) {
   const key = BUDGET_SOURCE[projectKey] ? projectKey : 'budgetMock';

@@ -41,7 +41,11 @@ function setNav(id) {
 // ── URL 라우팅 (해시 = 소스파일명) ──
 const SCREEN_ROUTES = {
   's-main': 'dashboard',
-  's-budget': 'budget-status',
+  // 수행원가는 한 화면(s-budget)에 3개 하위 메뉴가 있으므로 costMode로 라우트명을 결정한다.
+  // 각 하위 메뉴의 라우트 액션은 전용 파일(budget-cost-*.js)에서 ROUTE_ACTIONS에 등록한다.
+  's-budget': () => (typeof costMode !== 'undefined' && costMode === 'adjust') ? 'budget-adjust'
+                  : (typeof costMode !== 'undefined' && costMode === 'history') ? 'budget-history'
+                  : 'budget-status',
   's-insights': 'insights',
   's-custom-report': 'custom-report',
   's-si-project': 'si-project',
@@ -62,7 +66,7 @@ const SCREEN_ROUTES = {
 };
 const ROUTE_ACTIONS = {
   'dashboard': () => showMain(),
-  'budget-status': () => (typeof showCostStatus === 'function' ? showCostStatus() : showBudget()),
+  // 'budget-status' / 'budget-adjust' / 'budget-history'는 budget-cost-*.js에서 등록한다.
   'insights': () => (typeof showInsights === 'function' ? showInsights('overview') : null),
   'custom-report': () => showCustomReport(),
   'si-project': () => showSIProject(),
@@ -83,7 +87,8 @@ const ROUTE_ACTIONS = {
 };
 let _suppressNextHash = false;
 function updateHashForScreen(id) {
-  const r = SCREEN_ROUTES[id];
+  let r = SCREEN_ROUTES[id];
+  if (typeof r === 'function') r = r();
   if (!r) return;
   const target = '#/' + r;
   if (location.hash !== target) { _suppressNextHash = true; location.hash = target; }
