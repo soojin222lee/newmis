@@ -128,6 +128,7 @@ body.menu-open .main { margin-left: 0 !important; }
   background: #fff; color: #55606f; font-size: 18px; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
 }
+.tb-power { font-size: 15px; font-weight: 800; }
 .tb-power:hover, .tb-apps:hover { border-color: var(--sk-blue); color: var(--sk-blue); background: var(--sk-blue-soft); }
 .tb-apps { color: var(--sk-red); }
 .tb-apps:hover { border-color: var(--sk-red); color: var(--sk-red); background: #fff0f3; }
@@ -642,3 +643,154 @@ tr.selected td { background: var(--sk-blue-soft) !important; }
 .bpo-kind-tabs > button:nth-child(4) { --kc:#f76b7e; --kc-deep:#cc4657; }
 .bpo-kind-tabs > button:nth-child(5) { --kc:#fb8f9d; --kc-deep:#cf6674; }
 .bpo-kind-tabs > button:nth-child(6) { --kc:#e0677f; --kc-deep:#b34459; }
+
+/* ==========================================================================
+   홈 화면 재설계 — 요약 칩 + 인사이트 아코디언(기본 접힘)
+   ========================================================================== */
+.home2-main { max-width: 1080px; margin: 0 auto; padding: 8px 0 40px; }
+.home2-hero { margin: 8px 0 22px; }
+.home2-hero h1 { font-size: 26px !important; font-weight: 900 !important; color: var(--sk-ink) !important; letter-spacing: -0.6px; margin: 0 0 6px !important; }
+.home2-hero p { font-size: 15px; color: #6a7382; margin: 0; }
+.home2-hero p b { color: var(--sk-red); font-weight: 800; }
+
+.home2-chips { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 30px; }
+.home2-chip {
+  text-align: left; background: #fff !important; border: 1px solid #e4e2da !important; border-radius: 4px !important;
+  padding: 15px 16px; cursor: default; transition: border-color .14s ease, transform .14s ease;
+}
+button.home2-chip { cursor: pointer; }
+button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: translateY(-2px); }
+.home2-chip .n { font-size: 26px; font-weight: 900; color: #16151f; line-height: 1.05; letter-spacing: -0.6px; }
+.home2-chip .n.hot { color: var(--sk-red); }
+.home2-chip .l { font-size: 13px; color: #8a94a6; margin-top: 4px; font-weight: 700; }
+
+.home2-sec-head { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 12px; }
+.home2-sec-head h2 { font-size: 18px !important; font-weight: 900 !important; color: var(--sk-ink) !important; margin: 0 !important; }
+.home2-sec-head h2 b { color: var(--sk-red); }
+.home2-sec-head span { font-size: 12px; color: #aab2c0; font-weight: 700; }
+
+.hm-insights { margin-bottom: 30px; }
+.hm-acc { background: #fff !important; border: 1px solid #e4e2da !important; border-radius: 4px !important; overflow: hidden; }
+.hm-acc + .hm-acc { margin-top: 8px; }
+.hm-acc-head {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  border: 0 !important; background: transparent !important; text-align: left;
+  padding: 15px 16px !important; cursor: pointer;
+}
+.hm-acc-head:hover { background: #faf9f6 !important; }
+.hm-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.hm-tag { font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 6px; flex: 0 0 auto; }
+.hm-dot.hm-danger { background: var(--sk-red); }
+.hm-tag.hm-danger { background: #fdeaec; color: #b80022; }
+.hm-dot.hm-warning { background: var(--sk-yellow); }
+.hm-tag.hm-warning { background: #fdf0da; color: #9a6206; }
+.hm-acc-title { font-size: 15px; font-weight: 700; color: #2b2f39; flex: 1; min-width: 0; }
+.hm-chev { color: #b7bec9; font-size: 15px; flex: 0 0 auto; transition: transform .15s ease; }
+.hm-acc.open .hm-chev { transform: rotate(180deg); }
+.hm-acc-body { padding: 0 16px 16px 46px; }
+.hm-why { background: #f7f6f2; border-radius: 4px; padding: 12px 14px; font-size: 14px; color: #55606f; line-height: 1.65; margin-bottom: 12px; }
+.hm-acc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.hm-btn {
+  font-size: 13px; font-weight: 800; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+  background: #fff; border: 1px solid var(--sk-border-strong); color: #2b3442;
+}
+.hm-btn:hover { border-color: var(--sk-blue); color: var(--sk-blue); background: var(--sk-blue-soft); }
+.hm-btn.pri { background: var(--sk-ink); border-color: var(--sk-ink); color: #fff; }
+.hm-btn.pri:hover { background: #000; color: #fff; }
+
+@media (max-width: 720px) { .home2-chips { grid-template-columns: repeat(2,1fr); } }
+
+/* ==========================================================================
+   홈 세련화 — 가운데 정렬 + 둥근 모서리 + 검색 바(참고 포털 스타일)
+   ========================================================================== */
+.home2-main.centered { max-width: 920px; }
+.home2-hero.center { text-align: center; margin: 34px 0 22px; }
+.home2-hero.center h1 { font-size: 30px !important; }
+.home2-hero.center p { font-size: 15px; }
+
+.home2-search {
+  display: flex; align-items: center; gap: 12px;
+  max-width: 720px; margin: 0 auto 34px; padding: 9px 10px 9px 14px;
+  background: #ffffff; border: 1px solid #e4e2da; border-radius: 999px;
+}
+.home2-orb {
+  width: 32px; height: 32px; border-radius: 10px; flex: 0 0 auto;
+  background: var(--sk-blue-soft); display: inline-flex; align-items: center; justify-content: center;
+}
+.home2-orb svg { display: block; }
+.home2-search input {
+  flex: 1; min-width: 0; border: 0 !important; background: transparent !important; color: #17161f !important;
+  font-size: 15px !important; outline: none !important; box-shadow: none !important;
+  height: auto !important; padding: 8px 2px !important; border-radius: 0 !important;
+}
+.home2-search input::placeholder { color: #98a2b3 !important; }
+.home2-search-send {
+  width: 36px; height: 36px; border-radius: 50%; flex: 0 0 auto; cursor: pointer;
+  border: 0; background: var(--sk-blue); color: #fff; font-size: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.home2-search-send:hover { background: var(--sk-blue-deep); }
+
+.home2-suggests { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 0 0 36px; }
+.home2-suggests button {
+  border: 1px solid #e4e2da; background: #fff; color: #4a5460; cursor: pointer;
+  font-size: 13px; font-weight: 700; padding: 8px 15px; border-radius: 999px;
+  transition: border-color .14s ease, color .14s ease, background .14s ease;
+}
+.home2-suggests button:hover { border-color: var(--sk-blue); color: var(--sk-blue-deep); background: var(--sk-blue-soft); }
+
+/* 카드 라운드(홈 한정) */
+.home2-chip { border-radius: 16px !important; padding: 18px 18px !important; }
+.hm-acc { border-radius: 16px !important; }
+.hm-acc-head { padding: 16px 18px !important; }
+.hm-acc-body { padding-left: 48px !important; }
+.hm-why { border-radius: 12px !important; }
+.hm-btn { border-radius: 999px !important; }
+.home2 .my-project-card { border-radius: 16px !important; }
+.home2-sec-head { margin-top: 4px; }
+
+/* ==========================================================================
+   홈 인사이트 — 프로젝트 선택 탭(확인필요 배지) + 프로젝트 태그
+   ========================================================================== */
+.hm-ptabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 16px; }
+.hm-ptab {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  border: 1px solid #e4e2da; background: #fff; border-radius: 999px; padding: 8px 14px;
+  font-size: 14px; font-weight: 700; color: #4a5460;
+  transition: border-color .14s ease, color .14s ease, background .14s ease;
+}
+.hm-ptab:hover { border-color: var(--sk-blue); color: var(--sk-blue-deep); }
+.hm-ptab.active { background: var(--sk-ink); border-color: var(--sk-ink); color: #fff; }
+.hm-ptab-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  background: #efeee8; color: #6a7382; font-size: 12px; font-weight: 800;
+}
+.hm-ptab.active .hm-ptab-badge { background: rgba(255,255,255,.22); color: #fff; }
+
+.hm-acc-proj { font-size: 12px; font-weight: 800; color: #98a2b3; flex: 0 0 auto; white-space: nowrap; }
+.hm-empty {
+  background: #fff; border: 1px solid #e4e2da; border-radius: 16px;
+  padding: 22px; text-align: center; font-size: 14px; color: #8a94a6; font-weight: 700;
+}
+
+/* ==========================================================================
+   홈 프로젝트 선택 — 가운데 정렬 좌우 캐러셀(양끝 화살표)
+   ========================================================================== */
+.hm-ptabs-carousel {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin: 6px 0 20px;
+}
+.hm-ptabs-arrow {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid #e4e2da; background: #fff; color: #55606f; cursor: pointer;
+  font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+  transition: border-color .14s ease, color .14s ease, background .14s ease;
+}
+.hm-ptabs-arrow:hover { border-color: var(--sk-blue); color: var(--sk-blue); background: var(--sk-blue-soft); }
+.hm-ptabs-track {
+  display: flex; gap: 8px; overflow-x: auto; scroll-behavior: smooth;
+  max-width: 720px; padding: 3px 2px; scrollbar-width: none;
+}
+.hm-ptabs-track::-webkit-scrollbar { display: none; }
+.hm-ptabs-track .hm-ptab { flex: 0 0 auto; }

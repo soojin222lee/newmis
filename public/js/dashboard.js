@@ -457,55 +457,128 @@ function initDashboard() {
   updateKpiMain();
 }
 
-function renderPmDashboard() {
-  return `
-    <div class="ai-workspace">
-      <div class="ai-home-top">
-        <div class="ai-brand">
-          <strong>SKAX 원가관리 AI</strong>
-          <span>실행예산 · 투입 · 정산 업무 도우미</span>
-        </div>
-        <div class="top-actions">
-          ${renderRoleSwitch()}
-          <button class="schedule-open-btn purchase-ref-btn" onclick="openPurchaseReference()">구매시스템 참고</button>
-          <button class="schedule-open-btn" onclick="openSchedulePanel()">일정 확인</button>
+const HOME_PROJECTS = [
+  { id:'skon', no:'30131234-D001', name:'SKON 통합 관제 플랫폼' },
+  { id:'logi', no:'30140777-D002', name:'차세대 물류 실행계' },
+  { id:'migr', no:'30150482-D003', name:'SKON 데이터 마이그레이션' },
+  { id:'erp',  no:'30160231-D004', name:'ERP 고도화' },
+  { id:'sec',  no:'30160988-D005', name:'보안관제 고도화' },
+  { id:'cloud',no:'30170345-D006', name:'클라우드 인프라 전환' },
+  { id:'mob',  no:'30170612-D007', name:'모바일 앱 리뉴얼' },
+  { id:'dw',   no:'30180129-D008', name:'통합 데이터웨어하우스' },
+  { id:'aidoc',no:'30180457-D009', name:'AI 문서관리 POC' },
+];
+
+const HOME_INSIGHTS = [
+  { proj:'skon', sev:'danger', tag:'이상징후', title:'8월 외주비가 계획 대비 18% 증가했어요',
+    why:'협력사 3사 추가 투입(+190백만). 이 추세가 유지되면 연말 예상원가가 +540백만 상승합니다.',
+    actions:[ {label:'원가 상세 보기', pri:true, onclick:"openAiProjectBudget('budgetMock')"}, {label:'담당자에게 전달'}, {label:'이번 달 무시'} ] },
+  { proj:'skon', sev:'danger', tag:'정합성', title:'실행예산 승인 이후 계약금액이 변경됐어요',
+    why:'승인본 대비 2건의 계약금액이 상향 조정되었습니다. 재승인 또는 변경 사유 등록이 필요합니다.',
+    actions:[ {label:'변경 내역 보기', pri:true, onclick:"openAiProjectBudget('budgetMock')"}, {label:'재승인 상신'} ] },
+  { proj:'logi', sev:'warning', tag:'추천', title:'정산 진입 전 실행예산 변경을 권장해요',
+    why:'ERP 실적과 MIS 계획 간 84백만 차이가 있습니다. 정산 단계 진입 전 정리하는 것이 안전합니다.',
+    actions:[ {label:'변경 초안 만들기', pri:true, onclick:"openAiProjectBudget('budgetMock')"}, {label:'나중에'} ] },
+  { proj:'migr', sev:'warning', tag:'확인', title:'9월 인력계획 확정이 필요해요',
+    why:'9월 투입 인력계획이 아직 미확정 상태입니다. 확정 후 실행예산에 반영해야 원가 추정이 정확해집니다.',
+    actions:[ {label:'인력계획 열기', pri:true, onclick:"openAiProjectBudget('budgetMock')"}, {label:'담당자에게 전달'} ] },
+];
+
+let homeSelectedProject = 'all';
+
+function homeProjName(id) { const p = HOME_PROJECTS.find(x => x.id === id); return p ? p.name : ''; }
+function homeInsightCount(id) { return id === 'all' ? HOME_INSIGHTS.length : HOME_INSIGHTS.filter(i => i.proj === id).length; }
+
+function toggleHomeInsight(head) {
+  const acc = head.closest('.hm-acc');
+  const body = acc.querySelector('.hm-acc-body');
+  if (body.hasAttribute('hidden')) { body.removeAttribute('hidden'); acc.classList.add('open'); }
+  else { body.setAttribute('hidden', ''); acc.classList.remove('open'); }
+}
+
+function selectHomeProject(id) {
+  homeSelectedProject = id;
+  const el = document.getElementById('home-insight-block');
+  if (el) el.innerHTML = renderHomeInsightBlock();
+}
+
+function scrollHomeTabs(dir) {
+  const t = document.getElementById('hm-ptabs-track');
+  if (!t) return;
+  const max = t.scrollWidth - t.clientWidth;
+  const target = Math.max(0, Math.min(max, t.scrollLeft + dir * 260));
+  t.scrollLeft = target;
+}
+
+function renderHomeInsightBlock() {
+  const tabs = [{ id:'all', name:'전체' }].concat(HOME_PROJECTS.map(p => ({ id:p.id, name:p.name })))
+    .map(t => `
+        <button class="hm-ptab ${homeSelectedProject === t.id ? 'active' : ''}" onclick="selectHomeProject('${t.id}')">
+          <span class="hm-ptab-name">${t.name}</span>
+          <span class="hm-ptab-badge">${homeInsightCount(t.id)}</span>
+        </button>`).join('');
+  const tabsCarousel = `
+    <div class="hm-ptabs-carousel">
+      <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(-1)" aria-label="이전 프로젝트">‹</button>
+      <div class="hm-ptabs-track" id="hm-ptabs-track">${tabs}</div>
+      <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(1)" aria-label="다음 프로젝트">›</button>
+    </div>`;
+
+  const list = HOME_INSIGHTS.filter(i => homeSelectedProject === 'all' || i.proj === homeSelectedProject);
+  const listHtml = list.length ? list.map(it => `
+    <div class="hm-acc" data-hm-acc>
+      <button type="button" class="hm-acc-head" onclick="toggleHomeInsight(this)">
+        <span class="hm-dot hm-${it.sev}"></span>
+        <span class="hm-tag hm-${it.sev}">${it.tag}</span>
+        <span class="hm-acc-title">${it.title}</span>
+        ${homeSelectedProject === 'all' ? `<span class="hm-acc-proj">${homeProjName(it.proj)}</span>` : ''}
+        <span class="hm-chev">▾</span>
+      </button>
+      <div class="hm-acc-body" hidden>
+        <div class="hm-why">${it.why}</div>
+        <div class="hm-acc-actions">
+          ${it.actions.map(a => `<button class="hm-btn${a.pri ? ' pri' : ''}" ${a.onclick ? `onclick="${a.onclick}"` : ''}>${a.label}</button>`).join('')}
         </div>
       </div>
+    </div>`).join('') : `<div class="hm-empty">이 프로젝트는 지금 확인할 항목이 없어요. 정상 범위입니다.</div>`;
 
-      <section class="ai-work-hero">
-        <div class="ai-greeting">NEW MIS는.</div>
-        <h1>사용은 가볍게, 데이터는 단단하게.<br><span class="ai-hero-line-sub">편리한 업무 환경과 신뢰할 수 있는 데이터의 연결.</span></h1>
-        <div class="ai-helper-card">
-          <div class="ai-robot compact" aria-hidden="true">
-            <div class="ai-robot-head"><span></span><span></span></div>
-            <div class="ai-robot-body"></div>
-          </div>
-          <div>
-            <strong>이번 달 원가관리 포인트</strong>
-            <span>실행예산 조정, 인건비 승인요청, 일정 알림을 같이 확인할 수 있어요.</span>
-          </div>
+  return `
+    ${tabsCarousel}
+    <div class="home2-sec-head">
+      <h2>확인이 필요한 것 <b>${list.length}가지</b></h2>
+      <span>중요도 순 · 펼쳐서 근거 확인</span>
+    </div>
+    <div class="hm-insights">${listHtml}</div>`;
+}
+
+function renderPmDashboard() {
+  homeSelectedProject = 'all';
+
+  return `
+    <div class="ai-workspace home2">
+      <section class="home2-main centered">
+        <div class="home2-hero center">
+          <h1>좋은 아침이에요, 봄님</h1>
+          <p>담당 9개 프로젝트 중 <b>3개</b>에서 계획과 실제가 벌어지고 있어요</p>
         </div>
-        <div class="ai-chatbox">
-          <input id="ai-main-query" type="text" placeholder="메시지를 입력하세요..."
+
+        <div class="home2-search">
+          <span class="home2-orb" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
+              <path d="M12 4.4V8"/>
+              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
+              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <path d="M2 13v3M22 13v3"/>
+            </svg>
+          </span>
+          <input id="ai-main-query" type="text" placeholder="메뉴, 프로젝트, 실행예산 무엇이든 물어보세요"
             onkeydown="if(event.key==='Enter') askCostAi()">
-          <button class="ai-attach-btn" title="파일 첨부">⌕</button>
-          <button class="ai-send-btn light" onclick="askCostAi()" title="질문하기">➜</button>
+          <button class="home2-search-send" onclick="askCostAi()" aria-label="질문하기">↑</button>
         </div>
-        <div class="home-work-grid">
-          <div class="my-project-card">
-            <div class="home-section-title">내 프로젝트</div>
-            <div class="my-project-table">
-              <div class="my-project-head">
-                <span>프로젝트번호</span>
-                <span>프로젝트명</span>
-              </div>
-              <button onclick="openAiProjectBudget('budgetMock')">
-                <strong>30131234-D001</strong>
-                <span>예산관리시스템 목업용</span>
-              </button>
-            </div>
-          </div>
-        </div>
+
+        <div id="home-insight-block">${renderHomeInsightBlock()}</div>
       </section>
     </div>`;
 }
