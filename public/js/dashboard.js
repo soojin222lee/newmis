@@ -557,7 +557,7 @@ function renderHomeInsightBlock() {
         <div class="hm-why">${it.why}</div>
         <div class="hm-acc-actions">
           <button class="hm-btn pri" onclick="openPilotForInsight(${HOME_INSIGHTS.indexOf(it)})">AI 분석 (Pilot) →</button>
-          <button class="hm-btn" onclick="toggleAiReason(this)">AI 판단 근거</button>
+          <button class="hm-btn" onclick="openCostStatus()">수행원가 확인하기</button>
           <button class="hm-btn" onclick="doneInsight(this)">확인 완료</button>
         </div>
         <div class="hm-ai-reason" hidden><span class="hm-ai-reason-label">분석 근거</span>${it.aiReason}</div>
