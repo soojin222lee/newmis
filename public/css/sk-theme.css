@@ -935,7 +935,7 @@ button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: tr
 /* ==========================================================================
    개발자용(화면 가이드) 버튼 — 우측 상단 이동 + 톤 정리(주황 제거)
    ========================================================================== */
-.screen-guide-root { top: 70px !important; bottom: auto !important; right: 22px !important; }
+.screen-guide-root { display: none !important; }
 .screen-guide-fab {
   width: auto !important; height: auto !important; border-radius: 999px !important;
   background: #fff !important; background-image: none !important;

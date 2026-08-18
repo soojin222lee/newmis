@@ -10,7 +10,8 @@
 <link rel="stylesheet" href="/css/main.css?v=20260814-fontbump" />
 <link rel="stylesheet" href="/css/initiation-extra.css?v=20260814-fontbump" />
 <link rel="stylesheet" href="/css/initiation-extra2.css?v=20260814-fontbump" />
-<link rel="stylesheet" href="/css/sk-theme.css?v=20260814-rail" />
+<link rel="stylesheet" href="/css/sk-theme.css?v=20260814-hidedev" />
+<link rel="stylesheet" href="/css/insights.css?v=20260814-report4" />
 </head>
 <body>
 
@@ -38,15 +39,10 @@
           </div>
           <button class="nav-group-btn topnav-item" id="nav-budget" onclick="showBudget()">실행예산</button>
           <div class="topnav-drop">
-            <button class="nav-group-btn topnav-item" id="ngbtn-sub-insight">인사이트 <span class="tb-caret">▾</span></button>
+            <button class="nav-group-btn topnav-item" id="ngbtn-sub-insight" onclick="showInsights('overview')">인사이트 <span class="tb-caret">▾</span></button>
             <div class="topnav-menu" id="sub-insight">
+              <button class="nav-sub-item" onclick="showInsights('overview')">종합 현황</button>
               <button class="nav-sub-item" id="nav-custom-report" onclick="showCustomReport()">맞춤 레포트</button>
-              <button class="nav-sub-item" onclick="showToast('프로젝트 손익 분석 · 준비 중입니다.')">프로젝트 손익 분석</button>
-              <button class="nav-sub-item" onclick="showToast('계획 vs 실적 분석 · 준비 중입니다.')">계획 vs 실적 분석</button>
-              <button class="nav-sub-item" onclick="showToast('월별 원가 추이 · 준비 중입니다.')">월별 원가 추이</button>
-              <button class="nav-sub-item" onclick="showToast('프로젝트 비교 · 준비 중입니다.')">프로젝트 비교</button>
-              <button class="nav-sub-item" onclick="showToast('조직별 현황 · 준비 중입니다.')">조직별 현황</button>
-              <button class="nav-sub-item" onclick="openQuickShortcut('pilot')">AI 분석/요약</button>
             </div>
           </div>
         </nav>
@@ -69,6 +65,7 @@
       <div class="screen" id="s-budget"></div>
       <div class="screen" id="s-project-close"></div>
       <div class="screen" id="s-custom-report"></div>
+      <div class="screen" id="s-insights"></div>
       <div class="screen" id="s-initiation"></div>
       <div class="screen" id="s-interim"></div>
       <div class="screen" id="s-closure"></div>
@@ -229,6 +226,7 @@
 <script src="/js/budget-status.js?v=20260814-rail"></script>
 <script src="/js/project-close.js?v=20260814-fontbump"></script>
 <script src="/js/custom-report.js?v=20260814-fontbump"></script>
+<script src="/js/insights.js?v=20260814-report4"></script>
 <script src="/js/initiation-report.js?v=20260814-fontbump"></script>
 <script src="/js/interim-report.js?v=20260814-fontbump"></script>
 <script src="/js/closure-report.js?v=20260814-fontbump"></script>
