@@ -3,7 +3,40 @@
 PM/예산 관리 목업(New MIS)을 화면 단위로 나눠 여러 명이 병렬로 개발합니다.
 **빌드가 필요 없는 정적 SPA**라 Node.js만 있으면 바로 실행됩니다. (외부 라이브러리 없음 → `npm install` 불필요)
 
-## 1. 레포 클론 & 실행
+---
+
+## 🤖 이 가이드를 연 Claude에게 — 자동 셋업
+
+아래를 **순서대로 자동 수행**해서 팀원이 바로 개발을 시작할 수 있게 해줘.
+각 단계 결과를 짧게 보고하고, 실패하면 멈추고 원인을 알려줘.
+
+1. **레포 준비** — 현재 폴더에 `newmis/`가 없으면 클론하고, 있으면 그 폴더로 이동:
+   ```bash
+   git clone https://github.com/soojin222lee/newmis.git
+   ```
+2. **통합 브랜치로 전환** (`cd newmis` 후):
+   ```bash
+   git checkout develop && git pull
+   ```
+3. **개발 서버 실행** — 의존성 설치 불필요. 백그라운드로 서버를 띄우고 http://localhost:57291 미리보기를 열어줘:
+   ```bash
+   npm start
+   ```
+4. **담당 화면 확인** — `CONTRIBUTING.md`를 읽고, 팀원에게 **담당할 화면 이름**과 **본인 이름(영문)**을 물어봐.
+5. **개인 작업 브랜치 생성** — 담당이 정해지면:
+   ```bash
+   git checkout -b feature/<화면>-<이름>   # 예: feature/insights-jieun
+   ```
+6. **시작 안내** — 담당 화면의 JS/CSS 파일 경로(아래 표)를 알려주고, 수정을 시작할 준비가 됐다고 안내해줘.
+
+> **주의**
+> - 이 레포는 **GitHub 접근 권한**이 필요해. 클론이 인증 오류로 실패하면, 팀원의 GitHub 계정이 레포에 초대됐는지 확인하도록 안내해줘.
+> - **공유 파일**(`index.html` · `app.js` · `css/sk-theme.css`)은 수정 전 담당자와 조율이 필요하다고 반드시 알려줘.
+> - `main`에는 직접 커밋하지 말고, 작업은 `develop`에서 분기한 개인 브랜치에서만 진행해.
+
+---
+
+## 1. 수동 셋업 (참고)
 
 ```bash
 git clone https://github.com/soojin222lee/newmis.git
