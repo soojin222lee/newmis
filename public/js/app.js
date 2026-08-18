@@ -522,7 +522,7 @@ function naviExecHtml() {
 
 // ── Budget Pilot — 선제 브리핑 + Alert 상세 ──
 function pilotBriefingHtml() {
-  const items = (typeof HOME_INSIGHTS !== 'undefined') ? HOME_INSIGHTS : [];
+  const items = (typeof HOME_FEED !== 'undefined') ? HOME_FEED : [];
   const urgent = items.filter(i => i.sev === 'danger').length;
   const soft = items.length - urgent;
   const rows = items.map((it, i) => `
@@ -539,28 +539,24 @@ function pilotBriefingHtml() {
   </div>`;
 }
 function pilotAlert(i) {
-  const it = HOME_INSIGHTS[i];
-  aiAgentMsg('pilot', pilotAlertHtml(it));
+  const it = HOME_FEED[i];
+  if (it) aiAgentMsg('pilot', pilotAlertHtml(it));
 }
 function pilotAlertHtml(it) {
+  const tag = it.sub || it.tag || '점검';
+  const cause = it.note || (it.impact ? it.impact.label + ' ' + it.impact.value : '') || (it.flow ? it.flow.iL + ' ' + it.flow.iVal : '');
   return `<div class="ai-result">
-    <div class="ai-r-lead"><span class="ai-r-tag ${it.sev === 'danger' ? 'red' : 'amber'}">${escHtml(it.tag)}</span> ${escHtml(it.title)}</div>
-    <div class="ai-detail-grid">
-      <div><span>계획 대비</span><strong class="up">+18%</strong></div>
-      <div><span>영향 금액</span><strong class="up">+4,200만원</strong></div>
-      <div><span>예상 영향</span><strong>예상원가율 +1.7%p</strong></div>
-    </div>
-    <div class="ai-r-cause">주요 원인 · ${escHtml(it.why)}</div>
-    <p class="ai-r-note"><b>AI Recommendation</b> · ${escHtml(it.aiReason)}</p>
+    <div class="ai-r-lead"><span class="ai-r-tag ${it.sev === 'danger' ? 'red' : it.sev === 'warning' ? 'amber' : 'ink'}">${escHtml(tag)}</span> ${escHtml(it.title)}</div>
+    <div class="ai-r-cause">${escHtml(homeProjName(it.proj))}${cause ? ' · ' + escHtml(cause) : ''}</div>
     <button class="ai-evi-btn" onclick="aiToggleEvidence(this)">🔎 근거 확인</button>
     <div class="ai-evidence" hidden>
-      <div class="ai-evi-step"><span>1 · 계산 근거</span>승인 실행예산 대비 현재 계약/실투입 차이 분석</div>
-      <div class="ai-evi-step"><span>2 · 사용 데이터</span>실행예산 V3 · 계약 마스터 · 실투입 확정</div>
-      <div class="ai-evi-step"><span>3 · 원천 데이터</span>MIS 원장 (실행예산/계약/실투입)</div>
+      <div class="ai-evi-step"><span>1 · 계산 근거</span>수행원가 계획/실적/계약 데이터 대사</div>
+      <div class="ai-evi-step"><span>2 · 사용 데이터</span>수행원가 V4 · 계약 마스터 · SCM/ERP 확정</div>
+      <div class="ai-evi-step"><span>3 · 원천 데이터</span>MIS 원장</div>
     </div>
     <div class="ai-actions">
-      <button class="ai-act" onclick="agentGoto('exec-outsource')">상세 분석</button>
-      <button class="ai-act pri" onclick="agentHandoffNavi()">실행예산 검토 →</button>
+      <button class="ai-act" onclick="agentGoto('exec-outsource')">원가 상세</button>
+      <button class="ai-act pri" onclick="agentHandoffNavi()">수행원가 검토 →</button>
     </div>
   </div>`;
 }
@@ -572,7 +568,7 @@ function openPilotForInsight(i) {
   const body = document.getElementById('ai-chat-body');
   body.innerHTML = '';
   document.getElementById('ai-chat-overlay').classList.add('open');
-  aiAgentMsg('pilot', pilotAlertHtml(HOME_INSIGHTS[i]));
+  if (typeof HOME_FEED !== 'undefined' && HOME_FEED[i]) aiAgentMsg('pilot', pilotAlertHtml(HOME_FEED[i]));
 }
 
 // ── 근거 Drill-down 토글 ──

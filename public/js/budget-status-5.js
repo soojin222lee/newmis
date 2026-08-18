@@ -66,8 +66,10 @@ var costMode = 'history';
 function showCostStatus() { costMode = 'status'; showBudget(); }
 function showCostAdjust() { costMode = 'adjust'; showBudget(); }
 function showCostHistory() { costMode = 'history'; showBudget(); }
-// 특정 프로젝트의 원가현황으로 바로 이동(홈 인사이트 등에서 사용)
+// 특정 프로젝트의 수행원가 뷰로 바로 이동(홈 Work Feed 등에서 사용)
 function openCostStatus(k) { costMode = 'status'; openBudgetProjectScreen(k || 'budgetMock'); }
+function openCostAdjust(k) { costMode = 'adjust'; openBudgetProjectScreen(k || 'budgetMock'); }
+function openCostHistory(k) { costMode = 'history'; openBudgetProjectScreen(k || 'budgetMock'); }
 
 openBudgetProjectScreen = function(projectKey) {
   const key = BUDGET_SOURCE[projectKey] ? projectKey : 'budgetMock';

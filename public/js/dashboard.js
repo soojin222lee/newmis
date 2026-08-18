@@ -469,64 +469,91 @@ const HOME_PROJECTS = [
   { id:'aidoc',no:'30180457-D009', name:'AI 문서관리 POC' },
 ];
 
-const HOME_INSIGHTS = [
-  { proj:'skon', sev:'danger', tag:'이상징후', title:'8월 외주비가 계획 대비 18% 증가했어요',
-    why:'협력사 3사 추가 투입(+190백만). 이 추세가 유지되면 연말 예상원가가 +540백만 상승합니다.',
-    aiReason:'최근 3개월 외주비 실적을 계획선과 비교한 결과 8월 집행액이 계획을 18% 초과했습니다. 신규 계약 3건이 승인 예산에 없던 항목으로 확인됐고, 초과가 2개월 연속이라 일시적 변동이 아닌 구조적 초과로 판단했습니다.',
-    primary:{ label:'원가 상세 보기', onclick:"openAiProjectBudget('budgetMock')" } },
-  { proj:'skon', sev:'danger', tag:'정합성', title:'실행예산 승인 이후 계약금액이 변경됐어요',
-    why:'승인본 대비 2건의 계약금액이 상향 조정되었습니다. 재승인 또는 변경 사유 등록이 필요합니다.',
-    aiReason:'승인된 실행예산 스냅샷과 현재 계약 마스터를 대조했을 때 2건의 계약금액이 승인 이후 상향(+37백만)됐습니다. 변경 사유나 재승인 이력이 없어 통제 밖 변경으로 분류했습니다.',
-    primary:{ label:'변경 내역 보기', onclick:"openAiProjectBudget('budgetMock')" } },
-  { proj:'logi', sev:'warning', tag:'추천', title:'정산 진입 전 실행예산 변경을 권장해요',
-    why:'ERP 실적과 MIS 계획 간 84백만 차이가 있습니다. 정산 단계 진입 전 정리하는 것이 안전합니다.',
-    aiReason:'ERP 확정 실적과 MIS 계획을 계정별로 대사한 결과 3개 계정에서 합계 84백만 차이가 확인됐습니다. 정산 단계 진입 후에는 실행예산 수정이 제한되므로, 진입 전 변경을 권장했습니다.',
-    primary:{ label:'변경 초안 만들기', onclick:"openAiProjectBudget('budgetMock')" } },
-  { proj:'migr', sev:'warning', tag:'확인', title:'9월 인력계획 확정이 필요해요',
-    why:'9월 투입 인력계획이 아직 미확정 상태입니다. 확정 후 실행예산에 반영해야 원가 추정이 정확해집니다.',
-    aiReason:'9월 투입 예정 인력 중 4명의 배정이 미확정 상태입니다. 인건비는 실행예산의 34%를 차지해 미확정 시 월 원가 추정 오차가 커지므로 우선 확정이 필요하다고 판단했습니다.',
-    primary:{ label:'인력계획 열기', onclick:"openAiProjectBudget('budgetMock')" } },
+// ── 확인이 필요한 것 = Action-oriented Work Feed ──
+// cat:'budget'(예산 점검, MIS 내부 시그널) | 'work'(업무 반영, 외부 이벤트→원가영향→액션)
+// act 종류: cause(AI 원인분석) status adjust history impact reflect(미리보기 드로어) done detail later
+const HOME_FEED = [
+  // ── 예산 점검 ──
+  { cat:'budget', proj:'skon', sub:'이상징후', sev:'danger', title:'8월 외주비가 계획 대비 18% 증가했어요',
+    change:{ fromL:'계획', from:'2.30억', toL:'현재 예상', to:'2.72억', deltaL:'증가', delta:'+4,200만원', pct:'+18%' },
+    impact:{ note:'현재 추세가 유지될 경우', label:'연말 예상원가', value:'+5,400만원', tail:'증가 예상' },
+    primary:{ label:'원인 분석', ai:true, act:'cause', q:'SKON 통합 관제 플랫폼 8월 외주비 왜 늘었어?' },
+    secondaries:[ { label:'원가 현황', act:'status' }, { label:'확인 완료', act:'done' } ] },
+  { cat:'budget', proj:'skon', sub:'정합성', sev:'danger', title:'승인 이후 계약금액이 변경됐어요',
+    dual:{ leftL:'승인 당시 계약금액', left:'30.8억', rightL:'현재 계약금액', right:'32.0억', delta:'+1.2억', extraL:'현재 수행원가', extra:'27.2억' },
+    note:'계약 변경이 현재 수행원가에 미치는 영향을 검토해야 합니다.',
+    preview:{ title:'계약 변경 · 영향 확인', date:'2026.08.18', mode:'impact',
+      rows:[ ['계약금액','30.8억','32.0억','+1.2억'], ['수행원가(현재)','27.2억','27.2억','-'] ],
+      forecast:{ cost:['27.20억','27.20억','검토 필요'], rate:['84.2%','—','검토 필요'] },
+      warning:'계약금액 상향분이 수행원가에 반영되지 않았습니다.' },
+    primary:{ label:'영향 확인', act:'impact' },
+    secondaries:[ { label:'원가 조정', act:'adjust' }, { label:'변경 이력', act:'history' } ] },
+  // ── 업무 반영 ──
+  { cat:'work', proj:'migr', sub:'SCM', sev:'info', title:'9월 투입인력이 확정됐어요',
+    flow:{ sL:'SCM 확정', sSub:'9월 투입인력', sVal:'12명 → 15명', sDelta:'+3명',
+           iL:'수행원가 영향', iSub:'9월 인건비', iVal:'+2,400만원',
+           aL:'필요한 업무', aSub:'9월 원가계획', aVal:'반영 필요' },
+    preview:{ title:'SCM · 9월 인력계획', date:'2026.08.18', mode:'reflect', draft:'V5',
+      rows:[ ['투입인원','12명','15명','+3명'], ['인건비','8,200만원','1억 600만원','+2,400만원'], ['9월 원가','2.10억','2.34억','+2,400만원'] ],
+      forecast:{ cost:['27.20억','27.44억','+2,400만원'], rate:['84.2%','84.9%','+0.7%p'] },
+      warning:'현재 승인된 수행원가 대비 2,400만원 증가합니다.',
+      done:{ sL:'SCM 확정 인력', sVal:'12명 → 15명', iL:'원가 영향', iVal:'+2,400만원' } },
+    primary:{ label:'수행원가에 반영', act:'reflect' },
+    secondaries:[ { label:'변경내용 보기', act:'detail' }, { label:'나중에', act:'later' } ] },
+  { cat:'work', proj:'skon', sub:'구매', sev:'info', title:'외주 계약 3건이 확정됐어요',
+    flow:{ sL:'구매 확정', sSub:'외주 계약금액', sVal:'4.8억 → 5.2억', sDelta:'',
+           iL:'수행원가 차이', iSub:'현재 외주비 계획 대비', iVal:'+4,000만원',
+           aL:'필요한 업무', aSub:'외주비 계획', aVal:'조정 필요' },
+    preview:{ title:'구매 · 외주 계약 확정', date:'2026.08.18', mode:'reflect', draft:'V5',
+      rows:[ ['외주 계약금액','4.8억','5.2억','+4,000만원'], ['외주비 계획','9.50억','9.90억','+4,000만원'] ],
+      forecast:{ cost:['28.10억','28.50억','+4,000만원'], rate:['86.8%','88.0%','+1.2%p'] },
+      warning:'외주비 계획이 계약 확정분만큼 증가합니다.',
+      done:{ sL:'구매 확정 계약', sVal:'4.8억 → 5.2억', iL:'원가 영향', iVal:'+4,000만원' } },
+    primary:{ label:'수행원가에 반영', act:'reflect' },
+    secondaries:[ { label:'계약내역 보기', act:'detail' }, { label:'나중에', act:'later' } ] },
+  { cat:'work', proj:'logi', sub:'ERP', sev:'warning', title:'7월 경비 실적이 확정됐어요',
+    flow:{ sL:'ERP 실적', sSub:'7월 경비', sVal:'4,040만원', sDelta:'',
+           iL:'계획 대비', iSub:'계획 3,200만원', iVal:'+840만원',
+           aL:'필요한 업무', aSub:'잔여기간 계획', aVal:'재검토 필요' },
+    note:'이미 확정된 실적입니다. 잔여계획 영향을 확인한 뒤 필요 시 원가를 조정하세요.',
+    preview:{ title:'ERP · 7월 경비 실적', date:'2026.08.18', mode:'impact',
+      rows:[ ['7월 경비 계획','3,200만원','3,200만원','-'], ['7월 경비 실적','—','4,040만원','+840만원'] ],
+      forecast:{ cost:['16.90억','16.98억','+840만원'], rate:['78.6%','78.9%','+0.3%p'] },
+      warning:'실적 초과분만큼 잔여기간 계획 재검토가 필요합니다.' },
+    primary:{ label:'원가 영향 확인', act:'impact' },
+    secondaries:[ { label:'원가 조정', act:'adjust' }, { label:'확인 완료', act:'done' } ] },
+  { cat:'work', proj:'skon', sub:'SCM', sev:'info', title:'8월 투입인력 변경이 확정됐어요',
+    flow:{ sL:'SCM 확정', sSub:'8월 투입인력', sVal:'14명 → 13명', sDelta:'-1명',
+           iL:'수행원가 영향', iSub:'8월 인건비', iVal:'-1,050만원',
+           aL:'필요한 업무', aSub:'8월 원가계획', aVal:'반영 필요' },
+    preview:{ title:'SCM · 8월 인력계획', date:'2026.08.18', mode:'reflect', draft:'V5',
+      rows:[ ['투입인원','14명','13명','-1명'], ['인건비','9,200만원','8,150만원','-1,050만원'] ],
+      forecast:{ cost:['28.10억','28.00억','-1,050만원'], rate:['86.8%','86.5%','-0.3%p'] },
+      warning:'',
+      done:{ sL:'SCM 확정 인력', sVal:'14명 → 13명', iL:'원가 영향', iVal:'-1,050만원' } },
+    primary:{ label:'수행원가에 반영', act:'reflect' },
+    secondaries:[ { label:'변경내용 보기', act:'detail' }, { label:'나중에', act:'later' } ] },
 ];
 
 let homeSelectedProject = 'all';
+let homeCat = 'all';
+const homeFeedState = {}; // key → 'reflected' | 'done'
 
+function feedKey(it) { return it.proj + '|' + it.title; }
 function homeProjName(id) { const p = HOME_PROJECTS.find(x => x.id === id); return p ? p.name : ''; }
-function homeInsightCount(id) { return id === 'all' ? HOME_INSIGHTS.length : HOME_INSIGHTS.filter(i => i.proj === id).length; }
+function homeFeedByProj() { return HOME_FEED.filter(i => homeSelectedProject === 'all' || i.proj === homeSelectedProject); }
+function homeInsightCount(id) { return id === 'all' ? HOME_FEED.length : HOME_FEED.filter(i => i.proj === id).length; }
+function homeCatCount(cat) { const b = homeFeedByProj(); return cat === 'all' ? b.length : b.filter(i => i.cat === cat).length; }
 
-function toggleHomeInsight(head) {
-  const acc = head.closest('.hm-acc');
-  const body = acc.querySelector('.hm-acc-body');
-  if (body.hasAttribute('hidden')) { body.removeAttribute('hidden'); acc.classList.add('open'); }
-  else { body.setAttribute('hidden', ''); acc.classList.remove('open'); }
-}
-
-function toggleAiReason(btn) {
-  const body = btn.closest('.hm-acc-body');
-  const panel = body.querySelector('.hm-ai-reason');
-  if (panel.hasAttribute('hidden')) { panel.removeAttribute('hidden'); btn.classList.add('on'); btn.textContent = 'AI 판단 근거 ▲'; }
-  else { panel.setAttribute('hidden', ''); btn.classList.remove('on'); btn.textContent = 'AI 판단 근거'; }
-}
-
-function doneInsight(btn) {
-  const acc = btn.closest('.hm-acc');
-  const body = acc.querySelector('.hm-acc-body');
-  acc.classList.add('done');
-  body.setAttribute('hidden', ''); acc.classList.remove('open');
-  if (typeof showToast === 'function') showToast('확인 완료로 처리했어요.');
-}
-
-function selectHomeProject(id) {
-  homeSelectedProject = id;
-  const el = document.getElementById('home-insight-block');
-  if (el) el.innerHTML = renderHomeInsightBlock();
-}
+function selectHomeProject(id) { homeSelectedProject = id; homeCat = 'all'; rerenderHomeFeed(); }
+function selectHomeCat(cat) { homeCat = cat; rerenderHomeFeed(); }
+function rerenderHomeFeed() { const el = document.getElementById('home-insight-block'); if (el) el.innerHTML = renderHomeInsightBlock(); }
 
 function scrollHomeTabs(dir) {
   const t = document.getElementById('hm-ptabs-track');
   if (!t) return;
   const max = t.scrollWidth - t.clientWidth;
-  const target = Math.max(0, Math.min(max, t.scrollLeft + dir * 260));
-  t.scrollLeft = target;
+  t.scrollLeft = Math.max(0, Math.min(max, t.scrollLeft + dir * 260));
 }
 
 function renderHomeInsightBlock() {
@@ -543,38 +570,181 @@ function renderHomeInsightBlock() {
       <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(1)" aria-label="다음 프로젝트">›</button>
     </div>`;
 
-  const list = HOME_INSIGHTS.filter(i => homeSelectedProject === 'all' || i.proj === homeSelectedProject);
-  const listHtml = list.length ? list.map(it => `
-    <div class="hm-acc" data-hm-acc>
-      <button type="button" class="hm-acc-head" onclick="toggleHomeInsight(this)">
-        <span class="hm-dot hm-${it.sev}"></span>
-        <span class="hm-tag hm-${it.sev}">${it.tag}</span>
-        <span class="hm-acc-title">${it.title}</span>
-        ${homeSelectedProject === 'all' ? `<span class="hm-acc-proj">${homeProjName(it.proj)}</span>` : ''}
-        <span class="hm-chev">▾</span>
-      </button>
-      <div class="hm-acc-body" hidden>
-        <div class="hm-why">${it.why}</div>
-        <div class="hm-acc-actions">
-          <button class="hm-btn pri" onclick="openPilotForInsight(${HOME_INSIGHTS.indexOf(it)})">AI 분석 (Pilot) →</button>
-          <button class="hm-btn" onclick="openCostStatus()">수행원가 확인하기</button>
-          <button class="hm-btn" onclick="doneInsight(this)">확인 완료</button>
-        </div>
-        <div class="hm-ai-reason" hidden><span class="hm-ai-reason-label">분석 근거</span>${it.aiReason}</div>
-      </div>
-    </div>`).join('') : `<div class="hm-empty">이 프로젝트는 지금 확인할 항목이 없어요. 정상 범위입니다.</div>`;
+  const filtered = homeFeedByProj();
+  const shown = homeCat === 'all' ? filtered : filtered.filter(i => i.cat === homeCat);
+  const catFilter = `
+    <div class="hm-catfilter">
+      <button class="hm-cat ${homeCat === 'all' ? 'on' : ''}" onclick="selectHomeCat('all')">전체 <em>${homeCatCount('all')}</em></button>
+      <button class="hm-cat budget ${homeCat === 'budget' ? 'on' : ''}" onclick="selectHomeCat('budget')">예산 점검 <em>${homeCatCount('budget')}</em></button>
+      <button class="hm-cat work ${homeCat === 'work' ? 'on' : ''}" onclick="selectHomeCat('work')">업무 반영 <em>${homeCatCount('work')}</em></button>
+    </div>`;
+
+  let body = '';
+  if (!shown.length) body = `<div class="hm-empty">이 프로젝트는 지금 확인할 항목이 없어요. 정상 범위입니다.</div>`;
+  else {
+    const budgetItems = shown.filter(i => i.cat === 'budget');
+    const workItems = shown.filter(i => i.cat === 'work');
+    if (budgetItems.length) body += `<div class="hm-feed-cat"><span class="hm-feed-cat-dot budget"></span>예산 점검 <em>MIS 데이터에서 발견한 시그널</em></div>` + budgetItems.map(feedCard).join('');
+    if (workItems.length) body += `<div class="hm-feed-cat"><span class="hm-feed-cat-dot work"></span>업무 반영 <em>외부 이벤트 → 원가 영향 → 필요한 업무</em></div>` + workItems.map(feedCard).join('');
+  }
 
   return `
     ${tabsCarousel}
     <div class="home2-sec-head">
-      <h2>확인이 필요한 것 <b>${list.length}가지</b></h2>
-      <span>중요도 순 · 펼쳐서 근거 확인</span>
+      <h2>확인이 필요한 것 <b>${filtered.length}가지</b></h2>
+      <span>업무 이벤트가 수행원가에 미치는 영향과 다음 업무를 연결합니다</span>
     </div>
-    <div class="hm-insights">${listHtml}</div>`;
+    ${catFilter}
+    <div class="hm-feed">${body}</div>`;
+}
+
+function feedCard(it) {
+  const key = feedKey(it);
+  const st = homeFeedState[key];
+  if (st === 'reflected') {
+    const d = it.preview.done;
+    return `<div class="hm-card done">
+      <div class="hm-done-t">✓ 수행원가 조정안에 반영했습니다</div>
+      <div class="hm-done-meta">${d.sL} <b>${d.sVal}</b> · ${d.iL} <b class="${/-/.test(d.iVal) ? 'down' : 'up'}">${d.iVal}</b> · <b>원가 조정 Draft ${it.preview.draft}</b>에 반영됨</div>
+      <div class="hm-card-actions"><button class="hm-btn pri" onclick="openCostAdjust('budgetMock')">원가 조정 계속하기 →</button></div>
+    </div>`;
+  }
+  if (st === 'done') {
+    return `<div class="hm-card done grey">
+      <div class="hm-done-t">✓ 확인 완료</div>
+      <div class="hm-done-meta">${it.title} · ${homeProjName(it.proj)}</div>
+    </div>`;
+  }
+  return it.cat === 'budget' ? feedBudgetCard(it, key) : feedWorkCard(it, key);
+}
+
+function feedActionsHtml(it, key) {
+  const p = it.primary;
+  const sec = it.secondaries.map(s => `<button class="hm-btn" onclick="feedAct('${key}','${s.act}')">${s.label}</button>`).join('');
+  return `<div class="hm-card-actions">
+    <button class="hm-btn pri" onclick="feedAct('${key}','${p.act}')">${p.label}${p.ai ? ' <span class="hm-ai-spark">✦</span>' : ''}</button>${sec}
+  </div>`;
+}
+
+function feedBudgetCard(it, key) {
+  let metrics = '';
+  if (it.change) {
+    const c = it.change;
+    metrics = `<div class="hm-metrics">
+      <div class="hm-metric"><span class="hm-m-l">${c.fromL}</span><b class="hm-m-v">${c.from}</b></div>
+      <span class="hm-arrow">→</span>
+      <div class="hm-metric"><span class="hm-m-l">${c.toL}</span><b class="hm-m-v">${c.to}</b></div>
+      <div class="hm-metric hi"><span class="hm-m-l">${c.deltaL}</span><b class="hm-m-v up">${c.delta} <em>(${c.pct})</em></b></div>
+    </div>
+    <div class="hm-impact"><span class="hm-impact-l">예상 영향</span>${it.impact.note} · ${it.impact.label} <b class="up">${it.impact.value}</b> ${it.impact.tail}</div>`;
+  } else if (it.dual) {
+    const d = it.dual;
+    metrics = `<div class="hm-metrics">
+      <div class="hm-metric"><span class="hm-m-l">${d.leftL}</span><b class="hm-m-v">${d.left}</b></div>
+      <span class="hm-arrow">→</span>
+      <div class="hm-metric"><span class="hm-m-l">${d.rightL}</span><b class="hm-m-v">${d.right} <em class="up">${d.delta}</em></b></div>
+      <div class="hm-metric hi"><span class="hm-m-l">${d.extraL}</span><b class="hm-m-v">${d.extra}</b></div>
+    </div>
+    <div class="hm-impact">${it.note}</div>`;
+  }
+  return `<div class="hm-card budget">
+    <div class="hm-card-top"><span class="hm-dot hm-${it.sev}"></span><span class="hm-tag hm-${it.sev}">예산 점검 · ${it.sub}</span><span class="hm-card-proj">${homeProjName(it.proj)}</span></div>
+    <h3 class="hm-card-title">${it.title}</h3>
+    ${metrics}
+    ${feedActionsHtml(it, key)}
+  </div>`;
+}
+
+function feedWorkCard(it, key) {
+  const f = it.flow;
+  return `<div class="hm-card work">
+    <div class="hm-card-top"><span class="hm-tag work">업무 반영 · ${it.sub}</span><span class="hm-card-proj">${homeProjName(it.proj)}</span></div>
+    <h3 class="hm-card-title">${it.title}</h3>
+    <div class="hm-flow">
+      <div class="hm-flow-step"><div class="hm-flow-l">${f.sL}</div><div class="hm-flow-sub">${f.sSub}</div><div class="hm-flow-v">${f.sVal}${f.sDelta ? ` <em class="${/-/.test(f.sDelta) ? 'down' : 'up'}">${f.sDelta}</em>` : ''}</div></div>
+      <span class="hm-flow-arrow">→</span>
+      <div class="hm-flow-step"><div class="hm-flow-l">${f.iL}</div><div class="hm-flow-sub">${f.iSub}</div><div class="hm-flow-v ${/-/.test(f.iVal) ? 'down' : 'up'}">${f.iVal}</div></div>
+      <span class="hm-flow-arrow">→</span>
+      <div class="hm-flow-step accent"><div class="hm-flow-l">${f.aL}</div><div class="hm-flow-sub">${f.aSub}</div><div class="hm-flow-v">${f.aVal}</div></div>
+    </div>
+    ${it.note ? `<div class="hm-impact">${it.note}</div>` : ''}
+    ${feedActionsHtml(it, key)}
+  </div>`;
+}
+
+function feedAct(key, act) {
+  const it = HOME_FEED.find(i => feedKey(i) === key);
+  if (!it) return;
+  switch (act) {
+    case 'cause': openAiChat('main', it.primary.q || (it.title + ' 원인 분석해줘')); break;
+    case 'status': openCostStatus('budgetMock'); break;
+    case 'adjust': openCostAdjust('budgetMock'); break;
+    case 'history': openCostHistory('budgetMock'); break;
+    case 'impact': it.preview ? openImpactDrawer(key) : openCostStatus('budgetMock'); break;
+    case 'reflect': openImpactDrawer(key); break;
+    case 'done': homeFeedState[key] = 'done'; rerenderHomeFeed(); showToast('확인 완료로 처리했어요.'); break;
+    case 'detail': showToast('변경 상세 보기 (준비 중)'); break;
+    case 'later': showToast('나중에 다시 알려드릴게요.'); break;
+  }
+}
+
+// ── Impact Preview Drawer ──
+let impactDrawerKey = null;
+function openImpactDrawer(key) {
+  const it = HOME_FEED.find(i => feedKey(i) === key);
+  if (!it || !it.preview) return;
+  impactDrawerKey = key;
+  const ov = document.getElementById('home-impact-drawer');
+  if (!ov) return;
+  ov.innerHTML = impactDrawerHtml(it);
+  ov.classList.add('open');
+}
+function closeImpactDrawer() { const ov = document.getElementById('home-impact-drawer'); if (ov) ov.classList.remove('open'); }
+function impactDrawerHtml(it) {
+  const pv = it.preview;
+  const key = feedKey(it);
+  const reflectMode = pv.mode === 'reflect';
+  const rows = pv.rows.map(r => `<tr><td class="l">${r[0]}</td><td class="n">${r[1]}</td><td class="n">${r[2]}</td><td class="n ${/^[+]/.test(r[3]) ? 'up' : /^-/.test(r[3]) ? 'down' : ''}">${r[3]}</td></tr>`).join('');
+  const fc = pv.forecast;
+  return `
+    <div class="hm-drawer" onclick="event.stopPropagation()">
+      <div class="hm-drawer-head">
+        <div>
+          <div class="hm-drawer-eyebrow">${reflectMode ? '수행원가 반영 미리보기' : '원가 영향 확인'}</div>
+          <strong>${pv.title}</strong>
+          <div class="hm-drawer-meta">확정일 ${pv.date} · ${homeProjName(it.proj)}</div>
+        </div>
+        <button class="hm-drawer-x" onclick="closeImpactDrawer()" aria-label="닫기">✕</button>
+      </div>
+      <div class="hm-drawer-body">
+        <div class="hm-drawer-sec-t">변경내용</div>
+        <table class="hm-drawer-tbl"><tr class="h"><td>항목</td><td class="n">현재 계획</td><td class="n">확정</td><td class="n">증감</td></tr>${rows}</table>
+
+        <div class="hm-drawer-sec-t">반영 후 Project Forecast</div>
+        <div class="hm-fc">
+          <div class="hm-fc-item"><span>예상원가</span><div class="hm-fc-v">${fc.cost[0]} <i>→</i> <b>${fc.cost[1]}</b></div><span class="hm-fc-d ${/^[+]/.test(fc.cost[2]) ? 'up' : /^-/.test(fc.cost[2]) ? 'down' : ''}">${fc.cost[2]}</span></div>
+          <div class="hm-fc-item"><span>예상 원가율</span><div class="hm-fc-v">${fc.rate[0]} <i>→</i> <b>${fc.rate[1]}</b></div><span class="hm-fc-d ${/^[+]/.test(fc.rate[2]) ? 'up' : /^-/.test(fc.rate[2]) ? 'down' : ''}">${fc.rate[2]}</span></div>
+        </div>
+        ${pv.warning ? `<div class="hm-drawer-warn">⚠ ${pv.warning}</div>` : ''}
+      </div>
+      <div class="hm-drawer-foot">
+        <button class="hm-btn" onclick="closeImpactDrawer()">취소</button>
+        ${reflectMode
+          ? `<button class="hm-btn pri" onclick="feedReflectApply('${key}')">원가 조정안에 반영</button>`
+          : `<button class="hm-btn pri" onclick="closeImpactDrawer();openCostAdjust('budgetMock')">원가 조정으로 이동 →</button>`}
+      </div>
+    </div>`;
+}
+function feedReflectApply(key) {
+  closeImpactDrawer();
+  homeFeedState[key] = 'reflected';
+  rerenderHomeFeed();
+  showToast('원가 조정안(Draft V5)에 반영했어요.');
 }
 
 function renderPmDashboard() {
   homeSelectedProject = 'all';
+  homeCat = 'all';
 
   return `
     <div class="ai-workspace home2">
@@ -608,7 +778,8 @@ function renderPmDashboard() {
 
         <div id="home-insight-block">${renderHomeInsightBlock()}</div>
       </section>
-    </div>`;
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>`;
 }
 
 function renderLeadDashboard() {
