@@ -94,7 +94,7 @@
 .ins-tbtn { font-size: 13px; font-weight: 700; color: #2b3442; background: #fff; border: 1px solid var(--sk-border-strong); border-radius: 9px; padding: 7px 11px; cursor: pointer; }
 .ins-tbtn:hover { border-color: var(--sk-blue); color: var(--sk-blue); }
 .ins-colset { position: relative; }
-.ins-col-menu { position: absolute; right: 0; top: 40px; z-index: 20; background: #fff; border: 1px solid var(--sk-border-strong); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 2px; min-width: 150px; }
+.ins-col-menu { position: absolute; right: 0; bottom: calc(100% + 6px); top: auto; z-index: 30; background: #fff; border: 1px solid var(--sk-border-strong); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 2px; min-width: 150px; box-shadow: 0 -6px 18px rgba(15,23,42,.08); }
 .ins-col-menu label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #2b3442; padding: 6px 8px; border-radius: 7px; cursor: pointer; }
 .ins-col-menu label:hover { background: #f3f6fb; }
 .ins-table-scroll { overflow-x: auto; }
@@ -301,3 +301,28 @@
 .rp-v2 .rp-title { font-size: 28px !important; font-weight: 900 !important; margin: 0 !important; }
 .rp-v2 .rp-h2 { border-bottom: 0; border-left: 4px solid var(--sk-red); padding: 2px 0 2px 12px; margin: 26px 0 12px; font-size: 17px !important; }
 .rp-v2 .rp-metrics { max-width: 480px; }
+
+/* ── Insights 상단바 + KPI 판넬 + AI Insight 개편 ── */
+.ins-topbar { display: flex; align-items: center; justify-content: space-between; margin: 2px 0 14px; }
+.ins-live { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 800; color: var(--sk-blue-deep); background: var(--sk-blue-soft); border-radius: 999px; padding: 6px 12px; }
+.ins-live i { width: 7px; height: 7px; border-radius: 50%; background: var(--sk-green); }
+.ins-topbtns { display: flex; gap: 8px; }
+
+.ins-kpi-panel { display: flex; background: #fff; border: 1px solid var(--sk-border); border-radius: 12px; overflow: hidden; margin-bottom: 22px; }
+.ins-kpi2 { flex: 1; min-width: 0; padding: 16px 20px; border-left: 1px solid #f1f0ea; }
+.ins-kpi2:first-child { border-left: 0; }
+.ins-kpi2 .ins-kpi-l { font-size: 12px; font-weight: 700; color: #8a94a6; }
+.ins-kpi2 .ins-kpi-v { font-size: 28px; font-weight: 900; color: #16151f; letter-spacing: -0.8px; margin: 5px 0 6px; }
+.ins-kpi2 .ins-kpi-c { display: flex; align-items: baseline; gap: 6px; }
+.ins-kpi2 .chg { font-size: 13px; font-weight: 800; }
+.ins-kpi2 .base { font-size: 11px; color: #aab2c0; }
+
+.ins-ai-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; background: var(--sk-blue); color: #fff; font-size: 11px; font-weight: 900; }
+.ins-ai-conf { margin-left: auto; font-size: 11px; font-weight: 800; color: #8a94a6; background: #f2f3f6; border-radius: 999px; padding: 3px 9px; }
+.ins-ask { margin-top: 6px; background: #f7f8fb; border: 1px solid var(--sk-border); border-radius: 12px; padding: 13px 14px; }
+.ins-ask-t { font-size: 11px; font-weight: 800; color: #98a2b3; letter-spacing: .5px; }
+.ins-ask-d { font-size: 12px; color: #55606f; line-height: 1.55; margin: 6px 0 10px; }
+.ins-ask-btn { width: 100%; font-size: 13px; font-weight: 800; color: #fff; background: var(--sk-ink); border: 0; border-radius: 9px; padding: 10px; cursor: pointer; }
+.ins-ask-btn:hover { background: #000; }
+
+@media (max-width: 1080px) { .ins-kpi-panel { flex-wrap: wrap; } .ins-kpi2 { flex: 1 1 40%; border-top: 1px solid #f1f0ea; } }

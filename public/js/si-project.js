@@ -373,13 +373,8 @@ function renderSIDetail() {
       <span class="ipc-status-badge" style="background:${st.bg};color:${st.color};font-size:15px;padding:6px 14px">${p.stage}</span>
     </div>
 
-    <!-- 프로젝트 진행 단계 프로그레스 -->
-    <div class="card si-progress-card" style="margin-bottom:16px">
-      <div style="padding:20px 28px">
-        <div style="font-size:14px;font-weight:600;color:#94a3b8;margin-bottom:14px;letter-spacing:0.3px">프로젝트 진행 단계</div>
-        <div class="si-progress-row">${buildSIProgressBar(p.stage)}</div>
-      </div>
-    </div>
+    <!-- 프로젝트 진행 단계: 착수 / 수행 / 종료 -->
+    ${buildSIProgressV2(p, siSelectedId)}
 
     <!-- 기본정보 -->
     <div class="card" style="margin-bottom:16px">
@@ -438,6 +433,57 @@ function buildSIProgressBar(currentStage) {
       ${line}`;
   }).join('');
   return items;
+}
+
+// ── 착수 / 수행 / 종료 3단계 진행 + 수동(자동) 처리 ──
+function siPhase(stage) {
+  if (stage === '종료완료') return 2;                                   // 종료
+  if (stage === '착수' || stage === '수행중' || stage === '마감준비') return 1; // 수행(착수 완료)
+  return 0;                                                            // 등록완료 = 착수 대기
+}
+function buildSIProgressV2(p, id) {
+  const phase = siPhase(p.stage);
+  const stages = ['착수', '수행', '종료'];
+  const state = i => {
+    if (i === 0) return phase >= 1 ? 'done' : 'active';
+    if (i === 1) return phase >= 2 ? 'done' : (phase === 1 ? 'active' : 'pending');
+    return phase === 2 ? 'done' : 'pending';
+  };
+  const steps = stages.map((s, i) => {
+    const st = state(i);
+    const icon = st === 'done' ? '✓' : (st === 'active' ? '●' : (i + 1));
+    const line = i < 2 ? `<div class="si-p3-line ${i < phase ? 'on' : ''}"></div>` : '';
+    return `<div class="si-p3-step ${st}"><div class="si-p3-dot">${icon}</div><div class="si-p3-lbl">${s}</div></div>${line}`;
+  }).join('');
+  let actions;
+  if (phase === 0) actions = `<button class="labor-main-btn" onclick="siManualStart('${id}')">착수(등록) →</button><span class="si-p3-hint">CRM 최종계약완료 조건 충족 시 자동 착수됩니다.</span>`;
+  else if (phase === 1) actions = `<button class="labor-main-btn" onclick="siManualClose('${id}')">종료 처리 →</button><span class="si-p3-hint">정산·검수 완료 조건 충족 시 자동 종료됩니다.</span>`;
+  else actions = `<span class="si-p3-done-tag">✓ 프로젝트 종료 완료</span>`;
+  return `
+    <div class="card si-prog2-card" style="margin-bottom:16px">
+      <div class="si-prog2-in">
+        <div class="si-prog2-head">
+          <span class="si-prog2-title">Project Progress</span>
+          <span class="si-prog2-sub">착수·종료는 조건 충족 시 자동 실행되며, 필요 시 수동으로도 처리할 수 있습니다.</span>
+        </div>
+        <div class="si-p3">${steps}</div>
+        <div class="si-p3-actions">${actions}</div>
+      </div>
+    </div>`;
+}
+function siManualStart(id) {
+  const p = SI_PROJECTS[id];
+  if (p.ifHistory) p.ifHistory.unshift({ date:'2026-08-18 09:00', field:'프로젝트상태', before: p.stage, after:'착수', source:'수동' });
+  p.stage = '착수';
+  renderSIDetail();
+  showToast('착수(등록)를 수동으로 처리했어요. 수행 단계로 진행합니다.');
+}
+function siManualClose(id) {
+  const p = SI_PROJECTS[id];
+  if (p.ifHistory) p.ifHistory.unshift({ date:'2026-08-18 09:00', field:'프로젝트상태', before: p.stage, after:'종료완료', source:'수동' });
+  p.stage = '종료완료';
+  renderSIDetail();
+  showToast('프로젝트를 종료 처리했어요.');
 }
 
 function buildSIStageDots(currentStage, mini = false) {
@@ -606,7 +652,10 @@ renderSIDetail = function() {
         <div style="font-size:20px;font-weight:800;color:#1e293b">${p.name}</div>
       </div>
       <span class="ipc-status-badge" style="background:${st.bg};color:${st.color};font-size:15px;padding:6px 14px">${p.stage}</span>
+      <button class="labor-sub-btn si-back-btn" onclick="closeSIDetail()">목록으로 ↩</button>
     </div>
+
+    ${buildSIProgressV2(p, siSelectedId)}
 
     <div class="card" style="margin-bottom:16px">
       <div class="card-head">

@@ -90,13 +90,17 @@ function insightsHtml() {
   const p = INS_PROJECTS[insProject];
   return `
     <div class="ins-wrap">
+      <div class="ins-topbar">
+        <span class="ins-live"><i></i>AI 판독 · 08:50 갱신</span>
+        <div class="ins-topbtns">
+          <button class="ins-act ghost" onclick="showToast('데이터 내보내기 (준비)')">데이터 내보내기</button>
+          <button class="ins-act pri" onclick="insGenerateReport()">AI 보고서 생성</button>
+        </div>
+      </div>
       <div class="ins-head">
         <div>
           <h1 class="ins-title">Insights</h1>
-          <p class="ins-sub">프로젝트와 조직의 손익·원가·실적을 다양한 관점에서 분석합니다.</p>
-        </div>
-        <div class="ins-head-actions">
-          <button class="ins-act pri" onclick="insGenerateReport()">📄 보고서 생성</button>
+          <p class="ins-sub">프로젝트와 조직의 손익·원가·실적을 AI가 해석하고, 원인과 다음 행동까지 제안합니다.</p>
         </div>
       </div>
 
@@ -232,12 +236,12 @@ function insOverviewHtml(p) {
   const ai = projAI(p);
   insCurTrend = projTrend(p);
   return `
-    <div class="ins-kpis">
+    <div class="ins-kpi-panel">
       ${kpis.map(k => `
-        <div class="ins-kpi ${k.dir}">
+        <div class="ins-kpi2">
           <div class="ins-kpi-l">${k.label}</div>
           <div class="ins-kpi-v">${k.val}</div>
-          <div class="ins-kpi-c"><span class="chg ${k.dir}">${k.chg}</span><span class="base">${k.base}</span></div>
+          <div class="ins-kpi-c"><span class="chg ${k.dir}">${k.chg}</span> <span class="base">${k.base}</span></div>
         </div>`).join('')}
     </div>
 
@@ -247,18 +251,22 @@ function insOverviewHtml(p) {
           <h2>월별 원가 Trend</h2>
           <div class="ins-legend"><span><i class="lg plan"></i>Plan</span><span><i class="lg act"></i>Actual</span><span><i class="lg fc"></i>Forecast</span></div>
         </div>
+        <div class="ins-trend-foot" style="margin:0 0 8px">8월 이전은 실적, 이후는 AI 예측입니다. 월에 마우스를 올리면 상세가 표시됩니다.</div>
         <div class="ins-trend-wrap">${insTrendSvg(insCurTrend)}<div class="ins-trend-tip" id="ins-trend-tip" hidden></div></div>
-        <div class="ins-trend-foot">현재(8월) 이전은 실적, 이후는 예상으로 이어집니다. 월에 마우스를 올리면 상세가 표시됩니다.</div>
       </section>
       <aside class="ins-ai">
-        <div class="ins-ai-head"><span class="ins-ai-dot"></span>AI Insight</div>
+        <div class="ins-ai-head"><span class="ins-ai-badge">AI</span>AI Insight<span class="ins-ai-conf">신뢰도 92%</span></div>
         ${ai.map(a => `
           <div class="ins-ai-item">
             <div class="ins-ai-t"><span class="ins-ai-sev ${a.sev}"></span>${a.title}</div>
             <div class="ins-ai-b">${a.body}</div>
             <button class="ins-ai-act" onclick="openAiChat('main','${a.q}')">${a.act} →</button>
           </div>`).join('')}
-        <button class="ins-ai-q" onclick="insAskBudgetQ()">Budget Q에게 이 화면에 대해 질문하기 →</button>
+        <div class="ins-ask">
+          <div class="ins-ask-t">ASK AI</div>
+          <p class="ins-ask-d">이 화면의 데이터를 근거로 질문하면 원인 분석과 시나리오를 계산해 드립니다.</p>
+          <button class="ins-ask-btn" onclick="insAskBudgetQ()">이 화면에 대해 질문하기 →</button>
+        </div>
       </aside>
     </div>
 
@@ -266,12 +274,6 @@ function insOverviewHtml(p) {
       <div class="ins-table-head">
         <h2>계정별 원가</h2>
         <div class="ins-table-tools">
-          <div class="ins-colset">
-            <button class="ins-tbtn" onclick="insToggleColMenu(event)">⚙ 열 설정</button>
-            <div class="ins-col-menu" id="ins-col-menu" hidden>
-              ${[['plan','계획'],['actual','실적'],['forecast','예상원가'],['share','비중']].map(([k, v]) => `<label><input type="checkbox" ${insCols[k] ? 'checked' : ''} onchange="insToggleCol('${k}')">${v}</label>`).join('')}
-            </div>
-          </div>
           <button class="ins-tbtn" onclick="showToast('Excel 다운로드 (준비)')">Excel</button>
         </div>
       </div>
@@ -376,12 +378,15 @@ function insTrendSvg(tr, noHover) {
     else if (tr.forecast[i] != null) d += `<circle cx="${x(m)}" cy="${y(tr.forecast[i])}" r="3" fill="#22b07d"/>`;
     return d;
   }).join('');
+  const areaPts = tr.plan.map((_, i) => { const v = (i + 1 <= INS_CUR) ? tr.actual[i] : tr.forecast[i]; return v == null ? null : `${x(i + 1).toFixed(1)},${y(v).toFixed(1)}`; }).filter(Boolean);
+  const area = areaPts.length ? `<polygon points="${x(1).toFixed(1)},${(H - B).toFixed(1)} ${areaPts.join(' ')} ${x(12).toFixed(1)},${(H - B).toFixed(1)}" fill="#22b07d" fill-opacity="0.08"/>` : '';
   const hovers = tr.plan.map((_, i) => {
     const m = i + 1; const cx = x(m);
     return `<rect x="${cx - (W - L - R) / 24}" y="${T}" width="${(W - L - R) / 12}" height="${H - B - T}" fill="transparent" style="cursor:pointer" onmouseenter="insTrendShow(${m}, this)" onmouseleave="insTrendHide()" onclick="insTrendClick(${m})"></rect>`;
   }).join('');
   return `<svg viewBox="0 0 ${W} ${H}" class="ins-svg ins-trend-svg" preserveAspectRatio="none">
     ${grid}
+    ${area}
     <line x1="${x(INS_CUR)}" x2="${x(INS_CUR)}" y1="${T}" y2="${H - B}" stroke="#d3d9e2" stroke-dasharray="3 3"/>
     <text x="${x(INS_CUR)}" y="${T + 2}" class="ins-ax cur" text-anchor="middle">현재</text>
     <polyline points="${line(tr.plan, 1, 12)}" fill="none" stroke="#9ab4e8" stroke-width="1.6" stroke-dasharray="4 3"/>
