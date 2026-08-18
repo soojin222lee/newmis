@@ -910,7 +910,7 @@ button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: tr
 }
 .ai-chat-overlay.open { display: flex; }
 .ai-chat-modal {
-  width: 384px; max-width: 92vw; height: 560px; max-height: 82vh;
+  width: 540px; max-width: 94vw; height: 720px; max-height: 90vh;
   background: #fff; border: 1px solid var(--sk-border); border-radius: 16px;
   display: flex; flex-direction: column; overflow: hidden;
 }
@@ -955,3 +955,87 @@ button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: tr
   background: var(--sk-blue-soft) !important; background-image: none !important;
   border-bottom-color: var(--sk-border) !important;
 }
+
+/* ==========================================================================
+   통합 AI Agent — 대화 rich UI (Navi/Q/Pilot)
+   ========================================================================== */
+.ai-msg { display: flex; flex-direction: column; gap: 5px; max-width: 92%; align-self: flex-start; }
+.ai-msg.me { align-self: flex-end; align-items: flex-end; }
+.ai-bubble { background: #fff; border: 1px solid var(--sk-border); border-radius: 14px; border-top-left-radius: 4px; padding: 12px 14px; font-size: 14px; line-height: 1.55; color: #2b3442; }
+.ai-bubble.me { background: var(--sk-blue); color: #fff; border: 0; border-radius: 14px; border-top-right-radius: 4px; }
+.ai-bubble.typing { color: #b7bec9; letter-spacing: 2px; font-size: 10px; }
+
+.ai-agent-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 999px; width: fit-content; }
+.ai-agent-dot { width: 6px; height: 6px; border-radius: 50%; }
+.ag-navi { background: #e8f0fe; color: #1746a0; } .ag-navi .ai-agent-dot { background: #2f6bed; }
+.ag-q { background: #e7f7f0; color: #0f6e56; } .ag-q .ai-agent-dot { background: #22b07d; }
+.ag-pilot { background: #fdeef0; color: #b80022; } .ag-pilot .ai-agent-dot { background: #ea002c; }
+
+.ai-result { display: flex; flex-direction: column; gap: 10px; }
+.ai-r-lead { font-size: 14px; line-height: 1.5; color: #1f2733; }
+.ai-r-tag { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 6px; margin-right: 4px; }
+.ai-r-tag.red { background: #fdeaec; color: #b80022; }
+.ai-r-tag.amber { background: #fdf0da; color: #9a6206; }
+.ai-r-tag.ink { background: #eceef3; color: #2b2f39; }
+.ai-r-cause { font-size: 13px; color: #55606f; }
+.ai-r-note { font-size: 13px; color: #3a4658; margin: 0; background: #f4f8ff; border: 1px solid #e0eafb; border-radius: 10px; padding: 9px 11px; }
+.ai-result .up { color: var(--sk-red); font-weight: 800; }
+.ai-result .down { color: var(--sk-blue); font-weight: 800; }
+.ai-result b { font-weight: 800; }
+
+.ai-kpis, .ai-detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ai-navi-meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.ai-kpis > div, .ai-detail-grid > div, .ai-navi-meta > div { background: #f7f8fb; border-radius: 10px; padding: 9px 10px; }
+.ai-kpis span, .ai-detail-grid span, .ai-navi-meta span { display: block; font-size: 11px; color: #8a94a6; font-weight: 700; }
+.ai-kpis strong, .ai-detail-grid strong, .ai-navi-meta strong { font-size: 14px; color: #16151f; font-weight: 800; }
+
+.ai-break { display: flex; flex-direction: column; gap: 7px; }
+.ai-break-row { display: grid; grid-template-columns: 62px 1fr auto; align-items: center; gap: 9px; font-size: 12px; color: #55606f; }
+.ai-break-row > i { height: 6px; background: #eef0f3; border-radius: 999px; overflow: hidden; }
+.ai-break-row > i em { display: block; height: 100%; background: var(--sk-red); border-radius: 999px; }
+
+.ai-evi-btn { align-self: flex-start; font-size: 12px; font-weight: 800; color: #2b3442; background: #fff; border: 1px solid var(--sk-border-strong); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.ai-evi-btn.on, .ai-evi-btn:hover { border-color: var(--sk-blue); color: var(--sk-blue); background: var(--sk-blue-soft); }
+.ai-evidence { display: flex; flex-direction: column; gap: 7px; background: #f6f8fc; border: 1px solid #e3e9f4; border-radius: 10px; padding: 11px 12px; }
+.ai-evi-step { font-size: 12px; color: #45505f; line-height: 1.5; }
+.ai-evi-step span { display: block; font-size: 11px; font-weight: 800; color: var(--sk-blue-deep); margin-bottom: 1px; }
+
+.ai-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.ai-act { font-size: 12px; font-weight: 800; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--sk-border-strong); background: #fff; color: #2b3442; cursor: pointer; }
+.ai-act:hover { border-color: var(--sk-blue); color: var(--sk-blue); background: var(--sk-blue-soft); }
+.ai-act.pri { background: var(--sk-ink); border-color: var(--sk-ink); color: #fff; }
+.ai-act.pri:hover { background: #000; color: #fff; }
+
+.ai-steps { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ai-steps span { font-size: 12px; font-weight: 700; color: #8a94a6; background: #f2f3f6; border-radius: 999px; padding: 5px 10px; }
+.ai-steps span.on { background: var(--sk-blue-soft); color: var(--sk-blue-deep); }
+.ai-steps i { color: #c3cad4; font-style: normal; }
+
+.ai-brief-sum { font-size: 13px; font-weight: 800; color: #55606f; }
+.ai-brief-sum .red { color: var(--sk-red); } .ai-brief-sum .amber { color: #b4740a; }
+.ai-brief-item { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; background: #fff; border: 1px solid var(--sk-border); border-radius: 12px; padding: 11px 12px; cursor: pointer; }
+.ai-brief-item:hover { border-color: var(--sk-blue); background: #f7faff; }
+.ai-brief-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.ai-brief-dot.danger { background: var(--sk-red); } .ai-brief-dot.warning { background: var(--sk-yellow); }
+.ai-brief-tt { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: #2b3442; }
+.ai-brief-proj { font-size: 11px; color: #98a2b3; font-weight: 700; white-space: nowrap; }
+.ai-brief-arrow { color: #c3cad4; font-size: 16px; }
+
+.ai-examples { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.ai-examples button { text-align: left; font-size: 13px; font-weight: 700; color: #3a4658; background: #f6f8fc; border: 1px solid #e3e9f4; border-radius: 10px; padding: 8px 11px; cursor: pointer; }
+.ai-examples button:hover { border-color: var(--sk-blue); color: var(--sk-blue-deep); background: var(--sk-blue-soft); }
+
+/* 메인 검색 focus 예시 프롬프트 */
+.home2-search-ex { max-width: 720px; margin: -20px auto 28px; display: flex; flex-direction: column; gap: 6px; }
+.home2-search-ex[hidden] { display: none; }
+.home2-search-ex button { display: flex; align-items: center; gap: 9px; text-align: left; font-size: 14px; font-weight: 700; color: #3a4658; background: #fff; border: 1px solid var(--sk-border); border-radius: 12px; padding: 11px 14px; cursor: pointer; }
+.home2-search-ex button:hover { border-color: var(--sk-blue); background: #f7faff; }
+.ex-ag { width: 22px; height: 22px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex: 0 0 auto; }
+.ex-ag.q { background: #e7f7f0; color: #0f6e56; } .ex-ag.navi { background: #e8f0fe; color: #1746a0; } .ex-ag.pilot { background: #fdeef0; color: #b80022; }
+
+/* Shortcut 툴팁 + Pilot 뱃지 */
+.qs-btn { position: relative; }
+.qs-badge { position: absolute; top: -2px; right: -2px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--sk-red); color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+.qs-tip { position: absolute; right: 92px; top: 50%; transform: translateY(-50%); white-space: nowrap; background: var(--sk-ink); color: #fff; font-size: 12px; font-weight: 700; padding: 9px 12px; border-radius: 10px; display: none; text-align: left; }
+.qs-tip b { display: block; font-size: 12px; font-weight: 800; margin-bottom: 2px; }
+.qs-btn:hover .qs-tip { display: block; }

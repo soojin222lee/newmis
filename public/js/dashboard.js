@@ -556,7 +556,7 @@ function renderHomeInsightBlock() {
       <div class="hm-acc-body" hidden>
         <div class="hm-why">${it.why}</div>
         <div class="hm-acc-actions">
-          <button class="hm-btn pri" onclick="${it.primary.onclick}">${it.primary.label}</button>
+          <button class="hm-btn pri" onclick="openPilotForInsight(${HOME_INSIGHTS.indexOf(it)})">AI 분석 (Pilot) →</button>
           <button class="hm-btn" onclick="toggleAiReason(this)">AI 판단 근거</button>
           <button class="hm-btn" onclick="doneInsight(this)">확인 완료</button>
         </div>
@@ -595,9 +595,15 @@ function renderPmDashboard() {
               <path d="M2 13v3M22 13v3"/>
             </svg>
           </span>
-          <input id="ai-main-query" type="text" placeholder="메뉴, 프로젝트, 실행예산 무엇이든 물어보세요"
+          <input id="ai-main-query" type="text" placeholder="프로젝트를 찾거나, 숫자의 이유를 묻거나, 다음 업무를 요청해보세요"
+            onfocus="showHomeExamples(true)" onblur="setTimeout(function(){showHomeExamples(false)},150)"
             onkeydown="if(event.key==='Enter') askFromHome()">
           <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+        </div>
+        <div class="home2-search-ex" id="home-search-ex" hidden>
+          <button onmousedown="askExample('SKON 외주비가 왜 늘었어?')"><span class="ex-ag q">Q</span>SKON 외주비가 왜 늘었어?</button>
+          <button onmousedown="askExample('실행예산 변경 화면 찾아줘')"><span class="ex-ag navi">N</span>실행예산 변경 화면 찾아줘</button>
+          <button onmousedown="askExample('오늘 내가 처리해야 할 업무 알려줘')"><span class="ex-ag pilot">P</span>오늘 내가 처리해야 할 업무 알려줘</button>
         </div>
 
         <div id="home-insight-block">${renderHomeInsightBlock()}</div>
