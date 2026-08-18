@@ -36,7 +36,14 @@
               <button class="nav-sub-item" id="nav-advance-project" onclick="showAdvanceProject()">선투입 프로젝트</button>
             </div>
           </div>
-          <button class="nav-group-btn topnav-item" id="nav-budget" onclick="showBudget()">실행예산</button>
+          <div class="topnav-drop">
+            <button class="nav-group-btn topnav-item" id="nav-budget" onclick="showCostStatus()">수행원가 <span class="tb-caret">▾</span></button>
+            <div class="topnav-menu" id="sub-cost">
+              <button class="nav-sub-item" onclick="showCostStatus()">원가현황</button>
+              <button class="nav-sub-item" onclick="showCostAdjust()">원가조정</button>
+              <button class="nav-sub-item" onclick="showCostHistory()">변경 이력</button>
+            </div>
+          </div>
           <div class="topnav-drop">
             <button class="nav-group-btn topnav-item" id="ngbtn-sub-insight" onclick="showInsights('overview')">인사이트 <span class="tb-caret">▾</span></button>
             <div class="topnav-menu" id="sub-insight">
@@ -222,7 +229,7 @@
 <script src="/js/app.js?v=20260814-agent"></script>
 <script src="/js/dashboard.js?v=20260814-agent"></script>
 <script src="/js/risk-history.js?v=20260814-fontbump"></script>
-<script src="/js/budget-status.js?v=20260814-rail"></script>
+<script src="/js/budget-status.js?v=20260814-cost"></script>
 <script src="/js/project-close.js?v=20260814-fontbump"></script>
 <script src="/js/custom-report.js?v=20260814-fontbump"></script>
 <script src="/js/insights.js?v=20260814-inscar"></script>

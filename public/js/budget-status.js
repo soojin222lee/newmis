@@ -13046,11 +13046,18 @@ function activateBudgetScreenFinal() {
   if (budgetNav) budgetNav.classList.add('active');
 }
 
+// 수행원가 진입 모드: 'status'(원가현황) | 'adjust'(원가조정) | 'history'(변경 이력)
+var costMode = 'history';
+function showCostStatus() { costMode = 'status'; showBudget(); }
+function showCostAdjust() { costMode = 'adjust'; showBudget(); }
+function showCostHistory() { costMode = 'history'; showBudget(); }
+
 openBudgetProjectScreen = function(projectKey) {
   const key = BUDGET_SOURCE[projectKey] ? projectKey : 'budgetMock';
   currentBudgetProj = key;
   budgetScreenView = 'detail';
   budgetDetailStep = 'setup';
+  budgetSetupStage = (costMode === 'adjust') ? 'edit' : 'history';
   budgetSetupEditAccount = null;
   budgetTransferEditMode = false;
   editingLaborAssignmentId = null;
@@ -13066,9 +13073,11 @@ openBudgetProjectScreen = function(projectKey) {
   ensureBudgetScreenRootFinal();
   activateBudgetScreenFinal();
   renderBudgetPage();
+  if (costMode === 'status') showBudgetSummaryGrid();
 };
 
 openAiProjectBudget = function(projectKey) {
+  costMode = 'history';
   openBudgetProjectScreen(projectKey || 'budgetMock');
 };
 
