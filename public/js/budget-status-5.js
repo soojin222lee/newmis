@@ -58,6 +58,7 @@ function activateBudgetScreenFinal() {
   document.querySelectorAll('.nav-item, .nav-sub-item, .nav-sub2-item, .nav-group-btn').forEach(nav => nav.classList.remove('active'));
   const budgetNav = document.getElementById('nav-budget');
   if (budgetNav) budgetNav.classList.add('active');
+  if (typeof updateHashForScreen === 'function') updateHashForScreen('s-budget');
 }
 
 // 수행원가 진입 모드: 'status'(원가현황) | 'adjust'(원가조정) | 'history'(변경 이력)

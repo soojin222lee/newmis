@@ -32,7 +32,13 @@ npm start        # = node server.js  → http://localhost:57291
 1. **자기 화면의 js/css 파일만 수정**하세요. 다른 화면 파일은 담당자와 조율.
 2. **공유 파일은 조율 후 편집**: `index.html`(네비/화면 추가/스크립트 태그), `app.js`(라우터/전역), `css/sk-theme.css`(전역 토큰·상단바·공통 버튼·플랫카드).
 3. **`budget-status.js`는 5분할본**(`.js`, `-2`, `-3`, `-4`, `-5`)입니다. **로드 순서 1→5 필수**(뒤 파트가 앞을 override). 각 파일 상단 헤더에 담당 영역 표기.
-4. 새 화면을 추가할 때: ① `index.html`에 `<div class="screen" id="s-xxx">` + `<script>`/`<link>` ② `app.js`에 `showXxx()` ③ 전용 `xxx.js` / `xxx.css`.
+4. 새 화면을 추가할 때: ① `index.html`에 `<div class="screen" id="s-xxx">` + `<script>`/`<link>` ② `app.js`에 `showXxx()` ③ 전용 `xxx.js` / `xxx.css` ④ `app.js`의 `SCREEN_ROUTES`(screen id→라우트명)와 `ROUTE_ACTIONS`(라우트명→show 함수)에 등록.
+
+## URL 라우팅 (해시 = 소스파일명)
+화면 이동 시 URL 해시가 소스파일명으로 갱신되고, 그 URL로 새로고침·직접 접속·뒤로가기가 됩니다.
+예: `#/dashboard`(홈) · `#/budget-status`(수행원가) · `#/insights` · `#/si-project`.
+라우터는 `app.js`의 `setScreen()` → `updateHashForScreen()`, `window.onhashchange` → `routeFromHash()`,
+최초 로드는 `routeInitial()`이 담당합니다. 새 화면은 위 4번의 매핑 2곳만 등록하면 자동 연결됩니다.
 
 ## CSS 로드 순서(캐스케이드)
 ```

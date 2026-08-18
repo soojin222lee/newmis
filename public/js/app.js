@@ -30,12 +30,75 @@ function setScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const el = document.getElementById(id);
   if (el) el.classList.add('active');
+  updateHashForScreen(id);
 }
 function setNav(id) {
   document.querySelectorAll('.nav-item, .nav-sub-item, .nav-sub2-item, .nav-group-btn').forEach(n => n.classList.remove('active'));
   const el = document.getElementById(id);
   if (el) el.classList.add('active');
 }
+
+// ── URL 라우팅 (해시 = 소스파일명) ──
+const SCREEN_ROUTES = {
+  's-main': 'dashboard',
+  's-budget': 'budget-status',
+  's-insights': 'insights',
+  's-custom-report': 'custom-report',
+  's-si-project': 'si-project',
+  's-wg-project': 'wg-project',
+  's-internal-project': 'internal-project',
+  's-investment-project': 'investment-project',
+  's-advance-project': 'advance-project',
+  's-system-desc': 'system-desc',
+  's-master-config': 'master-config',
+  's-hist': 'risk-history',
+  's-cp-briefing': 'checkpoint', 's-cp-status': 'checkpoint', 's-cp-history': 'checkpoint',
+  's-monthly-close': 'monthly-close',
+  's-initiation': 'initiation-report',
+  's-interim': 'interim-report',
+  's-closure': 'closure-report',
+  's-phase-history': 'phase-report',
+  's-project-close': 'project-close',
+};
+const ROUTE_ACTIONS = {
+  'dashboard': () => showMain(),
+  'budget-status': () => (typeof showCostStatus === 'function' ? showCostStatus() : showBudget()),
+  'insights': () => (typeof showInsights === 'function' ? showInsights('overview') : null),
+  'custom-report': () => showCustomReport(),
+  'si-project': () => showSIProject(),
+  'wg-project': () => showWGProject(),
+  'internal-project': () => showInternalProject(),
+  'investment-project': () => showInvestmentProject(),
+  'advance-project': () => showAdvanceProject(),
+  'system-desc': () => showSysDescConcept(),
+  'master-config': () => showMasterBudgetRate(),
+  'risk-history': () => showCpCurrent(),
+  'checkpoint': () => showCpBriefing(),
+  'monthly-close': () => showMonthlyClose(),
+  'initiation-report': () => showInitiation(),
+  'interim-report': () => showInterim(),
+  'closure-report': () => showClosure(),
+  'phase-report': () => showPhaseHistory(),
+  'project-close': () => showProjectClose(),
+};
+let _suppressNextHash = false;
+function updateHashForScreen(id) {
+  const r = SCREEN_ROUTES[id];
+  if (!r) return;
+  const target = '#/' + r;
+  if (location.hash !== target) { _suppressNextHash = true; location.hash = target; }
+}
+function routeName() { return (location.hash || '').replace(/^#\/?/, '').split('?')[0]; }
+function routeFromHash() {
+  if (_suppressNextHash) { _suppressNextHash = false; return; }
+  const action = ROUTE_ACTIONS[routeName()];
+  if (action) action();
+}
+function routeInitial() {
+  const action = ROUTE_ACTIONS[routeName()];
+  if (action) action(); else showMain();
+}
+window.addEventListener('hashchange', routeFromHash);
 
 // 프로젝트 상황실 그룹 토글
 function toggleNavGroup(subId) {
@@ -564,7 +627,7 @@ function bootstrapApp() {
     initRiskHistory();
     initBudgetStatus();
     initMonthlyClose();
-    showMain();
+    routeInitial();
   })();
 }
 if (document.readyState === 'loading') {
