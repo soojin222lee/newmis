@@ -379,6 +379,7 @@ function askExample(text) { openAiChat('main', text); }
 function openAiChat(entry, initialQuery) {
   document.getElementById('ai-chat-title').textContent = 'AI 어시스턴트';
   document.getElementById('ai-chat-sub').textContent = 'New MIS · 묻고 → 분석하고 → 실행까지';
+  setChatAvatar(entry);
   const body = document.getElementById('ai-chat-body');
   body.innerHTML = '';
   document.getElementById('ai-chat-overlay').classList.add('open');
@@ -386,8 +387,9 @@ function openAiChat(entry, initialQuery) {
   if (entry === 'pilot') {
     aiAgentMsg('pilot', pilotBriefingHtml());
   } else if (entry === 'navi') {
-    aiAgentMsg('navi', '어떤 업무를 하시려고 하나요? 하고 싶은 일을 말씀하시면 화면과 절차로 안내해 드릴게요.'
-      + examplesHtml(['SKON 외주 실행예산 변경하고 싶어', '구매요청 화면 찾아줘']));
+    document.getElementById('ai-chat-title').textContent = 'Budget Navi';
+    document.getElementById('ai-chat-sub').textContent = '지금 어디까지 했고, 다음에 뭘 하면 되는지 안내해요';
+    aiAgentMsg('navi', naviGuideHtml());
   } else if (entry === 'q') {
     aiAgentMsg('q', '데이터에 무엇이든 물어보세요. 숫자의 의미와 원인까지 근거와 함께 설명해 드릴게요.'
       + examplesHtml(['SKON 외주비 왜 늘었어?', '원가율 80% 넘는 프로젝트 있어?']));
@@ -517,6 +519,56 @@ function naviExecHtml() {
       <button class="ai-act" onclick="agentGoto('exec')">변경 절차 보기</button>
       <button class="ai-act pri" onclick="agentGoto('exec-outsource')">실행예산 변경 시작</button>
     </div>
+  </div>`;
+}
+
+// ── 채팅 헤더 아바타(agent별 아이콘) ──
+const CHAT_AVATAR_ROBOT = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="4" y="8" width="16" height="12" rx="3.2"/><path d="M12 4.4V8"/>
+  <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
+  <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+  <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/><path d="M2 13v3M22 13v3"/></svg>`;
+const CHAT_AVATAR_COMPASS = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z" fill="#2f6bed" stroke="none"/></svg>`;
+function setChatAvatar(entry) {
+  const el = document.querySelector('#ai-chat-overlay .ai-chat-avatar');
+  if (el) el.innerHTML = (entry === 'navi') ? CHAT_AVATAR_COMPASS : CHAT_AVATAR_ROBOT;
+}
+
+// ── Budget Navi — 예산편성 진행 가이드 ("지금 어디까지 / 다음 뭘") ──
+const NAVI_STEPS = [
+  { t:'프로젝트 예산 기준 확인', s:'done',   d:'CP총액과 계정별 배정 예산을 먼저 확인해요. 여기서 벗어나는 편성은 승인 단계에서 반려돼요.' },
+  { t:'인건비 계획 입력',        s:'done',   d:'투입 인력과 기간(MM)을 등록해요. SCM에서 확정된 인력은 자동으로 넘어오고, 나머지는 직접 추가하면 돼요.' },
+  { t:'외주비 계약 등록',        s:'done',   d:'업체·계약금액·검수 일정을 등록해요. 금액이 크면 분기 단위로 나눠 편성하는 편이 승인받기 쉬워요.' },
+  { t:'재료비·경비 반영',        s:'done',   d:'장비·라이선스 구매와 여비·회의비 같은 경비를 채워요. 문장으로 맡기면 Pilot이 대신 채워줘요.' },
+  { t:'검토 후 승인 요청',        s:'active', d:'4개 계정이 모두 채워지면 새 버전으로 고정하고 승인을 요청해요. 승인 후에는 변경 이력이 버전으로 남아요.' },
+];
+function naviGuideHtml() {
+  const doneN = NAVI_STEPS.filter(x => x.s === 'done').length;
+  const histBtn = `<button class="navi-btn" onclick="closeAiChat(); openCostHistory('budgetMock')">버전 이력 확인</button>`;
+  const active = NAVI_STEPS.find(x => x.s === 'active');
+  const rows = NAVI_STEPS.map((x, i) => {
+    const badge = x.s === 'done' ? '<span class="navi-badge done">완료</span>'
+                : x.s === 'active' ? '<span class="navi-badge active">진행 중</span>' : '';
+    const ic = x.s === 'done' ? '<span class="navi-ic done">✓</span>'
+             : x.s === 'active' ? `<span class="navi-ic active">${i + 1}</span>`
+             : `<span class="navi-ic">${i + 1}</span>`;
+    const cta = x.s === 'active' ? `<div class="navi-step-cta">${histBtn}</div>` : '';
+    return `<div class="navi-step ${x.s}">${ic}
+      <div class="navi-step-main">
+        <div class="navi-step-h"><b>${x.t}</b>${badge}</div>
+        <div class="navi-step-d">${x.d}</div>${cta}
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="navi-guide">
+    <div class="navi-next">
+      <div class="navi-next-l">다음 할 일 · ${active ? active.t : ''}</div>
+      <div class="navi-next-d">${active ? active.d : ''}</div>
+      ${histBtn}
+    </div>
+    <div class="navi-steps-t">예산편성 <b>5단계</b> <em>${doneN}/5 완료</em></div>
+    <div class="navi-steps">${rows}</div>
   </div>`;
 }
 

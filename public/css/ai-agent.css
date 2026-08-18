@@ -164,3 +164,49 @@
 .setup-top-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin: 0 0 14px; }
 .setup-top-actions button { margin: 0 !important; }
 
+/* ==========================================================================
+   Budget Navi — 예산편성 진행 가이드 (지금 어디까지 / 다음 뭘)
+   ========================================================================== */
+.navi-guide { display: block; }
+.navi-btn {
+  display: inline-flex; align-items: center; margin-top: 10px;
+  background: #20304d; color: #fff; border: none; border-radius: 9px;
+  padding: 9px 16px; font-size: 13px; font-weight: 800; letter-spacing: -0.2px; cursor: pointer;
+  transition: background .14s ease, transform .12s ease;
+}
+.navi-btn:hover { background: #172440; transform: translateY(-1px); }
+
+.navi-next { background: #f2f6fc; border: 1px solid #e2e9f5; border-radius: 12px; padding: 13px 15px; margin-bottom: 16px; }
+.navi-next-l { font-size: 12px; font-weight: 800; color: var(--sk-blue-deep); margin-bottom: 5px; }
+.navi-next-d { font-size: 13px; color: #45505f; line-height: 1.55; }
+.navi-next .navi-btn { margin-top: 12px; }
+
+.navi-steps-t { font-size: 13px; font-weight: 800; color: #6b7585; margin: 0 0 12px 2px; }
+.navi-steps-t b { color: var(--sk-ink); font-weight: 900; }
+.navi-steps-t em { font-style: normal; font-weight: 800; color: var(--sk-green); margin-left: 4px; }
+
+.navi-steps { position: relative; }
+.navi-step { position: relative; display: flex; gap: 12px; padding-bottom: 16px; }
+.navi-step:last-child { padding-bottom: 0; }
+/* 단계 연결선 */
+.navi-step:not(:last-child)::before {
+  content: ''; position: absolute; left: 10px; top: 24px; bottom: 2px; width: 2px; background: #e6ebf2;
+}
+.navi-ic {
+  position: relative; z-index: 1; flex: 0 0 22px; width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 900; background: #eef1f6; color: #98a2b3;
+}
+.navi-ic.done { background: #e3f6ee; color: var(--sk-green); }
+.navi-ic.active { background: #20304d; color: #fff; }
+.navi-step-main { flex: 1 1 auto; min-width: 0; padding-top: 1px; }
+.navi-step-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.navi-step-h b { font-size: 14px; font-weight: 900; color: var(--sk-ink); letter-spacing: -0.3px; }
+.navi-step.done .navi-step-h b { color: #55606f; }
+.navi-badge { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 6px; }
+.navi-badge.done { background: #e3f6ee; color: #1a9e6f; }
+.navi-badge.active { background: var(--sk-blue-soft); color: var(--sk-blue-deep); }
+.navi-step-d { font-size: 12.5px; color: #7c8798; line-height: 1.55; margin-top: 4px; }
+.navi-step.active .navi-step-d { color: #55606f; }
+.navi-step-cta { margin-top: 2px; }
+
