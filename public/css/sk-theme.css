@@ -1039,3 +1039,7 @@ button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: tr
 .qs-tip { position: absolute; right: 92px; top: 50%; transform: translateY(-50%); white-space: nowrap; background: var(--sk-ink); color: #fff; font-size: 12px; font-weight: 700; padding: 9px 12px; border-radius: 10px; display: none; text-align: left; }
 .qs-tip b { display: block; font-size: 12px; font-weight: 800; margin-bottom: 2px; }
 .qs-btn:hover .qs-tip { display: block; }
+
+/* 실행예산 계정별 작성 — 우측 상단 액션(임시저장/결재 상신) */
+.setup-top-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin: 0 0 14px; }
+.setup-top-actions button { margin: 0 !important; }
