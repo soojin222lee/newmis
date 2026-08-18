@@ -12412,8 +12412,33 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
     active: budgetSetupEditAccount === item.key,
     onclick: `openBudgetAccountEditor('${item.key}')`,
   })).join('');
+  const railFor = (accountKey) => {
+    const acc = accounts.find(a => a.key === accountKey);
+    const name = acc ? acc.label : accountKey;
+    const share = totalBudget > 0 ? Math.round((viewData.plan[accountKey] || 0) / totalBudget * 1000) / 10 : 0;
+    const filled = accounts.filter(a => (viewData.plan[a.key] || 0) > 0).length;
+    return `
+      <div class="exec-rail-card">
+        <div class="exec-rail-title">편성 상태</div>
+        <div class="exec-rail-row"><span>계정 편성 완료</span><strong class="warn">${filled} / ${accounts.length}</strong></div>
+        <div class="exec-rail-row"><span>월별 계획 미입력</span><strong class="warn">3건</strong></div>
+        <div class="exec-rail-row"><span>PO 미발행 계약</span><strong class="warn">1건</strong></div>
+      </div>
+      <div class="exec-rail-card">
+        <div class="exec-rail-title">계획 대비 검증</div>
+        <p class="exec-rail-verify">${name} 계획이 계정 총액 대비 <b>${share}%</b>로, 유사 프로젝트 평균(41%)보다 ${share >= 41 ? '높습니다' : '낮습니다'}.</p>
+        <p class="exec-rail-note">일부 계정의 하반기 계획이 상반기 대비 급증합니다. 결재 상신 전 근거 견적을 첨부하세요.</p>
+      </div>
+      <div class="exec-rail-actions">
+        <button class="labor-sub-btn" onclick="showToast('임시저장했어요.')">임시저장</button>
+        <button class="labor-main-btn" onclick="goBudgetSetupStage('approval')">결재 상신 →</button>
+      </div>`;
+  };
   const expanded = budgetSetupEditAccount
-    ? `<div class="setup-expanded-detail">${renderBudgetAccountEditor(viewData, budgetSetupEditAccount)}</div>`
+    ? `<div class="setup-expanded-detail exec-2col">
+         <div class="exec-2col-main">${renderBudgetAccountEditor(viewData, budgetSetupEditAccount)}</div>
+         <aside class="exec-side-rail">${railFor(budgetSetupEditAccount)}</aside>
+       </div>`
     : '';
 
   return `
@@ -12429,9 +12454,9 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
         ${rows}
       </div>
       ${expanded}
-      <div class="setup-stage-actions right">
+      ${budgetSetupEditAccount ? '' : `<div class="setup-stage-actions right">
         <button class="labor-main-btn" onclick="goBudgetSetupStage('approval')">결재 상신 →</button>
-      </div>
+      </div>`}
     </div>`;
 };
 
