@@ -589,8 +589,8 @@ function renderHomeInsightBlock() {
   let body = '';
   if (!shown.length) body = `<div class="hm-empty">이 프로젝트는 지금 확인할 항목이 없어요. 정상 범위입니다.</div>`;
   else {
-    const budgetItems = shown.filter(i => i.cat === 'budget');
-    const workItems = shown.filter(i => i.cat === 'work');
+    const budgetItems = homeSortFeed(shown.filter(i => i.cat === 'budget'));
+    const workItems = homeSortFeed(shown.filter(i => i.cat === 'work'));
     if (budgetItems.length) body += `<div class="hm-feed-cat"><span class="hm-feed-cat-dot budget"></span>예산 점검 <em>MIS 데이터에서 발견한 시그널</em></div>` + budgetItems.map(feedCard).join('');
     if (workItems.length) body += `<div class="hm-feed-cat"><span class="hm-feed-cat-dot work"></span>업무 반영 <em>외부 이벤트 → 원가 영향 → 필요한 업무</em></div>` + workItems.map(feedCard).join('');
   }
@@ -600,9 +600,195 @@ function renderHomeInsightBlock() {
     <div class="home2-sec-head">
       <h2>확인이 필요한 것 <b>${filtered.length}가지</b></h2>
       <span>업무 이벤트가 수행원가에 미치는 영향과 다음 업무를 연결합니다</span>
+      ${homeSortHtml()}
     </div>
     ${catFilter}
     <div class="hm-feed">${body}</div>`;
+}
+
+// ── 결정 큐 고도화 · AI 추천 변경안 + 근거 원장 ────────────────────
+// HOME_FEED는 건드리지 않고 feedKey(proj|title)로 매핑만 덧붙인다(병합 충돌 최소화).
+// grade: D 확정(원천 IF 확정값) · R 규칙기반(산식 적용) · P 예측(확정 전, ERP 미전송)
+// impactWon: 정렬용 절대 임팩트(만원) · dueDays: 마감까지 남은 일수
+const HOME_AI = {
+  'skon|8월 외주비가 계획 대비 18% 증가했어요': {
+    grade:'R', src:'구매', impact:'+5,400만원', impactWon:5400, dueDays:2, dueNote:'월마감 전',
+    plan:[ ['외주비 8~11월 계획','2.30억','2.72억','+4,200만원'],
+           ['AI 예비비 상계','3,200만원','0','-3,200만원'],
+           ['연말 예상원가','27.20억','27.74억','+5,400만원'] ],
+    guard:[ ['ok','CP 한도 내 · 여유 2.61억'], ['warn','결재 경로 · 팀장 승인 필요'] ],
+    evidence:[ ['원천 IF 데이터','구매시스템 PO 확정분 3건 · 2026-08-17 09:12 수신 · 협력사 A/B/C'],
+               ['적용 규칙 · 산식','월별 계획 = 확정 PO 금액 × 검수월 배분율 (검수월 미확정분은 균등 배분)'],
+               ['계산 과정','① 확정 PO 4,200만원 인식 → ② 8~11월 배분 → ③ AI 예비비 3,200만원 상계 → ④ 연말 예상원가 재산정'],
+               ['참조한 유사 PJT','3건 · 동일 사업유형 · 평균 외주비 초과율 14.2% (본 건 18.0%는 상위 25% 구간)'],
+               ['데이터 등급','R · 규칙기반 — 산식 공개, 확정 후 ERP 전송 가능'],
+               ['신뢰도','92% · 표본 24건 · 최근 6개월 무수정 채택률 95.8%'],
+               ['후행 전송','전송 대기 · 팀장 승인 후 ERP 연계 큐 등재'] ] },
+
+  'skon|승인 이후 계약금액이 변경됐어요': {
+    grade:'D', src:'CRM', impact:'+1.2억', impactWon:12000, dueDays:2, dueNote:'월마감 전',
+    plan:[ ['계약금액','30.8억','32.0억','+1.2억'],
+           ['수행원가(현재)','27.2억','27.2억','-'],
+           ['예상 원가율','88.3%','85.0%','-3.3%p'] ],
+    guard:[ ['ok','원천 IF 확정값 · ERP 전송 가능'], ['ok','자가전결 가능'] ],
+    evidence:[ ['원천 IF 데이터','CRM 계약변경 통보 · 2026-08-18 수신 · 변경차수 2차'],
+               ['적용 규칙 · 산식','예상 원가율 = 수행원가 ÷ 계약금액'],
+               ['계산 과정','① 계약금액 30.8억 → 32.0억 인식 → ② 수행원가 27.2억 고정 → ③ 원가율 88.3% → 85.0% 재계산'],
+               ['데이터 등급','D · 확정 — 원천 확정값이므로 즉시 반영 가능'],
+               ['신뢰도','100% · 원천 확정값'],
+               ['후행 전송','ERP·BIX 전송 가능'] ] },
+
+  'migr|9월 투입인력이 확정됐어요': {
+    grade:'D', src:'SCM', impact:'+2,400만원', impactWon:2400, dueDays:9, dueNote:'9월 계획 확정 전',
+    plan:[ ['투입인원','12명','15명','+3명'],
+           ['9월 인건비','8,200만원','1억 600만원','+2,400만원'],
+           ['연말 예상원가','27.20억','27.44억','+2,400만원'] ],
+    guard:[ ['ok','SCM 확정 인력 기준 · 자가전결 가능'] ],
+    evidence:[ ['원천 IF 데이터','SCM 투입인력 확정 · 2026-08-18 수신 · Roll-in 3명'],
+               ['적용 규칙 · 산식','인건비 = Σ(투입 M/M × 등급별 단가)'],
+               ['계산 과정','① Roll-in 3명 인식 → ② 9월 M/M 재산정 → ③ 인건비 +2,400만원 → ④ 예상원가 반영'],
+               ['데이터 등급','D · 확정 — SCM 확정 인력'],
+               ['신뢰도','100% · 원천 확정값'],
+               ['후행 전송','원가 반영 후 ERP 연계'] ] },
+
+  'skon|외주 계약 3건이 확정됐어요': {
+    grade:'D', src:'구매', impact:'+4,000만원', impactWon:4000, dueDays:5, dueNote:'검수 마감 전',
+    plan:[ ['외주 계약금액','4.8억','5.2억','+4,000만원'],
+           ['외주비 계획','9.50억','9.90억','+4,000만원'],
+           ['연말 예상원가','28.10억','28.50억','+4,000만원'] ],
+    guard:[ ['ok','확정 계약 기준 · 계정 내 조정'], ['warn','CP 한도 여유 2.21억으로 감소'] ],
+    evidence:[ ['원천 IF 데이터','구매 계약 확정 3건 · 2026-08-18 수신'],
+               ['적용 규칙 · 산식','외주비 계획 = 확정 계약금액 × 검수월 배분율'],
+               ['계산 과정','① 확정 계약 5.2억 인식 → ② 기존 계획 4.8억 대비 차이 산출 → ③ 외주비 계획 +4,000만원'],
+               ['데이터 등급','D · 확정 — 계약 확정분'],
+               ['신뢰도','100% · 원천 확정값'],
+               ['후행 전송','ERP 전송 가능'] ] },
+
+  'logi|7월 경비 실적이 확정됐어요': {
+    grade:'D', src:'ERP', impact:'+840만원', impactWon:840, dueDays:7, dueNote:'잔여계획 재검토',
+    plan:[ ['7월 경비 계획','3,200만원','3,200만원','-'],
+           ['7월 경비 실적','—','4,040만원','+840만원'],
+           ['연말 예상원가','16.90억','16.98억','+840만원'] ],
+    guard:[ ['ok','확정 실적 · 이미 기표 완료'], ['warn','잔여기간 계획 재검토 필요'] ],
+    evidence:[ ['원천 IF 데이터','ERP 7월 확정 실적 기표 · 월마감 D+1 자동 수신'],
+               ['적용 규칙 · 산식','실적 초과분 = 확정 실적 − 당월 계획'],
+               ['계산 과정','① 실적 4,040만원 인식 → ② 계획 3,200만원 대비 +840만원 → ③ 연말 예상원가 반영'],
+               ['데이터 등급','D · 확정 — 기표 완료분'],
+               ['신뢰도','100% · 원천 확정값'],
+               ['후행 전송','BIX 손익 반영 완료'] ] },
+
+  'skon|8월 투입인력 변경이 확정됐어요': {
+    grade:'D', src:'SCM', impact:'-1,050만원', impactWon:1050, dueDays:4, dueNote:'8월 마감 전',
+    plan:[ ['투입인원','14명','13명','-1명'],
+           ['8월 인건비','9,200만원','8,150만원','-1,050만원'],
+           ['연말 예상원가','28.10억','28.00억','-1,050만원'] ],
+    guard:[ ['ok','계정 총액 감소 · 자가전결 가능'] ],
+    evidence:[ ['원천 IF 데이터','SCM 투입인력 변경 확정 · Roll-out 1명'],
+               ['적용 규칙 · 산식','인건비 = Σ(투입 M/M × 등급별 단가)'],
+               ['계산 과정','① Roll-out 1명 인식 → ② 8월 M/M 재산정 → ③ 인건비 -1,050만원'],
+               ['데이터 등급','D · 확정 — SCM 확정 인력'],
+               ['신뢰도','100% · 원천 확정값'],
+               ['후행 전송','원가 반영 후 ERP 연계'] ] },
+};
+
+const HOME_GRADE = { D:['d','D · 확정'], R:['r','R · 규칙기반'], P:['p','예측 · ERP 미전송'] };
+
+// 정렬 — 기본값은 기존 노출 순서 유지(비파괴)
+let homeSort = 'base';
+const HOME_SORTS = [
+  ['base','기본순'], ['risk','임팩트 × 마감임박순'], ['impact','임팩트순'], ['due','마감임박순'],
+];
+function selectHomeSort(v) { homeSort = v; rerenderHomeFeed(); }
+
+function homeAiOf(it) { return HOME_AI[feedKey(it)]; }
+
+function homeSortFeed(list) {
+  if (homeSort === 'base') return list;
+  const s = list.slice();
+  s.sort((a, b) => {
+    const x = homeAiOf(a), y = homeAiOf(b);
+    if (!x || !y) return 0;
+    if (homeSort === 'impact') return y.impactWon - x.impactWon;
+    if (homeSort === 'due')    return x.dueDays - y.dueDays;
+    return (y.impactWon / y.dueDays) - (x.impactWon / x.dueDays);
+  });
+  return s;
+}
+
+function homeSortHtml() {
+  const opts = HOME_SORTS.map(o => `<option value="${o[0]}" ${homeSort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('');
+  return `<select class="hm-sort" onchange="selectHomeSort(this.value)" aria-label="정렬 기준">${opts}</select>`;
+}
+
+// 카드 헤더 메타 칩 — 근거등급 · 임팩트 · D-day · 출처 시스템
+function feedMetaChipsHtml(it) {
+  const ai = homeAiOf(it);
+  if (!ai) return '';
+  const g = HOME_GRADE[ai.grade] || HOME_GRADE.D;
+  const dn = /^-/.test(ai.impact) ? 'down' : 'up';
+  return `<span class="hm-meta-chips">
+    <span class="hm-chip grade ${g[0]}">${g[1]}</span>
+    <span class="hm-chip impact ${dn}">임팩트 ${ai.impact}</span>
+    <span class="hm-chip due ${ai.dueDays <= 3 ? 'near' : ''}">D-${ai.dueDays} · ${ai.dueNote}</span>
+    <span class="hm-chip src">${ai.src}</span>
+  </span>`;
+}
+
+// AI 추천 변경안 — 변경 전/후 diff + 반영 조건
+function aiPlanHtml(it, key) {
+  const ai = homeAiOf(it);
+  if (!ai) return '';
+  const rows = ai.plan.map(r => {
+    const d = r[3];
+    const cls = /^\+/.test(d) ? 'up' : /^-/.test(d) ? 'down' : '';
+    return `<div class="hm-plan-row">
+      <span class="hm-plan-nm">${r[0]}</span>
+      <span class="hm-plan-a">${r[1]}</span><span class="hm-plan-ar">→</span><span class="hm-plan-b">${r[2]}</span>
+      <span class="hm-plan-d ${cls}">${d}</span>
+    </div>`;
+  }).join('');
+  const guard = ai.guard.map(g => `<span class="hm-plan-ok ${g[0]}"><i></i>${g[1]}</span>`).join('');
+  return `<div class="hm-plan">
+    <div class="hm-plan-hd">
+      <span class="hm-plan-t">✦ AI 추천 변경안</span>
+      <span class="hm-plan-ev">근거 ${ai.evidence.length}건</span>
+      <button class="hm-plan-why" onclick="event.stopPropagation();openEvidenceDrawer('${key}')">AI 판단 근거 ›</button>
+    </div>
+    <div class="hm-plan-body">${rows}</div>
+    <div class="hm-plan-ft">${guard}</div>
+  </div>`;
+}
+
+// 근거 원장 드로어
+function openEvidenceDrawer(key) {
+  const it = HOME_FEED.find(i => feedKey(i) === key);
+  const ai = it && homeAiOf(it);
+  if (!ai) return;
+  const ov = document.getElementById('home-impact-drawer');
+  if (!ov) return;
+  const g = HOME_GRADE[ai.grade] || HOME_GRADE.D;
+  const rows = ai.evidence.map(e => `<div class="hm-ev-row"><div class="hm-ev-k">${e[0]}</div><div class="hm-ev-v">${e[1]}</div></div>`).join('');
+  ov.innerHTML = `
+    <div class="hm-drawer" onclick="event.stopPropagation()">
+      <div class="hm-drawer-head">
+        <div>
+          <div class="hm-drawer-eyebrow">AI 판단 근거 · 근거 원장</div>
+          <strong>${it.title}</strong>
+          <div class="hm-drawer-meta">${homeProjName(it.proj)} · ${ai.src} · 임팩트 ${ai.impact}</div>
+        </div>
+        <button class="hm-drawer-x" onclick="closeImpactDrawer()" aria-label="닫기">✕</button>
+      </div>
+      <div class="hm-drawer-body">
+        <div class="hm-auto-note">AI가 <b>어떤 원천 데이터</b>를 <b>어떤 산식</b>으로 계산했는지 그대로 공개합니다.
+          등급 <span class="hm-chip grade ${g[0]}">${g[1]}</span> 기준으로 후행 시스템 전송 가능 여부가 결정됩니다.</div>
+        ${rows}
+      </div>
+      <div class="hm-drawer-foot">
+        <button class="hm-btn" onclick="closeImpactDrawer()">닫기</button>
+        <button class="hm-btn pri" onclick="closeImpactDrawer();openCostStatus('budgetMock')">원가 현황에서 보기 →</button>
+      </div>
+    </div>`;
+  ov.classList.add('open');
 }
 
 function feedCard(it) {
@@ -627,8 +813,9 @@ function feedCard(it) {
 
 function feedActionsHtml(it, key) {
   const p = it.primary;
+  const plan = aiPlanHtml(it, key);
   const sec = it.secondaries.map(s => `<button class="hm-btn" onclick="feedAct('${key}','${s.act}')">${s.label}</button>`).join('');
-  return `<div class="hm-card-actions">
+  return plan + `<div class="hm-card-actions">
     <button class="hm-btn pri" onclick="feedAct('${key}','${p.act}')">${p.label}${p.ai ? ' <span class="hm-ai-spark">✦</span>' : ''}</button>${sec}
   </div>`;
 }
@@ -639,7 +826,7 @@ function feedCardHead(it, sum) {
     : `<span class="hm-tag work">업무 반영 · ${it.sub}</span>`;
   return `<div class="hm-card-head" onclick="toggleFeedCard(this)">
     <div class="hm-card-headmain">
-      <div class="hm-card-top">${tag}<span class="hm-card-proj">${homeProjName(it.proj)}</span></div>
+      <div class="hm-card-top">${tag}<span class="hm-card-proj">${homeProjName(it.proj)}</span>${feedMetaChipsHtml(it)}</div>
       <h3 class="hm-card-title">${it.title}</h3>
       <div class="hm-card-sum">${sum}</div>
     </div>
