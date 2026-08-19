@@ -550,7 +550,11 @@ function homeCatCount(cat) { const b = homeFeedByProj(); return cat === 'all' ? 
 
 function selectHomeProject(id) { homeSelectedProject = id; homeCat = 'all'; rerenderHomeFeed(); }
 function selectHomeCat(cat) { homeCat = cat; rerenderHomeFeed(); }
-function rerenderHomeFeed() { const el = document.getElementById('home-insight-block'); if (el) el.innerHTML = renderHomeInsightBlock(); }
+function rerenderHomeFeed() {
+  const el = document.getElementById('home-insight-block'); if (el) el.innerHTML = renderHomeInsightBlock();
+  const br = document.getElementById('home-brief'); if (br) br.innerHTML = homeBriefHtml();
+  const ft = document.getElementById('home-foot');  if (ft) ft.innerHTML = homeFootHtml();
+}
 
 function scrollHomeTabs(dir) {
   const t = document.getElementById('hm-ptabs-track');
@@ -765,6 +769,119 @@ function feedReflectApply(key) {
   showToast('원가 조정안(Draft V5)에 반영했어요.');
 }
 
+// ── AI 자동처리 레이어 ─────────────────────────────────────────────
+// 실행예산은 선행(CRM·AI PMO·SCM·구매)에서 IF를 받아 수행 관점으로 편성하고,
+// 후행(ERP·BIX)으로 확정 정보를 넘긴다. AI는 그 사이에서 "무엇을 자동 반영했는지"를
+// 먼저 보여주고, 그 결과 PM이 확인해야 할 것만 HOME_FEED로 남긴다.
+const HOME_EVENT_TOTAL  = 18;   // 오늘 선행 시스템에서 수신한 이벤트 총건
+const HOME_AUTO_COUNT   = 12;   // 그중 AI가 자동 반영한 건 (나머지 6건 = HOME_FEED)
+const HOME_AUTO_MIN_PER = 8;    // 건당 표준 처리시간(분, 추정)
+const HOME_AUTO_WEEK    = 47;   // 이번 주 누적 자동 반영
+
+// grade: 'D' 확정(원천 IF 확정값) | 'R' 규칙기반(산식 적용, 계정 총액 불변)
+const HOME_AUTO_LOG = [
+  { time:'09:02', sys:'ERP',    grade:'D', title:'월마감 D+1 자동 현행화 · 인건비', desc:'7월 확정 실적 기표 반영 · 이관인건비 포함 8건', proj:'all' },
+  { time:'09:02', sys:'ERP',    grade:'D', title:'월마감 D+1 자동 현행화 · 경비',   desc:'잡비·사무용품 실적 반영 · 계획=실적 확정', proj:'all' },
+  { time:'10:41', sys:'구매',   grade:'D', title:'외주 PO 확정 반영 · 외주비',      desc:'ATS 2건 · AGS 1건 계획=실적 확정 처리', proj:'skon' },
+  { time:'11:15', sys:'SCM',    grade:'R', title:'납기 변경 반영 · 재료비',         desc:'검수월 9월 → 10월 이동 · 계정 총액 불변', proj:'logi' },
+  { time:'13:08', sys:'AI PMO', grade:'D', title:'Roll-out 인력 반영 · 인건비',     desc:'1명 철수 · 8월 인건비 -850만원', proj:'migr' },
+  { time:'14:22', sys:'CRM',    grade:'D', title:'선투입 집행 자동 승계',           desc:'선투입 4,200만원 → 본 PJT 승계 · 추적 링크 유지', proj:'erp' },
+];
+
+const HOME_SYSTEMS = [
+  { name:'CRM',    state:'ok',   note:'계약 IF 정상' },
+  { name:'AI PMO', state:'ok',   note:'투입계획 IF 정상' },
+  { name:'SCM',    state:'ok',   note:'인력·납기 IF 정상' },
+  { name:'구매',   state:'ok',   note:'PO·검수 IF 정상' },
+  { name:'ERP',    state:'wait', note:'전송 대기 3건' },
+  { name:'BIX',    state:'ok',   note:'손익 IF 정상' },
+];
+
+function homeOpenCount() { return HOME_FEED.filter(i => !homeFeedState[feedKey(i)]).length; }
+
+function homeBriefHtml() {
+  const left = homeOpenCount();
+  if (!left) return `<b>오늘 확인할 것이 없어요.</b> 나머지 <b>${HOME_AUTO_COUNT}건</b>은 AI가 자동 반영했습니다.`;
+  return `오늘 확인할 것은 <b>${left}건</b>, <em>약 ${Math.round(left * 1.5)}분이면 끝나요.</em> 나머지 <b>${HOME_AUTO_COUNT}건</b>은 AI가 자동 반영했어요.`;
+}
+
+function homeAutoStripHtml() {
+  return `
+    <button class="hm-autostrip" onclick="openAutoDrawer()">
+      <span class="hm-autostrip-ic">⚡</span>
+      <span class="hm-autostrip-tx">선행 시스템 이벤트 <em>${HOME_EVENT_TOTAL}건 중 ${HOME_AUTO_COUNT}건</em>을 AI가 수행원가에 자동 반영했어요 · <em>월마감 D+1 자동 현행화</em> 포함</span>
+      <span class="hm-autostrip-more">자동 처리 내역 보기 ›</span>
+    </button>`;
+}
+
+function homeFootHtml() {
+  const done  = HOME_FEED.length - homeOpenCount();
+  const saved = HOME_AUTO_COUNT * HOME_AUTO_MIN_PER;
+  const chips = HOME_SYSTEMS.map(s => `<span class="hm-sys-chip ${s.state}"><i></i>${s.name} <em>${s.note}</em></span>`).join('');
+  return `
+    <div class="hm-foot">
+      <div class="hm-foot-card">
+        <div class="hm-foot-t">오늘 처리 요약</div>
+        <div class="hm-foot-v">확인 처리 <b>${done}</b>건 · 자동 반영 <b>${HOME_AUTO_COUNT}</b>건 · <em>절약한 시간 약 ${Math.floor(saved/60)}시간 ${saved%60}분</em></div>
+        <div class="hm-foot-s">이번 주 누적 자동 반영 ${HOME_AUTO_WEEK}건 · 건당 표준 처리시간 ${HOME_AUTO_MIN_PER}분(추정) 기준</div>
+      </div>
+      <div class="hm-foot-card">
+        <div class="hm-foot-t">연계 시스템 상태</div>
+        <div class="hm-sys">${chips}</div>
+        <div class="hm-foot-s">선행 CRM · AI PMO · SCM · 구매 → <b>실행예산</b> → 후행 ERP · BIX</div>
+      </div>
+    </div>`;
+}
+
+function openAutoDrawer() {
+  const ov = document.getElementById('home-impact-drawer');
+  if (!ov) return;
+  ov.innerHTML = autoDrawerHtml();
+  ov.classList.add('open');
+}
+
+function autoDrawerHtml() {
+  const rows = HOME_AUTO_LOG.map(a => `
+    <div class="hm-auto-row">
+      <div class="hm-auto-tm">${a.time}</div>
+      <div class="hm-auto-ct">
+        <div class="hm-auto-t1">${a.title}
+          <span class="hm-auto-sys">${a.sys}</span>
+          <span class="hm-auto-grade ${a.grade === 'D' ? 'd' : 'r'}">${a.grade === 'D' ? 'D · 확정' : 'R · 규칙기반'}</span>
+        </div>
+        <div class="hm-auto-t2">${a.desc}${a.proj === 'all' ? '' : ' · ' + homeProjName(a.proj)}</div>
+      </div>
+    </div>`).join('');
+  const saved = HOME_AUTO_COUNT * HOME_AUTO_MIN_PER;
+  return `
+    <div class="hm-drawer" onclick="event.stopPropagation()">
+      <div class="hm-drawer-head">
+        <div>
+          <div class="hm-drawer-eyebrow">AI 자동 처리 내역</div>
+          <strong>오늘 ${HOME_AUTO_COUNT}건 자동 반영</strong>
+          <div class="hm-drawer-meta">선행 시스템 IF 수신 ${HOME_EVENT_TOTAL}건 · 사람 확인 없이 처리</div>
+        </div>
+        <button class="hm-drawer-x" onclick="closeImpactDrawer()" aria-label="닫기">✕</button>
+      </div>
+      <div class="hm-drawer-body">
+        <div class="hm-auto-note">원천 IF가 <b>확정(D)</b>이거나, 계정 총액이 변하지 않는 <b>규칙기반(R)</b> 건은 확인 큐를 거치지 않고 자동 반영됩니다.</div>
+        <div class="hm-drawer-sec-t">처리 내역 · 대표 ${HOME_AUTO_LOG.length}건</div>
+        ${rows}
+        <div class="hm-drawer-sec-t">후행 시스템 전송</div>
+        <table class="hm-drawer-tbl">
+          <tr class="h"><td>대상</td><td>내용</td><td class="n">상태</td></tr>
+          <tr><td class="l">ERP</td><td>확정 실적 기표 연계</td><td class="n">전송 대기 3건</td></tr>
+          <tr><td class="l">BIX</td><td>손익관리·보고 데이터</td><td class="n">전송 완료</td></tr>
+        </table>
+        <div class="hm-drawer-warn">⚠ 자동 반영 결과에서 PM 확인이 필요한 항목 <b>${homeOpenCount()}건</b>이 도출됐어요. 수기 처리 시 약 ${Math.floor(saved/60)}시간 ${saved%60}분이 걸리는 분량입니다.</div>
+      </div>
+      <div class="hm-drawer-foot">
+        <button class="hm-btn" onclick="closeImpactDrawer()">닫기</button>
+        <button class="hm-btn pri" onclick="closeImpactDrawer();document.getElementById('home-insight-block').scrollIntoView({behavior:'smooth',block:'start'})">확인이 필요한 것 보기 →</button>
+      </div>
+    </div>`;
+}
+
 function renderPmDashboard() {
   homeSelectedProject = 'all';
   homeCat = 'all';
@@ -775,7 +892,10 @@ function renderPmDashboard() {
         <div class="home2-hero center">
           <h1>좋은 아침이에요, 봄님</h1>
           <p>담당 9개 프로젝트 중 <b>3개</b>에서 계획과 실적이 벌어지고 있어요</p>
+          <p class="home2-brief" id="home-brief">${homeBriefHtml()}</p>
         </div>
+
+        ${homeAutoStripHtml()}
 
         <div class="home2-search">
           <span class="home2-orb" aria-hidden="true">
@@ -800,6 +920,8 @@ function renderPmDashboard() {
         </div>
 
         <div id="home-insight-block">${renderHomeInsightBlock()}</div>
+
+        <div id="home-foot">${homeFootHtml()}</div>
       </section>
     </div>
     <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>`;

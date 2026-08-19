@@ -273,3 +273,70 @@ button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: tr
 .hm-fc-d.up { color: var(--sk-red); } .hm-fc-d.down { color: var(--sk-blue); }
 .hm-drawer-warn { margin-top: 14px; font-size: 13px; font-weight: 700; color: #9a6206; background: #fdf3e0; border: 1px solid #f6e2bf; border-radius: 10px; padding: 10px 12px; }
 .hm-drawer-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 20px; border-top: 1px solid var(--sk-border); }
+
+/* ==========================================================================
+   AI 자동처리 레이어 — 히어로 브리핑 · 자동처리 스트립 · 자동 처리 내역 · 하단 요약
+   ========================================================================== */
+
+/* 히어로 브리핑 한 줄 (I5) */
+.home2-brief { font-size: 14px; color: #6a7382; margin: 8px 0 0 !important; }
+.home2-brief b { color: var(--sk-ink); font-weight: 900; }
+.home2-brief em { font-style: normal; color: #0e9c97; font-weight: 900; }
+
+/* 자동처리 스트립 (I1) */
+.hm-autostrip {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  margin: 18px 0 4px; padding: 11px 16px; text-align: left; cursor: pointer;
+  background: linear-gradient(90deg, #f5f2ff, #f5fbfb);
+  border: 1px solid #e5e0fb; border-radius: 999px;
+}
+.hm-autostrip:hover { border-color: #cfc5f7; }
+.hm-autostrip-ic {
+  width: 24px; height: 24px; flex: none; border-radius: 50%;
+  background: #6c5ce7; color: #fff; font-size: 12px;
+  display: grid; place-items: center;
+}
+.hm-autostrip-tx { font-size: 13px; font-weight: 700; color: var(--sk-ink); }
+.hm-autostrip-tx em { font-style: normal; color: #5546c9; font-weight: 900; }
+.hm-autostrip-more { margin-left: auto; flex: none; font-size: 12px; font-weight: 800; color: #5546c9; white-space: nowrap; }
+
+/* 자동 처리 내역 드로어 */
+.hm-auto-note {
+  font-size: 12.5px; line-height: 1.7; color: #55606f;
+  background: #f7f8fb; border-radius: 10px; padding: 11px 13px; margin-bottom: 18px;
+}
+.hm-auto-note b { color: var(--sk-ink); font-weight: 900; }
+.hm-auto-row { display: flex; gap: 12px; padding: 11px 0; border-bottom: 1px solid #f1f0ea; }
+.hm-auto-tm { flex: none; width: 44px; font-size: 11.5px; color: #98a2b3; font-weight: 700; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.hm-auto-t1 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; font-weight: 800; color: var(--sk-ink); }
+.hm-auto-t2 { font-size: 12px; color: #6a7382; margin-top: 3px; }
+.hm-auto-sys { font-size: 10.5px; font-weight: 800; color: #55606f; background: #eef0f4; border-radius: 999px; padding: 2px 8px; }
+.hm-auto-grade { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
+.hm-auto-grade.d { background: #e8f6f0; color: #0b7a52; }
+.hm-auto-grade.r { background: #f1eefd; color: #5546c9; }
+
+/* 하단 요약 — 오늘 처리 요약 · 연계 시스템 상태 */
+.hm-foot { display: flex; gap: 10px; flex-wrap: wrap; margin: 22px 0 8px; }
+.hm-foot-card { flex: 1; min-width: 280px; background: #fafbfc; border: 1px solid var(--sk-border); border-radius: 12px; padding: 13px 16px; }
+.hm-foot-t { font-size: 11px; font-weight: 900; color: #98a2b3; margin-bottom: 6px; }
+.hm-foot-v { font-size: 13px; font-weight: 700; color: var(--sk-ink); }
+.hm-foot-v b { font-weight: 900; }
+.hm-foot-v em { font-style: normal; color: #0e9c97; font-weight: 900; }
+.hm-foot-s { font-size: 11px; color: #98a2b3; margin-top: 5px; line-height: 1.6; }
+.hm-foot-s b { color: #55606f; font-weight: 800; }
+.hm-sys { display: flex; gap: 6px; flex-wrap: wrap; }
+.hm-sys-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 800; border-radius: 999px; padding: 3px 10px;
+}
+.hm-sys-chip i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.hm-sys-chip em { font-style: normal; font-weight: 700; opacity: .75; }
+.hm-sys-chip.ok { background: #e8f6f0; color: #0b7a52; }
+.hm-sys-chip.ok i { background: #12a46b; }
+.hm-sys-chip.wait { background: #fdf3e0; color: #9a6206; }
+.hm-sys-chip.wait i { background: #e39a2a; }
+
+@media (max-width: 720px) {
+  .hm-autostrip { border-radius: 14px; flex-wrap: wrap; }
+  .hm-autostrip-more { margin-left: 0; width: 100%; }
+}
