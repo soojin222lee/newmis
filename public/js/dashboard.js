@@ -563,12 +563,110 @@ function scrollHomeTabs(dir) {
   t.scrollLeft = Math.max(0, Math.min(max, t.scrollLeft + dir * 260));
 }
 
+// ── 예산 신호 레이어 · Headroom 리본 / Runway / 월마감 타임레일 / 프로젝트 신호등 ──
+// 계정별 남은 여력과 소진 속도를 먼저 보여주고, 이번 달 어디까지 왔는지를 한 줄로 잇는다.
+// lv: ok(여유) · warn(주의) · risk(임박) · na(해당없음)
+const HOME_HEADROOM = [
+  { name:'인건비',   lv:'ok',   pct:32, note:'여유' },
+  { name:'외주비',   lv:'risk', pct:4,  note:'임박' },
+  { name:'재료비',   lv:'ok',   pct:41, note:'여유' },
+  { name:'경비',     lv:'warn', pct:12, note:'주의' },
+  { name:'A/S Cost', lv:'na',   pct:0,  note:'해당없음' },
+];
+
+const HOME_RUNWAY = {
+  account:'외주비', month:'11월', months:'2.8개월', delta:'계획 대비 +18%',
+  spark:'0,6 20,8 40,7 60,11 80,15 100,20 118,24',
+};
+
+// 이번 달 예산 일정 — kind: now(오늘) · auto(AI 자동) · human(사람 확인) · done(완료)
+const HOME_RAIL = [
+  { at:2,  d:'8/10', l:'계획 확정',      kind:'done'  },
+  { at:34, d:'오늘 8/19', l:'',           kind:'now'   },
+  { at:55, d:'8/25', l:'검수 마감',      kind:'human' },
+  { at:74, d:'8/31', l:'월마감',         kind:'done'  },
+  { at:86, d:'9/1',  l:'자동 현행화',    kind:'auto'  },
+  { at:97, d:'9/3',  l:'팀장 승인',      kind:'human' },
+];
+
+// 프로젝트별 신호등 + 원가 소진률
+const HOME_SIGNAL = {
+  skon:{ lv:'risk', rate:74 }, logi:{ lv:'warn', rate:41 }, migr:{ lv:'warn', rate:28 },
+  erp:{ lv:'ok', rate:55 },    sec:{ lv:'ok', rate:38 },    cloud:{ lv:'ok', rate:62 },
+  mob:{ lv:'ok', rate:47 },    dw:{ lv:'ok', rate:33 },     aidoc:{ lv:'ok', rate:21 },
+};
+
+function homeHeadroomHtml() {
+  const segs = HOME_HEADROOM.map(h => `
+      <div class="hm-hr-seg">
+        <div class="hm-hr-n"><i class="hm-hr-dot ${h.lv}"></i>${h.name}</div>
+        <div class="hm-hr-v ${h.lv}">${h.lv === 'na' ? '해당없음' : h.pct + '%'}</div>
+        <div class="hm-hr-bar"><i class="${h.lv}" style="width:${h.pct}%"></i></div>
+      </div>`).join('');
+  return `<div class="hm-headroom">
+      <div class="hm-hr-lbl">예산 여력<em>Headroom</em></div>
+      ${segs}
+    </div>`;
+}
+
+function homeRunwayHtml() {
+  const r = HOME_RUNWAY;
+  return `<div class="hm-runway">
+      <span class="hm-runway-ic">📉</span>
+      <div class="hm-runway-t">현재 소진 속도면 <b>${r.account}는 ${r.month}에 바닥납니다</b> · Runway ${r.months} · ${r.delta}</div>
+      <svg class="hm-runway-spark" width="120" height="26" viewBox="0 0 120 26" aria-hidden="true">
+        <polyline points="${r.spark}" fill="none" stroke="#e39a2a" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>`;
+}
+
+function homeRailHtml() {
+  const pins = HOME_RAIL.map(p => `
+        <div class="hm-rail-p ${p.kind}" style="left:${p.at}%">
+          <span class="hm-rail-pin"></span>
+          <span class="hm-rail-d">${p.d}</span>
+          ${p.l ? `<span class="hm-rail-l">${p.l}</span>` : ''}
+        </div>`).join('');
+  const now = HOME_RAIL.find(p => p.kind === 'now');
+  return `<div class="hm-rail">
+      <div class="hm-rail-head">
+        <span class="hm-rail-tt">이번 달 예산 일정</span>
+        <span class="hm-chip grade r">● 자동</span>
+        <span class="hm-chip due near">○ 사람 확인</span>
+        <span class="hm-rail-sys">연계 시스템 정상 · ERP 전송 대기 3건</span>
+      </div>
+      <div class="hm-rail-line">
+        <div class="hm-rail-ln"><i style="width:${now ? now.at : 0}%"></i></div>
+        ${pins}
+      </div>
+    </div>`;
+}
+
+function homeSignalBlockHtml() {
+  return homeHeadroomHtml() + homeRunwayHtml() + homeRailHtml();
+}
+
+// 프로젝트 탭 신호등 — 전체 탭은 신호등 없이 진행 평균만
+function homeTabSignalHtml(id) {
+  if (id === 'all') return '<span class="hm-ptab-bar"><i class="ok" style="width:45%"></i></span>';
+  const s = HOME_SIGNAL[id];
+  if (!s) return '';
+  return `<span class="hm-ptab-bar"><i class="${s.lv}" style="width:${s.rate}%"></i></span>`;
+}
+
+function homeTabDotHtml(id) {
+  if (id === 'all') return '';
+  const s = HOME_SIGNAL[id];
+  return s ? `<i class="hm-ptab-dot ${s.lv}"></i>` : '';
+}
+
 function renderHomeInsightBlock() {
   const tabs = [{ id:'all', name:'전체' }].concat(HOME_PROJECTS.map(p => ({ id:p.id, name:p.name })))
     .map(t => `
         <button class="hm-ptab ${homeSelectedProject === t.id ? 'active' : ''}" onclick="selectHomeProject('${t.id}')">
-          <span class="hm-ptab-name">${t.name}</span>
-          <span class="hm-ptab-badge">${homeInsightCount(t.id)}</span>
+          <span class="hm-ptab-row">${homeTabDotHtml(t.id)}<span class="hm-ptab-name">${t.name}</span>
+          <span class="hm-ptab-badge">${homeInsightCount(t.id)}</span></span>
+          ${homeTabSignalHtml(t.id)}
         </button>`).join('');
   const tabsCarousel = `
     <div class="hm-ptabs-carousel">
@@ -1105,6 +1203,8 @@ function renderPmDashboard() {
           <button onmousedown="askExample('실행예산 변경 화면 찾아줘')"><span class="ex-ag navi">N</span>실행예산 변경 화면 찾아줘</button>
           <button onmousedown="askExample('오늘 내가 처리해야 할 업무 알려줘')"><span class="ex-ag pilot">P</span>오늘 내가 처리해야 할 업무 알려줘</button>
         </div>
+
+        <div class="hm-signal">${homeSignalBlockHtml()}</div>
 
         <div id="home-insight-block">${renderHomeInsightBlock()}</div>
 

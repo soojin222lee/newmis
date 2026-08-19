@@ -403,3 +403,78 @@ button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: tr
   .hm-plan-d { margin-left: 0; }
   .hm-sort { margin-left: 0; }
 }
+
+/* ==========================================================================
+   예산 신호 레이어 — Headroom 리본 · Runway · 월마감 타임레일 · 프로젝트 신호등
+   ========================================================================== */
+
+.hm-signal { margin: 22px 0 26px; }
+
+/* 신호 색 (레이어 공통) */
+.hm-hr-dot.ok,   .hm-hr-bar i.ok,   .hm-ptab-dot.ok,   .hm-ptab-bar i.ok   { background: #12a46b; }
+.hm-hr-dot.warn, .hm-hr-bar i.warn, .hm-ptab-dot.warn, .hm-ptab-bar i.warn { background: #e39a2a; }
+.hm-hr-dot.risk, .hm-hr-bar i.risk, .hm-ptab-dot.risk, .hm-ptab-bar i.risk { background: #dc5548; }
+.hm-hr-dot.na,   .hm-hr-bar i.na                                           { background: #d3d8df; }
+
+/* Headroom 리본 */
+.hm-headroom { display: flex; align-items: stretch; border: 1px solid var(--sk-border); border-radius: 12px; overflow: hidden; background: #fff; }
+.hm-hr-lbl {
+  display: flex; flex-direction: column; justify-content: center; flex: none;
+  padding: 0 14px; background: #fafbfc; border-right: 1px solid var(--sk-border);
+  font-size: 11px; font-weight: 900; color: #8a94a6; white-space: nowrap;
+}
+.hm-hr-lbl em { font-style: normal; font-size: 10px; font-weight: 700; color: #aab2c0; }
+.hm-hr-seg { flex: 1; min-width: 0; padding: 10px 12px; border-right: 1px solid var(--sk-border); }
+.hm-hr-seg:last-child { border-right: none; }
+.hm-hr-n { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: #6a7382; font-weight: 700; }
+.hm-hr-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.hm-hr-v { font-size: 15px; font-weight: 900; letter-spacing: -0.3px; margin-top: 1px; color: var(--sk-ink); font-variant-numeric: tabular-nums; }
+.hm-hr-v.risk { color: #dc5548; }
+.hm-hr-v.warn { color: #9a6206; }
+.hm-hr-v.na   { font-size: 12px; color: #aab2c0; }
+.hm-hr-bar { height: 3px; border-radius: 2px; background: #eef0f4; margin-top: 6px; overflow: hidden; }
+.hm-hr-bar i { display: block; height: 100%; border-radius: 2px; }
+
+/* Runway */
+.hm-runway {
+  display: flex; align-items: center; gap: 10px; margin-top: 10px;
+  background: #fdf8f0; border: 1px solid #f6e3c4; border-radius: 12px; padding: 10px 14px;
+}
+.hm-runway-ic { flex: none; font-size: 14px; }
+.hm-runway-t { font-size: 12.5px; font-weight: 700; color: #8a5a08; }
+.hm-runway-t b { color: #7a3e06; font-weight: 900; }
+.hm-runway-spark { margin-left: auto; flex: none; }
+
+/* 월마감 타임레일 */
+.hm-rail { margin-top: 10px; padding: 14px 18px 12px; border: 1px solid var(--sk-border); border-radius: 12px; background: #fff; }
+.hm-rail-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.hm-rail-tt { font-size: 12px; font-weight: 900; color: var(--sk-ink); }
+.hm-rail-sys { margin-left: auto; font-size: 11px; color: #aab2c0; font-weight: 700; }
+.hm-rail-line { position: relative; height: 40px; }
+.hm-rail-ln { position: absolute; top: 5px; left: 0; right: 0; height: 2px; background: #e3e7ec; border-radius: 2px; }
+.hm-rail-ln i { display: block; height: 100%; background: var(--sk-ink); border-radius: 2px; }
+.hm-rail-p { position: absolute; top: 0; transform: translateX(-50%); text-align: center; white-space: nowrap; }
+.hm-rail-pin { display: block; width: 11px; height: 11px; border-radius: 50%; background: #fff; border: 2px solid #e3e7ec; margin: 0 auto 5px; }
+.hm-rail-d { display: block; font-size: 10.5px; font-weight: 800; color: #aab2c0; }
+.hm-rail-l { display: block; font-size: 10.5px; color: #8a94a6; margin-top: 1px; }
+.hm-rail-p.now .hm-rail-pin   { background: var(--sk-ink); border-color: var(--sk-ink); }
+.hm-rail-p.now .hm-rail-d     { color: var(--sk-ink); font-weight: 900; }
+.hm-rail-p.auto .hm-rail-pin  { background: #6c5ce7; border-color: #6c5ce7; }
+.hm-rail-p.human .hm-rail-pin { background: #fff; border-color: #e39a2a; }
+
+/* 프로젝트 탭 신호등 */
+.hm-ptab-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.hm-ptab-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.hm-ptab-bar { display: block; height: 3px; border-radius: 2px; background: #eef0f4; margin-top: 6px; overflow: hidden; }
+.hm-ptab-bar i { display: block; height: 100%; border-radius: 2px; }
+.hm-ptab.active .hm-ptab-bar { background: rgba(255, 255, 255, 0.28); }
+.hm-ptab.active .hm-ptab-bar i { background: #fff; }
+
+@media (max-width: 980px) {
+  .hm-headroom { flex-wrap: wrap; }
+  .hm-hr-lbl { width: 100%; border-right: none; border-bottom: 1px solid var(--sk-border); padding: 8px 14px; flex-direction: row; gap: 6px; align-items: center; }
+  .hm-hr-seg { min-width: 44%; }
+  .hm-rail-line { overflow-x: auto; }
+  .hm-runway-spark { display: none; }
+  .hm-rail-sys { margin-left: 0; width: 100%; }
+}
