@@ -31,15 +31,7 @@ function saveDepreciationPlan() {
   renderBudgetPage();
 }
 
-function renderMaterialPlanPanel(data) {
-  if (materialKind === 'depreciation') {
-    return renderMaterialShell('감가상각비 계획 등록', '자산/라이선스 기준으로 월상각액을 입력하고 재료비 월별 예산에 반영합니다.', renderMaterialDepreciationPanel());
-  }
-  if (materialKind === 'other') {
-    return renderMaterialShell('기타재료비 계획 등록', '실적 발생 전 계획 건만 수정 가능합니다.', renderOtherMaterialPanel());
-  }
-  return renderMaterialShell('상품재료비 계획 등록', '견적 데이터를 불러와 상품재료비 계획을 수립합니다.', renderMaterialItemPanel());
-}
+// [재료비 서브탭 분기 renderMaterialPlanPanel + 편집기 진입점은 budget-area-material.js로 이관되었습니다]
 
 function renderBudgetAccountEditor(data, account) {
   const monthly = renderAccountMonthlyBudgetTable(data, account);
