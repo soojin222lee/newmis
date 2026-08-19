@@ -674,14 +674,22 @@ function buildSIHistory(history) {
 }
 
 // ── IF 이력 개선안: 선행 시스템 메타 ──
+// dir: IF 방향(MIS 기준) — 'both' 송수신(송신 위주) · 'in' 수신 · 'out' 송신 · 'none' 없음
 const SI_SYS = {
-  ERP: { label:'ERP',      c:'#2563EB', cb:'#EBF1FE' },
-  SCM: { label:'AI SCM',   c:'#7C3AED', cb:'#F2ECFE' },
-  CRM: { label:'AI CRM',   c:'#C2410C', cb:'#FDF0E7' },
-  PUR: { label:'구매',     c:'#0E7490', cb:'#E6F4F7' },
-  ETC: { label:'수동입력', c:'#475569', cb:'#EEF1F4' },
+  ERP: { label:'ERP',      c:'#2563EB', cb:'#EBF1FE', dir:'both' },
+  SCM: { label:'AI SCM',   c:'#7C3AED', cb:'#F2ECFE', dir:'in' },
+  CRM: { label:'AI CRM',   c:'#C2410C', cb:'#FDF0E7', dir:'in' },
+  PUR: { label:'구매',     c:'#0E7490', cb:'#E6F4F7', dir:'in' },
+  ETC: { label:'수동입력', c:'#475569', cb:'#EEF1F4', dir:'none' },
 };
 function siSys(code) { return SI_SYS[code] || SI_SYS.ETC; }
+
+// IF 방향 배지 메타
+const SI_DIR = {
+  both: { t:'송수신', arrow:'⇄', hint:'MIS ⇄ ERP · 송신 위주' },
+  in:   { t:'수신',   arrow:'←', hint:'선행 시스템 → MIS 수신' },
+  out:  { t:'송신',   arrow:'→', hint:'MIS → 선행 시스템 송신' },
+};
 
 // ifDetail이 없는 프로젝트는 기존 필드/ifHistory에서 개선안 데이터 구조를 파생한다.
 function siBuildDetail(p) {
@@ -737,9 +745,12 @@ renderSIDetail = function() {
 
   const syncHtml = d.sync.map(s => {
     const m = siSys(s.sys), ok = s.flag === 'ok';
+    const dir = SI_DIR[m.dir];
+    const dirChip = dir ? `<span class="sifr-dir ${m.dir}" title="${dir.hint}"><b>${dir.arrow}</b>${dir.t}</span>` : '';
+    const whenWord = m.dir === 'both' ? '최근 동기화' : (m.dir === 'out' ? '송신' : '수신');
     return `<div class="sifr-sync-item" style="--c:${m.c};--cb:${m.cb}">
-      <div class="sifr-sync-top"><span class="sifr-sysbadge" style="--c:${m.c};--cb:${m.cb}"><i></i>${m.label}</span><span class="sifr-flag ${ok?'ok':'warn'}">${ok?'정상':s.flag}</span></div>
-      <div class="sifr-sync-when">${s.when} 수신</div>
+      <div class="sifr-sync-top"><span class="sifr-sync-badges"><span class="sifr-sysbadge" style="--c:${m.c};--cb:${m.cb}"><i></i>${m.label}</span>${dirChip}</span><span class="sifr-flag ${ok?'ok':'warn'}">${ok?'정상':s.flag}</span></div>
+      <div class="sifr-sync-when">${s.when} ${whenWord}</div>
       <div class="sifr-sync-cnt">최근 30일 변경 <b>${s.cnt}</b>건</div>
     </div>`;
   }).join('');
@@ -812,7 +823,7 @@ renderSIDetail = function() {
     <div class="sifr-sec">
       <div class="sifr-sec-head"><h2>선행 시스템 동기화 상태</h2><div class="sifr-sub">기준 시각 ${d.asOf||'-'}</div></div>
       <div class="sifr-sync">${syncHtml}</div>
-      <div class="sifr-note">각 시스템의 마지막 수신 시각과 변경 건수를 한 줄로 노출해, 어느 시스템이 멈췄는지 이력을 열지 않고도 판단할 수 있습니다.</div>
+      <div class="sifr-note">IF는 <b>송수신 양방향</b>입니다 — <b class="sifr-dir-ink both">⇄ ERP</b>는 MIS가 보내는 <b>송신 위주</b>, <b class="sifr-dir-ink in">← AI SCM · AI CRM · 구매</b>는 MIS가 받는 <b>수신</b>입니다. 각 시스템의 마지막 교환 시각과 변경 건수로 어느 채널이 멈췄는지 이력을 열지 않고도 판단합니다.</div>
     </div>
 
     <div class="sifr-sec">
