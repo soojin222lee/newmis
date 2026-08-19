@@ -274,3 +274,55 @@
 .sg-repo .sg-copy { position: static; flex: 0 0 auto; background: #e7ecf4; color: var(--sk-blue-deep); }
 .sg-repo .sg-copy:hover { background: #d7e0ee; }
 
+
+/* ==========================================================================
+   AI Agent 4차 — 에이전트 소개 · 순위/비교 · 길안내 경로 · 위임 등급
+   ========================================================================== */
+
+/* 에이전트 소개 헤더 */
+.ai-intro { border-left: 3px solid var(--sk-blue); background: #f7f9fd; border-radius: 0 10px 10px 0; padding: 9px 12px; margin-bottom: 4px; }
+.ai-intro.ag-navi  { border-left-color: #12a46b; background: #f4fbf8; }
+.ai-intro.ag-q     { border-left-color: var(--sk-blue); background: #f7f9fd; }
+.ai-intro.ag-pilot { border-left-color: #6c5ce7; background: #f9f8ff; }
+.ai-intro-h { display: flex; align-items: baseline; gap: 7px; }
+.ai-intro-h b { font-size: 13.5px; font-weight: 900; color: var(--sk-ink); }
+.ai-intro-h span { font-size: 11px; font-weight: 700; color: #8a94a6; }
+.ai-intro-d { font-size: 12.5px; color: #55606f; margin-top: 2px; }
+
+/* 순위형 결과 (원가율 등) */
+.ai-rank-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid #f1f0ea; }
+.ai-rank-row:last-of-type { border-bottom: none; }
+.ai-rank-n { font-size: 13px; font-weight: 800; color: var(--sk-ink); }
+.ai-rank-v { font-size: 14px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.ai-rank-v.up { color: var(--sk-red); }
+.ai-rank-d { font-size: 11.5px; color: #8a94a6; margin-left: auto; }
+
+/* 비교형 결과 (계획 대비 실적 · What-if) */
+.ai-break-row2 { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 7px 0; border-bottom: 1px solid #f1f0ea; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.ai-break-row2:last-of-type { border-bottom: none; }
+.ai-break-row2 > span { min-width: 104px; color: #6a7382; font-weight: 700; }
+.ai-break-row2 i { font-style: normal; color: #55606f; }
+.ai-break-row2 em { font-style: normal; color: #c3cad4; font-size: 11px; }
+.ai-break-row2 b { margin-left: auto; font-weight: 900; }
+.ai-break-row2 b.up { color: var(--sk-red); }
+.ai-break-row2 b.down { color: var(--sk-blue); }
+
+/* Navi 길안내 경로 */
+.ai-nav-path { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 8px 0 10px; }
+.ai-nav-crumb { font-size: 12px; font-weight: 800; color: #8a94a6; background: #f2f4f7; border-radius: 7px; padding: 4px 10px; }
+.ai-nav-crumb.on { color: #fff; background: #12a46b; }
+.ai-nav-path i { font-style: normal; color: #c3cad4; font-size: 11px; }
+
+/* 브리핑 항목 부가 정보 */
+.ai-brief-imp { font-size: 11px; font-weight: 800; color: var(--sk-red); background: #fde8ec; border-radius: 999px; padding: 2px 8px; flex: none; }
+.ai-brief-due { font-size: 11px; font-weight: 800; color: #9a6206; background: #fdf3e0; border-radius: 999px; padding: 2px 8px; flex: none; }
+
+/* 위임 등급 */
+.ai-trust-row { padding: 9px 0; border-bottom: 1px solid #f1f0ea; }
+.ai-trust-row:last-of-type { border-bottom: none; }
+.ai-trust-n { font-size: 13px; font-weight: 900; color: var(--sk-ink); margin-right: 7px; }
+.ai-trust-g { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
+.ai-trust-g.ok { background: #e8f6f0; color: #0b7a52; }
+.ai-trust-g.warn { background: #fdf3e0; color: #9a6206; }
+.ai-trust-g.mute { background: #f2f4f7; color: #6a7382; }
+.ai-trust-p { display: block; font-size: 11.5px; color: #8a94a6; margin-top: 3px; }

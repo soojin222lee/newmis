@@ -708,3 +708,263 @@ if (document.readyState === 'loading') {
 } else {
   bootstrapApp();
 }
+
+// ============================================================
+//  AI Agent 4차 — 에이전트별 특성 강화 (프롬프트 · 답변 구체화)
+//  ※ 공유 파일이므로 위 원본은 수정하지 않고 여기서 override 한다.
+//    (프로젝트 규칙: 뒤에 로드/정의된 코드가 앞을 override)
+//  - Budget Navi  : 길안내 — 어디서 · 어떤 순서로 · 무엇을 준비해서
+//  - Budget Q     : 데이터 분석 — 숫자 · 원인 · 근거
+//  - Budget Pilot : AI PM — 선제 제안 · 영향 분석 · 위임 등급 · What-if
+// ============================================================
+
+Object.assign(AGENTS.navi,  { desc:'화면과 절차를 찾아드려요', ex2:['원가 조정 어디서 해?', '변경 이력 화면 찾아줘', '실행예산 승인 절차 알려줘'] });
+Object.assign(AGENTS.q,     { desc:'숫자의 이유를 근거와 함께 설명해요', ex2:['SKON 외주비 왜 늘었어?', '원가율 높은 프로젝트 알려줘', '인건비 계획 대비 실적 차이는?'] });
+Object.assign(AGENTS.pilot, { desc:'해야 할 일을 먼저 제시해요', ex2:['오늘 확인할 업무 알려줘', 'AI가 자동 처리한 내역 보여줘', '개발자 2명 더 투입하면 어떻게 돼?'] });
+
+// ── Intent 라우팅 강화 — 에이전트 특성이 드러나도록 세분화 ──
+function routeIntent(text) {
+  const t = text.replace(/\s/g, '');
+
+  // Pilot — What-if 가정 시뮬레이션
+  if (/(하면|한다면|투입하면|늘리면|줄이면|시뮬|가정|만약)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotWhatIfHtml(text)) };
+  // Pilot — 자동 처리 내역
+  if (/(자동|자동반영|자동처리|AI가처리|알아서)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotAutoHtml()) };
+  // Pilot — 위임 등급 / 신뢰도
+  if (/(위임|자동조종|등급|얼마나믿|신뢰|정확)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotTrustHtml()) };
+  // Pilot — 오늘 브리핑
+  if (/(오늘|처리|해야|확인할|업무|리스크|브리핑|briefing)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotBriefingHtml()) };
+
+  // Q — 외주비 증가 원인 (기존 상세 분석 유지)
+  if (/외주비/.test(t) && /(왜|늘|증가|많|올랐|초과)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qOutsourceHtml()) };
+  // Q — 원가율 조회
+  if (/원가율/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qCostRateHtml()) };
+  // Q — 계획 대비 실적 비교
+  if (/(계획대비|실적|차이|비교|대비)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qComparePlanHtml()) };
+
+  // Navi — 화면/절차 길안내
+  if (/(찾아|어디|어떻게|화면|이동|바로가기|절차|방법|메뉴)/.test(t) || /(변경|수정).*(시작|하고싶|할래|할게|화면)/.test(t)) {
+    return { agent:'navi', render: () => aiAgentMsg('navi', naviRouteHtml(text)) };
+  }
+
+  if (/(왜|늘|줄|증가|감소|얼마|달라|초과|이유)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qGenericHtml(text)) };
+  return { agent:'q', render: () => aiAgentMsg('q', qGenericHtml(text)) };
+}
+
+// ── 에이전트 소개 헤더 (특성 부각) ──
+function agentIntroHtml(k) {
+  const a = AGENTS[k];
+  return `<div class="ai-intro ag-${k}">
+      <div class="ai-intro-h"><b>${a.name}</b><span>${a.role}</span></div>
+      <div class="ai-intro-d">${a.desc}</div>
+    </div>` + examplesHtml(a.ex2);
+}
+
+// ── 진입 시 에이전트별 인사 — 특성이 드러나게 ──
+function openAiChat(entry, initialQuery) {
+  document.getElementById('ai-chat-title').textContent = 'AI 어시스턴트';
+  document.getElementById('ai-chat-sub').textContent = 'New MIS · 묻고 → 분석하고 → 실행까지';
+  setChatAvatar(entry);
+  const body = document.getElementById('ai-chat-body');
+  body.innerHTML = '';
+  document.getElementById('ai-chat-overlay').classList.add('open');
+
+  if (entry === 'pilot') {
+    document.getElementById('ai-chat-title').textContent = 'Budget Pilot';
+    document.getElementById('ai-chat-sub').textContent = 'AI가 처리한 결과에서 해야 할 일을 먼저 제시해요';
+    aiAgentMsg('pilot', agentIntroHtml('pilot'));
+    aiAgentMsg('pilot', pilotBriefingHtml());
+  } else if (entry === 'navi') {
+    document.getElementById('ai-chat-title').textContent = 'Budget Navi';
+    document.getElementById('ai-chat-sub').textContent = '지금 어디까지 했고, 다음에 뭘 하면 되는지 안내해요';
+    aiAgentMsg('navi', agentIntroHtml('navi'));
+    aiAgentMsg('navi', naviGuideHtml());
+  } else if (entry === 'q') {
+    document.getElementById('ai-chat-title').textContent = 'Budget Q';
+    document.getElementById('ai-chat-sub').textContent = '숫자의 의미와 원인을 근거와 함께 설명해요';
+    aiAgentMsg('q', agentIntroHtml('q'));
+  } else {
+    aiAgentMsg('ai', '무엇을 도와드릴까요? 프로젝트를 <b>찾거나</b>, 숫자의 <b>이유를 묻거나</b>, 다음 <b>업무를 요청</b>해보세요.'
+      + examplesHtml(['SKON 외주비가 왜 늘었어?', '원가 조정 어디서 해?', '오늘 확인할 업무 알려줘', '개발자 2명 더 투입하면?']));
+  }
+  const input = document.getElementById('ai-chat-query');
+  input.value = '';
+  setTimeout(() => input.focus(), 50);
+  if (initialQuery) { input.value = initialQuery; sendAiChat(); }
+}
+
+// ── Budget Q — 원가율 조회 ──
+function qCostRateHtml() {
+  const rows = [
+    ['SKON 통합 관제 플랫폼', '88.3%', 'up',   '계약 30.8억 · 수행원가 27.2억'],
+    ['차세대 물류 실행계',    '78.9%', 'flat', '계약 21.4억 · 수행원가 16.9억'],
+    ['SKON 데이터 마이그레이션', '84.2%', 'up', '계약 32.3억 · 수행원가 27.2억'],
+  ].map(r => `<div class="ai-rank-row">
+      <span class="ai-rank-n">${r[0]}</span>
+      <b class="ai-rank-v ${r[1] >= '85' ? 'up' : ''}">${r[1]}</b>
+      <span class="ai-rank-d">${r[3]}</span>
+    </div>`).join('');
+  return `<div class="ai-result">
+    <div class="ai-r-lead"><span class="ai-r-tag red">결론</span> 원가율 <b>85% 초과</b> 프로젝트가 <b class="up">1건</b> 있습니다.</div>
+    <div class="ai-r-cause">사업부 관리 기준선 85% · 초과 시 손익 조기경보 대상</div>
+    ${rows}
+    <button class="ai-evi-btn" onclick="aiToggleEvidence(this)">🔎 근거 확인</button>
+    <div class="ai-evidence" hidden>
+      <div class="ai-evi-step"><span>1 · 계산 근거</span>원가율 = 수행원가 ÷ 계약금액 (계약변경 반영 후 기준)</div>
+      <div class="ai-evi-step"><span>2 · 사용 데이터</span>수행원가 V5 · 계약 마스터(CRM 확정) · ERP 확정 실적</div>
+      <div class="ai-evi-step"><span>3 · 데이터 등급</span>D · 확정 — 후행 BIX 전송 가능</div>
+    </div>
+    <div class="ai-actions">
+      <button class="ai-act" onclick="agentGoto('exec')">원가 현황 보기</button>
+      <button class="ai-act pri" onclick="agentHandoffPilot()">손익 영향 분석 →</button>
+    </div>
+  </div>`;
+}
+
+// ── Budget Q — 계획 대비 실적 ──
+function qComparePlanHtml() {
+  const rows = [
+    ['인건비',  '9.20억', '9.05억', '-1,500만원', 'down'],
+    ['외주비',  '2.30억', '2.72억', '+4,200만원', 'up'],
+    ['재료비',  '1.40억', '1.38억', '-200만원',   'down'],
+    ['경비',    '0.32억', '0.40억', '+840만원',   'up'],
+  ].map(r => `<div class="ai-break-row2">
+      <span>${r[0]}</span><i>${r[1]}</i><em>→</em><i>${r[2]}</i><b class="${r[4]}">${r[3]}</b>
+    </div>`).join('');
+  return `<div class="ai-result">
+    <div class="ai-r-lead"><span class="ai-r-tag amber">분석</span> 계정 4개 중 <b class="up">2개</b>가 계획을 초과했습니다.</div>
+    <div class="ai-r-cause">초과 합계 <b class="up">+5,040만원</b> · 절감 합계 <b class="down">-1,700만원</b> · 순증 <b class="up">+3,340만원</b></div>
+    ${rows}
+    <div class="ai-actions">
+      <button class="ai-act" onclick="agentGoto('exec')">계정별 상세</button>
+      <button class="ai-act pri" onclick="agentHandoffPilot()">이 차이의 영향 분석 →</button>
+    </div>
+  </div>`;
+}
+
+// ── Budget Navi — 화면 길안내 (경로 · 준비물 · 소요) ──
+const NAVI_ROUTES = [
+  { k:/(원가조정|조정|변경입력)/, t:'수행원가 조정', path:['수행원가', '원가조정'], go:'exec-outsource',
+    need:'변경 사유 · 근거 자료(계약서·확정 인력)', min:'약 5분', note:'승인된 예산은 조정 시 새 버전(Draft)으로 남고, 확정 전까지 ERP에 전송되지 않아요.' },
+  { k:/(이력|버전|히스토리|변경내역)/, t:'변경 이력 확인', path:['수행원가', '변경 이력'], go:'exec',
+    need:'없음', min:'약 1분', note:'버전별 변경 전/후와 승인자를 함께 볼 수 있어요.' },
+  { k:/(현황|조회|얼마)/, t:'원가 현황 조회', path:['수행원가', '원가현황'], go:'exec',
+    need:'없음', min:'약 2분', note:'계정별 계획·실적·잔여를 한 화면에서 봐요.' },
+  { k:/(레포트|보고서|리포트)/, t:'맞춤 레포트 작성', path:['인사이트', '맞춤 레포트'], go:'exec',
+    need:'보고 대상·기간', min:'약 3분', note:'필요한 항목만 골라 보고서 형태로 뽑을 수 있어요.' },
+];
+function naviRouteHtml(text) {
+  const t = String(text).replace(/\s/g, '');
+  const r = NAVI_ROUTES.find(x => x.k.test(t)) || NAVI_ROUTES[0];
+  const crumb = r.path.map((p, i) => `<span class="ai-nav-crumb${i === r.path.length - 1 ? ' on' : ''}">${p}</span>`).join('<i>›</i>');
+  return `<div class="ai-result">
+    <div class="ai-r-lead"><b>${r.t}</b> 화면으로 안내할게요.</div>
+    <div class="ai-nav-path">${crumb}</div>
+    <div class="ai-navi-meta">
+      <div><span>준비할 것</span><strong>${r.need}</strong></div>
+      <div><span>예상 소요</span><strong>${r.min}</strong></div>
+    </div>
+    <p class="ai-r-note">${r.note}</p>
+    <div class="ai-steps"><span class="on">1 화면 이동</span><i>→</i><span>2 내용 입력</span><i>→</i><span>3 저장·상신</span></div>
+    <div class="ai-actions">
+      <button class="ai-act" onclick="closeAiChat(); openCostHistory('budgetMock')">버전 이력 확인</button>
+      <button class="ai-act pri" onclick="agentGoto('${r.go}')">${r.t} 시작</button>
+    </div>
+  </div>`;
+}
+
+// ── Budget Pilot — 오늘 브리핑 (자동 처리 결과와 연결) ──
+function pilotBriefingHtml() {
+  const items = (typeof HOME_FEED !== 'undefined') ? HOME_FEED : [];
+  const open = (typeof homeOpenCount === 'function') ? homeOpenCount() : items.length;
+  const auto = (typeof HOME_AUTO_COUNT !== 'undefined') ? HOME_AUTO_COUNT : 12;
+  const total = (typeof HOME_EVENT_TOTAL !== 'undefined') ? HOME_EVENT_TOTAL : auto + open;
+  const urgent = items.filter(i => i.sev === 'danger').length;
+  const rows = items.map((it, i) => {
+    const ai = (typeof homeAiOf === 'function') ? homeAiOf(it) : null;
+    return `<button class="ai-brief-item" onclick="pilotAlert(${i})">
+      <span class="ai-brief-dot ${it.sev}"></span>
+      <span class="ai-brief-tt">${escHtml(it.title)}</span>
+      ${ai ? `<span class="ai-brief-imp">${escHtml(ai.impact)}</span><span class="ai-brief-due">D-${ai.dueDays}</span>` : ''}
+      <span class="ai-brief-arrow">›</span>
+    </button>`;
+  }).join('');
+  return `<div class="ai-result">
+    <div class="ai-r-lead"><span class="ai-r-tag ink">오늘의 Project Briefing</span></div>
+    <div class="ai-r-cause">선행 시스템 이벤트 <b>${total}건</b> 중 <b>${auto}건</b>은 AI가 자동 반영했고, <b>${open}건</b>만 확인이 필요해요.</div>
+    <div class="ai-brief-sum"><b class="red">긴급 ${urgent}건</b> · <b class="amber">권장·확인 ${Math.max(0, items.length - urgent)}건</b></div>
+    ${rows}
+    <div class="ai-actions">
+      <button class="ai-act" onclick="aiAgentMsg('pilot', pilotAutoHtml())">자동 처리 내역</button>
+      <button class="ai-act" onclick="aiAgentMsg('pilot', pilotTrustHtml())">위임 등급 보기</button>
+    </div>
+  </div>`;
+}
+
+// ── Budget Pilot — 자동 처리 내역 ──
+function pilotAutoHtml() {
+  const log = (typeof HOME_AUTO_LOG !== 'undefined') ? HOME_AUTO_LOG : [];
+  const auto = (typeof HOME_AUTO_COUNT !== 'undefined') ? HOME_AUTO_COUNT : 12;
+  const per = (typeof HOME_AUTO_MIN_PER !== 'undefined') ? HOME_AUTO_MIN_PER : 8;
+  const saved = auto * per;
+  const rows = log.map(a => `<div class="ai-evi-step"><span>${a.time} · ${escHtml(a.sys)}</span>${escHtml(a.title)} — ${escHtml(a.desc)}</div>`).join('');
+  return `<div class="ai-result">
+    <div class="ai-r-lead"><span class="ai-r-tag ink">자동 처리</span> 오늘 <b>${auto}건</b>을 사람 확인 없이 반영했어요.</div>
+    <div class="ai-r-cause">원천 IF가 확정(D)이거나 계정 총액이 변하지 않는 규칙기반(R) 건이 대상이에요 · 절약 약 ${Math.floor(saved / 60)}시간 ${saved % 60}분</div>
+    ${rows}
+    <div class="ai-actions">
+      <button class="ai-act pri" onclick="closeAiChat(); if(typeof openAutoDrawer==='function') openAutoDrawer()">전체 내역 열기 →</button>
+    </div>
+  </div>`;
+}
+
+// ── Budget Pilot — 위임 등급 (검증된 만큼만 자동화) ──
+const PILOT_TRUST = [
+  { n:'인건비',   g:'AUTO',   c:'ok',   p:'95.8', s:'24', e:'2.1' },
+  { n:'외주비',   g:'AUTO',   c:'ok',   p:'91.2', s:'18', e:'4.4' },
+  { n:'재료비',   g:'REVIEW', c:'warn', p:'74.0', s:'12', e:'18.6' },
+  { n:'경비',     g:'AUTO',   c:'ok',   p:'96.4', s:'31', e:'1.2' },
+  { n:'A/S Cost', g:'MANUAL', c:'mute', p:'—',    s:'2',  e:'—' },
+];
+function pilotTrustHtml() {
+  const rows = PILOT_TRUST.map(t => `<div class="ai-trust-row">
+      <span class="ai-trust-n">${t.n}</span>
+      <span class="ai-trust-g ${t.c}">${t.g}</span>
+      <span class="ai-trust-p">무수정 채택률 <b>${t.p}${t.p === '—' ? '' : '%'}</b> · 표본 ${t.s}건 · 평균 수정폭 ${t.e}${t.e === '—' ? '' : '%'}</span>
+    </div>`).join('');
+  return `<div class="ai-result">
+    <div class="ai-r-lead"><span class="ai-r-tag ink">위임 등급</span> AI를 무조건 믿지 않고 <b>검증된 만큼만</b> 위임합니다.</div>
+    <div class="ai-r-cause">AUTO 3계정 · REVIEW 1계정 · MANUAL 1계정 — 채택률은 확인 큐에서 [반영]/[수정]/[보류]를 누르는 순간 자동 기록돼요.</div>
+    ${rows}
+    <p class="ai-r-note">2026-06 재료비 <b>AUTO → REVIEW</b> (3개월 연속 수정률 30% 초과) · 2026-05 경비 <b>REVIEW → AUTO</b> (채택률 90% 이상)</p>
+  </div>`;
+}
+
+// ── Budget Pilot — What-if 시뮬레이션 ──
+function pilotWhatIfHtml(text) {
+  const t = String(text).replace(/\s/g, '');
+  let head = '개발자 2명 · 3~6월 추가 투입', rows, note;
+  if (/외주/.test(t)) {
+    head = '외주비 2,000만원 → AI 예비비 대체';
+    rows = [['외주비', '2.72억', '2.52억', '-2,000만원', 'down'], ['AI 예비비', '3,200만원', '5,200만원', '+2,000만원', 'up'], ['계정 총액', '변동 없음', '변동 없음', '-', '']];
+    note = '계정 총액이 변하지 않아 자가전결 가능합니다.';
+  } else if (/줄이|철수|감축/.test(t)) {
+    head = '인력 2명 조기 철수';
+    rows = [['인건비', '9.20억', '8.84억', '-3,600만원', 'down'], ['예산 여력(인건비)', '32%', '36%', '+4%p', 'down'], ['일정 리스크', '보통', '높음', '주의', 'up']];
+    note = '원가는 개선되지만 일정 지연 리스크가 올라갑니다.';
+  } else {
+    rows = [['인건비', '9.20억', '9.88억', '+6,800만원', 'up'], ['예산 여력(인건비)', '32%', '24%', '-8%p', 'up'], ['예상 원가율', '88.3%', '90.5%', '+2.2%p', 'up']];
+    note = 'CP 한도 내이며 자가전결 가능합니다. 다만 원가율이 관리 기준선 85%를 넘습니다.';
+  }
+  const body = rows.map(r => `<div class="ai-break-row2"><span>${r[0]}</span><i>${r[1]}</i><em>→</em><i>${r[2]}</i><b class="${r[4]}">${r[3]}</b></div>`).join('');
+  return `<div class="ai-result">
+    <div class="ai-r-lead"><span class="ai-r-tag amber">가정 시뮬레이션</span> ${head}</div>
+    <div class="ai-r-cause">확정 전까지 <b>실제 예산에 반영되지 않고</b> ERP로도 전송되지 않아요.</div>
+    ${body}
+    <p class="ai-r-note">${note}</p>
+    <div class="ai-actions">
+      <button class="ai-act" onclick="agentGoto('exec')">실행예산에서 검토</button>
+      <button class="ai-act pri" onclick="agentHandoffNavi()">변경 절차로 이동 →</button>
+    </div>
+  </div>`;
+}

@@ -1202,6 +1202,7 @@ function renderPmDashboard() {
           <button onmousedown="askExample('SKON 외주비가 왜 늘었어?')"><span class="ex-ag q">Q</span>SKON 외주비가 왜 늘었어?</button>
           <button onmousedown="askExample('실행예산 변경 화면 찾아줘')"><span class="ex-ag navi">N</span>실행예산 변경 화면 찾아줘</button>
           <button onmousedown="askExample('오늘 내가 처리해야 할 업무 알려줘')"><span class="ex-ag pilot">P</span>오늘 내가 처리해야 할 업무 알려줘</button>
+          <button onmousedown="askExample('개발자 2명 더 투입하면 어떻게 돼?')"><span class="ex-ag pilot">P</span>개발자 2명 더 투입하면?</button>
         </div>
 
         <div class="hm-signal">${homeSignalBlockHtml()}</div>
