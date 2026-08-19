@@ -2019,25 +2019,7 @@ getMonthlyBudgetRows = function(data, account) {
   ];
 };
 
-var renderBudgetAccountEditorBeforeLaborDetailFinal = renderBudgetAccountEditor;
-renderBudgetAccountEditor = function(data, account) {
-  if (account !== CATS[0]) return renderBudgetAccountEditorBeforeLaborDetailFinal(data, account);
-  return `
-    <div class="setup-editor">
-      <div class="setup-editor-head">
-        <button class="budget-process-back" onclick="closeBudgetAccountEditor()">← 계정 선택</button>
-        <div>
-          <div class="setup-title">인건비 수정</div>
-          <div class="setup-editor-sub">실투입인건비, 이관인건비, OT비를 구분해 계획을 등록하고 월별 예산내역에 반영합니다.</div>
-        </div>
-      </div>
-      ${renderAccountMonthlyBudgetTable(data, account)}
-      <div class="labor-panel">
-        ${renderLaborKindTabsFinal()}
-        ${renderLaborDetailPlanPanelFinal(data)}
-      </div>
-    </div>`;
-};
+// [인건비 계정 편집기 진입점(데코레이터)은 budget-area-labor.js로 이관되었습니다]
 
 // [A/S 집행계획 행·상세행 데코레이터는 budget-area-as.js로 이관되었습니다]
 
