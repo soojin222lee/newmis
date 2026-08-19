@@ -340,3 +340,66 @@ button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: tr
   .hm-autostrip { border-radius: 14px; flex-wrap: wrap; }
   .hm-autostrip-more { margin-left: 0; width: 100%; }
 }
+
+/* ==========================================================================
+   결정 큐 고도화 — 메타 칩 · AI 추천 변경안 · 정렬 · 근거 원장
+   ========================================================================== */
+
+/* 정렬 셀렉트 */
+.hm-sort {
+  margin-left: auto; border: 1px solid var(--sk-border); background: #fff;
+  border-radius: 999px; padding: 5px 11px; font-size: 11.5px; font-weight: 700;
+  color: var(--sk-ink); cursor: pointer;
+}
+
+/* 카드 헤더 메타 칩 */
+.hm-meta-chips { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-left: auto; }
+.hm-chip {
+  display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 800;
+  border-radius: 999px; padding: 2px 8px; white-space: nowrap; line-height: 1.6;
+}
+.hm-chip.grade.d { background: #e8f6f0; color: #0b7a52; }
+.hm-chip.grade.r { background: #f1eefd; color: #5546c9; }
+.hm-chip.grade.p { background: #eef0f4; color: #55606f; }
+.hm-chip.impact.up   { background: #fde8ec; color: #b8283f; }
+.hm-chip.impact.down { background: #e8f1fd; color: #1f5fbf; }
+.hm-chip.due { background: #f5f6f8; color: #6a7382; }
+.hm-chip.due.near { background: #fdf3e0; color: #9a6206; }
+.hm-chip.src { background: #fff; border: 1px solid var(--sk-border); color: #8a94a6; }
+
+/* AI 추천 변경안 */
+.hm-plan { margin: 12px 0 0; border: 1px solid #e5e0fb; border-radius: 12px; overflow: hidden; }
+.hm-plan-hd { display: flex; align-items: center; gap: 8px; background: #fbfaff; padding: 9px 13px; border-bottom: 1px solid #efebfd; }
+.hm-plan-t { font-size: 12px; font-weight: 900; color: #4b3fb5; }
+.hm-plan-ev { font-size: 10.5px; font-weight: 800; color: #8a94a6; background: #fff; border: 1px solid var(--sk-border); border-radius: 999px; padding: 2px 8px; }
+.hm-plan-why { margin-left: auto; border: 0; background: transparent; font-size: 11.5px; font-weight: 800; color: #5546c9; cursor: pointer; white-space: nowrap; }
+.hm-plan-why:hover { text-decoration: underline; }
+
+.hm-plan-body { padding: 11px 13px; display: flex; flex-direction: column; gap: 7px; }
+.hm-plan-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.hm-plan-nm { color: #6a7382; font-weight: 700; min-width: 116px; }
+.hm-plan-a  { color: #aab2c0; text-decoration: line-through; }
+.hm-plan-ar { color: #c3cad4; font-size: 11px; }
+.hm-plan-b  { font-weight: 900; color: var(--sk-ink); }
+.hm-plan-d  { font-size: 11px; font-weight: 800; border-radius: 999px; padding: 1px 7px; margin-left: auto; }
+.hm-plan-d.up   { background: #fde8ec; color: #b8283f; }
+.hm-plan-d.down { background: #e8f1fd; color: #1f5fbf; }
+
+.hm-plan-ft { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 13px; border-top: 1px solid #efebfd; background: #fdfcff; }
+.hm-plan-ok { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: #6a7382; }
+.hm-plan-ok i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.hm-plan-ok.ok i   { background: #12a46b; }
+.hm-plan-ok.warn i { background: #e39a2a; }
+.hm-plan-ok.warn { color: #9a6206; }
+
+/* 근거 원장 드로어 */
+.hm-ev-row { border: 1px solid var(--sk-border); border-radius: 10px; padding: 11px 13px; margin-bottom: 8px; background: #fff; }
+.hm-ev-k { font-size: 10.5px; font-weight: 900; color: #98a2b3; }
+.hm-ev-v { font-size: 12.5px; color: #3f4855; margin-top: 3px; line-height: 1.7; }
+
+@media (max-width: 720px) {
+  .hm-meta-chips { margin-left: 0; width: 100%; margin-top: 6px; }
+  .hm-plan-nm { min-width: 0; width: 100%; }
+  .hm-plan-d { margin-left: 0; }
+  .hm-sort { margin-left: 0; }
+}
