@@ -400,48 +400,7 @@ function renderBpoKindTabsV2Final() {
     </div>`;
 }
 
-function renderBpoOutsourcePanelFinal(data) {
-  const meta = bpoKindMetaV2();
-  let title = '실투입대상 외주비 계획 등록';
-  let body = renderBpoContractPanelV2('direct');
-  if (outsourceKind === 'professional') {
-    title = '전문직수수료/제안/기타 계획 등록';
-    body = renderBpoContractPanelV2('professional');
-  } else if (outsourceKind === 'travel') {
-    title = '외주출장비 계획 등록';
-    body = renderBpoTravelPanelV2();
-  } else if (outsourceKind === 'construction') {
-    title = '공사MA 계획 등록';
-    body = renderBpoMaPanelV2();
-  } else if (outsourceKind === 'transfer') {
-    title = '이관외주비 계획 등록';
-    body = renderBpoTransferPanelV2();
-  } else if (outsourceKind === 'other') {
-    title = '기타외주비 계획 등록';
-    body = renderBpoOtherPanelV2();
-  }
-  return `
-    <div class="outsource-panel bpo-panel">
-      <div class="labor-panel-head bpo-head">
-        <div>
-          <div class="labor-eyebrow">외주비 등록 / 수정</div>
-          <div class="labor-title">상세 계정 선택</div>
-        </div>
-        <div class="labor-actions compact"><span class="os-kind-caption">${meta.desc}</span></div>
-      </div>
-      ${renderBpoKindTabsV2Final()}
-      <div class="cost-selected-detail bpo-detail">
-        <div class="bpo-detail-title">
-          <div>
-            <div class="cost-selected-title">${title}</div>
-            <span>선택한 상세계정의 신규 계획을 등록하거나 기존 내역을 수정합니다.</span>
-          </div>
-          <button class="labor-main-btn" onclick="bpoOpenNewV2('${outsourceKind}')">신규등록</button>
-        </div>
-        ${body}
-      </div>
-    </div>`;
-}
+// [외주비 진입 패널 renderBpoOutsourcePanelFinal + 편집기 진입점은 budget-area-outsource.js로 이관되었습니다]
 
 function bpoOpenNewV2(kind = outsourceKind) {
   outsourceKind = kind || 'direct';

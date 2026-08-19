@@ -18,6 +18,11 @@ npm start        # = node server.js  → http://localhost:57291
 | └ 원가현황 | 수행원가 > 원가현황 | `s-budget`(costMode `status`) | `js/budget-cost-status.js` | (공유) |
 | └ 원가조정 | 수행원가 > 원가조정 | `s-budget`(costMode `adjust`) | `js/budget-cost-adjust.js` | (공유) |
 | └ 변경 이력 | 수행원가 > 변경 이력 | `s-budget`(costMode `history`) | `js/budget-cost-history.js` | (공유) |
+| └─ 인건비 | 원가조정 > 인건비 | `#/budget-adjust/labor` | `js/budget-area-labor.js` | (공유) |
+| └─ 외주비 | 원가조정 > 외주비 | `#/budget-adjust/outsource` | `js/budget-area-outsource.js` | (공유) |
+| └─ 재료비 | 원가조정 > 재료비 | `#/budget-adjust/material` | `js/budget-area-material.js` | (공유) |
+| └─ 경비 | 원가조정 > 경비 | `#/budget-adjust/expense` | `js/budget-area-expense.js` | (공유) |
+| └─ A/S비 | 원가조정 > A/S비 | `#/budget-adjust/as` | `js/budget-area-as.js` | (공유) |
 | 인사이트 | 인사이트 > 종합현황 | `s-insights` | `js/insights.js` | `css/insights.css` |
 | 맞춤 레포트 | 인사이트 > 맞춤 레포트 | `s-custom-report` | `js/custom-report.js` | (공용) |
 | 수주형 프로젝트 | 프로젝트 | `s-si-project` | `js/si-project.js` | `css/si-project.css` |
@@ -49,6 +54,16 @@ npm start        # = node server.js  → http://localhost:57291
 (`showCost*` / `openCost*`)와 라우트 등록(`ROUTE_ACTIONS['budget-*']`)은 전용 파일
 `budget-cost-status.js` / `budget-cost-adjust.js` / `budget-cost-history.js`가 각각 소유하며,
 이 파일들은 **반드시 `budget-status-5.js` 뒤에 로드**해야 합니다(공유 `costMode`·`openBudgetProjectScreen` 참조).
+
+**원가조정 5대 비용계정(한 뎁스 더):** 원가조정 화면은 `budgetSetupEditAccount`에 따라
+`#/budget-adjust/labor`·`/outsource`·`/material`·`/expense`·`/as`로 한 뎁스 더 내려갑니다
+(계정↔슬러그 매핑·URL 훅·딥링크 라우트는 `budget-area-routes.js`가 소유).
+각 계정의 **편집기 진입점**은 `renderBudgetAccountEditor`를 감싸는 **데코레이터 체인**으로 전용 파일이 소유합니다:
+`budget-area-labor.js` / `budget-area-outsource.js` / `budget-area-material.js` /
+`budget-area-expense.js` / `budget-area-as.js`. 각 파일은 "자기 계정만 처리하고 나머지는 이전 정의로 위임"하므로
+**반드시 `budget-status-*.js` 전부 뒤에 로드**해야 최종 버전을 감싸며 동작합니다(로드 순서 무관, 단 status 파일들 뒤).
+A/S·경비는 데이터·패널까지 전용 파일로 완전 이관했고, 인건비·외주비·재료비는 진입점(데코레이터+상세분기)을 소유하되
+세부 패널(SCM/견적/이관/OT 등)은 레거시 중복 정의라 공유 코어(`budget-status-*.js`)에 그대로 두고 런타임 호출합니다.
 
 ## CSS 로드 순서(캐스케이드)
 ```
