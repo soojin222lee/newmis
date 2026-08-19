@@ -43,9 +43,17 @@ const SCREEN_ROUTES = {
   's-main': 'dashboard',
   // 수행원가는 한 화면(s-budget)에 3개 하위 메뉴가 있으므로 costMode로 라우트명을 결정한다.
   // 각 하위 메뉴의 라우트 액션은 전용 파일(budget-cost-*.js)에서 ROUTE_ACTIONS에 등록한다.
-  's-budget': () => (typeof costMode !== 'undefined' && costMode === 'adjust') ? 'budget-adjust'
-                  : (typeof costMode !== 'undefined' && costMode === 'history') ? 'budget-history'
-                  : 'budget-status',
+  // 원가조정(adjust)은 선택된 비용계정(budgetSetupEditAccount)에 따라 한 뎁스 더 내려간다:
+  //   #/budget-adjust/labor · /outsource · /material · /expense · /as
+  //   (계정↔슬러그 매핑 BUDGET_AREA_SLUGS와 라우트 액션은 budget-area-*.js가 소유한다.)
+  's-budget': () => {
+    if (typeof costMode !== 'undefined' && costMode === 'adjust') {
+      const acc = (typeof budgetSetupEditAccount !== 'undefined') ? budgetSetupEditAccount : null;
+      const slug = (acc && typeof BUDGET_AREA_SLUGS !== 'undefined') ? BUDGET_AREA_SLUGS[acc] : null;
+      return slug ? ('budget-adjust/' + slug) : 'budget-adjust';
+    }
+    return (typeof costMode !== 'undefined' && costMode === 'history') ? 'budget-history' : 'budget-status';
+  },
   's-insights': 'insights',
   's-custom-report': 'custom-report',
   's-si-project': 'si-project',
