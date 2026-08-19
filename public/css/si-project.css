@@ -1,0 +1,23 @@
+/* 수주형 프로젝트 상세 Project Progress 전용 스타일 — sk-theme에서 분리 */
+/* ==========================================================================
+   수주형 프로젝트 상세 — Project Progress (착수/수행/종료)
+   ========================================================================== */
+.si-prog2-in { padding: 20px 26px 22px; }
+.si-prog2-head { margin-bottom: 20px; }
+.si-prog2-title { font-size: 16px; font-weight: 900; color: var(--sk-ink); }
+.si-prog2-sub { display: block; font-size: 13px; color: #8a94a6; margin-top: 4px; }
+.si-p3 { display: flex; align-items: flex-start; max-width: 520px; margin: 0 auto 22px; }
+.si-p3-step { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 0 auto; }
+.si-p3-dot { width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; border: 2px solid #dfe3ea; background: #fff; color: #aab2c0; }
+.si-p3-lbl { font-size: 14px; font-weight: 800; color: #aab2c0; }
+.si-p3-step.done .si-p3-dot { background: var(--sk-green); border-color: var(--sk-green); color: #fff; }
+.si-p3-step.done .si-p3-lbl { color: var(--sk-ink); }
+.si-p3-step.active .si-p3-dot { background: var(--sk-blue); border-color: var(--sk-blue); color: #fff; }
+.si-p3-step.active .si-p3-lbl { color: var(--sk-blue-deep); }
+.si-p3-line { flex: 1; height: 3px; background: #e7eaef; margin: 15px 8px 0; border-radius: 999px; }
+.si-p3-line.on { background: var(--sk-green); }
+.si-p3-actions { display: flex; align-items: center; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.si-p3-actions .labor-main-btn { margin: 0 !important; }
+.si-p3-hint { font-size: 13px; color: #8a94a6; }
+.si-p3-done-tag { font-size: 14px; font-weight: 800; color: var(--sk-green); }
+.si-back-btn { margin-left: 12px !important; flex: 0 0 auto; }

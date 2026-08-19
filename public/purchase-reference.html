@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>구매시스템 참고 화면</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #111827;
+    background: #f7f7f8;
+  }
+  .purchase-shell {
+    min-width: 1180px;
+    min-height: 100vh;
+    background: #fafafa;
+  }
+  .purchase-topbar {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 0 22px;
+    border-bottom: 2px solid #ef3340;
+    background: #ffffff;
+  }
+  .purchase-logo {
+    min-width: 250px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 900;
+    color: #ef3340;
+  }
+  .purchase-logo .mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px 4px 10px 4px;
+    background: linear-gradient(135deg, #ef3340, #ff9f1c);
+  }
+  .purchase-logo small {
+    display: block;
+    color: #f97316;
+    font-size: 13px;
+    line-height: 1.1;
+  }
+  .purchase-menu {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  .purchase-menu button {
+    border: 0;
+    border-radius: 18px;
+    padding: 8px 15px;
+    background: transparent;
+    color: #111827;
+    font-size: 16px;
+    font-weight: 800;
+  }
+  .purchase-menu button.active {
+    background: #ef3340;
+    color: #ffffff;
+  }
+  .purchase-util {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #6b7280;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .purchase-search {
+    width: 120px;
+    height: 30px;
+    border: 1px solid #e5e7eb;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f9fafb;
+  }
+  .purchase-subbar {
+    height: 35px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 22px;
+    border-bottom: 1px solid #d8dbe0;
+    background: #ffffff;
+    color: #4b5563;
+    font-size: 14px;
+  }
+  .purchase-tab {
+    padding: 6px 18px;
+    border-radius: 15px;
+    background: #eef0f3;
+    color: #111827;
+    font-weight: 800;
+  }
+  .purchase-layout {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+  }
+  .purchase-side {
+    min-height: calc(100vh - 91px);
+    padding-top: 8px;
+    border-right: 1px solid #e5e7eb;
+    background: #f0f1f3;
+    color: #7b8088;
+    text-align: center;
+  }
+  .purchase-side span {
+    display: block;
+    padding: 12px 0;
+    font-size: 20px;
+  }
+  .purchase-content {
+    padding: 24px 30px 48px;
+  }
+  .purchase-breadcrumb {
+    margin-bottom: 8px;
+    text-align: right;
+    color: #111827;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .purchase-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .purchase-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 26px;
+    font-weight: 900;
+  }
+  .purchase-title span {
+    color: #9ca3af;
+  }
+  .purchase-close {
+    border: 0;
+    border-radius: 10px;
+    padding: 9px 17px;
+    background: #ef3340;
+    color: #ffffff;
+    font-weight: 900;
+  }
+  .reference-note {
+    margin-bottom: 16px;
+    padding: 13px 15px;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    background: #fff7ed;
+    color: #9a3412;
+    font-size: 15px;
+    font-weight: 800;
+  }
+  .purchase-section {
+    margin-bottom: 18px;
+  }
+  .section-title {
+    margin: 0 0 8px;
+    padding-left: 8px;
+    border-left: 4px solid #ef3340;
+    color: #111827;
+    font-size: 17px;
+    font-weight: 900;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 150px minmax(320px, 420px) 1fr;
+    border: 1px solid #d9dde3;
+    background: #ffffff;
+  }
+  .form-label {
+    padding: 10px 14px;
+    background: #e8ebf0;
+    font-size: 15px;
+    font-weight: 900;
+  }
+  .form-value {
+    padding: 6px 14px;
+    border-left: 1px solid #d9dde3;
+  }
+  .form-value input {
+    width: 100%;
+    height: 30px;
+    border: 1px solid #cfd5dd;
+    border-radius: 4px;
+    padding: 0 8px;
+    background: #f9fafb;
+  }
+  .project-info-grid {
+    display: grid;
+    grid-template-columns: 150px 1fr 150px 1fr 150px 1fr;
+    border: 1px solid #d9dde3;
+    background: #ffffff;
+  }
+  .project-info-grid .form-label,
+  .project-info-grid .form-value {
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .project-info-grid .form-value {
+    border-left: 1px solid #d9dde3;
+    border-right: 1px solid #e5e7eb;
+  }
+  .mapping-input-group {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+  }
+  .mapping-input-group button {
+    border: 0;
+    border-radius: 7px;
+    background: #111827;
+    color: #ffffff;
+    padding: 0 12px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .grid-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-bottom: 4px;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 900;
+  }
+  .grid-toolbar button {
+    width: 24px;
+    height: 24px;
+    border: 1px solid #9ca3af;
+    border-radius: 3px;
+    background: #ffffff;
+  }
+  .purchase-grid-wrap {
+    border: 1px solid #cfd5dd;
+    background: #ffffff;
+    overflow: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 14px;
+  }
+  th, td {
+    height: 32px;
+    border-right: 1px solid #d6dae1;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 6px 8px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  th {
+    background: #e7e9ee;
+    color: #111827;
+    font-weight: 900;
+  }
+  td {
+    background: #fff7f8;
+  }
+  .selected-cell {
+    border: 2px solid #3f3f46;
+    background: #ffffff;
+  }
+  .row-arrow {
+    width: 38px;
+    background: #ef3340;
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: 900;
+  }
+  .radio-dot {
+    width: 8px;
+    height: 8px;
+    margin: 0 auto;
+    border-radius: 50%;
+    background: #ef3340;
+  }
+  .lookup {
+    color: #ef476f;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .disabled-cost-field {
+    position: relative;
+    color: #9ca3af !important;
+    cursor: not-allowed !important;
+    background: #f3f4f6 !important;
+  }
+  .disabled-cost-field::after {
+    content: "×";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #ef3340;
+    font-size: 30px;
+    font-weight: 900;
+    line-height: 1;
+    pointer-events: none;
+  }
+  .sum-row td {
+    background: #f0f1f3;
+    font-weight: 900;
+  }
+  .large-empty {
+    height: 260px;
+    background: #ffffff;
+  }
+  .input-cost-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 28px 16px;
+    background: rgba(17, 24, 39, 0.28);
+  }
+  .input-cost-modal.open {
+    display: flex;
+  }
+  .input-cost-dialog {
+    width: min(1240px, 100%);
+    max-height: calc(100vh - 56px);
+    border: 1px solid #b9bec7;
+    background: #ffffff;
+    box-shadow: 0 28px 72px rgba(17, 24, 39, 0.24);
+    overflow: hidden;
+  }
+  .input-cost-head {
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px 0 12px;
+    background: #e6e8ed;
+    color: #111827;
+    font-size: 17px;
+    font-weight: 900;
+  }
+  .input-cost-head button {
+    border: 0;
+    background: transparent;
+    color: #111827;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .input-cost-body {
+    padding: 12px 8px 0;
+    overflow: auto;
+  }
+  .partner-row {
+    display: grid;
+    grid-template-columns: 96px 1fr 1fr;
+    gap: 4px;
+    margin-bottom: 24px;
+  }
+  .partner-row span {
+    padding: 8px 10px;
+    background: #e7e9ee;
+    border: 1px solid #d1d5db;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 900;
+  }
+  .partner-row input {
+    min-width: 0;
+    height: 30px;
+    border: 1px solid #cfd5dd;
+    border-radius: 4px;
+    padding: 0 10px;
+    background: #f9fafb;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .cost-summary-row {
+    display: grid;
+    grid-template-columns: 1fr 210px 160px 210px;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 18px;
+  }
+  .cost-summary-row .notice {
+    color: #ef3340;
+    font-size: 14px;
+    font-weight: 900;
+  }
+  .cost-summary-row label {
+    color: #111827;
+    font-size: 14px;
+    font-weight: 900;
+    text-align: right;
+  }
+  .cost-summary-row input {
+    height: 30px;
+    border: 1px solid #cfd5dd;
+    border-radius: 4px;
+    padding: 0 10px;
+    background: #f9fafb;
+    text-align: right;
+    font-weight: 800;
+  }
+  .new-field-highlight {
+    position: relative;
+    border: 3px solid #ef3340 !important;
+    border-radius: 8px;
+    box-shadow: 0 0 0 3px rgba(239, 51, 64, 0.12);
+  }
+  .input-cost-grid .new-field-col {
+    border-left: 3px solid #ef3340 !important;
+    border-right: 3px solid #ef3340 !important;
+    background: #fff1f2 !important;
+  }
+  .input-cost-grid th:nth-child(11),
+  .input-cost-grid th:nth-child(12),
+  .input-cost-grid td:nth-child(11),
+  .input-cost-grid td:nth-child(12) {
+    border-left: 3px solid #ef3340 !important;
+    border-right: 3px solid #ef3340 !important;
+    background: #fff1f2 !important;
+  }
+  .input-cost-section-title {
+    margin: 0 0 6px;
+    padding-left: 8px;
+    border-left: 4px solid #ef3340;
+    color: #111827;
+    font-size: 16px;
+    font-weight: 900;
+  }
+  .input-cost-grid-wrap {
+    height: 430px;
+    border-top: 1px solid #b9bec7;
+    overflow: auto;
+  }
+  .input-cost-grid {
+    min-width: 1180px;
+  }
+  .input-cost-grid th {
+    height: 30px;
+    background: #e6e8ed;
+  }
+  .input-cost-grid td {
+    height: 26px;
+    background: #ffffff;
+  }
+  .input-cost-grid tr.selected td {
+    background: #fff1f2;
+  }
+  .input-cost-grid .row-arrow {
+    width: 34px;
+    background: #ef3340;
+    color: #ffffff;
+  }
+  .input-cost-grid .muted {
+    color: #9ca3af;
+  }
+  .input-cost-grid .company {
+    font-size: 16px;
+    font-weight: 900;
+  }
+  .input-cost-grid .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .input-cost-grid input[type="checkbox"] {
+    width: 12px;
+    height: 12px;
+  }
+  .input-cost-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 10px;
+    border-top: 1px solid #d1d5db;
+    background: #ffffff;
+  }
+  .input-cost-footer button {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #111827;
+    padding: 8px 14px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .input-cost-footer button.primary {
+    border-color: #111827;
+    background: #111827;
+    color: #ffffff;
+  }
+  .match-basis {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 0 0 12px;
+    padding: 10px 14px;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    background: #f0fdf4;
+    font-size: 14px;
+    color: #166534;
+  }
+  .match-basis .mb-title { font-weight: 900; }
+  .match-basis b { color: #14532d; }
+  .match-basis .mb-note { color: #4b5563; font-weight: 600; }
+  .match-badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+  .match-badge.match { background: #dcfce7; color: #166534; }
+  .match-badge.partial { background: #fef3c7; color: #92400e; }
+  .match-badge.none { background: #f1f5f9; color: #94a3b8; }
+  .input-cost-grid tr.reco-row td { background: #f0fdf4; }
+  .input-cost-grid tr.reco-row.selected td { background: #dcfce7; }
+  .icm-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .icm-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #f9fafb;
+  }
+  .icm-card small { display: block; margin-bottom: 4px; color: #6b7280; font-size: 13px; font-weight: 800; }
+  .icm-card strong { color: #111827; font-size: 17px; font-weight: 900; }
+  .icm-table-wrap {
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    overflow: auto;
+  }
+  .icm-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .icm-table th {
+    height: 34px;
+    padding: 0 12px;
+    background: #e6e8ed;
+    color: #111827;
+    font-weight: 900;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .icm-table td {
+    height: 34px;
+    padding: 0 12px;
+    border-top: 1px solid #eef0f3;
+    background: #ffffff;
+    white-space: nowrap;
+  }
+  .icm-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .icm-table td.company { font-weight: 900; }
+  .icm-table tr.selected td { background: #fff1f2; }
+  .icm-table tr.reco-row td { background: #f0fdf4; }
+  .icm-table tr.reco-row.selected td { background: #dcfce7; }
+  .icm-select-btn {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #111827;
+    padding: 5px 12px;
+    font-size: 14px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .icm-table tr.selected .icm-select-btn { border-color: #111827; background: #111827; color: #ffffff; }
+</style>
+</head>
+<body>
+<div class="purchase-shell">
+  <header class="purchase-topbar">
+    <div class="purchase-logo">
+      <div class="mark"></div>
+      <div>
+        SK <small>주식회사 구매정보시스템 #개발<br>AX</small>
+      </div>
+    </div>
+    <nav class="purchase-menu">
+      <button>견적소싱요청</button>
+      <button class="active">구매요청등록</button>
+      <button>구매오더</button>
+      <button>검수/정산</button>
+      <button>협력사</button>
+      <button>Data Report</button>
+      <button>결재관리</button>
+      <button>구매업무지원</button>
+      <button>동반성장</button>
+      <button>기준정보</button>
+    </nav>
+    <div class="purchase-util">
+      <strong style="color:#1d4ed8">ProAX</strong>
+      <div class="purchase-search">통합검색</div>
+      <span>테스트진</span>
+    </div>
+  </header>
+  <div class="purchase-subbar">
+    <span>HOME</span>
+    <span class="purchase-tab">구매요청현황 ×</span>
+  </div>
+  <div class="purchase-layout">
+    <aside class="purchase-side">
+      <span>›</span>
+      <span>★</span>
+      <span>⌘</span>
+      <span>●</span>
+    </aside>
+    <main class="purchase-content">
+      <div class="purchase-breadcrumb">Home &gt; 구매요청목록 &gt; 구매요청현황</div>
+      <div class="purchase-title-row">
+        <div class="purchase-title">구매요청-외주 <span>★</span></div>
+        <button class="purchase-close" onclick="window.close()">닫기</button>
+      </div>
+      <div class="reference-note">
+        NEW MIS 외주비/재료비 등록 시 구매시스템에서 수신되는 원천 데이터를 참고하기 위한 목업 화면입니다. 실제 입력은 NEW MIS에서 진행하고, 이 화면은 원본 확인용으로 사용합니다.
+      </div>
+
+      <section class="purchase-section">
+        <h2 class="section-title">프로젝트정보</h2>
+        <div class="project-info-grid">
+          <div class="form-label">프로젝트명</div>
+          <div class="form-value"><input value="부서구매(CostCenter)" readonly /></div>
+          <div class="form-label">프로젝트번호</div>
+          <div class="form-value"><input value="9000000000" readonly /></div>
+          <div class="form-label">고객사명</div>
+          <div class="form-value"><input value="" readonly /></div>
+          <div class="form-label">프로젝트기간</div>
+          <div class="form-value"><input value="2026/04/01  ~  2026/06/30" readonly /></div>
+          <div class="form-label">구매요청금액</div>
+          <div class="form-value"><input value="154,288,325" readonly /></div>
+          <div class="form-label">MIS원가맵핑</div>
+          <div class="form-value new-field-highlight">
+            <div class="mapping-input-group">
+              <input id="mis-cost-mapping-field" value="미매핑" readonly />
+              <button onclick="openInputCostModal()">원가 맵핑</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="purchase-section">
+        <h2 class="section-title">외주 구매목적</h2>
+        <div class="form-row">
+          <div class="form-label">구매목적</div>
+          <div class="form-value"><input value="T:Project(사내프로젝트)" readonly /></div>
+          <div></div>
+        </div>
+      </section>
+
+      <section class="purchase-section">
+        <h2 class="section-title">품목정보</h2>
+        <div class="grid-toolbar">
+          <span>Results : 1</span>
+          <button>⌘</button>
+          <button>☷</button>
+          <button>↓</button>
+          <button>↗</button>
+        </div>
+        <div class="purchase-grid-wrap">
+          <table>
+            <colgroup>
+              <col style="width:40px" />
+              <col style="width:22px" />
+              <col style="width:52px" />
+              <col style="width:100px" />
+              <col style="width:150px" />
+              <col style="width:150px" />
+              <col style="width:80px" />
+              <col style="width:100px" />
+              <col style="width:100px" />
+              <col style="width:80px" />
+              <col style="width:80px" />
+              <col style="width:40px" />
+              <col style="width:40px" />
+              <col style="width:40px" />
+              <col style="width:40px" />
+              <col />
+            </colgroup>
+            <thead>
+              <tr>
+                <th></th>
+                <th></th>
+                <th>항번</th>
+                <th>품목코드</th>
+                <th>품목명</th>
+                <th>상세업무</th>
+                <th>수량</th>
+                <th>단가</th>
+                <th>금액</th>
+                <th colspan="2">계약기간</th>
+                <th>회계정보</th>
+                <th>용역장소</th>
+                <th>투입원가</th>
+                <th>견적서</th>
+                <th></th>
+              </tr>
+              <tr>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th>시작일자</th>
+                <th>종료일자</th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-arrow">›</td>
+                <td><div class="radio-dot"></div></td>
+                <td>10</td>
+                <td>MP00003</td>
+                <td>APPLICATION 운영</td>
+                <td>서비스 구매</td>
+                <td>1</td>
+                <td>130,481,055</td>
+                <td>130,481,055</td>
+                <td>2026/04/01</td>
+                <td>2026/06/30</td>
+                <td class="lookup">⌕</td>
+                <td class="lookup">⌕</td>
+                <td class="lookup disabled-cost-field">⌕</td>
+                <td class="lookup">⌕</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td class="large-empty" colspan="16"></td>
+              </tr>
+              <tr class="sum-row">
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>합계</td>
+                <td>1</td>
+                <td>130,481,055</td>
+                <td>130,481,055</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="input-cost-modal" id="input-cost-modal" onclick="if(event.target===this)closeInputCostModal()">
+  <div class="input-cost-dialog">
+    <div class="input-cost-head">
+      <span>MIS원가맵핑</span>
+      <button onclick="closeInputCostModal()" title="닫기">×</button>
+    </div>
+    <div class="input-cost-body">
+      <div class="icm-summary">
+        <div class="icm-card"><small>협력사</small><strong>애커튼테크놀로지서비스</strong></div>
+        <div class="icm-card"><small>구매요청금액</small><strong>154,288,325원</strong></div>
+        <div class="icm-card"><small>프로젝트기간</small><strong>2026/04/01 ~ 2026/06/30</strong></div>
+        <div class="icm-card"><small>체크 기준</small><strong>금액 / 시작일 / 종료일</strong></div>
+      </div>
+      <div class="icm-table-wrap">
+        <table class="icm-table">
+          <thead>
+            <tr>
+              <th style="width:80px">선택</th>
+              <th>계약번호</th>
+              <th>업체명</th>
+              <th>계약금액</th>
+              <th>계약시작일</th>
+              <th>계약종료일</th>
+              <th>체크결과</th>
+            </tr>
+          </thead>
+          <tbody id="input-cost-rows"></tbody>
+        </table>
+      </div>
+      <div class="input-cost-footer">
+        <button onclick="closeInputCostModal()">취소</button>
+        <button class="primary" onclick="confirmInputCostMapping()">맵핑 확정</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const inputCostRows = [
+    { projectNo:'IV107121', lineNo:1, vendor:'oo주식회사', start:'2026/01/01', end:'2026/03/31', mm:'3.00', amount:'23,210,580', currency:'KRW', contracted:'Y', contractNo:'4500311570' },
+    { projectNo:'IV107121', lineNo:2, vendor:'BP Korea', start:'2026/04/01', end:'2026/06/30', mm:'4.50', amount:'154,288,325', currency:'KRW', contracted:'Y', contractNo:'4500312456' },
+    { projectNo:'IV107121', lineNo:3, vendor:'Vietnam Front Team', start:'2026/07/01', end:'2026/09/30', mm:'5.00', amount:'38,684,605', currency:'KRW', contracted:'N', contractNo:'' },
+    { projectNo:'IV107121', lineNo:4, vendor:'AIM Partners', start:'2026/10/01', end:'2026/12/31', mm:'4.35', amount:'33,770,000', currency:'KRW', contracted:'N', contractNo:'' },
+  ];
+  const inputCostBasis = { amount: 154288325, start: '2026/04/01', end: '2026/06/30' };
+  function parseCostAmount(value) {
+    return Number(String(value).replace(/[^0-9]/g, '')) || 0;
+  }
+  function evalInputCostMatch(row) {
+    if (!row.vendor) return null;
+    const amountMatch = parseCostAmount(row.amount) === inputCostBasis.amount;
+    const startMatch = row.start === inputCostBasis.start;
+    const endMatch = row.end === inputCostBasis.end;
+    if (!amountMatch) return { key: 'none', label: '금액 불일치' };
+    if (!startMatch) return { key: 'partial', label: '금액 일치 / 시작일 불일치' };
+    if (!endMatch) return { key: 'partial', label: '금액 일치 / 종료일 불일치' };
+    return { key: 'match', label: '매핑 추천 · 일치' };
+  }
+  function recommendedInputCostIndex() {
+    const idx = inputCostRows.findIndex(row => {
+      const match = evalInputCostMatch(row);
+      return match && match.key === 'match';
+    });
+    return idx >= 0 ? idx : 0;
+  }
+  let selectedInputCostIndex = recommendedInputCostIndex();
+
+  function renderInputCostRows() {
+    const body = document.getElementById('input-cost-rows');
+    body.innerHTML = inputCostRows.map((row, idx) => {
+      const match = evalInputCostMatch(row);
+      const isSel = idx === selectedInputCostIndex;
+      const recoClass = match && match.key === 'match' ? 'reco-row' : '';
+      return `
+      <tr class="${isSel ? 'selected' : ''} ${recoClass}">
+        <td><button type="button" class="icm-select-btn" onclick="selectInputCostRow(${idx})">${isSel ? '선택됨' : '선택'}</button></td>
+        <td>${row.contractNo || '-'}</td>
+        <td class="company">${row.vendor}</td>
+        <td class="num">${row.amount}원</td>
+        <td>${row.start}</td>
+        <td>${row.end}</td>
+        <td>${match ? `<span class="match-badge ${match.key}">${match.label}</span>` : '-'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function selectInputCostRow(index) {
+    selectedInputCostIndex = index;
+    renderInputCostRows();
+  }
+
+  function openInputCostModal() {
+    renderInputCostRows();
+    document.getElementById('input-cost-modal').classList.add('open');
+  }
+
+  function closeInputCostModal() {
+    document.getElementById('input-cost-modal').classList.remove('open');
+  }
+
+  function confirmInputCostMapping() {
+    const row = inputCostRows[selectedInputCostIndex] || inputCostRows[0];
+    const contractText = row.contractNo ? ` / ${row.contractNo}` : '';
+    document.getElementById('mis-cost-mapping-field').value = `${row.vendor} / ${row.amount}${contractText}`;
+    closeInputCostModal();
+  }
+</script>
+</body>
+</html>

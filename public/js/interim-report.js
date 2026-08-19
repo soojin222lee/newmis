@@ -115,7 +115,7 @@ function buildInterimListPage() {
       const r = (reports[i] || {});
       const bg  = r.status==='승인완료'?'#dcfce7':r.status==='검토중'?'#fef3c7':'#f1f5f9';
       const col = r.status==='승인완료'?'#166534':r.status==='검토중'?'#b45309':'#94a3b8';
-      return `<span style="background:${bg};color:${col};font-size:10px;padding:2px 8px;border-radius:20px;white-space:nowrap">${ph.name}</span>`;
+      return `<span style="background:${bg};color:${col};font-size:12px;padding:2px 8px;border-radius:20px;white-space:nowrap">${ph.name}</span>`;
     }).join('');
     return `
       <tr onclick="openInterimDetail('${k}')">
@@ -127,7 +127,7 @@ function buildInterimListPage() {
         <td><div style="display:flex;flex-wrap:wrap;gap:4px">${phaseBadges}</div></td>
         <td class="pt-center" style="white-space:nowrap">
           <span style="font-weight:700;color:#1d4ed8">${doneCount}</span>/<span style="color:#64748b">${phases.length}</span> 승인
-          ${reviewCount > 0 ? `<br><span style="font-size:11px;color:#b45309">${reviewCount}건 검토중</span>` : ''}
+          ${reviewCount > 0 ? `<br><span style="font-size:13px;color:#b45309">${reviewCount}건 검토중</span>` : ''}
         </td>
         <td class="pt-center">
           <span class="ipc-status-badge" style="background:${statusBg[st]};color:${statusColor[st]}">${statusLabel[st]}</span>
@@ -288,9 +288,9 @@ function buildInterimReport(ph, rpt, idx) {
     </div>` : `
     <div class="card" style="margin-bottom:16px">
       <div style="padding:48px 24px;text-align:center;color:#94a3b8">
-        <div style="font-size:36px;margin-bottom:12px">📋</div>
-        <div style="font-size:15px;font-weight:600;margin-bottom:6px">아직 보고서가 생성되지 않았습니다</div>
-        <div style="font-size:13px">단계 완료 후 AI 보고서를 생성하세요.</div>
+        <div style="font-size:38px;margin-bottom:12px">📋</div>
+        <div style="font-size:17px;font-weight:600;margin-bottom:6px">아직 보고서가 생성되지 않았습니다</div>
+        <div style="font-size:15px">단계 완료 후 AI 보고서를 생성하세요.</div>
       </div>
     </div>`}
 
@@ -302,14 +302,14 @@ function buildInterimReport(ph, rpt, idx) {
       <div style="padding:20px 24px">
         ${rpt.status === '승인완료' ? `
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-            <span style="font-size:24px">✅</span>
+            <span style="font-size:26px">✅</span>
             <div>
-              <div style="font-size:15px;font-weight:700;color:#166534">승인 완료</div>
-              <div style="font-size:13px;color:#64748b;margin-top:2px">${rpt.approvedAt} · ${rpt.approver} 승인</div>
+              <div style="font-size:17px;font-weight:700;color:#166534">승인 완료</div>
+              <div style="font-size:15px;color:#64748b;margin-top:2px">${rpt.approvedAt} · ${rpt.approver} 승인</div>
             </div>
           </div>
-          <div style="font-size:13px;color:#475569">이 단계는 공식 완료 처리되었습니다.</div>` :
-          actionBtn || '<div style="font-size:13px;color:#94a3b8">보고서를 먼저 생성하세요.</div>'}
+          <div style="font-size:15px;color:#475569">이 단계는 공식 완료 처리되었습니다.</div>` :
+          actionBtn || '<div style="font-size:15px;color:#94a3b8">보고서를 먼저 생성하세요.</div>'}
       </div>
     </div>
 

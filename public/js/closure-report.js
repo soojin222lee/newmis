@@ -120,13 +120,13 @@ function buildClosureListPage() {
           <div class="pt-sub">${p.start} ~ ${p.end}</div>
         </td>
         <td>${p.pm}</td>
-        <td style="text-align:right;font-weight:700;white-space:nowrap">${fmt(p.budget)}<span style="font-weight:400;color:#94a3b8;font-size:11px">원</span></td>
+        <td style="text-align:right;font-weight:700;white-space:nowrap">${fmt(p.budget)}<span style="font-weight:400;color:#94a3b8;font-size:13px">원</span></td>
         <td style="min-width:100px">
           <div style="display:flex;align-items:center;gap:6px">
             <div style="flex:1;height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden">
               <div style="height:100%;width:${prereqPct}%;background:${prereqColor};border-radius:3px"></div>
             </div>
-            <span style="font-size:11px;color:#64748b;white-space:nowrap">${donePrereqs}/${totalPrereqs}</span>
+            <span style="font-size:13px;color:#64748b;white-space:nowrap">${donePrereqs}/${totalPrereqs}</span>
           </div>
         </td>
         <td class="pt-center">
@@ -236,9 +236,9 @@ function buildClosurePage() {
 function buildClosureBlocked() {
   return `<div class="card">
     <div style="padding:60px 24px;text-align:center;color:#94a3b8">
-      <div style="font-size:48px;margin-bottom:16px">🔒</div>
-      <div style="font-size:16px;font-weight:700;color:#64748b;margin-bottom:8px">선행 업무 완료 후 보고서를 생성할 수 있습니다</div>
-      <div style="font-size:13px">위의 체크리스트를 모두 완료하면 AI 종료보고서 생성이 활성화됩니다.</div>
+      <div style="font-size:50px;margin-bottom:16px">🔒</div>
+      <div style="font-size:18px;font-weight:700;color:#64748b;margin-bottom:8px">선행 업무 완료 후 보고서를 생성할 수 있습니다</div>
+      <div style="font-size:15px">위의 체크리스트를 모두 완료하면 AI 종료보고서 생성이 활성화됩니다.</div>
     </div>
   </div>`;
 }
@@ -251,9 +251,9 @@ function buildClosureReport(d, p) {
   if (!isGenerated) {
     return `<div class="card">
       <div style="padding:48px 24px;text-align:center">
-        <div style="font-size:36px;margin-bottom:12px">📋</div>
-        <div style="font-size:15px;font-weight:600;color:#475569;margin-bottom:6px">선행 업무가 모두 완료되었습니다!</div>
-        <div style="font-size:13px;color:#94a3b8;margin-bottom:20px">AI 종료보고서를 생성하세요.</div>
+        <div style="font-size:38px;margin-bottom:12px">📋</div>
+        <div style="font-size:17px;font-weight:600;color:#475569;margin-bottom:6px">선행 업무가 모두 완료되었습니다!</div>
+        <div style="font-size:15px;color:#94a3b8;margin-bottom:20px">AI 종료보고서를 생성하세요.</div>
         <button class="init-action-btn btn-generate" onclick="generateClosureReport()" style="margin:0 auto">🤖 AI 종료보고서 생성</button>
       </div>
     </div>`;
@@ -342,7 +342,7 @@ function buildClosureApprovalPanel(d, p, allDone) {
         </div>
         ${actionBtn ? `<div style="margin-top:20px">${actionBtn}</div>` : ''}
         ${d.status === '승인완료' ? `
-          <div style="margin-top:16px;padding:12px;background:#f0fdf4;border-radius:10px;font-size:13px;color:#166534;font-weight:600;text-align:center">
+          <div style="margin-top:16px;padding:12px;background:#f0fdf4;border-radius:10px;font-size:15px;color:#166534;font-weight:600;text-align:center">
             🎉 프로젝트 공식 종료 완료
           </div>` : ''}
       </div>

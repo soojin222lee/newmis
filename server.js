@@ -11,7 +11,9 @@ const MIME = {
   ".json": "application/json",
 };
 
-const DATA_FILE = path.join(__dirname, "data.json");
+const PUBLIC_DIR = path.join(__dirname, "public");
+const MAX_BODY   = 1_000_000; // 1MB 요청 바디 상한
+const DATA_FILE  = path.join(__dirname, "data.json");
 
 function loadData() {
   try {
@@ -51,9 +53,18 @@ const server = http.createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
-    let body = "";
-    req.on("data", c => body += c);
+    let body = "", aborted = false;
+    req.on("data", c => {
+      if (aborted) return;
+      body += c;
+      if (body.length > MAX_BODY) {
+        aborted = true;
+        res.writeHead(413); res.end(JSON.stringify({ error: "Payload too large" }));
+        req.destroy();
+      }
+    });
     req.on("end", () => {
+      if (aborted) return;
       try { handleAPI(url.pathname, req.method, body ? JSON.parse(body) : null, res); }
       catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: "Bad request" })); }
     });
@@ -61,8 +72,16 @@ const server = http.createServer((req, res) => {
   }
 
   // 정적 파일 서빙
-  let filePath = url.pathname === "/" ? "/index.html" : url.pathname;
-  filePath = path.join(__dirname, "public", filePath);
+  let reqPath;
+  try { reqPath = decodeURIComponent(url.pathname); }
+  catch (e) { res.writeHead(400); res.end("Bad request"); return; }
+  if (reqPath === "/") reqPath = "/index.html";
+
+  const filePath = path.normalize(path.join(PUBLIC_DIR, reqPath));
+  // public 디렉터리 밖으로의 접근 차단(디렉터리 이탈 방지)
+  if (filePath !== PUBLIC_DIR && !filePath.startsWith(PUBLIC_DIR + path.sep)) {
+    res.writeHead(403); res.end("Forbidden"); return;
+  }
   const ext = path.extname(filePath);
 
   fs.readFile(filePath, (err, data) => {
@@ -82,6 +101,11 @@ function handleAPI(pathname, method, body, res) {
   if (memoMatch && method === "POST") {
     const risk = appData.risks.find(r => r.id === memoMatch[1]);
     if (!risk) { res.writeHead(404); res.end(JSON.stringify({ error: "Not found" })); return; }
+    if (!body || typeof body.memo !== "object" || body.memo === null
+        || !Array.isArray(body.checks) || typeof body.status !== "string") {
+      res.writeHead(400); res.end(JSON.stringify({ error: "Invalid payload" })); return;
+    }
+    if (!Array.isArray(risk.memos)) risk.memos = [];
     risk.memos.push(body.memo);
     risk.checks = body.checks;
     risk.status  = body.status;

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>검수상세 - 유지보수 검수 계획</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; min-width: 1280px; font-family: 'Noto Sans KR', sans-serif; color: #111827; background: #f7f7f8; }
+  .page { padding: 16px 18px 48px; }
+  .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+  h1 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 24px; font-weight: 900; }
+  h1 span.star { color: #f59e0b; }
+  h1 .ptype-chip { font-size: 14px; font-weight: 900; padding: 3px 10px; border-radius: 999px; background: #ccfbf1; color: #0f766e; }
+  .breadcrumb { margin-bottom: 8px; text-align: right; font-size: 14px; font-weight: 700; color: #2563eb; }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .btn { border: 1px solid #d1d5db; border-radius: 8px; background: #fff; color: #111827; padding: 8px 14px; font-weight: 900; cursor: pointer; }
+  .btn.primary { border-color: #ef4444; background: #ef4444; color: #fff; }
+  .btn.dark { border-color: #111827; background: #111827; color: #fff; }
+  .btn.teal { border-color: #0f766e; background: #0f766e; color: #fff; }
+  .btn.sm { padding: 5px 10px; font-size: 14px; }
+  .btn:disabled { border-color: #d1d5db; background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
+  .scenario-note { margin: 0 0 16px; border: 1px solid #99f6e4; border-radius: 10px; background: #f0fdfa; padding: 12px 14px; color: #0f766e; font-size: 15px; font-weight: 800; }
+  .section { margin-bottom: 18px; border: 1px solid #d9dde3; border-radius: 8px; background: #fff; overflow: hidden; }
+  .section.plan-highlight { border: 3px solid #0d9488; box-shadow: 0 0 0 3px rgba(13, 148, 136, .12); }
+  .section-title { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid #e5e7eb; background: #fff; font-size: 19px; font-weight: 900; }
+  .section-title .title-text { display: inline-flex; align-items: center; gap: 8px; }
+  .section-title .title-text::before { content: ""; width: 4px; height: 18px; border-radius: 3px; background: #ef4444; }
+  .section.plan-highlight .title-text::before { background: #0d9488; }
+  .collapse { color: #4b5563; font-size: 20px; }
+  .form-grid { display: grid; grid-template-columns: 120px 1fr 120px 1fr 120px 1fr; border-top: 1px solid #e5e7eb; }
+  .label { background: #e8ebf0; padding: 10px 14px; font-weight: 900; border-right: 1px solid #d1d5db; border-bottom: 1px solid #d1d5db; font-size: 15px; }
+  .label.req::after { content: " *"; color: #ef4444; }
+  .value { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 7px 12px; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+  .value.span { grid-column: 2 / -1; }
+  input, select { width: 100%; height: 30px; border: 1px solid #d1d5db; border-radius: 4px; background: #f9fafb; padding: 0 10px; font-family: inherit; font-weight: 700; font-size: 15px; }
+  input.req-field { background: #fffbeb; border-color: #fbbf24; }
+  input[readonly] { background: #f3f4f6; }
+  textarea { width: 100%; min-height: 70px; border: 1px solid #d1d5db; border-radius: 4px; background: #f9fafb; padding: 8px 10px; font-family: inherit; font-weight: 700; resize: vertical; }
+  .right { text-align: right; }
+  .section-tip { padding: 10px 14px; border-top: 1px solid #e5e7eb; background: #f0fdfa; color: #0f766e; font-size: 14px; font-weight: 800; }
+  .table-wrap { padding: 0 0 12px; overflow: auto; }
+  .result-count { padding: 8px 12px 4px; text-align: right; font-weight: 900; font-size: 15px; }
+  table { width: 100%; min-width: 1180px; border-collapse: collapse; table-layout: fixed; font-size: 15px; }
+  th, td { border: 1px solid #d1d5db; padding: 8px 8px; text-align: center; vertical-align: middle; }
+  th { background: #e7e9ee; font-weight: 900; }
+  td { background: #fff; }
+  td.left { text-align: left; }
+  tr.target-row td { background: #f0fdfa; }
+  tr.done-row td { background: #f8fafc; color: #64748b; }
+  td .amt-input { height: 28px; text-align: right; background: #fffbeb; border-color: #fbbf24; }
+  td .amt-input.bad { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
+  td .amt-input.good { background: #dcfce7; border-color: #16a34a; color: #166534; }
+  .row-arrow { width: 34px; background: #0d9488 !important; color: #fff; font-weight: 900; }
+  .state-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 13px; font-weight: 800; }
+  .st-done { background: #dcfce7; color: #166534; }
+  .st-target { background: #ccfbf1; color: #0f766e; }
+  .st-future { background: #f1f5f9; color: #64748b; }
+  .attach-box { margin: 12px 14px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #fafafa; min-height: 90px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-weight: 800; font-size: 15px; }
+  .plan-basis { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin: 12px 14px; padding: 12px 14px; border-radius: 10px; border: 1px solid #e5e7eb; font-size: 15px; font-weight: 800; }
+  .plan-basis.ok { border-color: #99f6e4; background: #f0fdfa; color: #0f766e; }
+  .plan-basis.warn { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+  .plan-basis b { color: inherit; }
+  .plan-basis .final-badge { display: inline-block; padding: 2px 7px; border-radius: 999px; background: #ede9fe; color: #4c1d95; font-size: 12px; font-weight: 800; }
+  .plan-basis-verdict { padding: 3px 10px; border-radius: 999px; font-weight: 900; font-size: 14px; }
+  .plan-basis.ok .plan-basis-verdict { background: #ccfbf1; color: #0f766e; }
+  .plan-basis.warn .plan-basis-verdict { background: #fee2e2; color: #b91c1c; }
+  .compare-box { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .compare-card { border: 1px solid #99f6e4; border-radius: 10px; background: #f0fdfa; padding: 12px; }
+  .compare-card small { display: block; margin-bottom: 5px; color: #0f766e; font-weight: 800; font-size: 14px; }
+  .compare-card strong { font-size: 20px; font-weight: 900; }
+  .compare-card.ok strong { color: #047857; }
+  .compare-card.warn strong { color: #ef4444; }
+  .footer-actions { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; padding: 14px; box-shadow: 0 -10px 30px rgba(15, 23, 42, .08); }
+  .footer-actions p { margin: 0; color: #4b5563; font-weight: 800; font-size: 15px; }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="top">
+    <h1>검수상세 (4500302570 / IV107121) <span class="star">★</span> <span class="ptype-chip">유지보수 검수</span></h1>
+    <div>
+      <div class="breadcrumb">Home &gt; 검수/정산 &gt; 검수/대금지급 &gt; 검수관리</div>
+      <div class="actions">
+        <button class="btn">임시저장</button>
+        <button class="btn primary" id="request-button" onclick="requestInspection()">검수요청</button>
+        <button class="btn">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="scenario-note">
+    시나리오(유지보수 검수): 유지보수 검수금액은 실행예산 유지보수 계획금액의 <b>±10%(10% 안짝)</b> 이내면 검수요청할 수 있습니다. 허용범위를 벗어나면 검수할 수 없으며, 실행예산 유지보수 계획을 다시 수립(재승인)한 뒤 진행해야 합니다.
+  </p>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">기본정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">계약번호/차수</div>
+      <div class="value"><input value="4500302570" readonly /><input value="1" readonly style="max-width:60px" /></div>
+      <div class="label">계약명</div>
+      <div class="value span"><input value="SK주식회사 / 26년 MIS운영_구매정보시스템 유지보수 / 엠로" readonly /></div>
+
+      <div class="label">검수번호/차수</div>
+      <div class="value"><input value="" readonly /><input value="" readonly style="max-width:60px" /></div>
+      <div class="label">검수내역</div>
+      <div class="value span"><input value="3차 검수_SK주식회사 / 26년 MIS운영_구매정보시스템 유지보수 / 엠로" readonly /></div>
+
+      <div class="label">계약금액</div>
+      <div class="value"><input class="right" value="54,330,000" readonly /></div>
+      <div class="label">계약기간</div>
+      <div class="value"><input value="2026/01/01  ~  2026/12/31" readonly /></div>
+      <div class="label">통화</div>
+      <div class="value"><input value="원화" readonly /></div>
+
+      <div class="label req">검수타임</div>
+      <div class="value"><select class="req-field"><option>3차 검수</option><option>1차 검수</option><option>2차 검수</option><option>4차 검수</option></select></div>
+      <div class="label">검수자</div>
+      <div class="value"><input value="이수진" readonly /></div>
+      <div class="label">협력사</div>
+      <div class="value"><input value="2208181381" readonly style="max-width:120px" /><input value="주식회사 엠로" readonly /></div>
+
+      <div class="label">검수메모</div>
+      <div class="value span"><textarea placeholder="검수 관련 메모를 입력하세요."></textarea></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">금액정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">기검수금액</div>
+      <div class="value"><input class="right" value="27,165,000" readonly /></div>
+      <div class="label">검수금액</div>
+      <div class="value"><input class="right" id="amt-inspect" value="0" readonly /></div>
+      <div class="label">전체금액</div>
+      <div class="value"><input class="right" value="27,165,000" readonly /></div>
+      <div class="label">선급금지급액</div>
+      <div class="value"><input class="right" value="0" readonly /></div>
+      <div class="label">반제완료금액</div>
+      <div class="value"><input class="right" value="0" readonly /></div>
+      <div class="label">잔액</div>
+      <div class="value"><input class="right" id="amt-remain" value="27,165,000" readonly /></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">첨부파일</span><span class="collapse">⌃</span></div>
+    <div class="section-tip">검수 진행 시 반드시 증빙서류를 첨부하시기 바랍니다.</div>
+    <div class="attach-box">이곳을 더블클릭 또는 파일을 드래그 하세요. (최대 100개 / 총 1000.00 MB 제한)</div>
+  </section>
+
+  <section class="section plan-highlight">
+    <div class="section-title"><span class="title-text">실행예산 유지보수 계획금액 (±10% 이내 검수)</span><span class="collapse">⌃</span></div>
+    <div class="section-tip">
+      유지보수 검수금액은 실행예산 유지보수 계획의 최종 버전에서 세운 이번 검수 대상 금액의 ±10%(10% 안짝) 이내면 검수할 수 있습니다. 허용범위를 벗어나면 검수할 수 없고, 실행예산 유지보수 계획을 다시 수립(재승인)해야 합니다.
+    </div>
+    <div class="plan-basis" id="plan-basis"></div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">Item정보 (유지보수 회차)</span><span class="collapse">⌃</span></div>
+    <div class="result-count" id="item-count">Results : 0</div>
+    <div class="table-wrap">
+      <table>
+        <colgroup>
+          <col style="width:34px" />
+          <col style="width:55px" />
+          <col style="width:110px" />
+          <col style="width:130px" />
+          <col style="width:170px" />
+          <col style="width:120px" />
+          <col style="width:120px" />
+          <col style="width:110px" />
+          <col style="width:140px" />
+          <col style="width:110px" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th></th>
+            <th>항번</th>
+            <th>품목코드</th>
+            <th>품명</th>
+            <th>유지보수 기간</th>
+            <th>단가</th>
+            <th>계약금액</th>
+            <th>기검수금액</th>
+            <th>검수금액</th>
+            <th>검수 상태</th>
+          </tr>
+        </thead>
+        <tbody id="item-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="compare-box">
+    <div class="compare-card"><small>실행예산 유지보수 계획금액</small><strong id="c-plan">0원</strong></div>
+    <div class="compare-card"><small>검수금액</small><strong id="c-inspect">0원</strong></div>
+    <div class="compare-card"><small>차이</small><strong id="c-diff">0원</strong></div>
+    <div class="compare-card" id="c-verdict-card"><small>±10% 이내 여부</small><strong id="c-verdict">-</strong></div>
+  </div>
+
+  <div class="footer-actions">
+    <p id="request-comment">검수 대상 회차의 검수금액을 실행예산 유지보수 계획금액과 동일하게 입력해야 검수요청할 수 있습니다.</p>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="btn teal sm" onclick="fillPlanAmount()">계획금액과 동일하게 채우기</button>
+      <button class="btn primary" id="footer-request-button" onclick="requestInspection()">검수요청</button>
+    </div>
+  </div>
+</main>
+
+<script>
+  // 이번 검수 대상 금액 = 실행예산 유지보수 계획(최종 버전)의 해당 회차 계획금액 (완전 동일해야 함)
+  const maintPlan = { budgetVersion: 'V5', budgetVersionDate: '2026-06-30', period: '2026-07~09', amount: 13582500 };
+
+  // 유지보수 회차(분기)별 Item. target 회차만 검수금액 입력 가능.
+  const items = [
+    { seq: 10, code: 'SV00003', name: 'SW 유지보수', period: '2026/01~03', amount: 13582500, doneAmount: 13582500, status: 'done', inspectAmount: 0 },
+    { seq: 20, code: 'SV00003', name: 'SW 유지보수', period: '2026/04~06', amount: 13582500, doneAmount: 13582500, status: 'done', inspectAmount: 0 },
+    { seq: 30, code: 'SV00003', name: 'SW 유지보수', period: '2026/07~09', amount: 13582500, doneAmount: 0, status: 'target', inspectAmount: 0 },
+    { seq: 40, code: 'SV00003', name: 'SW 유지보수', period: '2026/10~12', amount: 13582500, doneAmount: 0, status: 'future', inspectAmount: 0 },
+  ];
+
+  function formatAmount(value) { return value.toLocaleString('ko-KR') + '원'; }
+  function targetItem() { return items.find(item => item.status === 'target'); }
+  function inspectAmount() { const t = targetItem(); return t ? t.inspectAmount : 0; }
+  // 검수금액이 계획금액의 ±10%(10% 안짝) 이내면 검수 가능. 벗어나면 실행예산 재수립 필요.
+  const TOL = 0.10;
+  function bandLower() { return Math.round(maintPlan.amount * (1 - TOL)); }
+  function bandUpper() { return Math.round(maintPlan.amount * (1 + TOL)); }
+  function bandState(a) {
+    if (a <= 0) return 'empty';
+    if (a > bandUpper()) return 'over';
+    if (a < bandLower()) return 'under';
+    return 'in';
+  }
+  function statusLabel(s) { return s === 'done' ? '검수완료' : s === 'target' ? '검수 대상' : '검수 미도래'; }
+  function statusClass(s) { return s === 'done' ? 'st-done' : s === 'target' ? 'st-target' : 'st-future'; }
+
+  function renderItems() {
+    document.getElementById('item-count').textContent = 'Results : ' + items.length;
+    document.getElementById('item-body').innerHTML = items.map((item, index) => {
+      const rowCls = item.status === 'target' ? 'target-row' : item.status === 'done' ? 'done-row' : '';
+      let inspectCell;
+      if (item.status === 'done') {
+        inspectCell = `<td class="right">${formatAmount(item.doneAmount)}</td>`;
+      } else if (item.status === 'target') {
+        const cls = item.inspectAmount === 0 ? '' : bandState(item.inspectAmount) === 'in' ? 'good' : 'bad';
+        inspectCell = `<td><input class="amt-input ${cls}" id="amt-${index}" inputmode="numeric" value="${item.inspectAmount.toLocaleString('ko-KR')}"
+                         onchange="setInspectAmount(${index}, this.value)" oninput="setInspectAmount(${index}, this.value)" /></td>`;
+      } else {
+        inspectCell = `<td class="right">-</td>`;
+      }
+      return `
+        <tr class="${rowCls}">
+          <td class="row-arrow">${item.status === 'target' ? '›' : ''}</td>
+          <td>${item.seq}</td>
+          <td>${item.code}</td>
+          <td>${item.name}</td>
+          <td>${item.period}</td>
+          <td class="right">${item.amount.toLocaleString('ko-KR')}</td>
+          <td class="right">${item.amount.toLocaleString('ko-KR')}</td>
+          <td class="right">${item.doneAmount.toLocaleString('ko-KR')}</td>
+          ${inspectCell}
+          <td><span class="state-badge ${statusClass(item.status)}">${statusLabel(item.status)}</span></td>
+        </tr>`;
+    }).join('');
+  }
+
+  function setInspectAmount(index, raw) {
+    let amount = parseInt(String(raw).replace(/[^0-9]/g, ''), 10);
+    if (isNaN(amount) || amount < 0) amount = 0;
+    items[index].inspectAmount = amount;
+    renderItems();
+    updateSummary();
+  }
+
+  function fillPlanAmount() {
+    const t = targetItem();
+    if (!t) return;
+    t.inspectAmount = maintPlan.amount;
+    renderItems();
+    updateSummary();
+  }
+
+  function renderPlanBasis() {
+    const el = document.getElementById('plan-basis');
+    const amount = inspectAmount();
+    const st = bandState(amount);
+    el.className = 'plan-basis ' + (st === 'in' || st === 'empty' ? 'ok' : 'warn');
+    const verdict = st === 'empty' ? '검수금액 입력 필요'
+      : st === 'in' ? '계획 ±10% 이내 · 검수 가능'
+      : (st === 'over' ? '계획 +10% 초과' : '계획 −10% 미만') + ' · 실행예산 재수립 필요';
+    el.innerHTML = `
+      <span>실행예산 유지보수 버전 <b>${maintPlan.budgetVersion}</b> <span class="final-badge">최종</span> · ${maintPlan.budgetVersionDate} 승인</span>
+      <span>이번 검수 대상(${maintPlan.period}) 계획금액 <b>${formatAmount(maintPlan.amount)}</b> (허용 ±10%: ${formatAmount(bandLower())} ~ ${formatAmount(bandUpper())})</span>
+      <span>현재 검수금액 <b>${formatAmount(amount)}</b></span>
+      <span class="plan-basis-verdict">${verdict}</span>`;
+  }
+
+  function updateSummary() {
+    const amount = inspectAmount();
+    const diff = amount - maintPlan.amount;
+    const st = bandState(amount);
+    const ok = st === 'in';
+    document.getElementById('amt-inspect').value = amount.toLocaleString('ko-KR');
+    document.getElementById('amt-remain').value = (27165000 - amount).toLocaleString('ko-KR');
+    document.getElementById('c-plan').textContent = formatAmount(maintPlan.amount);
+    document.getElementById('c-inspect').textContent = formatAmount(amount);
+    document.getElementById('c-diff').textContent = (diff > 0 ? '+' : '') + formatAmount(diff);
+    document.getElementById('c-verdict').textContent = st === 'empty' ? '금액 입력 필요' : ok ? '계획 ±10% 이내 · 가능' : (st === 'over' ? '계획 +10% 초과' : '계획 −10% 미만') + ' · 불가';
+    document.getElementById('c-verdict-card').className = 'compare-card ' + (ok ? 'ok' : amount > 0 ? 'warn' : '');
+    document.getElementById('request-button').disabled = !ok;
+    document.getElementById('footer-request-button').disabled = !ok;
+    document.getElementById('request-comment').textContent = st === 'empty'
+      ? '검수 대상 회차의 검수금액을 입력하세요. 실행예산 유지보수 계획금액의 ±10%(' + formatAmount(bandLower()) + ' ~ ' + formatAmount(bandUpper()) + ') 이내면 검수요청할 수 있습니다.'
+      : ok
+        ? '검수금액이 실행예산 유지보수 계획금액의 ±10% 이내입니다. 검수요청할 수 있습니다.'
+        : '검수금액이 계획금액(' + formatAmount(maintPlan.amount) + ')의 ±10% 허용범위를 벗어났습니다. 허용범위를 벗어나면 검수할 수 없으며, 실행예산 유지보수 계획을 다시 수립(재승인)해야 합니다.';
+    renderPlanBasis();
+  }
+
+  function requestInspection() {
+    const amount = inspectAmount();
+    if (amount === 0) {
+      alert('검수 대상 회차의 검수금액을 입력하세요.');
+      return;
+    }
+    if (bandState(amount) !== 'in') {
+      alert('검수금액(' + formatAmount(amount) + ')이 실행예산 유지보수 계획금액(' + formatAmount(maintPlan.amount) + ')의 ±10% 허용범위(' + formatAmount(bandLower()) + ' ~ ' + formatAmount(bandUpper()) + ')를 벗어났습니다.\n허용범위를 벗어나면 검수할 수 없으며, 실행예산 유지보수 계획을 다시 수립(재승인)한 뒤 진행하세요.');
+      return;
+    }
+    alert('유지보수 검수요청이 완료되었습니다.\n검수금액 ' + formatAmount(amount) + ' (실행예산 유지보수 계획금액 ±10% 이내)');
+  }
+
+  renderItems();
+  updateSummary();
+</script>
+</body>
+</html>

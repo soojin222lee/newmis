@@ -6,150 +6,68 @@
 <title>PM 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/css/main.css" />
-<link rel="stylesheet" href="/css/initiation-extra.css" />
-<link rel="stylesheet" href="/css/initiation-extra2.css?v=20260723-restore16" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<link rel="stylesheet" href="/css/main.css?v=20260814-fontbump" />
+<link rel="stylesheet" href="/css/initiation-extra.css?v=20260814-fontbump" />
+<link rel="stylesheet" href="/css/initiation-extra2.css?v=20260814-fontbump" />
+<link rel="stylesheet" href="/css/sk-theme.css?v=20260814-split2" />
+<link rel="stylesheet" href="/css/home.css?v=20260814-feed2" />
+<link rel="stylesheet" href="/css/ai-agent.css?v=20260814-setup2" />
+<link rel="stylesheet" href="/css/si-project.css?v=20260814-split2" />
+<link rel="stylesheet" href="/css/insights.css?v=20260814-insborder2" />
 </head>
 <body>
 
-<button class="menu-open-button" id="menu-open-button" onclick="toggleSideMenu()">메뉴열기</button>
-
 <div class="shell">
-  <!-- ── Sidebar ── -->
-  <aside class="sidebar">
-    <div class="sidebar-logo" onclick="showMain()" style="cursor:pointer">
-      <div class="logo-mark">PM System</div>
-      <div class="logo-name">프로젝트 관리</div>
-    </div>
-    <nav class="sidebar-nav">
-      <div class="nav-section-label">운영 안내 (임시)</div>
-
-      <div class="nav-group-btn" id="ngbtn-sub-sysdesc" onclick="toggleNavGroup('sub-sysdesc')">
-        <span><span class="nav-icon">📋</span> 운영 가이드</span>
-        <span class="ng-arrow">›</span>
+  <!-- ── Top nav ── -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="tb-left">
+        <div class="tb-brand nav-group-btn" id="nav-main-brand" onclick="showMain()">
+          <span class="tb-brand-mark">SK</span>
+          <span class="tb-brand-sub">주식회사<br>AX</span>
+        </div>
+        <nav class="topnav">
+          <button class="nav-group-btn topnav-item" id="nav-main" onclick="showMain()">My Work</button>
+          <div class="topnav-drop">
+            <button class="nav-group-btn topnav-item" id="ngbtn-sub-ops">프로젝트 <span class="tb-caret">▾</span></button>
+            <div class="topnav-menu" id="sub-ops">
+              <button class="nav-sub-item" id="nav-si-project" onclick="showSIProject()">수주형 프로젝트</button>
+              <button class="nav-sub-item" id="nav-wg-project" onclick="showWGProject()">W/G 프로젝트</button>
+              <button class="nav-sub-item" id="nav-internal-project" onclick="showInternalProject()">사내 프로젝트</button>
+              <button class="nav-sub-item" id="nav-investment-project" onclick="showInvestmentProject()">투자프로젝트</button>
+              <button class="nav-sub-item" id="nav-advance-project" onclick="showAdvanceProject()">선투입 프로젝트</button>
+            </div>
+          </div>
+          <div class="topnav-drop">
+            <button class="nav-group-btn topnav-item" id="nav-budget" onclick="showCostStatus()">수행원가 <span class="tb-caret">▾</span></button>
+            <div class="topnav-menu" id="sub-cost">
+              <button class="nav-sub-item" onclick="showCostStatus()">원가현황</button>
+              <button class="nav-sub-item" onclick="showCostAdjust()">원가조정</button>
+              <button class="nav-sub-item" onclick="showCostHistory()">변경 이력</button>
+            </div>
+          </div>
+          <div class="topnav-drop">
+            <button class="nav-group-btn topnav-item" id="ngbtn-sub-insight" onclick="showInsights('overview')">인사이트 <span class="tb-caret">▾</span></button>
+            <div class="topnav-menu" id="sub-insight">
+              <button class="nav-sub-item" onclick="showInsights('overview')">종합 현황</button>
+              <button class="nav-sub-item" id="nav-custom-report" onclick="showCustomReport()">맞춤 레포트</button>
+            </div>
+          </div>
+        </nav>
       </div>
-      <div class="nav-sub" id="sub-sysdesc">
-        <div class="nav-sub-item" onclick="showSysDescConcept()" id="nav-sysdesc-concept">
-          <span>💡</span> 프로젝트 운영 컨셉
+      <div class="tb-right">
+        <button class="tb-guide" onclick="openSetupGuide()" title="팀 개발 셋업 가이드">
+          <span class="tb-guide-ic">&lt;/&gt;</span>셋업 가이드
+        </button>
+        <div class="tb-user">
+          <div class="tb-user-name">이봄 님</div>
+          <div class="tb-user-role">PM</div>
         </div>
-        <div class="nav-sub-item" onclick="showSysDescProcess()" id="nav-sysdesc-process">
-          <span>⚙️</span> 운영 프로세스
-        </div>
-        <div class="nav-sub-item" onclick="showSysDescData()" id="nav-sysdesc-data">
-          <span>🔗</span> 데이터 흐름
-        </div>
-        <div class="nav-sub-item" onclick="showSysDescDepts()" id="nav-sysdesc-depts">
-          <span>🏢</span> 운영 기준 및 R&R
-        </div>
-      </div>
-
-      <div class="nav-divider"></div>
-      <div class="nav-section-label">메뉴</div>
-      <!-- 프로젝트 관리 -->
-      <div class="nav-group-btn" id="ngbtn-sub-ops" onclick="toggleNavGroup('sub-ops')">
-        <span><span class="nav-icon">🗂</span> 프로젝트 정보</span>
-        <span class="ng-arrow">›</span>
-      </div>
-      <div class="nav-sub" id="sub-ops">
-        <div class="nav-sub-item" onclick="showSIProject()" id="nav-si-project">
-          <span>🏗</span> 수주형 프로젝트
-        </div>
-        <div class="nav-sub-item" onclick="showWGProject()" id="nav-wg-project">
-          <span>📁</span> W/G 프로젝트
-        </div>
-        <div class="nav-sub-item" onclick="showInternalProject()" id="nav-internal-project">
-          <span>🏢</span> 사내 프로젝트
-        </div>
-      </div>
-
-      <!-- 실행예산 / 월 마감 (대메뉴) -->
-      <div class="nav-group-btn" id="nav-budget" onclick="showBudget()">
-        <span><span class="nav-icon">💰</span> 실행예산</span>
-      </div>
-      <div class="nav-group-btn" id="nav-project-close" onclick="showProjectClose()">
-        <span><span class="nav-icon">🏁</span> 프로젝트 종료</span>
-      </div>
-      <div class="nav-group-btn" id="nav-monthly" onclick="showMonthlyClose()">
-        <span><span class="nav-icon">📅</span> 월 마감</span>
-      </div>
-
-      <!-- 프로젝트 체크포인트 -->
-      <div class="nav-group-btn" id="ngbtn-sub-cp" onclick="toggleNavGroup('sub-cp')" style="display:none">
-        <span><span class="nav-icon">📌</span> 프로젝트 체크포인트</span>
-        <span class="ng-arrow">›</span>
-      </div>
-      <div class="nav-sub" id="sub-cp" style="display:none">
-        <div class="nav-sub-item" onclick="showCpCurrent()" id="nav-cp-current">
-          <span>📊</span> 체크포인트 현황
-        </div>
-        <div class="nav-sub-item" onclick="showCpBriefing()" id="nav-cp-briefing">
-          <span>📤</span> 브리핑
-        </div>
-        <div class="nav-sub-item" onclick="showCpStatus()" id="nav-cp-status">
-          <span>🔄</span> 대응 현황
-        </div>
-        <div class="nav-sub-item" onclick="showCpHistory()" id="nav-cp-history">
-          <span>📋</span> 조치 이력
-        </div>
-      </div>
-
-      <!-- 프로젝트 단계 보고 -->
-      <div class="nav-group-btn" id="ngbtn-sub-phase" onclick="toggleNavGroup('sub-phase')" style="display:none">
-        <span><span class="nav-icon">📝</span> 프로젝트 단계 보고</span>
-        <span class="ng-arrow">›</span>
-      </div>
-      <div class="nav-sub" id="sub-phase" style="display:none">
-        <div class="nav-sub-item" onclick="showInitiation()" id="nav-initiation">
-          <span>🚀</span> 착수 보고
-        </div>
-        <div class="nav-sub-item" onclick="showInterim()" id="nav-interim">
-          <span>📊</span> 중간 보고
-        </div>
-        <div class="nav-sub-item" onclick="showClosure()" id="nav-closure">
-          <span>🏁</span> 종료 보고
-        </div>
-        <div class="nav-sub-item" onclick="showPhaseHistory()" id="nav-phase-history">
-          <span>🗂</span> 보고 이력 조회
-        </div>
-      </div>
-
-      <!-- 기준정보 설정 (관리자) -->
-      <div class="nav-group-btn admin-nav-group" id="ngbtn-sub-master" onclick="toggleNavGroup('sub-master')" style="display:none">
-        <span><span class="nav-icon">⚙️</span> 기준정보 설정 <span class="nav-admin-badge">관리자</span></span>
-        <span class="ng-arrow">›</span>
-      </div>
-      <div class="nav-sub" id="sub-master" style="display:none">
-        <div class="nav-sub-item" onclick="showMasterBudgetRate()" id="nav-master-budget">
-          <span>📊</span> 예산 소진율 기준
-        </div>
-        <div class="nav-sub-item" onclick="showMasterReportLayout()" id="nav-master-report">
-          <span>📋</span> 보고서 레이아웃
-        </div>
-        <div class="nav-sub-item" onclick="showMasterMethodology()" id="nav-master-method">
-          <span>🔧</span> 개발방법론
-        </div>
-        <div class="nav-sub-item" onclick="showMasterDevEnv()" id="nav-master-devenv">
-          <span>💻</span> 개발환경
-        </div>
-        <div class="nav-sub-item" onclick="showMasterMMRate()" id="nav-master-mmrate">
-          <span>💰</span> 인건비 단가 기준
-        </div>
-        <div class="nav-sub-item" onclick="showMasterPhase()" id="nav-master-phase">
-          <span>📐</span> 예산 사용 기준 정의
-        </div>
-        <div class="nav-sub-item" onclick="showMasterRiskCriteria()" id="nav-master-risk">
-          <span>⚠️</span> 리스크 분류 기준
-        </div>
-      </div>
-    </nav>
-    <div class="sidebar-footer">
-      <div class="user-avatar">Lee</div>
-      <div class="user-info">
-        <div class="user-name">이봄</div>
-        <div class="user-role">프로젝트 매니저</div>
+        <button class="tb-apps" onclick="openPurchaseReference()" title="구매시스템 참고 화면" aria-label="구매시스템 참고 화면">▦</button>
       </div>
     </div>
-  </aside>
+  </header>
 
   <!-- ── Main ── -->
   <main class="main">
@@ -158,6 +76,8 @@
       <div class="screen" id="s-hist"></div>
       <div class="screen" id="s-budget"></div>
       <div class="screen" id="s-project-close"></div>
+      <div class="screen" id="s-custom-report"></div>
+      <div class="screen" id="s-insights"></div>
       <div class="screen" id="s-initiation"></div>
       <div class="screen" id="s-interim"></div>
       <div class="screen" id="s-closure"></div>
@@ -166,6 +86,8 @@
       <div class="screen" id="s-si-project"></div>
       <div class="screen" id="s-wg-project"></div>
       <div class="screen" id="s-internal-project"></div>
+      <div class="screen" id="s-investment-project"></div>
+      <div class="screen" id="s-advance-project"></div>
       <div class="screen" id="s-master-config"></div>
       <div class="screen" id="s-cp-briefing"></div>
       <div class="screen" id="s-cp-status"></div>
@@ -173,6 +95,84 @@
       <div class="screen" id="s-phase-history"></div>
     </div>
   </main>
+</div>
+
+<!-- ════ MODAL: 팀 개발 셋업 가이드 ════ -->
+<div class="setup-guide-overlay" id="setup-guide-overlay" onclick="if(event.target===this)closeSetupGuide()">
+  <div class="setup-guide-modal" role="dialog" aria-modal="true" aria-label="팀 개발 셋업 가이드">
+    <div class="sg-head">
+      <div>
+        <div class="sg-eyebrow">TEAM ONBOARDING</div>
+        <strong>팀 개발 셋업 가이드</strong>
+      </div>
+      <button class="sg-x" onclick="closeSetupGuide()" aria-label="닫기">✕</button>
+    </div>
+    <div class="sg-body">
+      <div class="sg-claude">
+        <div class="sg-claude-top"><span class="sg-claude-badge">추천</span>Claude Code로 자동 셋업</div>
+        <p>아래 링크를 <b>Claude Code에서 열면</b> Claude가 알아서 소스를 받고, <code>develop</code> 브랜치로 전환하고, 서버를 실행하고, 담당 화면 브랜치까지 만들어 줘요.</p>
+        <div class="sg-claude-link">
+          <code>https://claude.ai/claude-code/onboard/NjtaO-J6OC7x</code>
+          <button class="sg-copy" onclick="copySetupText('https://claude.ai/claude-code/onboard/NjtaO-J6OC7x', this)">복사</button>
+        </div>
+        <p class="sg-hint">전제: GitHub 레포(<code>soojin222lee/newmis</code>) 접근 권한 + Node.js 설치.</p>
+      </div>
+
+      <div class="sg-or">또는 직접 셋업</div>
+
+      <p class="sg-lead">빌드가 필요 없는 <b>정적 SPA</b>예요. Node.js만 있으면 바로 실행됩니다. 외부 라이브러리가 없어 <code>npm install</code>도 필요 없어요.</p>
+
+      <div class="sg-repo">
+        <span class="sg-repo-l">GIT REPO</span>
+        <code id="sg-repo-url">https://github.com/soojin222lee/newmis.git</code>
+        <button class="sg-copy" onclick="copySetupText('https://github.com/soojin222lee/newmis.git', this)">복사</button>
+      </div>
+
+      <div class="sg-step">
+        <div class="sg-step-n">1</div>
+        <div class="sg-step-main">
+          <h4>레포 클론 &amp; 실행</h4>
+          <div class="sg-code">
+            <pre>git clone https://github.com/soojin222lee/newmis.git
+cd newmis
+git checkout develop
+npm start</pre>
+            <button class="sg-copy" onclick="copySetupCode(this)">복사</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sg-step">
+        <div class="sg-step-n">2</div>
+        <div class="sg-step-main">
+          <h4>브라우저 접속</h4>
+          <p><code>http://localhost:57291</code> — 변경이 안 보이면 <b>Ctrl+Shift+R</b>(하드 리로드).</p>
+        </div>
+      </div>
+
+      <div class="sg-step">
+        <div class="sg-step-n">3</div>
+        <div class="sg-step-main">
+          <h4>내 담당 화면 확인</h4>
+          <p>루트의 <code>CONTRIBUTING.md</code> — <b>화면 = 소스파일 = 담당자</b> 표에서 자기 화면의 JS/CSS 파일만 수정하세요. 공유 파일(<code>index.html</code> · <code>app.js</code> · <code>sk-theme.css</code>)만 조율하면 충돌이 거의 없어요.</p>
+        </div>
+      </div>
+
+      <div class="sg-step">
+        <div class="sg-step-n">4</div>
+        <div class="sg-step-main">
+          <h4>작업 브랜치 &amp; PR</h4>
+          <p><code>develop</code>이 팀 통합 브랜치예요. 여기서 화면별 브랜치를 따서 작업하고 <code>develop</code>으로 PR 하세요.</p>
+          <div class="sg-code">
+            <pre>git checkout develop &amp;&amp; git pull
+git checkout -b feature/&lt;내화면&gt;-&lt;이름&gt;</pre>
+            <button class="sg-copy" onclick="copySetupCode(this)">복사</button>
+          </div>
+          <p class="sg-hint">예: <code>feature/insights-jieun</code>. <code>main</code>은 안정 배포본이라 직접 커밋하지 않아요.</p>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ════ MODAL: AI 리스크 조치 ════ -->
@@ -217,7 +217,7 @@
       </div>
       <div class="sig-confirmer">
         <span>확인자: <strong id="mo-confirmer"></strong></span>
-        <span id="sig-status" style="font-size:13px;color:#94a3b8">서명 전</span>
+        <span id="sig-status" style="font-size:15px;color:#94a3b8">서명 전</span>
       </div>
     </div>
     <div class="modal-section">
@@ -242,14 +242,14 @@
       <button class="close-btn" onclick="closeApproveModal()">닫기</button>
     </div>
     <div class="modal-section">
-      <div style="font-size:14px;color:#475569;line-height:1.8;background:#f8fafc;border-radius:10px;padding:16px">
+      <div style="font-size:16px;color:#475569;line-height:1.8;background:#f8fafc;border-radius:10px;padding:16px">
         위 보고서를 검토하였으며 내용이 정확함을 확인하고 최종 승인합니다.<br>
         승인 후에는 해당 단계가 공식 완료 처리됩니다.
       </div>
     </div>
     <div class="modal-section">
       <div class="sec-label">승인자</div>
-      <div style="font-size:15px;font-weight:700;color:#1e293b;padding:8px 0">이봄 (프로젝트 매니저)</div>
+      <div style="font-size:17px;font-weight:700;color:#1e293b;padding:8px 0">이봄 (PM)</div>
     </div>
     <div class="modal-footer">
       <div></div>
@@ -262,22 +262,89 @@
   </div>
 </div>
 
+<!-- ════ AI 대화 팝업 (Budget Navi / Q / Pilot) ════ -->
+<div class="ai-chat-overlay" id="ai-chat-overlay" onclick="if(event.target===this)closeAiChat()">
+  <div class="ai-chat-modal" role="dialog" aria-modal="true" aria-label="AI 대화">
+    <div class="ai-chat-head">
+      <span class="ai-chat-avatar" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="8" width="16" height="12" rx="3.2"/><path d="M12 4.4V8"/>
+          <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
+          <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+          <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/><path d="M2 13v3M22 13v3"/>
+        </svg>
+      </span>
+      <div class="ai-chat-id">
+        <strong id="ai-chat-title">Budget Q</strong>
+        <span id="ai-chat-sub">무엇이든 물어보세요</span>
+      </div>
+      <button class="ai-chat-close" onclick="closeAiChat()" aria-label="닫기">✕</button>
+    </div>
+    <div class="ai-chat-body" id="ai-chat-body"></div>
+    <div class="ai-chat-input">
+      <input id="ai-chat-query" type="text" placeholder="메시지를 입력하세요" onkeydown="if(event.key==='Enter') sendAiChat()" />
+      <button class="ai-chat-send" onclick="sendAiChat()" aria-label="보내기">↑</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 우측 하단 바로가기 ── -->
+<div class="quick-shortcuts" aria-label="바로가기">
+  <button class="qs-btn" onclick="openQuickShortcut('navi')" title="Budget Navi">
+    <span class="qs-title">Budget<br>Navi</span>
+    <span class="qs-label">NAVIGATION</span>
+    <span class="qs-tip"><b>업무·메뉴 찾아가기</b>"실행예산 변경 어디서 해?"</span>
+  </button>
+  <button class="qs-btn" onclick="openQuickShortcut('q')" title="Budget Q">
+    <span class="qs-title">Budget<br>Q</span>
+    <span class="qs-label">QUESTION</span>
+    <span class="qs-tip"><b>데이터에 질문하기</b>"왜 원가율이 올랐어?"</span>
+  </button>
+  <button class="qs-btn" onclick="openQuickShortcut('pilot')" title="Budget Pilot">
+    <span class="qs-badge">4</span>
+    <span class="qs-title">Budget<br>Pilot</span>
+    <span class="qs-label">ASSIST</span>
+    <span class="qs-tip"><b>AI 프로젝트 관리</b>"오늘 확인할 업무 알려줘."</span>
+  </button>
+</div>
+
 <div id="toast"></div>
 
-<script src="/js/app.js"></script>
-<script src="/js/dashboard.js"></script>
-<script src="/js/risk-history.js"></script>
-<script src="/js/budget-status.js?v=20260723-restore16"></script>
-<script src="/js/project-close.js?v=20260707-2"></script>
-<script src="/js/initiation-report.js"></script>
-<script src="/js/interim-report.js"></script>
-<script src="/js/closure-report.js"></script>
-<script src="/js/monthly-close.js"></script>
-<script src="/js/system-desc.js"></script>
-<script src="/js/si-project.js"></script>
-<script src="/js/wg-project.js"></script>
-<script src="/js/internal-project.js"></script>
-<script src="/js/master-config.js"></script>
-<script src="/js/checkpoint-extra.js"></script>
+<script src="/js/app.js?v=20260819-areasplit"></script>
+<script src="/js/dashboard.js?v=20260814-feed2"></script>
+<script src="/js/risk-history.js?v=20260814-fontbump"></script>
+<script src="/js/budget-status.js?v=20260814-split1"></script>
+<script src="/js/budget-status-2.js?v=20260819-areasplit"></script>
+<script src="/js/budget-status-3.js?v=20260814-split1"></script>
+<script src="/js/budget-status-4.js?v=20260819-areasplit4"></script>
+<script src="/js/budget-status-5.js?v=20260814-costsplit"></script>
+<!-- 수행원가 하위 메뉴 전용 컨트롤러(진입점+라우트). 반드시 budget-status-5.js 뒤에 로드 -->
+<script src="/js/budget-cost-status.js?v=20260814-costsplit"></script>
+<script src="/js/budget-cost-adjust.js?v=20260814-costsplit"></script>
+<script src="/js/budget-cost-history.js?v=20260814-costsplit"></script>
+<!-- 원가조정 5대 비용계정 URL 라우팅(공통 기반). budget-cost-*.js 뒤에 로드 -->
+<script src="/js/budget-area-routes.js?v=20260819-areasplit"></script>
+<!-- 원가조정 계정별 렌더 소스(데코레이터 체인). 반드시 budget-status-*.js 전부 뒤에 로드 -->
+<script src="/js/budget-area-as.js?v=20260819-areasplit"></script>
+<script src="/js/budget-area-expense.js?v=20260819-areasplit"></script>
+<script src="/js/budget-area-material.js?v=20260819-areasplit"></script>
+<script src="/js/budget-area-outsource.js?v=20260819-areasplit"></script>
+<script src="/js/budget-area-labor.js?v=20260819-areasplit"></script>
+<script src="/js/project-close.js?v=20260814-fontbump"></script>
+<script src="/js/custom-report.js?v=20260814-fontbump"></script>
+<script src="/js/insights.js?v=20260814-inscar"></script>
+<script src="/js/initiation-report.js?v=20260814-fontbump"></script>
+<script src="/js/interim-report.js?v=20260814-fontbump"></script>
+<script src="/js/closure-report.js?v=20260814-fontbump"></script>
+<script src="/js/monthly-close.js?v=20260814-fontbump"></script>
+<script src="/js/system-desc.js?v=20260814-fontbump"></script>
+<script src="/js/si-project.js?v=20260814-siprog4"></script>
+<script src="/js/wg-project.js?v=20260814-fontbump"></script>
+<script src="/js/internal-project.js?v=20260814-fontbump"></script>
+<script src="/js/investment-project.js?v=20260814-fontbump"></script>
+<script src="/js/advance-project.js?v=20260814-fontbump"></script>
+<script src="/js/master-config.js?v=20260814-fontbump"></script>
+<script src="/js/checkpoint-extra.js?v=20260814-fontbump"></script>
+<script src="/js/screen-guide-chatbot.js?v=20260814-dev"></script>
 </body>
 </html>

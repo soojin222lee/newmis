@@ -3,6 +3,11 @@
 // ════════════════════════════════════════
 
 // ── 1. 프로젝트 운영 컨셉 ──────────────
+// AI GUIDE: 운영 가이드 화면입니다.
+// - 시스템 컨셉, 업무 프로세스, 데이터 흐름, 부서별 R&R을 설명하는 정적 안내 화면입니다.
+// - 화면 업무 가이드 챗봇의 기본 업무 지식으로 활용할 수 있는 설명성 콘텐츠가 많습니다.
+// - AI 화면 가이드는 이 파일의 프로세스 설명을 근거로 사용자 질문에 업무 기준을 안내해야 합니다.
+
 function renderSysDescConcept() {
   document.getElementById('s-system-desc').innerHTML = `
     <div class="page-header">
@@ -179,8 +184,8 @@ function buildConceptSection() {
         </div>
       </div>
       <div class="sd-scope-note">
-        <span style="font-size:13px;font-weight:700;color:#1e293b">📌 적용 범위 안내</span><br>
-        <span style="font-size:13px;color:#475569;line-height:1.8">
+        <span style="font-size:15px;font-weight:700;color:#1e293b">📌 적용 범위 안내</span><br>
+        <span style="font-size:15px;color:#475569;line-height:1.8">
           현재 메뉴는 <strong>선행 프로세스가 정의된 수주형 사업(SI, OS, TC)</strong> 위주로 구성되어 있습니다.<br>
           Cloud나 투자 프로젝트 등은 관리 포인트·주기가 명확해지는 시점에 해당 유형에 맞게 별도 커스터마이징할 예정입니다.
         </span>

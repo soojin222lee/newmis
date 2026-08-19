@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>검수상세 - 검수계획</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-width: 1280px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #111827;
+    background: #f7f7f8;
+  }
+  .page { padding: 16px 18px 48px; }
+  .top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+  h1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 24px;
+    font-weight: 900;
+  }
+  h1 span { color: #9ca3af; }
+  .breadcrumb {
+    margin-bottom: 8px;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .btn {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    color: #111827;
+    padding: 8px 14px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .btn.primary { border-color: #ef4444; background: #ef4444; color: #fff; }
+  .btn.dark { border-color: #111827; background: #111827; color: #fff; }
+  .btn:disabled {
+    border-color: #d1d5db;
+    background: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
+  }
+  .scenario-note {
+    margin: 0 0 16px;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    background: #fff7ed;
+    padding: 12px 14px;
+    color: #9a3412;
+    font-size: 15px;
+    font-weight: 800;
+  }
+  .section {
+    margin-bottom: 18px;
+    border: 1px solid #d9dde3;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .section.plan-highlight {
+    border: 3px solid #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, .12);
+  }
+  .section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+    font-size: 19px;
+    font-weight: 900;
+  }
+  .section-title .title-text {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    text-align: left;
+  }
+  .section-title .title-text::before {
+    content: "";
+    width: 4px;
+    flex: 0 0 4px;
+    height: 18px;
+    border-radius: 3px;
+    background: #ef4444;
+  }
+  .collapse { color: #4b5563; font-size: 20px; }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 140px 1fr 140px 1fr 140px 1fr;
+    border-top: 1px solid #e5e7eb;
+  }
+  .label {
+    background: #e8ebf0;
+    padding: 10px 14px;
+    font-weight: 900;
+    border-right: 1px solid #d1d5db;
+    border-bottom: 1px solid #d1d5db;
+  }
+  .value {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 7px 12px;
+    border-right: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  input {
+    width: 100%;
+    height: 30px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #f9fafb;
+    padding: 0 10px;
+    font-family: inherit;
+    font-weight: 700;
+  }
+  .right { text-align: right; }
+  .section-tip {
+    padding: 10px 14px;
+    border-top: 1px solid #e5e7eb;
+    background: #fff7ed;
+    color: #9a3412;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .table-wrap { padding: 0 0 12px; overflow: auto; }
+  .result-count {
+    padding: 8px 12px 4px;
+    text-align: right;
+    font-weight: 900;
+  }
+  table {
+    width: 100%;
+    min-width: 1180px;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 15px;
+  }
+  th, td {
+    border: 1px solid #d1d5db;
+    padding: 9px 8px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  th {
+    background: #e7e9ee;
+    font-weight: 900;
+  }
+  td { background: #fff; }
+  tr.selected td { background: #fff1f2; }
+  tr.disabled td {
+    background: #f3f4f6;
+    color: #9ca3af;
+  }
+  .row-arrow {
+    width: 40px;
+    background: #ef4444 !important;
+    color: #fff;
+    font-size: 24px;
+    font-weight: 900;
+  }
+  .check-cell input {
+    width: 14px;
+    height: 14px;
+  }
+  .sum-row td {
+    background: #eef6f8;
+    font-weight: 900;
+  }
+  .compare-box {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .compare-card {
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    background: #fff7ed;
+    padding: 12px;
+  }
+  .compare-card small {
+    display: block;
+    margin-bottom: 5px;
+    color: #9a3412;
+    font-weight: 800;
+  }
+  .compare-card strong { font-size: 20px; }
+  .compare-card.ok strong { color: #047857; }
+  .compare-card.warn strong { color: #ef4444; }
+  .footer-actions {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fff;
+    padding: 14px;
+    box-shadow: 0 -10px 30px rgba(15, 23, 42, .08);
+  }
+  .footer-actions p {
+    margin: 0;
+    color: #4b5563;
+    font-weight: 800;
+  }
+  .ptype-chip {
+    font-size: 14px;
+    font-weight: 900;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+  .actual-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px 0;
+  }
+  .actual-hint { color: #6b7280; font-size: 14px; font-weight: 700; }
+  .src-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #166534;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .empty-row td {
+    text-align: center;
+    color: #9ca3af;
+    font-weight: 700;
+    padding: 16px;
+    background: #fafafa;
+  }
+  .target-badge, .done-badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .target-badge { background: #dbeafe; color: #1d4ed8; }
+  .done-badge { background: #dcfce7; color: #166534; }
+  .btn.sm { padding: 5px 10px; font-size: 14px; }
+  .state-badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .st-none { background: #f1f5f9; color: #64748b; }
+  .st-created { background: #dbeafe; color: #1d4ed8; }
+  .st-progress { background: #fef3c7; color: #92400e; }
+  .st-done { background: #dcfce7; color: #166534; }
+  .edit-ok { color: #166534; font-weight: 800; }
+  .edit-lock { color: #b45309; font-weight: 800; }
+  .lock-note { color: #9ca3af; font-weight: 800; font-size: 14px; }
+  .final-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #ede9fe;
+    color: #4c1d95;
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .ver-date { color: #94a3b8; font-size: 13px; font-weight: 700; }
+  .plan-basis {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin: 0 14px 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .plan-basis.ok { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+  .plan-basis.warn { border-color: #fde68a; background: #fffbeb; color: #92400e; }
+  .plan-basis b { color: inherit; }
+  .plan-basis-verdict { padding: 3px 10px; border-radius: 999px; font-weight: 900; }
+  .plan-basis.ok .plan-basis-verdict { background: #dcfce7; color: #166534; }
+  .plan-basis.warn .plan-basis-verdict { background: #fef3c7; color: #92400e; }
+  .plan-basis-note { color: #b45309; font-weight: 800; }
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="top">
+    <h1>검수상세 &gt; 검수계획 <span>★</span> <span class="ptype-chip">실투입외주구매</span></h1>
+    <div>
+      <div class="breadcrumb">Home &gt; 검수/정산 &gt; 검수상세 &gt; 검수계획</div>
+      <div class="actions">
+        <button class="btn dark" id="request-button" onclick="requestInspection()">검수요청</button>
+        <button class="btn primary">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="scenario-note">
+    시나리오(실투입외주구매): 검수계획은 프로젝트 인력계획에 입력한 월별 계획입니다. 실투입은 구매시스템에서 생성하며, 당월(시스템월 2026-07) 검수계획을 확인한 뒤 해당 검수금액에 대한 실투입을 생성하면 검수요청할 수 있습니다.
+  </p>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">계약정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">계약번호</div>
+      <div class="value"><input value="4500301026" readonly /></div>
+      <div class="label">프로젝트</div>
+      <div class="value"><input value="30129338-D001" readonly /></div>
+      <div class="label">협력사</div>
+      <div class="value"><input value="애커튼테크놀로지서비스" readonly /></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">금액정보</span><span class="collapse">⌃</span></div>
+    <div class="form-grid">
+      <div class="label">기검수금액</div>
+      <div class="value"><input class="right" value="176,000,000" readonly /></div>
+      <div class="label">검수금액</div>
+      <div class="value"><input class="right" value="44,000,000" readonly /></div>
+      <div class="label">전체금액</div>
+      <div class="value"><input class="right" value="220,000,000" readonly /></div>
+      <div class="label">선급금지급액</div>
+      <div class="value"><input class="right" value="44,000,000" readonly /></div>
+      <div class="label">반제완료금액</div>
+      <div class="value"><input class="right" value="0" readonly /></div>
+      <div class="label">잔액</div>
+      <div class="value"><input class="right" value="0" readonly /></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">Item정보</span><span class="collapse">⌃</span></div>
+    <div class="result-count">Results : 1</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px"></th>
+            <th style="width:55px">항번</th>
+            <th>품목코드</th>
+            <th>품명</th>
+            <th>내역</th>
+            <th>단가</th>
+            <th>계약금액</th>
+            <th>기검수금액</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="selected">
+            <td class="row-arrow">›</td>
+            <td>10</td>
+            <td>MP00002</td>
+            <td>APPLICATION 개발</td>
+            <td>서비스 구매</td>
+            <td class="right">220,000,000</td>
+            <td class="right">220,000,000</td>
+            <td class="right">176,000,000</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-title"><span class="title-text">Service정보</span><span class="collapse">⌃</span></div>
+    <div class="result-count">Results : 1</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:55px">항번</th>
+            <th>품목코드</th>
+            <th>품명</th>
+            <th>내역</th>
+            <th>계약수량</th>
+            <th>단가</th>
+            <th>계약금액</th>
+            <th>기검수금액</th>
+            <th>검수금액</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="selected">
+            <td>10</td>
+            <td>MP00002</td>
+            <td>APPLICATION 개발</td>
+            <td>서비스 구매</td>
+            <td>1.000</td>
+            <td class="right">220,000,000</td>
+            <td class="right">220,000,000</td>
+            <td class="right">176,000,000</td>
+            <td class="right">44,000,000</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section plan-highlight">
+    <div class="section-title"><span class="title-text">검수계획 · 실투입 매핑</span><span class="collapse">⌃</span></div>
+    <div class="section-tip">
+      검수계획은 각 프로젝트 실행예산 외주비계획의 최종(승인) 버전에서 가져옵니다. 가져온 실행예산 버전을 함께 표시하며, 각 계획에 실투입전표를 1:1로 매핑합니다. 당월 대상 계획은 한 줄씩 실투입을 생성/취소할 수 있습니다. 검수는 검수 전 실투입 전표를 선택(여러 건 가능)해 [검수요청]으로 진행하며, 선택한 실투입들은 하나의 검수번호로 묶입니다. 실투입을 생성하면 실행예산에 실적으로 반영되어 해당 외주비계획 수정이 불가하고, 검수가 진행/완료된 건은 실투입을 취소할 수 없습니다.
+    </div>
+    <div class="plan-basis" id="plan-total-basis"></div>
+    <div class="result-count" id="map-count">Results : 0</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:44px">선택</th>
+            <th>계획월</th>
+            <th>프로젝트</th>
+            <th>실행예산 버전</th>
+            <th>검수계획금액(외주비계획)</th>
+            <th>검수 상태</th>
+            <th>검수번호</th>
+            <th>실투입전표</th>
+            <th>실투입금액</th>
+            <th>계획수정</th>
+            <th style="width:150px">액션</th>
+          </tr>
+        </thead>
+        <tbody id="map-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="compare-box">
+    <div class="compare-card"><small>계약 검수금액</small><strong id="c-contract">0원</strong></div>
+    <div class="compare-card"><small>당월 검수계획 총액</small><strong id="c-plan">0원</strong></div>
+    <div class="compare-card"><small>생성 실투입 총액</small><strong id="c-actual">0원</strong></div>
+    <div class="compare-card" id="c-verdict-card"><small>검수계획 vs 계약금액</small><strong id="c-verdict">-</strong></div>
+  </div>
+
+  <div class="footer-actions">
+    <p id="request-comment">[당월 검수금액 실투입 생성]을 눌러 당월 검수계획에 대한 실투입을 생성하세요.</p>
+    <button class="btn dark" id="footer-request-button" onclick="requestInspection()">검수요청</button>
+  </div>
+</main>
+
+<script>
+  const contractInspectionAmount = 44000000; // 계약(PO) 당월 검수금액
+
+  // 검수계획 = 프로젝트별 인력계획(외주비계획)의 월별 계획을 그대로 끌어온 데이터.
+  // 하나의 계약(PO)에 여러 프로젝트가 물릴 수 있어 당월 대상이 여러 건일 수 있다.
+  // state: 'none'(실투입 미생성) | 'created'(생성됨·검수 전) | 'inspected'(검수완료)
+  // state: 'none'(미생성) | 'created'(생성됨·검수 전) | 'inProgress'(검수 진행중) | 'done'(검수완료)
+  // 검수번호(4000~)는 검수가 진행중이거나 완료된 건에만 부여된다.
+  // 검수계획은 각 프로젝트 실행예산 외주비계획의 최종(승인) 버전에서 가져온다.
+  const planRows = [
+    { month: '2026-07', project: '30129338-D001', no: 'INSP-2026-07-001', amount: 20000000, target: true, state: 'done', voucher: '8800490701', inspectionNo: '4001123699', budgetVersion: 'V3', budgetVersionDate: '2026-07-20' },
+    { month: '2026-07', project: '30120011-D002', no: 'INSP-2026-07-014', amount: 8000000, target: true, state: 'inProgress', voucher: '8800490702', inspectionNo: '4001125512', budgetVersion: 'V4', budgetVersionDate: '2026-07-22' },
+    { month: '2026-07', project: '30129338-D001', no: 'INSP-2026-07-021', amount: 6000000, target: true, state: 'created', voucher: '8800490703', inspectionNo: null, budgetVersion: 'V3', budgetVersionDate: '2026-07-20' },
+    { month: '2026-07', project: '30120011-D002', no: 'INSP-2026-07-033', amount: 4000000, target: true, state: 'none', voucher: null, inspectionNo: null, budgetVersion: 'V4', budgetVersionDate: '2026-07-22' },
+    { month: '2026-06', project: '30129338-D001', no: 'INSP-2026-06-001', amount: 40150990, target: false, state: 'none', voucher: null, inspectionNo: null, budgetVersion: 'V3', budgetVersionDate: '2026-07-20' },
+    { month: '2026-08', project: '30129338-D001', no: 'INSP-2026-08-001', amount: 43800000, target: false, state: 'none', voucher: null, inspectionNo: null, budgetVersion: 'V3', budgetVersionDate: '2026-07-20' },
+  ];
+  let voucherSeq = 703; // 마지막으로 사용한 전표 시퀀스
+  let inspectionSeq = 4001125512; // 마지막으로 발번한 검수번호
+  const selected = new Set(); // 검수 대상으로 선택한 실투입 전표(row.no)
+
+  function formatAmount(value) {
+    return value.toLocaleString('ko-KR') + '원';
+  }
+  function targetRows() {
+    return planRows.filter(row => row.target);
+  }
+  function planTotal() {
+    return targetRows().reduce((sum, row) => sum + row.amount, 0);
+  }
+  function createdTotal() {
+    return targetRows().filter(row => row.state !== 'none').reduce((sum, row) => sum + row.amount, 0);
+  }
+  function stateLabel(state) {
+    return state === 'done' ? '검수완료' : state === 'inProgress' ? '검수 진행중' : state === 'created' ? '생성됨 (검수 전)' : '미생성';
+  }
+  function stateClass(state) {
+    return state === 'done' ? 'st-done' : state === 'inProgress' ? 'st-progress' : state === 'created' ? 'st-created' : 'st-none';
+  }
+  function hasInspectionNo(state) {
+    return state === 'inProgress' || state === 'done';
+  }
+
+  function renderMap() {
+    document.getElementById('map-count').textContent = 'Results : ' + planRows.length;
+    document.getElementById('map-body').innerHTML = planRows.map(row => {
+      if (!row.target) {
+        return `
+        <tr class="disabled">
+          <td></td>
+          <td>${row.month}</td>
+          <td>${row.project}</td>
+          <td>${row.budgetVersion} <span class="final-badge">최종</span><br><span class="ver-date">${row.budgetVersionDate} 승인</span></td>
+          <td class="right">${formatAmount(row.amount)}</td>
+          <td>-</td>
+          <td>-</td>
+          <td>-</td>
+          <td class="right">-</td>
+          <td>-</td>
+          <td>당월 아님</td>
+        </tr>`;
+      }
+      const hasActual = row.state !== 'none';
+      let action;
+      if (row.state === 'none') action = `<button class="btn dark sm" onclick="createActual('${row.no}')">실투입 생성</button>`;
+      else if (row.state === 'created') action = `<button class="btn sm" onclick="cancelActual('${row.no}')">실투입 취소</button>`;
+      else action = `<span class="lock-note">취소 불가 (${row.state === 'inProgress' ? '검수 진행중' : '검수완료'})</span>`;
+      return `
+        <tr>
+          <td class="check-cell">${row.state === 'created' ? `<input type="checkbox" ${selected.has(row.no) ? 'checked' : ''} onclick="toggleSelect('${row.no}')" />` : ''}</td>
+          <td>${row.month}</td>
+          <td>${row.project}</td>
+          <td>${row.budgetVersion} <span class="final-badge">최종</span><br><span class="ver-date">${row.budgetVersionDate} 승인</span></td>
+          <td class="right">${formatAmount(row.amount)}</td>
+          <td><span class="state-badge ${stateClass(row.state)}">${stateLabel(row.state)}</span></td>
+          <td>${hasInspectionNo(row.state) && row.inspectionNo ? row.inspectionNo : '-'}</td>
+          <td>${row.voucher ? row.voucher + ' <span class="src-badge">구매시스템 생성</span>' : '-'}</td>
+          <td class="right">${hasActual ? formatAmount(row.amount) : '-'}</td>
+          <td>${row.state === 'none' ? '<span class="edit-ok">수정 가능</span>' : '<span class="edit-lock">수정 불가 (실적 반영)</span>'}</td>
+          <td>${action}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  function renderPlanTotalBasis() {
+    const el = document.getElementById('plan-total-basis');
+    if (!el) return;
+    const total = planTotal();
+    const diff = contractInspectionAmount - total;
+    const matched = diff === 0;
+    el.className = 'plan-basis ' + (matched ? 'ok' : 'warn');
+    el.innerHTML = `
+      <span>계약 검수금액 <b>${formatAmount(contractInspectionAmount)}</b></span>
+      <span>당월 검수계획 총액 <b>${formatAmount(total)}</b></span>
+      <span class="plan-basis-verdict">${matched ? '일치' : (diff > 0 ? '부족 ' : '초과 ') + formatAmount(Math.abs(diff))}</span>
+      ${matched ? '' : '<span class="plan-basis-note">금액 조정이 필요하면 각 프로젝트의 검수계획금액(외주비계획)을 수정하세요.</span>'}`;
+  }
+
+  function createActual(no) {
+    const row = planRows.find(item => item.no === no);
+    if (!row || !row.target || row.state !== 'none') return;
+    voucherSeq += 1;
+    row.state = 'created';
+    row.voucher = '8800490' + voucherSeq;
+    renderMap();
+    renderPlanTotalBasis();
+    updateCompare();
+    alert(row.project + ' / ' + row.no + ' 실투입전표가 생성되었습니다.\n실행예산에 실적으로 반영되어 해당 검수계획(외주비계획)은 수정할 수 없습니다.');
+  }
+
+  function cancelActual(no) {
+    const row = planRows.find(item => item.no === no);
+    if (!row) return;
+    if (row.state === 'inProgress' || row.state === 'done') {
+      alert('검수가 ' + (row.state === 'done' ? '완료된' : '진행 중인') + ' 건은 실투입을 취소할 수 없습니다.');
+      return;
+    }
+    if (row.state !== 'created') return;
+    row.state = 'none';
+    row.voucher = null;
+    selected.delete(row.no);
+    renderMap();
+    renderPlanTotalBasis();
+    updateCompare();
+    alert(row.project + ' / ' + row.no + ' 실투입전표가 취소되었습니다.\n검수계획(외주비계획) 수정이 다시 가능합니다.');
+  }
+
+  function toggleSelect(no) {
+    if (selected.has(no)) selected.delete(no);
+    else selected.add(no);
+    renderMap();
+    updateCompare();
+  }
+
+  function updateCompare() {
+    const total = planTotal();
+    const created = createdTotal();
+    const contractMatched = total === contractInspectionAmount;
+    const hasCreated = targetRows().some(row => row.state === 'created');
+    const selectedCount = targetRows().filter(row => row.state === 'created' && selected.has(row.no)).length;
+    document.getElementById('c-contract').textContent = formatAmount(contractInspectionAmount);
+    document.getElementById('c-plan').textContent = formatAmount(total);
+    document.getElementById('c-actual').textContent = formatAmount(created);
+    document.getElementById('c-verdict').textContent = contractMatched ? '일치' : '불일치 (경고)';
+    document.getElementById('c-verdict-card').className = 'compare-card ' + (contractMatched ? 'ok' : 'warn');
+    document.getElementById('request-button').disabled = selectedCount === 0;
+    document.getElementById('footer-request-button').disabled = selectedCount === 0;
+    document.getElementById('request-comment').textContent = selectedCount > 0
+      ? ('선택한 실투입 ' + selectedCount + '건을 묶어 검수요청할 수 있습니다. 검수요청 시 하나의 검수번호가 부여되고 이후 취소가 불가합니다.' + (contractMatched ? '' : ' 검수계획 총액이 계약금액과 다르니 필요 시 각 프로젝트 외주비계획을 조정하세요.'))
+      : hasCreated
+        ? '검수할 실투입 전표를 선택(여러 건 가능)한 뒤 [검수요청]하세요.'
+        : '당월 대상 검수계획에서 [실투입 생성]으로 실투입을 만든 뒤, 검수 전 실투입 전표를 선택해 검수요청하세요.';
+  }
+
+  function requestInspection() {
+    const rows = targetRows().filter(row => row.state === 'created' && selected.has(row.no));
+    if (!rows.length) {
+      alert('검수할 실투입 전표를 선택하세요. (검수 전 실투입 전표만 선택 가능하며, 여러 건 선택할 수 있습니다.)');
+      return;
+    }
+    inspectionSeq += 1;
+    const inspectionNo = String(inspectionSeq);
+    rows.forEach(row => {
+      row.state = 'inProgress';
+      row.inspectionNo = inspectionNo;
+      selected.delete(row.no);
+    });
+    renderMap();
+    updateCompare();
+    alert(rows.length + '건의 실투입 전표를 묶어 검수요청했습니다.\n검수번호 ' + inspectionNo + '가 발번되었으며, 검수가 진행 중인 건은 실투입을 취소할 수 없습니다.');
+  }
+
+  renderMap();
+  renderPlanTotalBasis();
+  updateCompare();
+</script>
+</body>
+</html>

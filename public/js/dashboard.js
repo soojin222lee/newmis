@@ -1,3 +1,8 @@
+// AI GUIDE: 메인 화면 대시보드와 AI 업무 시작 화면을 렌더링합니다.
+// - PM/팀장 관점의 첫 화면이며 프로젝트 바로가기, 일정, AI 검색 입력을 제공합니다.
+// - 프로젝트명을 클릭하면 실행예산 상세 수립 화면으로 이동하는 흐름이 핵심입니다.
+// - AI 화면 가이드는 사용자의 다음 행동을 안내하고, 상세 업무 질문은 실행예산/레포트 등 해당 화면으로 연결해야 합니다.
+
 function initDashboard() {
   const now  = new Date();
   const days = ['일','월','화','수','목','금','토'];
@@ -6,7 +11,7 @@ function initDashboard() {
   document.getElementById('s-main').innerHTML = `
     <div class="page-header">
       <div>
-        <div class="page-title">안녕하세요, 이봄 님 👋</div>
+        <div class="page-title">NEW MIS는.</div>
         <div class="page-sub">${dateStr}</div>
       </div>
       <span class="role-badge pm-badge">👤 PM · 일반 구성원</span>
@@ -34,6 +39,15 @@ function renderAiShortcut(title, sub, action) {
     </button>`;
 }
 
+function openPurchaseReference() {
+  const popup = window.open('/purchase-reference-list.html', 'purchaseReferenceList', 'width=920,height=720');
+  if (!popup) {
+    showToast('팝업이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도해주세요.');
+  } else {
+    popup.opener = null;
+  }
+}
+
 function openAiBudgetMock(account) {
   openBudgetProjectScreen('budgetMock');
   budgetDetailStep = 'setup';
@@ -43,39 +57,6 @@ function openAiBudgetMock(account) {
 
 function openAiProjectBudget(projectKey) {
   openBudgetProjectScreen(projectKey || 'budgetMock');
-}
-
-const workDiaryItems = [
-  { day: 15, title: '검수 마지막날 준비', memo: '고객 검수 체크리스트와 미결 이슈를 확인합니다.' },
-  { day: 29, title: '월마감 전 실행예산 점검', memo: '실적/투입확정 금액과 변경 히스토리를 확인합니다.' },
-];
-
-function getWorkDiaryItems() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('workDiaryItems') || '[]');
-    return [...workDiaryItems, ...saved];
-  } catch (e) {
-    return workDiaryItems;
-  }
-}
-
-function saveWorkDiary() {
-  const dayEl = document.getElementById('diary-day');
-  const titleEl = document.getElementById('diary-title');
-  const memoEl = document.getElementById('diary-memo');
-  const day = Number(dayEl ? dayEl.value : 0);
-  const title = (titleEl ? titleEl.value : '').trim();
-  const memo = (memoEl ? memoEl.value : '').trim();
-  if (!day || !title) {
-    showToast('업무일지 날짜와 할 일을 입력해주세요.');
-    return;
-  }
-  const saved = JSON.parse(localStorage.getItem('workDiaryItems') || '[]');
-  saved.unshift({ day, title, memo });
-  localStorage.setItem('workDiaryItems', JSON.stringify(saved));
-  if (titleEl) titleEl.value = '';
-  if (memoEl) memoEl.value = '';
-  showToast(`${day}일 일정에 업무일지를 추가했습니다.`);
 }
 
 function askCostAi(forceText) {
@@ -126,7 +107,7 @@ function initDashboard() {
           <div class="ai-robot-head"><span></span><span></span></div>
           <div class="ai-robot-body"></div>
         </div>
-        <h1>원가 관리 어렵지 않아요.<br>궁금하게 있다면 저에게 물어보세요</h1>
+        <h1>사용은 가볍게, 데이터는 단단하게.<br><span class="ai-hero-line-sub">편리한 업무 환경과 신뢰할 수 있는 데이터의 연결.</span></h1>
         <div class="ai-search">
           <div class="ai-search-mark">AI</div>
           <input id="ai-main-query" type="text" placeholder="프로젝트, 실행예산, 인건비, 외주비, 월마감에 대해 질문해보세요"
@@ -351,8 +332,8 @@ function initDashboard() {
       </div>
 
       <section class="ai-work-hero">
-        <div class="ai-greeting">안녕하세요, 이봄님.</div>
-        <h1>원가 관리 어렵지 않아요.<br>궁금하게 있다면 저에게 물어보세요</h1>
+        <div class="ai-greeting">NEW MIS는.</div>
+        <h1>사용은 가볍게, 데이터는 단단하게.<br><span class="ai-hero-line-sub">편리한 업무 환경과 신뢰할 수 있는 데이터의 연결.</span></h1>
         <div class="ai-helper-card">
           <div class="ai-robot compact" aria-hidden="true">
             <div class="ai-robot-head"><span></span><span></span></div>
@@ -381,40 +362,7 @@ function initDashboard() {
                 <strong>30131234-D001</strong>
                 <span>예산관리시스템 목업용</span>
               </button>
-              <button onclick="openAiProjectBudget('cloud')">
-                <strong>IV107786</strong>
-                <span>26년 AX Solution서비스팀 그룹웨어 사업개발 활동 관리</span>
-              </button>
-              <button onclick="openAiProjectBudget('erp')">
-                <strong>IV107785</strong>
-                <span>출입통제 시스템 노후 서버 교체</span>
-              </button>
-              <button onclick="openAiProjectBudget('mobile')">
-                <strong>IV107784</strong>
-                <span>SK에코플랜트 배터리얼즈 26년 현업 주도 SOP 체계 구축 지원</span>
-              </button>
             </div>
-          </div>
-          <div class="work-diary-card">
-            <div class="home-section-title">업무일지</div>
-            <div class="work-diary-helper">할일을 메모해두면 AI가 업무를 처리해드려요.</div>
-            <label>
-              <span>알림 날짜</span>
-              <select id="diary-day">
-                <option value="15">7월 15일</option>
-                <option value="22">7월 22일</option>
-                <option value="29">7월 29일</option>
-              </select>
-            </label>
-            <label>
-              <span>해야 할 일</span>
-              <input id="diary-title" placeholder="예: 검수 마지막날 자료 확인">
-            </label>
-            <label>
-              <span>메모</span>
-              <textarea id="diary-memo" placeholder="달력 알림에 같이 표시할 내용을 입력하세요."></textarea>
-            </label>
-            <button onclick="saveWorkDiary()">업무일지 저장</button>
           </div>
         </div>
       </section>
@@ -441,16 +389,13 @@ function openSchedulePanel() {
     22: ['SCM 승인대기 건 확인'],
     29: ['월마감일', '실행예산 변경 히스토리 점검'],
   };
-  getWorkDiaryItems().forEach(item => {
-    events[item.day] = events[item.day] || [];
-    events[item.day].push(item.title);
-  });
-  const diaryRows = getWorkDiaryItems()
+  const scheduleRows = Object.entries(events)
+    .map(([day, titles]) => ({ day: Number(day), title: titles.join(' / ') }))
     .sort((a, b) => a.day - b.day)
     .map(item => `
       <div class="${item.day === 15 ? 'urgent' : item.day === 29 ? 'closing' : ''}">
         <b>${item.day}일</b>
-        <span><strong>${item.title}</strong><em>${item.memo || '업무일지에서 등록한 할 일입니다.'}</em></span>
+        <span><strong>${item.title}</strong><em>월간 일정 알림입니다.</em></span>
         <i>알림</i>
       </div>
     `).join('');
@@ -480,7 +425,7 @@ function openSchedulePanel() {
         <strong>이번 달 내 할 일</strong>
         <span>마감이 가까운 순서</span>
       </div>
-      <div class="schedule-list">${diaryRows}</div>
+      <div class="schedule-list">${scheduleRows}</div>
     </div>`;
   overlay.classList.add('open');
 }
@@ -512,89 +457,474 @@ function initDashboard() {
   updateKpiMain();
 }
 
-function renderPmDashboard() {
-  return `
-    <div class="ai-workspace">
-      <div class="ai-home-top">
-        <div class="ai-brand">
-          <strong>SKAX 원가관리 AI</strong>
-          <span>실행예산 · 투입 · 정산 업무 도우미</span>
-        </div>
-        <div class="top-actions">
-          ${renderRoleSwitch()}
-          <button class="schedule-open-btn" onclick="openSchedulePanel()">일정 확인</button>
-        </div>
-      </div>
+const HOME_PROJECTS = [
+  { id:'skon', no:'30131234-D001', name:'SKON 통합 관제 플랫폼' },
+  { id:'logi', no:'30140777-D002', name:'차세대 물류 실행계' },
+  { id:'migr', no:'30150482-D003', name:'SKON 데이터 마이그레이션' },
+  { id:'erp',  no:'30160231-D004', name:'ERP 고도화' },
+  { id:'sec',  no:'30160988-D005', name:'보안관제 고도화' },
+  { id:'cloud',no:'30170345-D006', name:'클라우드 인프라 전환' },
+  { id:'mob',  no:'30170612-D007', name:'모바일 앱 리뉴얼' },
+  { id:'dw',   no:'30180129-D008', name:'통합 데이터웨어하우스' },
+  { id:'aidoc',no:'30180457-D009', name:'AI 문서관리 POC' },
+];
 
-      <section class="ai-work-hero">
-        <div class="ai-greeting">안녕하세요, 이봄님.</div>
-        <h1>원가 관리 어렵지 않아요.<br>궁금하게 있다면 저에게 물어보세요</h1>
-        <div class="ai-helper-card">
-          <div class="ai-robot compact" aria-hidden="true">
-            <div class="ai-robot-head"><span></span><span></span></div>
-            <div class="ai-robot-body"></div>
-          </div>
-          <div>
-            <strong>이번 달 원가관리 포인트</strong>
-            <span>실행예산 조정, 인건비 승인요청, 일정 알림을 같이 확인할 수 있어요.</span>
-          </div>
-        </div>
-        <div class="ai-chatbox">
-          <input id="ai-main-query" type="text" placeholder="메시지를 입력하세요..."
-            onkeydown="if(event.key==='Enter') askCostAi()">
-          <button class="ai-attach-btn" title="파일 첨부">⌕</button>
-          <button class="ai-send-btn light" onclick="askCostAi()" title="질문하기">➜</button>
-        </div>
-        <div class="home-work-grid">
-          <div class="my-project-card">
-            <div class="home-section-title">내 프로젝트</div>
-            <div class="my-project-table">
-              <div class="my-project-head">
-                <span>프로젝트번호</span>
-                <span>프로젝트명</span>
-              </div>
-              <button onclick="openAiProjectBudget('budgetMock')">
-                <strong>30131234-D001</strong>
-                <span>예산관리시스템 목업용</span>
-              </button>
-              <button onclick="openAiProjectBudget('cloud')">
-                <strong>IV107786</strong>
-                <span>26년 AX Solution서비스팀 그룹웨어 사업개발 활동 관리</span>
-              </button>
-              <button onclick="openAiProjectBudget('erp')">
-                <strong>IV107785</strong>
-                <span>출입통제 시스템 노후 서버 교체</span>
-              </button>
-              <button onclick="openAiProjectBudget('mobile')">
-                <strong>IV107784</strong>
-                <span>SK에코플랜트 배터리얼즈 26년 현업 주도 SOP 체계 구축 지원</span>
-              </button>
-            </div>
-          </div>
-          <div class="work-diary-card">
-            <div class="home-section-title">업무일지</div>
-            <div class="work-diary-helper">할일을 메모해두면 AI가 업무를 처리해드려요.</div>
-            <label>
-              <span>알림 날짜</span>
-              <select id="diary-day">
-                <option value="15">7월 15일</option>
-                <option value="22">7월 22일</option>
-                <option value="29">7월 29일</option>
-              </select>
-            </label>
-            <label>
-              <span>해야 할 일</span>
-              <input id="diary-title" placeholder="예: 검수 마지막날 자료 확인">
-            </label>
-            <label>
-              <span>메모</span>
-              <textarea id="diary-memo" placeholder="달력 알림에 같이 표시할 내용을 입력하세요."></textarea>
-            </label>
-            <button onclick="saveWorkDiary()">업무일지 저장</button>
-          </div>
-        </div>
-      </section>
+// ── 확인이 필요한 것 = Action-oriented Work Feed ──
+// cat:'budget'(예산 점검, MIS 내부 시그널) | 'work'(업무 반영, 외부 이벤트→원가영향→액션)
+// act 종류: cause(AI 원인분석) status adjust history impact reflect(미리보기 드로어) done detail later
+const HOME_FEED = [
+  // ── 예산 점검 ──
+  { cat:'budget', proj:'skon', sub:'이상징후', sev:'danger', title:'8월 외주비가 계획 대비 18% 증가했어요',
+    change:{ fromL:'계획', from:'2.30억', toL:'현재 예상', to:'2.72억', deltaL:'증가', delta:'+4,200만원', pct:'+18%' },
+    impact:{ note:'현재 추세가 유지될 경우', label:'연말 예상원가', value:'+5,400만원', tail:'증가 예상' },
+    primary:{ label:'원인 분석', ai:true, act:'cause', q:'SKON 통합 관제 플랫폼 8월 외주비 왜 늘었어?' },
+    secondaries:[ { label:'원가 현황', act:'status' }, { label:'확인 완료', act:'done' } ] },
+  { cat:'budget', proj:'skon', sub:'정합성', sev:'danger', title:'승인 이후 계약금액이 변경됐어요',
+    dual:{ leftL:'승인 당시 계약금액', left:'30.8억', rightL:'현재 계약금액', right:'32.0억', delta:'+1.2억', extraL:'현재 수행원가', extra:'27.2억' },
+    note:'계약 변경이 현재 수행원가에 미치는 영향을 검토해야 합니다.',
+    preview:{ title:'계약 변경 · 영향 확인', date:'2026.08.18', mode:'impact',
+      rows:[ ['계약금액','30.8억','32.0억','+1.2억'], ['수행원가(현재)','27.2억','27.2억','-'] ],
+      forecast:{ cost:['27.20억','27.20억','검토 필요'], rate:['84.2%','—','검토 필요'] },
+      warning:'계약금액 상향분이 수행원가에 반영되지 않았습니다.' },
+    primary:{ label:'영향 확인', act:'impact' },
+    secondaries:[ { label:'원가 조정', act:'adjust' }, { label:'변경 이력', act:'history' } ] },
+  // ── 업무 반영 ──
+  { cat:'work', proj:'migr', sub:'SCM', sev:'info', title:'9월 투입인력이 확정됐어요',
+    flow:{ sL:'SCM 확정', sSub:'9월 투입인력', sVal:'12명 → 15명', sDelta:'+3명',
+           iL:'수행원가 영향', iSub:'9월 인건비', iVal:'+2,400만원',
+           aL:'필요한 업무', aSub:'9월 원가계획', aVal:'반영 필요' },
+    preview:{ title:'SCM · 9월 인력계획', date:'2026.08.18', mode:'reflect', draft:'V5',
+      rows:[ ['투입인원','12명','15명','+3명'], ['인건비','8,200만원','1억 600만원','+2,400만원'], ['9월 원가','2.10억','2.34억','+2,400만원'] ],
+      forecast:{ cost:['27.20억','27.44억','+2,400만원'], rate:['84.2%','84.9%','+0.7%p'] },
+      warning:'현재 승인된 수행원가 대비 2,400만원 증가합니다.',
+      done:{ sL:'SCM 확정 인력', sVal:'12명 → 15명', iL:'원가 영향', iVal:'+2,400만원' } },
+    primary:{ label:'수행원가에 반영', act:'reflect' },
+    secondaries:[ { label:'변경내용 보기', act:'detail' }, { label:'나중에', act:'later' } ] },
+  { cat:'work', proj:'skon', sub:'구매', sev:'info', title:'외주 계약 3건이 확정됐어요',
+    flow:{ sL:'구매 확정', sSub:'외주 계약금액', sVal:'4.8억 → 5.2억', sDelta:'',
+           iL:'수행원가 차이', iSub:'현재 외주비 계획 대비', iVal:'+4,000만원',
+           aL:'필요한 업무', aSub:'외주비 계획', aVal:'조정 필요' },
+    preview:{ title:'구매 · 외주 계약 확정', date:'2026.08.18', mode:'reflect', draft:'V5',
+      rows:[ ['외주 계약금액','4.8억','5.2억','+4,000만원'], ['외주비 계획','9.50억','9.90억','+4,000만원'] ],
+      forecast:{ cost:['28.10억','28.50억','+4,000만원'], rate:['86.8%','88.0%','+1.2%p'] },
+      warning:'외주비 계획이 계약 확정분만큼 증가합니다.',
+      done:{ sL:'구매 확정 계약', sVal:'4.8억 → 5.2억', iL:'원가 영향', iVal:'+4,000만원' } },
+    primary:{ label:'수행원가에 반영', act:'reflect' },
+    secondaries:[ { label:'계약내역 보기', act:'detail' }, { label:'나중에', act:'later' } ] },
+  { cat:'work', proj:'logi', sub:'ERP', sev:'warning', title:'7월 경비 실적이 확정됐어요',
+    flow:{ sL:'ERP 실적', sSub:'7월 경비', sVal:'4,040만원', sDelta:'',
+           iL:'계획 대비', iSub:'계획 3,200만원', iVal:'+840만원',
+           aL:'필요한 업무', aSub:'잔여기간 계획', aVal:'재검토 필요' },
+    note:'이미 확정된 실적입니다. 잔여계획 영향을 확인한 뒤 필요 시 원가를 조정하세요.',
+    preview:{ title:'ERP · 7월 경비 실적', date:'2026.08.18', mode:'impact',
+      rows:[ ['7월 경비 계획','3,200만원','3,200만원','-'], ['7월 경비 실적','—','4,040만원','+840만원'] ],
+      forecast:{ cost:['16.90억','16.98억','+840만원'], rate:['78.6%','78.9%','+0.3%p'] },
+      warning:'실적 초과분만큼 잔여기간 계획 재검토가 필요합니다.' },
+    primary:{ label:'원가 영향 확인', act:'impact' },
+    secondaries:[ { label:'원가 조정', act:'adjust' }, { label:'확인 완료', act:'done' } ] },
+  { cat:'work', proj:'skon', sub:'SCM', sev:'info', title:'8월 투입인력 변경이 확정됐어요',
+    flow:{ sL:'SCM 확정', sSub:'8월 투입인력', sVal:'14명 → 13명', sDelta:'-1명',
+           iL:'수행원가 영향', iSub:'8월 인건비', iVal:'-1,050만원',
+           aL:'필요한 업무', aSub:'8월 원가계획', aVal:'반영 필요' },
+    preview:{ title:'SCM · 8월 인력계획', date:'2026.08.18', mode:'reflect', draft:'V5',
+      rows:[ ['투입인원','14명','13명','-1명'], ['인건비','9,200만원','8,150만원','-1,050만원'] ],
+      forecast:{ cost:['28.10억','28.00억','-1,050만원'], rate:['86.8%','86.5%','-0.3%p'] },
+      warning:'',
+      done:{ sL:'SCM 확정 인력', sVal:'14명 → 13명', iL:'원가 영향', iVal:'-1,050만원' } },
+    primary:{ label:'수행원가에 반영', act:'reflect' },
+    secondaries:[ { label:'변경내용 보기', act:'detail' }, { label:'나중에', act:'later' } ] },
+];
+
+let homeSelectedProject = 'all';
+let homeCat = 'all';
+const homeFeedState = {}; // key → 'reflected' | 'done'
+
+// 카드는 기본 접힘. 헤더 클릭 시 펼침(재렌더 없이 클래스 토글).
+function toggleFeedCard(el) { const c = el.closest('.hm-card'); if (c) c.classList.toggle('open'); }
+
+function feedKey(it) { return it.proj + '|' + it.title; }
+function homeProjName(id) { const p = HOME_PROJECTS.find(x => x.id === id); return p ? p.name : ''; }
+function homeFeedByProj() { return HOME_FEED.filter(i => homeSelectedProject === 'all' || i.proj === homeSelectedProject); }
+function homeInsightCount(id) { return id === 'all' ? HOME_FEED.length : HOME_FEED.filter(i => i.proj === id).length; }
+function homeCatCount(cat) { const b = homeFeedByProj(); return cat === 'all' ? b.length : b.filter(i => i.cat === cat).length; }
+
+function selectHomeProject(id) { homeSelectedProject = id; homeCat = 'all'; rerenderHomeFeed(); }
+function selectHomeCat(cat) { homeCat = cat; rerenderHomeFeed(); }
+function rerenderHomeFeed() {
+  const el = document.getElementById('home-insight-block'); if (el) el.innerHTML = renderHomeInsightBlock();
+  const br = document.getElementById('home-brief'); if (br) br.innerHTML = homeBriefHtml();
+  const ft = document.getElementById('home-foot');  if (ft) ft.innerHTML = homeFootHtml();
+}
+
+function scrollHomeTabs(dir) {
+  const t = document.getElementById('hm-ptabs-track');
+  if (!t) return;
+  const max = t.scrollWidth - t.clientWidth;
+  t.scrollLeft = Math.max(0, Math.min(max, t.scrollLeft + dir * 260));
+}
+
+function renderHomeInsightBlock() {
+  const tabs = [{ id:'all', name:'전체' }].concat(HOME_PROJECTS.map(p => ({ id:p.id, name:p.name })))
+    .map(t => `
+        <button class="hm-ptab ${homeSelectedProject === t.id ? 'active' : ''}" onclick="selectHomeProject('${t.id}')">
+          <span class="hm-ptab-name">${t.name}</span>
+          <span class="hm-ptab-badge">${homeInsightCount(t.id)}</span>
+        </button>`).join('');
+  const tabsCarousel = `
+    <div class="hm-ptabs-carousel">
+      <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(-1)" aria-label="이전 프로젝트">‹</button>
+      <div class="hm-ptabs-track" id="hm-ptabs-track">${tabs}</div>
+      <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(1)" aria-label="다음 프로젝트">›</button>
     </div>`;
+
+  const filtered = homeFeedByProj();
+  const shown = homeCat === 'all' ? filtered : filtered.filter(i => i.cat === homeCat);
+  const catFilter = `
+    <div class="hm-catfilter">
+      <button class="hm-cat ${homeCat === 'all' ? 'on' : ''}" onclick="selectHomeCat('all')">전체 <em>${homeCatCount('all')}</em></button>
+      <button class="hm-cat budget ${homeCat === 'budget' ? 'on' : ''}" onclick="selectHomeCat('budget')">예산 점검 <em>${homeCatCount('budget')}</em></button>
+      <button class="hm-cat work ${homeCat === 'work' ? 'on' : ''}" onclick="selectHomeCat('work')">업무 반영 <em>${homeCatCount('work')}</em></button>
+    </div>`;
+
+  let body = '';
+  if (!shown.length) body = `<div class="hm-empty">이 프로젝트는 지금 확인할 항목이 없어요. 정상 범위입니다.</div>`;
+  else {
+    const budgetItems = shown.filter(i => i.cat === 'budget');
+    const workItems = shown.filter(i => i.cat === 'work');
+    if (budgetItems.length) body += `<div class="hm-feed-cat"><span class="hm-feed-cat-dot budget"></span>예산 점검 <em>MIS 데이터에서 발견한 시그널</em></div>` + budgetItems.map(feedCard).join('');
+    if (workItems.length) body += `<div class="hm-feed-cat"><span class="hm-feed-cat-dot work"></span>업무 반영 <em>외부 이벤트 → 원가 영향 → 필요한 업무</em></div>` + workItems.map(feedCard).join('');
+  }
+
+  return `
+    ${tabsCarousel}
+    <div class="home2-sec-head">
+      <h2>확인이 필요한 것 <b>${filtered.length}가지</b></h2>
+      <span>업무 이벤트가 수행원가에 미치는 영향과 다음 업무를 연결합니다</span>
+    </div>
+    ${catFilter}
+    <div class="hm-feed">${body}</div>`;
+}
+
+function feedCard(it) {
+  const key = feedKey(it);
+  const st = homeFeedState[key];
+  if (st === 'reflected') {
+    const d = it.preview.done;
+    return `<div class="hm-card done">
+      <div class="hm-done-t">✓ 수행원가 조정안에 반영했습니다</div>
+      <div class="hm-done-meta">${d.sL} <b>${d.sVal}</b> · ${d.iL} <b class="${/-/.test(d.iVal) ? 'down' : 'up'}">${d.iVal}</b> · <b>원가 조정 Draft ${it.preview.draft}</b>에 반영됨</div>
+      <div class="hm-card-actions"><button class="hm-btn pri" onclick="openCostAdjust('budgetMock')">원가 조정 계속하기 →</button></div>
+    </div>`;
+  }
+  if (st === 'done') {
+    return `<div class="hm-card done grey">
+      <div class="hm-done-t">✓ 확인 완료</div>
+      <div class="hm-done-meta">${it.title} · ${homeProjName(it.proj)}</div>
+    </div>`;
+  }
+  return it.cat === 'budget' ? feedBudgetCard(it, key) : feedWorkCard(it, key);
+}
+
+function feedActionsHtml(it, key) {
+  const p = it.primary;
+  const sec = it.secondaries.map(s => `<button class="hm-btn" onclick="feedAct('${key}','${s.act}')">${s.label}</button>`).join('');
+  return `<div class="hm-card-actions">
+    <button class="hm-btn pri" onclick="feedAct('${key}','${p.act}')">${p.label}${p.ai ? ' <span class="hm-ai-spark">✦</span>' : ''}</button>${sec}
+  </div>`;
+}
+
+function feedCardHead(it, sum) {
+  const tag = it.cat === 'budget'
+    ? `<span class="hm-dot hm-${it.sev}"></span><span class="hm-tag hm-${it.sev}">예산 점검 · ${it.sub}</span>`
+    : `<span class="hm-tag work">업무 반영 · ${it.sub}</span>`;
+  return `<div class="hm-card-head" onclick="toggleFeedCard(this)">
+    <div class="hm-card-headmain">
+      <div class="hm-card-top">${tag}<span class="hm-card-proj">${homeProjName(it.proj)}</span></div>
+      <h3 class="hm-card-title">${it.title}</h3>
+      <div class="hm-card-sum">${sum}</div>
+    </div>
+    <span class="hm-chev" aria-hidden="true">⌄</span>
+  </div>`;
+}
+
+function feedBudgetCard(it, key) {
+  let metrics = '', sum = '';
+  if (it.change) {
+    const c = it.change;
+    sum = `<b>${c.from}</b> → <b>${c.to}</b> <em class="up">${c.delta} (${c.pct})</em>`;
+    metrics = `<div class="hm-metrics">
+      <div class="hm-metric"><span class="hm-m-l">${c.fromL}</span><b class="hm-m-v">${c.from}</b></div>
+      <span class="hm-arrow">→</span>
+      <div class="hm-metric"><span class="hm-m-l">${c.toL}</span><b class="hm-m-v">${c.to}</b></div>
+      <div class="hm-metric hi"><span class="hm-m-l">${c.deltaL}</span><b class="hm-m-v up">${c.delta} <em>(${c.pct})</em></b></div>
+    </div>
+    <div class="hm-impact"><span class="hm-impact-l">예상 영향</span>${it.impact.note} · ${it.impact.label} <b class="up">${it.impact.value}</b> ${it.impact.tail}</div>`;
+  } else if (it.dual) {
+    const d = it.dual;
+    sum = `<b>${d.left}</b> → <b>${d.right}</b> <em class="up">${d.delta}</em>`;
+    metrics = `<div class="hm-metrics">
+      <div class="hm-metric"><span class="hm-m-l">${d.leftL}</span><b class="hm-m-v">${d.left}</b></div>
+      <span class="hm-arrow">→</span>
+      <div class="hm-metric"><span class="hm-m-l">${d.rightL}</span><b class="hm-m-v">${d.right} <em class="up">${d.delta}</em></b></div>
+      <div class="hm-metric hi"><span class="hm-m-l">${d.extraL}</span><b class="hm-m-v">${d.extra}</b></div>
+    </div>
+    <div class="hm-impact">${it.note}</div>`;
+  }
+  return `<div class="hm-card budget">
+    ${feedCardHead(it, sum)}
+    <div class="hm-card-body">
+      ${metrics}
+      ${feedActionsHtml(it, key)}
+    </div>
+  </div>`;
+}
+
+function feedWorkCard(it, key) {
+  const f = it.flow;
+  const iCls = /-/.test(f.iVal) ? 'down' : 'up';
+  const sum = `${f.sVal}${f.sDelta ? ` <em class="${/-/.test(f.sDelta) ? 'down' : 'up'}">${f.sDelta}</em>` : ''} · ${f.iL} <em class="${iCls}">${f.iVal}</em> · <b>${f.aVal}</b>`;
+  return `<div class="hm-card work">
+    ${feedCardHead(it, sum)}
+    <div class="hm-card-body">
+      <div class="hm-flow">
+        <div class="hm-flow-step"><div class="hm-flow-l">${f.sL}</div><div class="hm-flow-sub">${f.sSub}</div><div class="hm-flow-v">${f.sVal}${f.sDelta ? ` <em class="${/-/.test(f.sDelta) ? 'down' : 'up'}">${f.sDelta}</em>` : ''}</div></div>
+        <span class="hm-flow-arrow">→</span>
+        <div class="hm-flow-step"><div class="hm-flow-l">${f.iL}</div><div class="hm-flow-sub">${f.iSub}</div><div class="hm-flow-v ${iCls}">${f.iVal}</div></div>
+        <span class="hm-flow-arrow">→</span>
+        <div class="hm-flow-step accent"><div class="hm-flow-l">${f.aL}</div><div class="hm-flow-sub">${f.aSub}</div><div class="hm-flow-v">${f.aVal}</div></div>
+      </div>
+      ${it.note ? `<div class="hm-impact">${it.note}</div>` : ''}
+      ${feedActionsHtml(it, key)}
+    </div>
+  </div>`;
+}
+
+function feedAct(key, act) {
+  const it = HOME_FEED.find(i => feedKey(i) === key);
+  if (!it) return;
+  switch (act) {
+    case 'cause': openAiChat('main', it.primary.q || (it.title + ' 원인 분석해줘')); break;
+    case 'status': openCostStatus('budgetMock'); break;
+    case 'adjust': openCostAdjust('budgetMock'); break;
+    case 'history': openCostHistory('budgetMock'); break;
+    case 'impact': it.preview ? openImpactDrawer(key) : openCostStatus('budgetMock'); break;
+    case 'reflect': openImpactDrawer(key); break;
+    case 'done': homeFeedState[key] = 'done'; rerenderHomeFeed(); showToast('확인 완료로 처리했어요.'); break;
+    case 'detail': showToast('변경 상세 보기 (준비 중)'); break;
+    case 'later': showToast('나중에 다시 알려드릴게요.'); break;
+  }
+}
+
+// ── Impact Preview Drawer ──
+let impactDrawerKey = null;
+function openImpactDrawer(key) {
+  const it = HOME_FEED.find(i => feedKey(i) === key);
+  if (!it || !it.preview) return;
+  impactDrawerKey = key;
+  const ov = document.getElementById('home-impact-drawer');
+  if (!ov) return;
+  ov.innerHTML = impactDrawerHtml(it);
+  ov.classList.add('open');
+}
+function closeImpactDrawer() { const ov = document.getElementById('home-impact-drawer'); if (ov) ov.classList.remove('open'); }
+function impactDrawerHtml(it) {
+  const pv = it.preview;
+  const key = feedKey(it);
+  const reflectMode = pv.mode === 'reflect';
+  const rows = pv.rows.map(r => `<tr><td class="l">${r[0]}</td><td class="n">${r[1]}</td><td class="n">${r[2]}</td><td class="n ${/^[+]/.test(r[3]) ? 'up' : /^-/.test(r[3]) ? 'down' : ''}">${r[3]}</td></tr>`).join('');
+  const fc = pv.forecast;
+  return `
+    <div class="hm-drawer" onclick="event.stopPropagation()">
+      <div class="hm-drawer-head">
+        <div>
+          <div class="hm-drawer-eyebrow">${reflectMode ? '수행원가 반영 미리보기' : '원가 영향 확인'}</div>
+          <strong>${pv.title}</strong>
+          <div class="hm-drawer-meta">확정일 ${pv.date} · ${homeProjName(it.proj)}</div>
+        </div>
+        <button class="hm-drawer-x" onclick="closeImpactDrawer()" aria-label="닫기">✕</button>
+      </div>
+      <div class="hm-drawer-body">
+        <div class="hm-drawer-sec-t">변경내용</div>
+        <table class="hm-drawer-tbl"><tr class="h"><td>항목</td><td class="n">현재 계획</td><td class="n">확정</td><td class="n">증감</td></tr>${rows}</table>
+
+        <div class="hm-drawer-sec-t">반영 후 Project Forecast</div>
+        <div class="hm-fc">
+          <div class="hm-fc-item"><span>예상원가</span><div class="hm-fc-v">${fc.cost[0]} <i>→</i> <b>${fc.cost[1]}</b></div><span class="hm-fc-d ${/^[+]/.test(fc.cost[2]) ? 'up' : /^-/.test(fc.cost[2]) ? 'down' : ''}">${fc.cost[2]}</span></div>
+          <div class="hm-fc-item"><span>예상 원가율</span><div class="hm-fc-v">${fc.rate[0]} <i>→</i> <b>${fc.rate[1]}</b></div><span class="hm-fc-d ${/^[+]/.test(fc.rate[2]) ? 'up' : /^-/.test(fc.rate[2]) ? 'down' : ''}">${fc.rate[2]}</span></div>
+        </div>
+        ${pv.warning ? `<div class="hm-drawer-warn">⚠ ${pv.warning}</div>` : ''}
+      </div>
+      <div class="hm-drawer-foot">
+        <button class="hm-btn" onclick="closeImpactDrawer()">취소</button>
+        ${reflectMode
+          ? `<button class="hm-btn pri" onclick="feedReflectApply('${key}')">원가 조정안에 반영</button>`
+          : `<button class="hm-btn pri" onclick="closeImpactDrawer();openCostAdjust('budgetMock')">원가 조정으로 이동 →</button>`}
+      </div>
+    </div>`;
+}
+function feedReflectApply(key) {
+  closeImpactDrawer();
+  homeFeedState[key] = 'reflected';
+  rerenderHomeFeed();
+  showToast('원가 조정안(Draft V5)에 반영했어요.');
+}
+
+// ── AI 자동처리 레이어 ─────────────────────────────────────────────
+// 실행예산은 선행(CRM·AI PMO·SCM·구매)에서 IF를 받아 수행 관점으로 편성하고,
+// 후행(ERP·BIX)으로 확정 정보를 넘긴다. AI는 그 사이에서 "무엇을 자동 반영했는지"를
+// 먼저 보여주고, 그 결과 PM이 확인해야 할 것만 HOME_FEED로 남긴다.
+const HOME_EVENT_TOTAL  = 18;   // 오늘 선행 시스템에서 수신한 이벤트 총건
+const HOME_AUTO_COUNT   = 12;   // 그중 AI가 자동 반영한 건 (나머지 6건 = HOME_FEED)
+const HOME_AUTO_MIN_PER = 8;    // 건당 표준 처리시간(분, 추정)
+const HOME_AUTO_WEEK    = 47;   // 이번 주 누적 자동 반영
+
+// grade: 'D' 확정(원천 IF 확정값) | 'R' 규칙기반(산식 적용, 계정 총액 불변)
+const HOME_AUTO_LOG = [
+  { time:'09:02', sys:'ERP',    grade:'D', title:'월마감 D+1 자동 현행화 · 인건비', desc:'7월 확정 실적 기표 반영 · 이관인건비 포함 8건', proj:'all' },
+  { time:'09:02', sys:'ERP',    grade:'D', title:'월마감 D+1 자동 현행화 · 경비',   desc:'잡비·사무용품 실적 반영 · 계획=실적 확정', proj:'all' },
+  { time:'10:41', sys:'구매',   grade:'D', title:'외주 PO 확정 반영 · 외주비',      desc:'ATS 2건 · AGS 1건 계획=실적 확정 처리', proj:'skon' },
+  { time:'11:15', sys:'SCM',    grade:'R', title:'납기 변경 반영 · 재료비',         desc:'검수월 9월 → 10월 이동 · 계정 총액 불변', proj:'logi' },
+  { time:'13:08', sys:'AI PMO', grade:'D', title:'Roll-out 인력 반영 · 인건비',     desc:'1명 철수 · 8월 인건비 -850만원', proj:'migr' },
+  { time:'14:22', sys:'CRM',    grade:'D', title:'선투입 집행 자동 승계',           desc:'선투입 4,200만원 → 본 PJT 승계 · 추적 링크 유지', proj:'erp' },
+];
+
+const HOME_SYSTEMS = [
+  { name:'CRM',    state:'ok',   note:'계약 IF 정상' },
+  { name:'AI PMO', state:'ok',   note:'투입계획 IF 정상' },
+  { name:'SCM',    state:'ok',   note:'인력·납기 IF 정상' },
+  { name:'구매',   state:'ok',   note:'PO·검수 IF 정상' },
+  { name:'ERP',    state:'wait', note:'전송 대기 3건' },
+  { name:'BIX',    state:'ok',   note:'손익 IF 정상' },
+];
+
+function homeOpenCount() { return HOME_FEED.filter(i => !homeFeedState[feedKey(i)]).length; }
+
+function homeBriefHtml() {
+  const left = homeOpenCount();
+  if (!left) return `<b>오늘 확인할 것이 없어요.</b> 나머지 <b>${HOME_AUTO_COUNT}건</b>은 AI가 자동 반영했습니다.`;
+  return `오늘 확인할 것은 <b>${left}건</b>, <em>약 ${Math.round(left * 1.5)}분이면 끝나요.</em> 나머지 <b>${HOME_AUTO_COUNT}건</b>은 AI가 자동 반영했어요.`;
+}
+
+function homeAutoStripHtml() {
+  return `
+    <button class="hm-autostrip" onclick="openAutoDrawer()">
+      <span class="hm-autostrip-ic">⚡</span>
+      <span class="hm-autostrip-tx">선행 시스템 이벤트 <em>${HOME_EVENT_TOTAL}건 중 ${HOME_AUTO_COUNT}건</em>을 AI가 수행원가에 자동 반영했어요 · <em>월마감 D+1 자동 현행화</em> 포함</span>
+      <span class="hm-autostrip-more">자동 처리 내역 보기 ›</span>
+    </button>`;
+}
+
+function homeFootHtml() {
+  const done  = HOME_FEED.length - homeOpenCount();
+  const saved = HOME_AUTO_COUNT * HOME_AUTO_MIN_PER;
+  const chips = HOME_SYSTEMS.map(s => `<span class="hm-sys-chip ${s.state}"><i></i>${s.name} <em>${s.note}</em></span>`).join('');
+  return `
+    <div class="hm-foot">
+      <div class="hm-foot-card">
+        <div class="hm-foot-t">오늘 처리 요약</div>
+        <div class="hm-foot-v">확인 처리 <b>${done}</b>건 · 자동 반영 <b>${HOME_AUTO_COUNT}</b>건 · <em>절약한 시간 약 ${Math.floor(saved/60)}시간 ${saved%60}분</em></div>
+        <div class="hm-foot-s">이번 주 누적 자동 반영 ${HOME_AUTO_WEEK}건 · 건당 표준 처리시간 ${HOME_AUTO_MIN_PER}분(추정) 기준</div>
+      </div>
+      <div class="hm-foot-card">
+        <div class="hm-foot-t">연계 시스템 상태</div>
+        <div class="hm-sys">${chips}</div>
+        <div class="hm-foot-s">선행 CRM · AI PMO · SCM · 구매 → <b>실행예산</b> → 후행 ERP · BIX</div>
+      </div>
+    </div>`;
+}
+
+function openAutoDrawer() {
+  const ov = document.getElementById('home-impact-drawer');
+  if (!ov) return;
+  ov.innerHTML = autoDrawerHtml();
+  ov.classList.add('open');
+}
+
+function autoDrawerHtml() {
+  const rows = HOME_AUTO_LOG.map(a => `
+    <div class="hm-auto-row">
+      <div class="hm-auto-tm">${a.time}</div>
+      <div class="hm-auto-ct">
+        <div class="hm-auto-t1">${a.title}
+          <span class="hm-auto-sys">${a.sys}</span>
+          <span class="hm-auto-grade ${a.grade === 'D' ? 'd' : 'r'}">${a.grade === 'D' ? 'D · 확정' : 'R · 규칙기반'}</span>
+        </div>
+        <div class="hm-auto-t2">${a.desc}${a.proj === 'all' ? '' : ' · ' + homeProjName(a.proj)}</div>
+      </div>
+    </div>`).join('');
+  const saved = HOME_AUTO_COUNT * HOME_AUTO_MIN_PER;
+  return `
+    <div class="hm-drawer" onclick="event.stopPropagation()">
+      <div class="hm-drawer-head">
+        <div>
+          <div class="hm-drawer-eyebrow">AI 자동 처리 내역</div>
+          <strong>오늘 ${HOME_AUTO_COUNT}건 자동 반영</strong>
+          <div class="hm-drawer-meta">선행 시스템 IF 수신 ${HOME_EVENT_TOTAL}건 · 사람 확인 없이 처리</div>
+        </div>
+        <button class="hm-drawer-x" onclick="closeImpactDrawer()" aria-label="닫기">✕</button>
+      </div>
+      <div class="hm-drawer-body">
+        <div class="hm-auto-note">원천 IF가 <b>확정(D)</b>이거나, 계정 총액이 변하지 않는 <b>규칙기반(R)</b> 건은 확인 큐를 거치지 않고 자동 반영됩니다.</div>
+        <div class="hm-drawer-sec-t">처리 내역 · 대표 ${HOME_AUTO_LOG.length}건</div>
+        ${rows}
+        <div class="hm-drawer-sec-t">후행 시스템 전송</div>
+        <table class="hm-drawer-tbl">
+          <tr class="h"><td>대상</td><td>내용</td><td class="n">상태</td></tr>
+          <tr><td class="l">ERP</td><td>확정 실적 기표 연계</td><td class="n">전송 대기 3건</td></tr>
+          <tr><td class="l">BIX</td><td>손익관리·보고 데이터</td><td class="n">전송 완료</td></tr>
+        </table>
+        <div class="hm-drawer-warn">⚠ 자동 반영 결과에서 PM 확인이 필요한 항목 <b>${homeOpenCount()}건</b>이 도출됐어요. 수기 처리 시 약 ${Math.floor(saved/60)}시간 ${saved%60}분이 걸리는 분량입니다.</div>
+      </div>
+      <div class="hm-drawer-foot">
+        <button class="hm-btn" onclick="closeImpactDrawer()">닫기</button>
+        <button class="hm-btn pri" onclick="closeImpactDrawer();document.getElementById('home-insight-block').scrollIntoView({behavior:'smooth',block:'start'})">확인이 필요한 것 보기 →</button>
+      </div>
+    </div>`;
+}
+
+function renderPmDashboard() {
+  homeSelectedProject = 'all';
+  homeCat = 'all';
+
+  return `
+    <div class="ai-workspace home2">
+      <section class="home2-main centered">
+        <div class="home2-hero center">
+          <h1>좋은 아침이에요, 봄님</h1>
+          <p>담당 9개 프로젝트 중 <b>3개</b>에서 계획과 실적이 벌어지고 있어요</p>
+          <p class="home2-brief" id="home-brief">${homeBriefHtml()}</p>
+        </div>
+
+        ${homeAutoStripHtml()}
+
+        <div class="home2-search">
+          <span class="home2-orb" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
+              <path d="M12 4.4V8"/>
+              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
+              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <path d="M2 13v3M22 13v3"/>
+            </svg>
+          </span>
+          <input id="ai-main-query" type="text" placeholder="프로젝트를 찾거나, 숫자의 이유를 묻거나, 다음 업무를 요청해보세요"
+            onfocus="showHomeExamples(true)" onblur="setTimeout(function(){showHomeExamples(false)},150)"
+            onkeydown="if(event.key==='Enter') askFromHome()">
+          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+        </div>
+        <div class="home2-search-ex" id="home-search-ex" hidden>
+          <button onmousedown="askExample('SKON 외주비가 왜 늘었어?')"><span class="ex-ag q">Q</span>SKON 외주비가 왜 늘었어?</button>
+          <button onmousedown="askExample('실행예산 변경 화면 찾아줘')"><span class="ex-ag navi">N</span>실행예산 변경 화면 찾아줘</button>
+          <button onmousedown="askExample('오늘 내가 처리해야 할 업무 알려줘')"><span class="ex-ag pilot">P</span>오늘 내가 처리해야 할 업무 알려줘</button>
+        </div>
+
+        <div id="home-insight-block">${renderHomeInsightBlock()}</div>
+
+        <div id="home-foot">${homeFootHtml()}</div>
+      </section>
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>`;
 }
 
 function renderLeadDashboard() {
@@ -607,6 +937,7 @@ function renderLeadDashboard() {
         </div>
         <div class="top-actions">
           ${renderRoleSwitch()}
+          <button class="schedule-open-btn purchase-ref-btn" onclick="openPurchaseReference()">구매시스템 참고</button>
           <button class="schedule-open-btn" onclick="openSchedulePanel()">일정 확인</button>
         </div>
       </div>

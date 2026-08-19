@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>구매시스템 참고 화면 목록</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #111827;
+    background: #f7f7f8;
+  }
+  .reference-home {
+    min-height: 100vh;
+    padding: 26px;
+  }
+  .reference-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .reference-kicker {
+    margin-bottom: 6px;
+    color: #ef3340;
+    font-size: 14px;
+    font-weight: 900;
+  }
+  h1 {
+    margin: 0;
+    color: #111827;
+    font-size: 27px;
+    line-height: 1.3;
+  }
+  .reference-head p {
+    margin: 8px 0 0;
+    color: #6b7280;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+  .close-btn {
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    padding: 9px 16px;
+    background: #fff1f2;
+    color: #be123c;
+    font-size: 15px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .reference-guide {
+    margin-bottom: 18px;
+    padding: 13px 15px;
+    border: 1px solid #fed7aa;
+    border-radius: 12px;
+    background: #fff7ed;
+    color: #9a3412;
+    font-size: 15px;
+    font-weight: 800;
+  }
+  .reference-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .reference-card {
+    min-height: 112px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 16px;
+    background: #ffffff;
+    box-shadow: 0 12px 28px rgba(17, 24, 39, 0.06);
+    text-align: left;
+  }
+  button.reference-card {
+    cursor: pointer;
+  }
+  button.reference-card:hover {
+    border-color: #fb7185;
+    box-shadow: 0 16px 34px rgba(239, 68, 68, 0.12);
+  }
+  .reference-card.disabled {
+    background: #f9fafb;
+    color: #9ca3af;
+    box-shadow: none;
+  }
+  .reference-card-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .reference-no {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: #fee2e2;
+    color: #be123c;
+    font-size: 14px;
+    font-weight: 900;
+  }
+  .reference-card strong {
+    color: #111827;
+    font-size: 18px;
+    font-weight: 900;
+  }
+  .reference-card.disabled strong {
+    color: #9ca3af;
+  }
+  .reference-card p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .reference-tags {
+    margin-top: 12px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .reference-tags span {
+    border-radius: 999px;
+    padding: 4px 8px;
+    background: #f3f4f6;
+    color: #4b5563;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  @media (max-width: 760px) {
+    .reference-grid { grid-template-columns: 1fr; }
+    .reference-head { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<main class="reference-home">
+  <div class="reference-head">
+    <div>
+      <div class="reference-kicker">NEW MIS 외부 시스템 참고</div>
+      <h1>구매시스템 참고 화면 목록</h1>
+      <p>실제 입력은 NEW MIS에서 진행하고, 이 목록은 구매시스템 원본 화면의 필드와 데이터 흐름을 확인하기 위한 참고용입니다.</p>
+    </div>
+    <button class="close-btn" onclick="window.close()">닫기</button>
+  </div>
+
+  <div class="reference-guide">
+    화면을 선택하면 별도 팝업으로 열립니다. 앞으로 구매요청, 견적, 계약, 검수, 정산 관련 참고 화면을 이 목록에 추가할 예정입니다.
+  </div>
+
+  <section class="reference-grid" id="reference-list"></section>
+</main>
+
+<script>
+  const purchaseReferenceItems = [
+    {
+      no:'01',
+      title:'외주실투입구매요청',
+      desc:'실행예산 > 외주비 > 실투입대상 외주비 등록 시 참고하는 구매요청-외주 화면입니다.',
+      url:'/purchase-reference.html',
+      tags:['외주비', '계약원가', '계약번호', '실투입대상'],
+      enabled:true,
+    },
+    {
+      no:'02',
+      title:'실투입비대상구매요청',
+      desc:'실행예산 > 외주비 > 실투입비대상 외주비 등록 시 참고하는 구매요청-외주 화면입니다. (1번과 동일한 화면)',
+      url:'/purchase-reference.html',
+      tags:['외주비', '계약원가', '실투입비대상'],
+      enabled:true,
+    },
+    { no:'03', title:'상품재료비 구매요청', desc:'구매요청-상품의 프로젝트 정보와 NEW MIS 상품재료비 계획 매핑을 확인합니다.', url:'/purchase-product-reference.html', tags:['재료비', '상품', '계획매핑'], enabled:true },
+    { no:'04', title:'공사MA 구매요청', desc:'공사/MA 유지보수 정보와 NEW MIS MA 외주비 계획 매핑을 확인합니다.', url:'/purchase-ma-reference.html', tags:['공사MA', '유지보수', '계획매핑'], enabled:true },
+    { no:'05', title:'외주출장비 요청상세', desc:'협력사가 제출한 출장비 정산 내역과 NEW MIS 외주출장비 계획 매핑을 확인합니다.', url:'/purchase-travel-reference.html', tags:['출장비', '계약', '계획매핑'], enabled:true },
+    { no:'06', title:'검수상세 > 실투입외주 검수계획', desc:'검수상세 화면에서 월별 검수계획과 실투입금액을 비교한 뒤 검수요청하는 흐름을 확인합니다.', url:'/purchase-inspection-plan-reference.html', tags:['검수계획', '실투입비교', '검수요청'], enabled:true },
+    { no:'07', title:'검수상세 > 상품 검수 계획', desc:'상품재료비를 Item 수량검수로 진행하며, 실행예산 재료비 계획(이번달 검수 가능 금액)을 넘지 않는 선에서 검수요청하는 흐름을 확인합니다.', url:'/purchase-product-inspection-reference.html', tags:['상품재료비', '수량검수', '검수계획한도'], enabled:true },
+    { no:'08', title:'검수상세 > 유지보수 검수 계획', desc:'유지보수 검수금액이 실행예산 유지보수 계획금액과 완전히 동일할 때만 검수하며, 금액이 다르면 실행예산 재수립이 필요한 흐름을 확인합니다.', url:'/purchase-maintenance-inspection-reference.html', tags:['유지보수', '완전일치', '실행예산재수립'], enabled:true },
+    { no:'09', title:'검수상세 > 실투입 비대상 외주 계획', desc:'ITEM/Service 라인을 선택하고 검수금액을 키인해 검수하며, NEW MIS 실투입 비대상 외주 검수계획금액 이내에서만 검수 가능한 흐름을 확인합니다.', url:'/purchase-outsource-noninput-inspection-reference.html', tags:['외주비대상', '금액키인', '계획이내'], enabled:true },
+  ];
+
+  function openReferenceScreen(url, name) {
+    const popup = window.open(url, name, 'width=1480,height=860');
+    if (popup) popup.opener = null;
+  }
+
+  function renderReferenceList() {
+    document.getElementById('reference-list').innerHTML = purchaseReferenceItems.map(item => {
+      const content = `
+        <div class="reference-card-top">
+          <span class="reference-no">${item.no}</span>
+          <strong>${item.title}</strong>
+        </div>
+        <p>${item.desc}</p>
+        <div class="reference-tags">${item.tags.map(tag => `<span>${tag}</span>`).join('')}</div>
+      `;
+      if (!item.enabled) return `<div class="reference-card disabled">${content}</div>`;
+      return `<button class="reference-card" onclick="openReferenceScreen('${item.url}', 'purchaseReference${item.no}')">${content}</button>`;
+    }).join('');
+  }
+
+  renderReferenceList();
+</script>
+</body>
+</html>

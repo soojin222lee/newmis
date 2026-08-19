@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>외주출장비 요청상세</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-width: 1280px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: #111827;
+    background: #f7f7f8;
+  }
+  .travel-page {
+    padding: 16px 18px 48px;
+  }
+  .travel-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 22px;
+  }
+  .travel-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 24px;
+    font-weight: 900;
+  }
+  .travel-title span {
+    color: #9ca3af;
+  }
+  .breadcrumb {
+    margin-bottom: 8px;
+    text-align: right;
+    color: #111827;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .top-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .top-buttons button,
+  .map-main-btn {
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 14px;
+    background: #ef3340;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .top-buttons button.secondary {
+    background: #3f3f46;
+  }
+  .top-buttons button.gray {
+    background: #6b7280;
+  }
+  .reference-note {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    background: #fff7ed;
+    color: #9a3412;
+    font-size: 15px;
+    font-weight: 800;
+  }
+  .section {
+    margin-bottom: 26px;
+  }
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 7px;
+  }
+  .section-title {
+    margin: 0;
+    padding-left: 8px;
+    border-left: 4px solid #ef3340;
+    color: #111827;
+    font-size: 17px;
+    font-weight: 900;
+  }
+  .collapse-btn {
+    width: 62px;
+    height: 28px;
+    border: 1px solid #e5e7eb;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #374151;
+    font-weight: 900;
+  }
+  .form-grid {
+    border: 1px solid #d9dde3;
+    border-radius: 5px;
+    overflow: hidden;
+    background: #ffffff;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 150px 1fr 150px 1fr 150px 1fr;
+    border-bottom: 1px solid #d9dde3;
+  }
+  .form-row:last-child {
+    border-bottom: 0;
+  }
+  .form-row.full {
+    grid-template-columns: 150px 1fr;
+  }
+  .label {
+    min-height: 38px;
+    padding: 10px 14px;
+    background: #e8ebf0;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 900;
+  }
+  .value {
+    min-height: 38px;
+    padding: 6px 14px;
+    background: #ffffff;
+  }
+  .field {
+    width: 100%;
+    height: 28px;
+    border: 1px solid #cfd5dd;
+    border-radius: 4px;
+    padding: 0 10px;
+    background: #f9fafb;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .field.right {
+    text-align: right;
+  }
+  .help-text {
+    margin: 6px 0 0;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  .map-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+    padding: 12px 14px;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    background: #fff1f2;
+  }
+  .map-panel strong {
+    display: block;
+    margin-bottom: 3px;
+    color: #be123c;
+    font-size: 15px;
+  }
+  .map-panel span {
+    color: #4b5563;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .mapping-status {
+    color: #047857;
+    font-weight: 900;
+  }
+  .new-field-highlight {
+    position: relative;
+    border: 3px solid #ef3340 !important;
+    border-radius: 8px;
+    box-shadow: 0 0 0 3px rgba(239, 51, 64, 0.12);
+  }
+  .value.new-field-highlight {
+    background: #fff1f2;
+  }
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(17, 24, 39, 0.32);
+  }
+  .modal-backdrop.open {
+    display: flex;
+  }
+  .mapping-modal {
+    width: min(940px, 100%);
+    max-height: calc(100vh - 40px);
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 28px 72px rgba(17, 24, 39, 0.24);
+    overflow: hidden;
+  }
+  .modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff7ed;
+  }
+  .modal-head strong {
+    color: #111827;
+    font-size: 20px;
+  }
+  .modal-head button {
+    width: 32px;
+    height: 32px;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #9a3412;
+    font-size: 22px;
+    cursor: pointer;
+  }
+  .modal-body {
+    padding: 16px 18px 18px;
+  }
+  .mapping-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .mapping-summary div {
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #f9fafb;
+  }
+  .mapping-summary span {
+    display: block;
+    margin-bottom: 4px;
+    color: #6b7280;
+    font-size: 13px;
+    font-weight: 900;
+  }
+  .mapping-summary strong {
+    color: #111827;
+    font-size: 15px;
+  }
+  .plan-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 14px;
+  }
+  .plan-table th,
+  .plan-table td {
+    height: 38px;
+    border: 1px solid #e5e7eb;
+    padding: 8px;
+    text-align: center;
+  }
+  .plan-table th {
+    background: #f3f4f6;
+    color: #111827;
+    font-weight: 900;
+  }
+  .plan-table tr.selected td {
+    background: #fff7ed;
+  }
+  .plan-table button {
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    padding: 6px 10px;
+    background: #ffffff;
+    color: #9a3412;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .plan-table .selected button {
+    background: #ef4444;
+    color: #ffffff;
+    border-color: #ef4444;
+  }
+  .modal-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 14px;
+  }
+  .modal-foot button {
+    border: 0;
+    border-radius: 9px;
+    padding: 9px 16px;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .modal-foot .cancel {
+    background: #f3f4f6;
+    color: #374151;
+  }
+  .modal-foot .confirm {
+    background: #111827;
+    color: #ffffff;
+  }
+</style>
+</head>
+<body>
+<main class="travel-page">
+  <div class="travel-top">
+    <div class="travel-title">출장비상세 <span>★</span></div>
+    <div>
+      <div class="breadcrumb">Home &gt; 검수/정산 &gt; 검수/대금지급 &gt; 출장비지급요청</div>
+      <div class="top-buttons">
+        <button>결재요청</button>
+        <button class="secondary">반려</button>
+        <button onclick="window.close()">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="reference-note">
+    협력사가 구매시스템에 제출한 외주 출장비 정산 요청 내역입니다. NEW MIS에서는 이 요청을 외주비 > 외주출장비 계획 라인과 매핑하여 계획 대비 집행 여부를 확인합니다.
+  </div>
+
+  <section class="section">
+    <div class="section-head">
+      <h2 class="section-title">계약정보</h2>
+      <button class="collapse-btn">⌃</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <div class="label">요청번호</div>
+        <div class="value"><input class="field" value="7000002911" readonly></div>
+        <div class="label">진행상태</div>
+        <div class="value"><input class="field" value="요청" readonly></div>
+        <div class="label">계약기간</div>
+        <div class="value"><input class="field" value="2025/09/18  ~  2025/12/31" readonly></div>
+      </div>
+      <div class="form-row">
+        <div class="label">계약번호</div>
+        <div class="value"><input class="field" value="4500298946" readonly></div>
+        <div class="label">계약금액</div>
+        <div class="value"><input class="field right" value="177,268,000" readonly></div>
+        <div class="label">구매담당자</div>
+        <div class="value"><input class="field" value="테수미" readonly></div>
+      </div>
+      <div class="form-row full">
+        <div class="label">투입인력</div>
+        <div class="value"><input class="field" value="한명덕" readonly></div>
+      </div>
+    </div>
+    <p class="help-text">※ 본 출장비 정산은 계약 건에 따른 출장비 정산입니다.</p>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2 class="section-title">출장정보</h2>
+      <button class="collapse-btn">⌃</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-row full">
+        <div class="label">출장내역</div>
+        <div class="value"><input class="field" value="30130191-D002" readonly></div>
+      </div>
+      <div class="form-row">
+        <div class="label">출장기간</div>
+        <div class="value"><input class="field" value="2025/11/17  ~  2025/11/21" readonly></div>
+        <div class="label">출장금액</div>
+        <div class="value"><input class="field right" value="1,504,735" readonly></div>
+        <div class="label">NEW MIS 매핑</div>
+        <div class="value new-field-highlight"><input class="field mapping-status" id="mapped-plan-field" value="미매핑" readonly></div>
+      </div>
+    </div>
+    <div class="map-panel new-field-highlight">
+      <div>
+        <strong>NEW MIS 외주출장비 계획 매핑</strong>
+        <span>사업팀이 등록한 외주출장비 계획 라인 중 이 출장비 정산 요청과 연결할 대상을 선택합니다.</span>
+      </div>
+      <button class="map-main-btn" onclick="openMappingModal()">계획 매핑</button>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2 class="section-title">출장비내역</h2>
+      <button class="collapse-btn">⌃</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <div class="label">항공료</div>
+        <div class="value"><input class="field right" value="645,700" readonly></div>
+        <div class="label">숙박비</div>
+        <div class="value"><input class="field right" value="338,203" readonly></div>
+        <div class="label">교통비</div>
+        <div class="value"><input class="field right" value="74,405" readonly></div>
+      </div>
+      <div class="form-row">
+        <div class="label">일비</div>
+        <div class="value"><input class="field right" value="446,427" readonly></div>
+        <div class="label">기타비용</div>
+        <div class="value"><input class="field right" value="0" readonly></div>
+        <div class="label">기타비용내역</div>
+        <div class="value"><input class="field" value="" readonly></div>
+      </div>
+      <div class="form-row full">
+        <div class="label">비고</div>
+        <div class="value"><input class="field" value="i-ERP PI 출장비 정산내역_25년 11월 출장_딜로이트_한명덕" readonly></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="modal-backdrop" id="mapping-modal" onclick="if(event.target===this)closeMappingModal()">
+  <div class="mapping-modal">
+    <div class="modal-head">
+      <strong>NEW MIS 외주출장비 계획 매핑</strong>
+      <button onclick="closeMappingModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="mapping-summary">
+        <div><span>구매 요청번호</span><strong>7000002911</strong></div>
+        <div><span>계약번호</span><strong>4500298946</strong></div>
+        <div><span>출장금액</span><strong>1,504,735원</strong></div>
+        <div><span>출장월</span><strong>2025-11</strong></div>
+      </div>
+      <table class="plan-table">
+        <thead>
+          <tr>
+            <th style="width:70px">선택</th>
+            <th>계획번호</th>
+            <th>프로젝트</th>
+            <th>계약번호</th>
+            <th>집행예정월</th>
+            <th>계획금액</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody id="mapping-plan-body"></tbody>
+      </table>
+      <div class="modal-foot">
+        <button class="cancel" onclick="closeMappingModal()">취소</button>
+        <button class="confirm" onclick="confirmMapping()">매핑 확정</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const travelPlans = [
+    { id:'TRV-2025-11-001', project:'30130191-D002 / i-ERP PI', contractNo:'4500298946', month:'2025-11', amount:'1,504,735', status:'매핑 추천' },
+    { id:'TRV-2025-11-002', project:'30131234-D001 / 예산관리시스템 목업용', contractNo:'4500311570', month:'2025-11', amount:'4,935,405', status:'미매핑' },
+    { id:'TRV-2025-12-001', project:'30130191-D002 / i-ERP PI', contractNo:'4500298946', month:'2025-12', amount:'980,000', status:'미매핑' },
+  ];
+  let selectedPlanId = travelPlans[0].id;
+
+  function renderMappingPlans() {
+    document.getElementById('mapping-plan-body').innerHTML = travelPlans.map(plan => `
+      <tr class="${selectedPlanId === plan.id ? 'selected' : ''}">
+        <td><button onclick="selectTravelPlan('${plan.id}')">${selectedPlanId === plan.id ? '선택됨' : '선택'}</button></td>
+        <td>${plan.id}</td>
+        <td>${plan.project}</td>
+        <td>${plan.contractNo}</td>
+        <td>${plan.month}</td>
+        <td style="text-align:right">${plan.amount}원</td>
+        <td>${plan.status}</td>
+      </tr>
+    `).join('');
+  }
+
+  function selectTravelPlan(id) {
+    selectedPlanId = id;
+    renderMappingPlans();
+  }
+
+  function openMappingModal() {
+    renderMappingPlans();
+    document.getElementById('mapping-modal').classList.add('open');
+  }
+
+  function closeMappingModal() {
+    document.getElementById('mapping-modal').classList.remove('open');
+  }
+
+  function confirmMapping() {
+    const plan = travelPlans.find(item => item.id === selectedPlanId);
+    document.getElementById('mapped-plan-field').value = plan ? `${plan.id} / ${plan.month}` : '미매핑';
+    closeMappingModal();
+  }
+</script>
+</body>
+</html>
