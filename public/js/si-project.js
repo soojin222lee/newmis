@@ -691,6 +691,14 @@ const SI_DIR = {
   out:  { t:'송신',   arrow:'→', hint:'MIS → 선행 시스템 송신' },
 };
 
+// 이력 1건의 송수신 판정: 건별 io가 있으면 우선, 없으면 시스템 방향 기준
+// (ERP는 송신 위주 → 송신, 수신 시스템은 수신)
+function siIo(e) {
+  if (e.io === 'in' || e.io === 'out') return e.io;
+  return siSys(e.sys).dir === 'in' ? 'in' : 'out';
+}
+const SI_IO = { out:{ t:'송신', arrow:'→' }, in:{ t:'수신', arrow:'←' } };
+
 // ifDetail이 없는 프로젝트는 기존 필드/ifHistory에서 개선안 데이터 구조를 파생한다.
 function siBuildDetail(p) {
   if (p.ifDetail) return p.ifDetail;
@@ -775,11 +783,11 @@ renderSIDetail = function() {
   d.log.forEach(e => { let g = byDate.find(x => x.date === e.date); if (!g) { g = { date:e.date, rel:e.rel||'', items:[] }; byDate.push(g); } g.items.push(e); });
   const tlHtml = byDate.map(g => {
     const rows = g.items.map(e => {
-      const m = siSys(e.sys);
-      return `<div class="sifr-row" data-sys="${e.sys}" data-field="${e.field}" style="--c:${m.c};--cb:${m.cb}">
+      const m = siSys(e.sys), io = siIo(e), iom = SI_IO[io];
+      return `<div class="sifr-row" data-sys="${e.sys}" data-io="${io}" data-field="${e.field}" style="--c:${m.c};--cb:${m.cb}">
         <div class="sifr-time">${e.time||''}</div><div class="sifr-rail"><i></i></div>
         <div class="sifr-rbody">
-          <div class="sifr-b1"><span class="sifr-sysbadge" style="--c:${m.c};--cb:${m.cb}"><i></i>${m.label}</span><span class="sifr-fname">${e.field}</span>${e.delta?`<span class="sifr-delta">${e.delta}</span>`:''}</div>
+          <div class="sifr-b1"><span class="sifr-sysbadge" style="--c:${m.c};--cb:${m.cb}"><i></i>${m.label}</span><span class="sifr-io ${io}"><b>${iom.arrow}</b>${iom.t}</span><span class="sifr-fname">${e.field}</span>${e.delta?`<span class="sifr-delta">${e.delta}</span>`:''}</div>
           <div class="sifr-diff"><span class="sifr-old${e.num&&!miss(e.before)?' num':''}">${miss(e.before)?'미등록':e.before}</span><span class="sifr-arrow">→</span><span class="sifr-new${e.num?' num':''}">${e.after}</span></div>
           ${e.note?`<div class="sifr-actor">${e.note}</div>`:''}
         </div>
@@ -789,10 +797,10 @@ renderSIDetail = function() {
   }).join('');
 
   const byField = [];
-  d.log.forEach(e => { let g = byField.find(x => x.field === e.field); if (!g) { g = { field:e.field, sys:e.sys, cur:e.after, num:e.num, last:e.date, cnt:0 }; byField.push(g); } g.cnt++; });
-  const grHtml = byField.map(g => { const m = siSys(g.sys); return `<tr>
+  d.log.forEach(e => { let g = byField.find(x => x.field === e.field); if (!g) { g = { field:e.field, sys:e.sys, io:e.io, cur:e.after, num:e.num, last:e.date, cnt:0 }; byField.push(g); } g.cnt++; });
+  const grHtml = byField.map(g => { const m = siSys(g.sys), io = siIo({ sys:g.sys, io:g.io }), iom = SI_IO[io]; return `<tr>
       <td><b>${g.field}</b></td>
-      <td><span class="sifr-sysbadge" style="--c:${m.c};--cb:${m.cb}"><i></i>${m.label}</span></td>
+      <td><span class="sifr-sysbadge" style="--c:${m.c};--cb:${m.cb}"><i></i>${m.label}</span> <span class="sifr-io ${io}"><b>${iom.arrow}</b>${iom.t}</span></td>
       <td class="sifr-cur${g.num?' num':''}">${g.cur}</td>
       <td><div class="sifr-spark" style="--c:${m.c}">${'<span></span>'.repeat(Math.min(g.cnt,4))}<em>${g.cnt}회</em></div></td>
       <td class="num" style="color:var(--ink-3)">${g.last}</td></tr>`; }).join('');
