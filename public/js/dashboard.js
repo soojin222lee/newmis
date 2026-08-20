@@ -1288,3 +1288,193 @@ function renderLeadDashboard() {
       </section>
     </div>`;
 }
+
+// ============================================================
+//  5차 — PJT 재무 현황(절대금액) + 월마감 사이클 워크플로우
+//  ※ 앞의 3차 신호 레이어를 여기서 override 한다.
+//    (프로젝트 규칙: 뒤에 정의된 코드가 앞을 override)
+//  - 예산 여력(%)만으로는 규모 감이 없어 계약·계획·실적·잔여 절대금액을 병기
+//  - 프로젝트 탭 선택에 연동 (선택 PJT의 전체 현황)
+//  - 월마감 사이클: 계획확정 → 투입원가 입력 → 검수·확정 → 월마감 대사
+//    → 자동 현행화 → 팀장 승인 (gap 보전 사이클을 화면에 드러냄)
+// ============================================================
+
+// 프로젝트별 계약금액(cp) + 계정별 [계정명, 수행원가 계획, 실적] · 단위: 억원
+// 잔여 / 여력% / 원가율은 모두 아래 값에서 파생 계산한다(수치 불일치 방지).
+const HOME_FIN = {
+  skon:  { cp:30.8, mgap:0.334, acc:[['인건비',12.60,8.57],['외주비',9.90,9.50],['재료비',3.20,1.89],['경비',1.50,1.32],['A/S Cost',0,0]] },
+  logi:  { cp:21.42, mgap:0.084, acc:[['인건비',8.20,5.30],['외주비',5.40,4.10],['재료비',2.30,1.40],['경비',1.00,0.82],['A/S Cost',0,0]] },
+  migr:  { cp:32.3, mgap:0.052, acc:[['인건비',15.40,9.80],['외주비',7.80,6.30],['재료비',2.60,1.70],['경비',1.40,1.02],['A/S Cost',0,0]] },
+  erp:   { cp:18.6, mgap:-0.021, acc:[['인건비',7.40,4.10],['외주비',4.20,2.30],['재료비',1.80,0.90],['경비',0.90,0.50],['A/S Cost',0,0]] },
+  sec:   { cp:12.4, mgap:0.008, acc:[['인건비',5.10,1.90],['외주비',2.80,1.10],['재료비',1.20,0.40],['경비',0.60,0.20],['A/S Cost',0,0]] },
+  cloud: { cp:24.8, mgap:0.036, acc:[['인건비',9.60,5.90],['외주비',5.80,3.70],['재료비',2.90,1.80],['경비',1.10,0.70],['A/S Cost',0,0]] },
+  mob:   { cp:9.8, mgap:-0.012,  acc:[['인건비',4.20,2.00],['외주비',2.10,0.90],['재료비',0.80,0.30],['경비',0.50,0.20],['A/S Cost',0,0]] },
+  dw:    { cp:15.2, mgap:0.018, acc:[['인건비',6.30,2.10],['외주비',3.40,1.10],['재료비',1.60,0.50],['경비',0.70,0.20],['A/S Cost',0,0]] },
+  aidoc: { cp:4.6, mgap:0.004,  acc:[['인건비',2.10,0.45],['외주비',0.90,0.15],['재료비',0.40,0.05],['경비',0.30,0.05],['A/S Cost',0,0]] },
+};
+
+// 억원 → 읽기 쉬운 금액 문자열 (1억 미만은 만원으로)
+function finAmt(v) {
+  if (!v) return '—';
+  if (v >= 1) return v.toFixed(2) + '억';
+  return Math.round(v * 10000).toLocaleString() + '만원';
+}
+function finSigned(v) {
+  if (!v) return '±0';
+  return (v > 0 ? '+' : '-') + finAmt(Math.abs(v));
+}
+function finPct(v) { return (Math.round(v * 10) / 10).toFixed(1) + '%'; }
+
+// 여력% → 신호 등급 (10% 미만 임박 · 20% 미만 주의)
+function finLv(pct, plan) {
+  if (!plan) return 'na';
+  if (pct < 10) return 'risk';
+  if (pct < 20) return 'warn';
+  return 'ok';
+}
+
+// 선택된 프로젝트(또는 전체 합산)의 재무 요약을 파생 계산
+function homeFinOf(id) {
+  const ids = (id === 'all') ? HOME_PROJECTS.map(p => p.id) : [id];
+  const names = HOME_FIN[ids[0]] ? HOME_FIN[ids[0]].acc.map(a => a[0]) : [];
+  const acc = names.map((nm, i) => {
+    let plan = 0, act = 0;
+    ids.forEach(k => { const f = HOME_FIN[k]; if (f && f.acc[i]) { plan += f.acc[i][1]; act += f.acc[i][2]; } });
+    const left = plan - act;
+    const pct = plan ? (left / plan) * 100 : 0;
+    return { name:nm, plan, act, left, pct, lv:finLv(pct, plan) };
+  });
+  let cp = 0, mgap = 0;
+  ids.forEach(k => { if (HOME_FIN[k]) { cp += HOME_FIN[k].cp; mgap += (HOME_FIN[k].mgap || 0); } });
+  const plan = acc.reduce((s, a) => s + a.plan, 0);
+  const act = acc.reduce((s, a) => s + a.act, 0);
+  return { cp, plan, act, mgap, left: plan - act, rate: cp ? (plan / cp) * 100 : 0,
+           exec: plan ? (act / plan) * 100 : 0, acc, count: ids.length };
+}
+
+// ── PJT 전체 현황 요약 (절대금액) ──
+function homeFinSummaryHtml() {
+  const f = homeFinOf(homeSelectedProject);
+  const nm = homeSelectedProject === 'all'
+    ? `담당 ${f.count}개 프로젝트 합계`
+    : homeProjName(homeSelectedProject);
+  const rateLv = f.rate >= 85 ? 'risk' : f.rate >= 80 ? 'warn' : 'ok';
+  const tile = (l, v, cls, sub) =>
+    `<div class="hm-fin-t"><span class="hm-fin-l">${l}</span><b class="hm-fin-v ${cls || ''}">${v}</b>${sub ? `<span class="hm-fin-s">${sub}</span>` : ''}</div>`;
+  return `<div class="hm-fin">
+      <div class="hm-fin-head">
+        <span class="hm-fin-nm">${nm}</span>
+        <span class="hm-fin-tag ${rateLv}">예상 원가율 ${finPct(f.rate)}</span>
+        <span class="hm-fin-note">관리 기준선 85% · 계약금액 대비 수행원가 계획</span>
+      </div>
+      <div class="hm-fin-grid">
+        ${tile('계약금액', finAmt(f.cp), '')}
+        ${tile('수행원가 계획', finAmt(f.plan), '')}
+        ${tile('실적(집행)', finAmt(f.act), '', `집행률 ${finPct(f.exec)}`)}
+        ${tile('잔여', finAmt(f.left), f.left / f.plan * 100 < 20 ? 'risk' : '', `여력 ${finPct(f.left / f.plan * 100)}`)}
+        ${tile('당월 계획 대비 실적', finSigned(f.mgap), f.mgap > 0 ? 'risk' : '', '8월 마감 보전 대상')}
+      </div>
+    </div>`;
+}
+
+// ── Headroom 리본 — 여력% + 잔여 절대금액 병기 (프로젝트 연동) ──
+function homeHeadroomHtml() {
+  const f = homeFinOf(homeSelectedProject);
+  const segs = f.acc.map(a => `
+      <div class="hm-hr-seg">
+        <div class="hm-hr-n"><i class="hm-hr-dot ${a.lv}"></i>${a.name}</div>
+        <div class="hm-hr-v ${a.lv}">${a.lv === 'na' ? '해당없음' : finPct(a.pct)}</div>
+        <div class="hm-hr-amt">${a.lv === 'na' ? '&nbsp;' : `잔여 <b>${finAmt(a.left)}</b>`}</div>
+        <div class="hm-hr-bar"><i class="${a.lv}" style="width:${Math.max(0, Math.min(100, a.pct))}%"></i></div>
+        <div class="hm-hr-pa">${a.plan ? `계획 ${finAmt(a.plan)} · 실적 ${finAmt(a.act)}` : '&nbsp;'}</div>
+      </div>`).join('');
+  return `<div class="hm-headroom">
+      <div class="hm-hr-lbl">예산 여력<em>Headroom</em></div>
+      ${segs}
+    </div>`;
+}
+
+// ── Runway — 선택 프로젝트에서 가장 먼저 바닥나는 계정 ──
+const HOME_RUNWAY_BY = {
+  skon: { month:'11월', months:'2.8개월', delta:'계획 대비 +18%' },
+  logi: { month:'12월', months:'3.6개월', delta:'계획 대비 +6%' },
+  migr: { month:'익년 1월', months:'5.1개월', delta:'계획 대비 +3%' },
+};
+function homeRunwayHtml() {
+  const f = homeFinOf(homeSelectedProject);
+  const live = f.acc.filter(a => a.plan > 0);
+  if (!live.length) return '';
+  const worst = live.reduce((m, a) => (a.pct < m.pct ? a : m), live[0]);
+  const key = homeSelectedProject === 'all' ? 'skon' : homeSelectedProject;
+  const r = HOME_RUNWAY_BY[key];
+  const calm = worst.pct >= 20 || !r;
+  const t = calm
+    ? `가장 여력이 낮은 계정은 <b>${worst.name} ${finPct(worst.pct)}</b> · 잔여 <b>${finAmt(worst.left)}</b>로 현재 소진 속도에서는 여유가 있어요`
+    : `현재 소진 속도면 <b>${worst.name}는 ${r.month}에 바닥납니다</b> · 잔여 ${finAmt(worst.left)} · Runway ${r.months} · ${r.delta}`;
+  return `<div class="hm-runway ${calm ? 'calm' : ''}">
+      <span class="hm-runway-ic">${calm ? '📈' : '📉'}</span>
+      <div class="hm-runway-t">${t}</div>
+      <svg class="hm-runway-spark" width="120" height="26" viewBox="0 0 120 26" aria-hidden="true">
+        <polyline points="${calm ? '0,20 20,19 40,17 60,16 80,14 100,13 118,11' : HOME_RUNWAY.spark}"
+          fill="none" stroke="${calm ? '#12a46b' : '#e39a2a'}" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>`;
+}
+
+// ── 월마감 사이클 워크플로우 ──────────────────────────────
+// 사용자 업무 개념: 월마감마다 계획-실적 gap을 보전하고, 투입원가를 즉시 입력해
+// 계획과 실적을 맞춘다. 각 단계의 담당(PM/AI/팀장)과 남은 건수를 함께 보여준다.
+// st: done(완료) · active(진행 중) · wait(대기)
+const HOME_CYCLE = [
+  { n:'계획 확정',      d:'8/10',  st:'done',   own:'PM',   note:'8월 계획 고정 완료' },
+  { n:'투입원가 입력',  d:'~8/24', st:'active', own:'PM',   note:'미입력', cnt:3, go:'adjust' },
+  { n:'검수·확정',      d:'8/25',  st:'wait',   own:'PM',   note:'확인 필요', cnt:2, go:'status' },
+  { n:'월마감 대사',    d:'8/31',  st:'wait',   own:'시스템', note:'계획-실적 gap 보전' },
+  { n:'자동 현행화',    d:'9/1',   st:'wait',   own:'AI',   note:'AI 자동 반영' },
+  { n:'팀장 승인',      d:'9/3',   st:'wait',   own:'팀장', note:'승인 대기' },
+];
+const HOME_CYCLE_OWN = { 'PM':'pm', 'AI':'ai', '팀장':'lead', '시스템':'sys' };
+
+function homeCycleHtml() {
+  const f = homeFinOf(homeSelectedProject);
+  const gap = f.mgap;
+  const doneN = HOME_CYCLE.filter(s => s.st === 'done').length;
+  const steps = HOME_CYCLE.map((s, i) => {
+    const ic = s.st === 'done' ? '✓' : (i + 1);
+    const cnt = s.cnt ? `<span class="hm-cy-cnt">${s.note} ${s.cnt}건</span>` : `<span class="hm-cy-note">${s.n === '월마감 대사' ? 'gap ' + finSigned(gap) : s.note}</span>`;
+    const click = s.go ? ` onclick="homeCycleGo('${s.go}')" role="button" tabindex="0"` : '';
+    return `<div class="hm-cy-step ${s.st}${s.go ? ' clickable' : ''}"${click}>
+        <div class="hm-cy-line"><span class="hm-cy-ic">${ic}</span></div>
+        <div class="hm-cy-b">
+          <div class="hm-cy-h"><b>${s.n}</b><span class="hm-cy-own ${HOME_CYCLE_OWN[s.own]}">${s.own}</span></div>
+          <div class="hm-cy-d">${s.d}</div>
+          ${cnt}
+        </div>
+      </div>`;
+  }).join('');
+  return `<div class="hm-cycle">
+      <div class="hm-cy-head">
+        <span class="hm-cy-tt">월마감 사이클 · 8월</span>
+        <span class="hm-cy-prog">${doneN}/${HOME_CYCLE.length} 단계 완료</span>
+        <span class="hm-cy-sys">당월 계획-실적 gap <b>${finSigned(gap)}</b> · 8월 마감 보전 대상</span>
+      </div>
+      <div class="hm-cy-track">${steps}</div>
+    </div>`;
+}
+function homeCycleGo(kind) {
+  if (kind === 'adjust' && typeof openCostAdjust === 'function') openCostAdjust('budgetMock');
+  else if (typeof openCostStatus === 'function') openCostStatus('budgetMock');
+}
+
+// ── 신호 레이어 조립 (재무 요약 → 여력 → Runway → 월마감 사이클) ──
+function homeSignalBlockHtml() {
+  return homeFinSummaryHtml() + homeHeadroomHtml() + homeRunwayHtml() + homeCycleHtml();
+}
+
+// ── 프로젝트 전환/카드 처리 시 신호 레이어까지 함께 갱신 ──
+function rerenderHomeFeed() {
+  const el = document.getElementById('home-insight-block'); if (el) el.innerHTML = renderHomeInsightBlock();
+  const br = document.getElementById('home-brief'); if (br) br.innerHTML = homeBriefHtml();
+  const ft = document.getElementById('home-foot');  if (ft) ft.innerHTML = homeFootHtml();
+  const sg = document.querySelector('.hm-signal');  if (sg) sg.innerHTML = homeSignalBlockHtml();
+}
