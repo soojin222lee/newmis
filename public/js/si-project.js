@@ -748,8 +748,6 @@ renderSIDetail = function() {
   const p = SI_PROJECTS[siSelectedId];
   if (!el || !p) return;
   const d = siBuildDetail(p);
-  const stZ = SI_STATUS_STYLE[p.stage] || { bg:'#f1f5f9', color:'#475569' };
-  const miss = v => ['미등록','—','',null,undefined].includes(v);
 
   const syncHtml = d.sync.map(s => {
     const m = siSys(s.sys), ok = s.flag === 'ok';
@@ -770,40 +768,6 @@ renderSIDetail = function() {
       <div class="sifr-field-v${f.num?' num':''}">${f.v}</div>
     </div>`;
   }).join('');
-
-  const order = ['ERP','SCM','CRM','PUR'];
-  const counts = {}; d.log.forEach(e => counts[e.sys] = (counts[e.sys]||0)+1);
-  const chipsHtml = `<button class="sifr-chip" data-sys="ALL" aria-pressed="true" style="--c:#334155;--cb:#EEF1F4" onclick="siIfChip(this)"><i></i>전체 <span class="n">${d.log.length}</span></button>`
-    + order.filter(s => counts[s]).map(s => { const m = siSys(s); return `<button class="sifr-chip" data-sys="${s}" aria-pressed="true" style="--c:${m.c};--cb:${m.cb}" onclick="siIfChip(this)"><i></i>${m.label} <span class="n">${counts[s]}</span></button>`; }).join('');
-
-  const fields = [...new Set(d.log.map(e => e.field))];
-  const optHtml = '<option value="">전체 항목</option>' + fields.map(f => `<option>${f}</option>`).join('');
-
-  const byDate = [];
-  d.log.forEach(e => { let g = byDate.find(x => x.date === e.date); if (!g) { g = { date:e.date, rel:e.rel||'', items:[] }; byDate.push(g); } g.items.push(e); });
-  const tlHtml = byDate.map(g => {
-    const rows = g.items.map(e => {
-      const m = siSys(e.sys), io = siIo(e), iom = SI_IO[io];
-      return `<div class="sifr-row" data-sys="${e.sys}" data-io="${io}" data-field="${e.field}" style="--c:${m.c};--cb:${m.cb}">
-        <div class="sifr-time">${e.time||''}</div><div class="sifr-rail"><i></i></div>
-        <div class="sifr-rbody">
-          <div class="sifr-b1"><span class="sifr-sysbadge" style="--c:${m.c};--cb:${m.cb}"><i></i>${m.label}</span><span class="sifr-io ${io}"><b>${iom.arrow}</b>${iom.t}</span><span class="sifr-fname">${e.field}</span>${e.delta?`<span class="sifr-delta">${e.delta}</span>`:''}</div>
-          <div class="sifr-diff"><span class="sifr-old${e.num&&!miss(e.before)?' num':''}">${miss(e.before)?'미등록':e.before}</span><span class="sifr-arrow">→</span><span class="sifr-new${e.num?' num':''}">${e.after}</span></div>
-          ${e.note?`<div class="sifr-actor">${e.note}</div>`:''}
-        </div>
-      </div>`;
-    }).join('');
-    return `<div class="sifr-day" data-day><b>${g.date}</b><span>${g.rel?g.rel+' · ':''}${g.items.length}건</span></div>${rows}`;
-  }).join('');
-
-  const byField = [];
-  d.log.forEach(e => { let g = byField.find(x => x.field === e.field); if (!g) { g = { field:e.field, sys:e.sys, io:e.io, cur:e.after, num:e.num, last:e.date, cnt:0 }; byField.push(g); } g.cnt++; });
-  const grHtml = byField.map(g => { const m = siSys(g.sys), io = siIo({ sys:g.sys, io:g.io }), iom = SI_IO[io]; return `<tr>
-      <td><b>${g.field}</b></td>
-      <td><span class="sifr-sysbadge" style="--c:${m.c};--cb:${m.cb}"><i></i>${m.label}</span> <span class="sifr-io ${io}"><b>${iom.arrow}</b>${iom.t}</span></td>
-      <td class="sifr-cur${g.num?' num':''}">${g.cur}</td>
-      <td><div class="sifr-spark" style="--c:${m.c}">${'<span></span>'.repeat(Math.min(g.cnt,4))}<em>${g.cnt}회</em></div></td>
-      <td class="num" style="color:var(--ink-3)">${g.last}</td></tr>`; }).join('');
 
   el.innerHTML = `<div class="sifr">
     <div class="sifr-head-row">
@@ -838,79 +802,8 @@ renderSIDetail = function() {
       <div class="sifr-sec-head"><h2>기본정보</h2><div class="sifr-sub">값 옆 배지 = 데이터 출처 시스템 · 노란 배경 = 최근 변경</div></div>
       <div class="sifr-info">${basicHtml}</div>
     </div>
-
-    <div class="sifr-sec">
-      <div class="sifr-sec-head"><h2>IF 변경이력</h2><div class="sifr-sub">총 ${d.log.length}건${byDate.length?` · ${byDate[byDate.length-1].date} ~ ${byDate[0].date}`:''}</div></div>
-      <div class="sifr-card">
-        <div class="sifr-controls">
-          ${chipsHtml}
-          <span class="sifr-spacer"></span>
-          <select class="sifr-fieldsel" onchange="siIfApply()">${optHtml}</select>
-          <div class="sifr-seg">
-            <button class="sifr-seg-tl" aria-pressed="true" onclick="siIfView('tl')">타임라인</button>
-            <button class="sifr-seg-gr" aria-pressed="false" onclick="siIfView('gr')">항목별</button>
-          </div>
-        </div>
-        <div class="sifr-tl sifr-view-tl">${tlHtml}
-          <div class="sifr-foot"><div class="sifr-legendline">
-            <em><i style="background:${SI_SYS.ERP.c}"></i>ERP</em><em><i style="background:${SI_SYS.SCM.c}"></i>AI SCM</em><em><i style="background:${SI_SYS.CRM.c}"></i>AI CRM</em><em><i style="background:${SI_SYS.PUR.c}"></i>구매</em>
-            <span class="sifr-sep">|</span><span>회색 취소선 = 이전 값, 색상 배지 = 반영된 값</span>
-          </div></div>
-        </div>
-        <div class="sifr-grouped sifr-view-gr" hidden>
-          <table>
-            <thead><tr><th style="width:150px">항목</th><th style="width:110px">출처</th><th>현재 값</th><th style="width:150px">변경 추이</th><th style="width:130px">마지막 변경</th></tr></thead>
-            <tbody>${grHtml}</tbody>
-          </table>
-        </div>
-      </div>
-      <div class="sifr-note">시스템 칩으로 즉시 필터링되고, 날짜 헤더는 스크롤 시 상단에 고정됩니다. 항목별 뷰는 "이 값은 결국 어느 시스템이 몇 번 바꿨나"를 한 줄로 확인하는 용도입니다.</div>
-    </div>
   </div>`;
 };
-
-// ── IF 이력 개선안: 필터/뷰 인터랙션 ──
-function siIfChip(btn) {
-  const root = btn.closest('.sifr'); if (!root) return;
-  const chips = [...root.querySelectorAll('.sifr-chip')];
-  const all = chips.find(c => c.dataset.sys === 'ALL');
-  if (btn.dataset.sys === 'ALL') {
-    chips.forEach(c => c.setAttribute('aria-pressed', 'true'));
-  } else {
-    btn.setAttribute('aria-pressed', btn.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
-    const others = chips.filter(c => c.dataset.sys !== 'ALL');
-    all.setAttribute('aria-pressed', others.every(c => c.getAttribute('aria-pressed') === 'true') ? 'true' : 'false');
-    if (others.every(c => c.getAttribute('aria-pressed') === 'false')) chips.forEach(c => c.setAttribute('aria-pressed', 'true'));
-  }
-  siIfApply(root);
-}
-function siIfApply(root) {
-  root = (root instanceof Element) ? root : document.querySelector('#s-si-project .sifr');
-  if (!root) return;
-  const chips = [...root.querySelectorAll('.sifr-chip')];
-  const all = chips.find(c => c.dataset.sys === 'ALL');
-  const sys = (all && all.getAttribute('aria-pressed') === 'true') ? null
-    : chips.filter(c => c.dataset.sys !== 'ALL' && c.getAttribute('aria-pressed') === 'true').map(c => c.dataset.sys);
-  const f = (root.querySelector('.sifr-fieldsel') || {}).value || '';
-  root.querySelectorAll('.sifr-row').forEach(r => {
-    const okS = !sys || sys.includes(r.dataset.sys);
-    const okF = !f || r.dataset.field === f;
-    r.classList.toggle('sifr-hidden', !(okS && okF));
-  });
-  root.querySelectorAll('[data-day]').forEach(day => {
-    let n = 0, e = day.nextElementSibling;
-    while (e && e.classList.contains('sifr-row')) { if (!e.classList.contains('sifr-hidden')) n++; e = e.nextElementSibling; }
-    day.classList.toggle('sifr-hidden', n === 0);
-  });
-}
-function siIfView(which) {
-  const root = document.querySelector('#s-si-project .sifr'); if (!root) return;
-  const isTl = which === 'tl';
-  root.querySelector('.sifr-view-tl').hidden = !isTl;
-  root.querySelector('.sifr-view-gr').hidden = isTl;
-  root.querySelector('.sifr-seg-tl').setAttribute('aria-pressed', isTl ? 'true' : 'false');
-  root.querySelector('.sifr-seg-gr').setAttribute('aria-pressed', isTl ? 'false' : 'true');
-}
 
 // ── 동기화 카드 클릭 → 해당 시스템 이력 팝업 ──
 function siSyncPopupBody(items) {
