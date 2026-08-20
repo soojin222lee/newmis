@@ -66,6 +66,42 @@ const SI_PROJECTS = {
       { date:'2026-02-01 09:00', field:'계약형태',     before:'—',             after:'IV',          source:'ERP' },
       { date:'2026-01-20 08:00', field:'매출귀속조직', before:'—',             after:'NOVA PMO팀',  source:'ERP' },
     ],
+    // IF 이력 개선안 데이터(선행 시스템 동기화 · 출처배지 기본정보 · 상세 변경로그)
+    ifDetail:{
+      asOf:'2026-08-19 09:40',
+      sync:[
+        { sys:'ERP', when:'2026-08-18 09:30', cnt:2, flag:'ok' },
+        { sys:'SCM', when:'2026-08-17 14:12', cnt:2, flag:'ok' },
+        { sys:'CRM', when:'2026-08-17 09:00', cnt:1, flag:'ok' },
+        { sys:'PUR', when:'2026-08-16 06:00', cnt:2, flag:'지연 3일' },
+      ],
+      basic:[
+        { k:'계약금액',     v:'1,920,000,000 원', sys:'ERP', changed:'1일 전 변경', num:true },
+        { k:'투입 인원',    v:'14 명',            sys:'SCM', changed:'2일 전 변경', num:true },
+        { k:'프로젝트 기간', v:'2026-05-01 ~ 2027-04-30', sys:'ERP', num:true },
+        { k:'수행 PM',      v:'한민석',           sys:'SCM' },
+        { k:'매출귀속조직', v:'NOVA PMO팀',       sys:'ERP' },
+        { k:'프로젝트 유형', v:'원가-선투입',      sys:'ERP' },
+        { k:'고객 담당자',  v:'박서준',           sys:'CRM', changed:'2일 전 변경' },
+        { k:'외주 발주금액', v:'465,000,000 원',  sys:'PUR', changed:'3일 전 변경', num:true },
+        { k:'주수행부서',   v:'NOVA PMO팀',       sys:'ETC' },
+        { k:'계약형태',     v:'IV',               sys:'ERP' },
+      ],
+      log:[
+        { date:'2026-08-18', rel:'어제',    time:'09:30', sys:'ERP', field:'계약금액',    before:'1,850,000,000', after:'1,920,000,000', delta:'+70,000,000', num:true },
+        { date:'2026-08-17', rel:'2일 전',  time:'14:12', sys:'SCM', field:'투입 인원',   before:'12 명', after:'14 명', delta:'+2명', num:true },
+        { date:'2026-08-17', rel:'2일 전',  time:'09:00', sys:'CRM', field:'고객 담당자', before:'김도현', after:'박서준', note:'고객사 조직개편 반영' },
+        { date:'2026-08-16', rel:'3일 전',  time:'06:00', sys:'PUR', field:'외주 발주금액', before:'420,000,000', after:'465,000,000', delta:'+45,000,000', num:true, note:'이후 수신 없음 — 구매 IF 3일 지연' },
+        { date:'2026-08-11', rel:'1주 전',  time:'10:40', sys:'SCM', field:'투입 인원',   before:'10 명', after:'12 명', delta:'+2명', num:true },
+        { date:'2026-07-30', rel:'3주 전',  time:'17:05', sys:'ERP', field:'계약금액',    before:'1,800,000,000', after:'1,850,000,000', delta:'+50,000,000', num:true },
+        { date:'2026-07-30', rel:'3주 전',  time:'06:00', sys:'PUR', field:'외주 발주금액', before:'미등록', after:'420,000,000', num:true },
+        { date:'2026-06-15', rel:'2개월 전', time:'11:20', sys:'SCM', field:'투입 인원',   before:'미등록', after:'10 명', num:true },
+        { date:'2026-04-15', rel:'4개월 전', time:'09:30', sys:'ERP', field:'프로젝트 상태', before:'착수', after:'수행중' },
+        { date:'2026-04-01', rel:'4개월 전', time:'08:05', sys:'SCM', field:'수행 PM',    before:'이강혁', after:'한민석' },
+        { date:'2026-03-15', rel:'5개월 전', time:'10:22', sys:'ERP', field:'종료일',      before:'2026-12-31', after:'2027-04-30', delta:'+4개월', num:true },
+        { date:'2026-02-01', rel:'6개월 전', time:'09:00', sys:'ERP', field:'계약형태',    before:'III', after:'IV' },
+      ],
+    },
   },
   'SI-002': {
     code:'30142102-D001', name:'2026년 ERP 유지보수 운영',
@@ -637,50 +673,183 @@ function buildSIHistory(history) {
   return `<div class="si-hist-list" style="margin-top:12px">${rows}</div>`;
 }
 
-// Final override: 수주형 프로젝트 상세는 기본정보와 IF 변경이력만 노출한다.
+// ── IF 이력 개선안: 선행 시스템 메타 ──
+// dir: IF 방향(MIS 기준) — 'both' 송수신(송신 위주) · 'in' 수신 · 'out' 송신 · 'none' 없음
+const SI_SYS = {
+  ERP: { label:'ERP',      c:'#2563EB', cb:'#EBF1FE', dir:'both' },
+  SCM: { label:'AI SCM',   c:'#7C3AED', cb:'#F2ECFE', dir:'in' },
+  CRM: { label:'AI CRM',   c:'#C2410C', cb:'#FDF0E7', dir:'in' },
+  PUR: { label:'구매',     c:'#0E7490', cb:'#E6F4F7', dir:'in' },
+  ETC: { label:'수동입력', c:'#475569', cb:'#EEF1F4', dir:'none' },
+};
+function siSys(code) { return SI_SYS[code] || SI_SYS.ETC; }
+
+// IF 방향 배지 메타
+const SI_DIR = {
+  both: { t:'송수신', arrow:'⇄', hint:'MIS ⇄ ERP · 송신 위주' },
+  in:   { t:'수신',   arrow:'←', hint:'선행 시스템 → MIS 수신' },
+  out:  { t:'송신',   arrow:'→', hint:'MIS → 선행 시스템 송신' },
+};
+
+// 이력 1건의 송수신 판정: 건별 io가 있으면 우선, 없으면 시스템 방향 기준
+// (ERP는 송신 위주 → 송신, 수신 시스템은 수신)
+function siIo(e) {
+  if (e.io === 'in' || e.io === 'out') return e.io;
+  return siSys(e.sys).dir === 'in' ? 'in' : 'out';
+}
+const SI_IO = { out:{ t:'송신', arrow:'→' }, in:{ t:'수신', arrow:'←' } };
+
+// ifDetail이 없는 프로젝트는 기존 필드/ifHistory에서 개선안 데이터 구조를 파생한다.
+function siBuildDetail(p) {
+  if (p.ifDetail) return p.ifDetail;
+  const map = { ERP:'ERP', SCM:'SCM', BIX:'CRM', CRM:'CRM', PUR:'PUR', '구매':'PUR' };
+  const log = (p.ifHistory || []).map(h => {
+    const parts = (h.date || '').split(' ');
+    return { date: parts[0] || '', time: parts[1] || '', sys: map[h.source] || 'ETC', field: h.field, before: h.before, after: h.after };
+  });
+  const bySys = {};
+  log.forEach(e => { (bySys[e.sys] = bySys[e.sys] || []).push(e); });
+  const sync = Object.keys(bySys).map(sys => {
+    const first = bySys[sys][0];
+    return { sys, when: (first.date + (first.time ? ' ' + first.time : '')).trim(), cnt: bySys[sys].length, flag: 'ok' };
+  });
+  const basic = [
+    { k:'프로젝트 기간', v:`${p.start} ~ ${p.end}`, sys:'ERP', num:true },
+    { k:'수행 PM', v:p.pm, sys:'SCM' },
+    { k:'매출귀속조직', v:p.revOrg, sys:'ERP' },
+    { k:'프로젝트 유형', v:p.projType, sys:'ERP' },
+    { k:'프로젝트 상태', v:p.stage, sys:'ERP' },
+    { k:'계약형태', v:p.contractType, sys:'ERP' },
+    { k:'주수행부서', v:p.mainDept, sys:'ETC' },
+    { k:'고객사', v:p.customer, sys:'ERP' },
+  ];
+  return { asOf: p.lastSync || '', sync, basic, log };
+}
+
+// 진행 3단계(착수/수행/종료) — stage 기준
+function siStepper(stage) {
+  const steps = [
+    { key:'착수', done:['수행중','마감준비','종료완료'].includes(stage), now: stage === '착수' },
+    { key:'수행', done:['마감준비','종료완료'].includes(stage), now: stage === '수행중' },
+    { key:'종료', done: stage === '종료완료', now: stage === '마감준비' },
+  ];
+  let html = '';
+  steps.forEach((s, i) => {
+    const cls = s.done ? 'done' : (s.now ? 'now' : '');
+    html += `<div class="sifr-step${(s.done || s.now) ? ' active' : ''}"><div class="sifr-node ${cls}">${s.done ? '✓' : (i + 1)}</div><small>${s.key}</small></div>`;
+    if (i < 2) html += `<div class="sifr-bar${s.done ? ' done' : ''}"></div>`;
+  });
+  return html;
+}
+
+// Final override: 수주형 프로젝트 상세 — IF 이력 개선안 레이아웃
 renderSIDetail = function() {
   const el = document.getElementById('s-si-project');
   const p = SI_PROJECTS[siSelectedId];
   if (!el || !p) return;
-  const st = SI_STATUS_STYLE[p.stage] || SI_STATUS_STYLE['등록완료'] || { bg:'#f1f5f9', color:'#475569' };
+  const d = siBuildDetail(p);
 
-  el.innerHTML = `
-    <div class="wg-detail-topbar">
-      <button class="mc-back-btn" onclick="closeSIDetail()">← 목록</button>
-      <div style="flex:1">
-        <div style="font-size:14px;color:#94a3b8;margin-bottom:2px">${p.code}</div>
-        <div style="font-size:20px;font-weight:800;color:#1e293b">${p.name}</div>
-      </div>
-      <span class="ipc-status-badge" style="background:${st.bg};color:${st.color};font-size:15px;padding:6px 14px">${p.stage}</span>
-      <button class="labor-sub-btn si-back-btn" onclick="closeSIDetail()">목록으로 ↩</button>
-    </div>
-
-    ${buildSIProgressV2(p, siSelectedId)}
-
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-head">
-        <span class="card-title">기본정보</span>
-        <span style="font-size:14px;color:#94a3b8">마지막 동기화 ${p.lastSync} (${p.ifSource})</span>
-      </div>
-      <div class="si-basic-grid" style="padding:16px 24px 20px">
-        ${buildSIFieldReadonly([
-          ['프로젝트 기간', `${p.start} ~ ${p.end}`, 'ERP'],
-          ['수행PM', p.pm, 'ERP'],
-          ['매출귀속조직', p.revOrg, 'ERP'],
-          ['프로젝트유형', p.projType, 'ERP'],
-          ['프로젝트상태', p.stage, 'ERP'],
-          ['계약형태', p.contractType, 'ERP'],
-          ['주수행부서', p.mainDept, '수동'],
-          ['고객사', p.customer, 'ERP'],
-        ])}
-      </div>
-    </div>
-
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-head">
-        <span class="card-title">IF 변경이력</span>
-        <span class="card-badge">선행 시스템에서 수신한 데이터 변경 기록</span>
-      </div>
-      <div style="padding:0 20px 20px">${buildSIHistory(p.ifHistory)}</div>
+  const syncHtml = d.sync.map(s => {
+    const m = siSys(s.sys), ok = s.flag === 'ok';
+    const dir = SI_DIR[m.dir];
+    const dirChip = dir ? `<span class="sifr-dir ${m.dir}" title="${dir.hint}"><b>${dir.arrow}</b>${dir.t}</span>` : '';
+    const whenWord = m.dir === 'both' ? '최근 동기화' : (m.dir === 'out' ? '송신' : '수신');
+    return `<div class="sifr-sync-item" style="--c:${m.c};--cb:${m.cb}" role="button" tabindex="0" onclick="siOpenSyncPopup('${s.sys}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();siOpenSyncPopup('${s.sys}')}">
+      <div class="sifr-sync-top"><span class="sifr-sync-badges"><span class="sifr-sysbadge" style="--c:${m.c};--cb:${m.cb}"><i></i>${m.label}</span>${dirChip}</span><span class="sifr-flag ${ok?'ok':'warn'}">${ok?'정상':s.flag}</span></div>
+      <div class="sifr-sync-when">${s.when} ${whenWord}</div>
+      <div class="sifr-sync-cnt">최근 30일 변경 <b>${s.cnt}</b>건 <span class="sifr-sync-go">이력 보기 ›</span></div>
     </div>`;
+  }).join('');
+
+  const basicHtml = d.basic.map(f => {
+    const m = siSys(f.sys);
+    return `<div class="sifr-field${f.changed?' changed':''}" style="--c:${m.c};--cb:${m.cb}">
+      <div class="sifr-field-k">${f.k} <span class="sifr-src${f.sys==='ETC'?' manual':''}" style="--c:${m.c};--cb:${m.cb}">${m.label}</span>${f.changed?`<span class="sifr-new-tag">${f.changed}</span>`:''}</div>
+      <div class="sifr-field-v${f.num?' num':''}">${f.v}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="sifr">
+    <div class="sifr-head-row">
+      <div>
+        <div class="sifr-code">${p.code}</div>
+        <h1 class="sifr-h1">${p.name}</h1>
+        <div class="sifr-meta-line">
+          <span class="sifr-pill"><i class="dot"></i>${p.stage}</span>
+          <span>${p.customer} · ${p.revOrg}</span>
+          <span class="sifr-sep">|</span>
+          <span>${p.start} ~ ${p.end}</span>
+        </div>
+      </div>
+      <div class="sifr-head-btns">
+        <button class="sifr-btn" onclick="closeSIDetail()">← 목록</button>
+        <button class="sifr-btn sifr-btn-primary" onclick="showToast('종료 처리는 준비 중입니다.')">종료 처리 →</button>
+      </div>
+    </div>
+
+    <div class="sifr-card sifr-steps-card">
+      <div class="sifr-steps">${siStepper(p.stage)}</div>
+      <div class="sifr-steps-note">착수·종료는 조건 충족 시 자동 실행되며, 필요 시 수동으로도 처리할 수 있습니다. 정산·검수 완료 조건 충족 시 자동 종료됩니다.</div>
+    </div>
+
+    <div class="sifr-sec">
+      <div class="sifr-sec-head"><h2>선행 시스템 동기화 상태</h2><div class="sifr-sub">기준 시각 ${d.asOf||'-'}</div></div>
+      <div class="sifr-sync">${syncHtml}</div>
+      <div class="sifr-note">IF는 <b>송수신 양방향</b>입니다 — <b class="sifr-dir-ink both">⇄ ERP</b>는 MIS가 보내는 <b>송신 위주</b>, <b class="sifr-dir-ink in">← AI SCM · AI CRM · 구매</b>는 MIS가 받는 <b>수신</b>입니다. 각 시스템의 마지막 교환 시각과 변경 건수로 어느 채널이 멈췄는지 판단하고, <b>카드를 클릭하면 해당 시스템의 IF 이력</b>을 팝업으로 봅니다.</div>
+    </div>
+
+    <div class="sifr-sec">
+      <div class="sifr-sec-head"><h2>기본정보</h2><div class="sifr-sub">값 옆 배지 = 데이터 출처 시스템 · 노란 배경 = 최근 변경</div></div>
+      <div class="sifr-info">${basicHtml}</div>
+    </div>
+  </div>`;
 };
+
+// ── 동기화 카드 클릭 → 해당 시스템 이력 팝업 ──
+function siSyncPopupBody(items) {
+  const miss = v => ['미등록','—','',null,undefined].includes(v);
+  const byDate = [];
+  items.forEach(e => { let g = byDate.find(x => x.date === e.date); if (!g) { g = { date:e.date, rel:e.rel||'', items:[] }; byDate.push(g); } g.items.push(e); });
+  return byDate.map(g => {
+    const rows = g.items.map(e => {
+      const io = siIo(e), iom = SI_IO[io], m = siSys(e.sys);
+      return `<div class="sifr-row" style="--c:${m.c};--cb:${m.cb}">
+        <div class="sifr-time">${e.time||''}</div><div class="sifr-rail"><i></i></div>
+        <div class="sifr-rbody">
+          <div class="sifr-b1"><span class="sifr-io ${io}"><b>${iom.arrow}</b>${iom.t}</span><span class="sifr-fname">${e.field}</span>${e.delta?`<span class="sifr-delta">${e.delta}</span>`:''}</div>
+          <div class="sifr-diff"><span class="sifr-old${e.num&&!miss(e.before)?' num':''}">${miss(e.before)?'미등록':e.before}</span><span class="sifr-arrow">→</span><span class="sifr-new${e.num?' num':''}">${e.after}</span></div>
+          ${e.note?`<div class="sifr-actor">${e.note}</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="sifr-day"><b>${g.date}</b><span>${g.rel?g.rel+' · ':''}${g.items.length}건</span></div>${rows}`;
+  }).join('');
+}
+function siOpenSyncPopup(sys) {
+  const p = SI_PROJECTS[siSelectedId]; if (!p) return;
+  const d = siBuildDetail(p);
+  const m = siSys(sys), dir = SI_DIR[m.dir];
+  const items = d.log.filter(e => e.sys === sys);
+  const s = d.sync.find(x => x.sys === sys) || {};
+  let modal = document.getElementById('sifr-sync-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'sifr-sync-modal';
+    modal.className = 'sifr-modal-overlay';
+    modal.onclick = e => { if (e.target === modal) siCloseSyncPopup(); };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `<div class="sifr sifr-modal">
+    <div class="sifr-modal-head">
+      <div class="sifr-modal-title"><span class="sifr-sysbadge" style="--c:${m.c};--cb:${m.cb}"><i></i>${m.label}</span>${dir?`<span class="sifr-dir ${m.dir}"><b>${dir.arrow}</b>${dir.t}</span>`:''}<b>IF 변경이력</b><span class="sifr-modal-cnt">${items.length}건</span></div>
+      <button class="sifr-modal-x" onclick="siCloseSyncPopup()" aria-label="닫기">✕</button>
+    </div>
+    <div class="sifr-modal-sub">${s.when?`${s.when} ${m.dir==='both'?'최근 동기화':'수신'}`:''}${s.cnt!=null?` · 최근 30일 <b>${s.cnt}</b>건`:''}</div>
+    <div class="sifr-modal-body">${items.length?siSyncPopupBody(items):'<div class="sifr-modal-empty">이 시스템의 변경이력이 없습니다.</div>'}</div>
+  </div>`;
+  modal.classList.add('open');
+}
+function siCloseSyncPopup() {
+  const m = document.getElementById('sifr-sync-modal');
+  if (m) m.classList.remove('open');
+}
