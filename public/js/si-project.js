@@ -756,10 +756,10 @@ renderSIDetail = function() {
     const dir = SI_DIR[m.dir];
     const dirChip = dir ? `<span class="sifr-dir ${m.dir}" title="${dir.hint}"><b>${dir.arrow}</b>${dir.t}</span>` : '';
     const whenWord = m.dir === 'both' ? '최근 동기화' : (m.dir === 'out' ? '송신' : '수신');
-    return `<div class="sifr-sync-item" style="--c:${m.c};--cb:${m.cb}">
+    return `<div class="sifr-sync-item" style="--c:${m.c};--cb:${m.cb}" role="button" tabindex="0" onclick="siOpenSyncPopup('${s.sys}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();siOpenSyncPopup('${s.sys}')}">
       <div class="sifr-sync-top"><span class="sifr-sync-badges"><span class="sifr-sysbadge" style="--c:${m.c};--cb:${m.cb}"><i></i>${m.label}</span>${dirChip}</span><span class="sifr-flag ${ok?'ok':'warn'}">${ok?'정상':s.flag}</span></div>
       <div class="sifr-sync-when">${s.when} ${whenWord}</div>
-      <div class="sifr-sync-cnt">최근 30일 변경 <b>${s.cnt}</b>건</div>
+      <div class="sifr-sync-cnt">최근 30일 변경 <b>${s.cnt}</b>건 <span class="sifr-sync-go">이력 보기 ›</span></div>
     </div>`;
   }).join('');
 
@@ -831,7 +831,7 @@ renderSIDetail = function() {
     <div class="sifr-sec">
       <div class="sifr-sec-head"><h2>선행 시스템 동기화 상태</h2><div class="sifr-sub">기준 시각 ${d.asOf||'-'}</div></div>
       <div class="sifr-sync">${syncHtml}</div>
-      <div class="sifr-note">IF는 <b>송수신 양방향</b>입니다 — <b class="sifr-dir-ink both">⇄ ERP</b>는 MIS가 보내는 <b>송신 위주</b>, <b class="sifr-dir-ink in">← AI SCM · AI CRM · 구매</b>는 MIS가 받는 <b>수신</b>입니다. 각 시스템의 마지막 교환 시각과 변경 건수로 어느 채널이 멈췄는지 이력을 열지 않고도 판단합니다.</div>
+      <div class="sifr-note">IF는 <b>송수신 양방향</b>입니다 — <b class="sifr-dir-ink both">⇄ ERP</b>는 MIS가 보내는 <b>송신 위주</b>, <b class="sifr-dir-ink in">← AI SCM · AI CRM · 구매</b>는 MIS가 받는 <b>수신</b>입니다. 각 시스템의 마지막 교환 시각과 변경 건수로 어느 채널이 멈췄는지 판단하고, <b>카드를 클릭하면 해당 시스템의 IF 이력</b>을 팝업으로 봅니다.</div>
     </div>
 
     <div class="sifr-sec">
@@ -910,4 +910,53 @@ function siIfView(which) {
   root.querySelector('.sifr-view-gr').hidden = isTl;
   root.querySelector('.sifr-seg-tl').setAttribute('aria-pressed', isTl ? 'true' : 'false');
   root.querySelector('.sifr-seg-gr').setAttribute('aria-pressed', isTl ? 'false' : 'true');
+}
+
+// ── 동기화 카드 클릭 → 해당 시스템 이력 팝업 ──
+function siSyncPopupBody(items) {
+  const miss = v => ['미등록','—','',null,undefined].includes(v);
+  const byDate = [];
+  items.forEach(e => { let g = byDate.find(x => x.date === e.date); if (!g) { g = { date:e.date, rel:e.rel||'', items:[] }; byDate.push(g); } g.items.push(e); });
+  return byDate.map(g => {
+    const rows = g.items.map(e => {
+      const io = siIo(e), iom = SI_IO[io], m = siSys(e.sys);
+      return `<div class="sifr-row" style="--c:${m.c};--cb:${m.cb}">
+        <div class="sifr-time">${e.time||''}</div><div class="sifr-rail"><i></i></div>
+        <div class="sifr-rbody">
+          <div class="sifr-b1"><span class="sifr-io ${io}"><b>${iom.arrow}</b>${iom.t}</span><span class="sifr-fname">${e.field}</span>${e.delta?`<span class="sifr-delta">${e.delta}</span>`:''}</div>
+          <div class="sifr-diff"><span class="sifr-old${e.num&&!miss(e.before)?' num':''}">${miss(e.before)?'미등록':e.before}</span><span class="sifr-arrow">→</span><span class="sifr-new${e.num?' num':''}">${e.after}</span></div>
+          ${e.note?`<div class="sifr-actor">${e.note}</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="sifr-day"><b>${g.date}</b><span>${g.rel?g.rel+' · ':''}${g.items.length}건</span></div>${rows}`;
+  }).join('');
+}
+function siOpenSyncPopup(sys) {
+  const p = SI_PROJECTS[siSelectedId]; if (!p) return;
+  const d = siBuildDetail(p);
+  const m = siSys(sys), dir = SI_DIR[m.dir];
+  const items = d.log.filter(e => e.sys === sys);
+  const s = d.sync.find(x => x.sys === sys) || {};
+  let modal = document.getElementById('sifr-sync-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'sifr-sync-modal';
+    modal.className = 'sifr-modal-overlay';
+    modal.onclick = e => { if (e.target === modal) siCloseSyncPopup(); };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `<div class="sifr sifr-modal">
+    <div class="sifr-modal-head">
+      <div class="sifr-modal-title"><span class="sifr-sysbadge" style="--c:${m.c};--cb:${m.cb}"><i></i>${m.label}</span>${dir?`<span class="sifr-dir ${m.dir}"><b>${dir.arrow}</b>${dir.t}</span>`:''}<b>IF 변경이력</b><span class="sifr-modal-cnt">${items.length}건</span></div>
+      <button class="sifr-modal-x" onclick="siCloseSyncPopup()" aria-label="닫기">✕</button>
+    </div>
+    <div class="sifr-modal-sub">${s.when?`${s.when} ${m.dir==='both'?'최근 동기화':'수신'}`:''}${s.cnt!=null?` · 최근 30일 <b>${s.cnt}</b>건`:''}</div>
+    <div class="sifr-modal-body">${items.length?siSyncPopupBody(items):'<div class="sifr-modal-empty">이 시스템의 변경이력이 없습니다.</div>'}</div>
+  </div>`;
+  modal.classList.add('open');
+}
+function siCloseSyncPopup() {
+  const m = document.getElementById('sifr-sync-modal');
+  if (m) m.classList.remove('open');
 }
