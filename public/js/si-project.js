@@ -742,13 +742,13 @@ function siStepper(stage) {
   return html;
 }
 
-// Final override: 수주형 프로젝트 상세 — IF 이력 개선안 레이아웃
-renderSIDetail = function() {
-  const el = document.getElementById('s-si-project');
-  const p = SI_PROJECTS[siSelectedId];
-  if (!el || !p) return;
-  const d = siBuildDetail(p);
+// 상세 대시보드/팝업이 현재 보고 있는 프로젝트 (수주형·제안 공용)
+let siActiveProject = null;
 
+// 프로젝트 상세 IF 대시보드 HTML — 수주형/제안 프로젝트가 공용으로 사용
+// backOnclick: 목록으로 돌아가는 onclick 문자열 · extraMeta: 메타줄에 덧붙일 HTML(제안=원 수주 링크 등)
+function siDetailHtml(p, backOnclick, extraMeta) {
+  const d = siBuildDetail(p);
   const syncHtml = d.sync.map(s => {
     const m = siSys(s.sys), ok = s.flag === 'ok';
     const dir = SI_DIR[m.dir];
@@ -769,7 +769,7 @@ renderSIDetail = function() {
     </div>`;
   }).join('');
 
-  el.innerHTML = `<div class="sifr">
+  return `<div class="sifr">
     <div class="sifr-head-row">
       <div>
         <div class="sifr-code">${p.code}</div>
@@ -779,10 +779,11 @@ renderSIDetail = function() {
           <span>${p.customer} · ${p.revOrg}</span>
           <span class="sifr-sep">|</span>
           <span>${p.start} ~ ${p.end}</span>
+          ${extraMeta || ''}
         </div>
       </div>
       <div class="sifr-head-btns">
-        <button class="sifr-btn" onclick="closeSIDetail()">← 목록</button>
+        <button class="sifr-btn" onclick="${backOnclick}">← 목록</button>
         <button class="sifr-btn sifr-btn-primary" onclick="showToast('종료 처리는 준비 중입니다.')">종료 처리 →</button>
       </div>
     </div>
@@ -803,6 +804,15 @@ renderSIDetail = function() {
       <div class="sifr-info">${basicHtml}</div>
     </div>
   </div>`;
+}
+
+// Final override: 수주형 프로젝트 상세 — 공용 대시보드 사용
+renderSIDetail = function() {
+  const el = document.getElementById('s-si-project');
+  const p = SI_PROJECTS[siSelectedId];
+  if (!el || !p) return;
+  siActiveProject = p;
+  el.innerHTML = siDetailHtml(p, "closeSIDetail()");
 };
 
 // ── 동기화 카드 클릭 → 해당 시스템 이력 팝업 ──
@@ -826,7 +836,7 @@ function siSyncPopupBody(items) {
   }).join('');
 }
 function siOpenSyncPopup(sys) {
-  const p = SI_PROJECTS[siSelectedId]; if (!p) return;
+  const p = siActiveProject || SI_PROJECTS[siSelectedId]; if (!p) return;
   const d = siBuildDetail(p);
   const m = siSys(sys), dir = SI_DIR[m.dir];
   const items = d.log.filter(e => e.sys === sys);
