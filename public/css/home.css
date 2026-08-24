@@ -643,3 +643,77 @@ button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: tr
   .hm-pm { width: 100%; max-height: 100vh; border-radius: 0; }
   .hm-under-sum { margin-left: 0; width: 100%; }
 }
+
+/* ==========================================================================
+   7차 — 메뉴 토글 · PJT 선택 표식 · 간결 팝업 · LLM 답변
+   ========================================================================== */
+
+/* 상단 메뉴 토글 — ▦ 버튼과 동일 사이즈의 눈에 안 띄는 회색 버튼 */
+.tb-menu-toggle {
+  width: 34px; height: 34px; flex: none;
+  border: 1px solid var(--sk-border); border-radius: 9px;
+  background: #f5f6f8; color: #aab2c0; font-size: 15px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.tb-menu-toggle:hover { border-color: var(--sk-border-strong); color: #6a7382; background: #eef0f4; }
+.tb-menu-toggle.on { background: var(--sk-ink); border-color: var(--sk-ink); color: #fff; }
+
+/* 토글이 켜지면 숨겼던 메뉴를 되살린다 (기본은 6차 규칙대로 숨김) */
+body.menu-shown .topbar .topnav { display: flex !important; }
+
+/* PJT 선택 표식 */
+.hm-pjt-chip.picked {
+  background: var(--sk-ink); border-color: var(--sk-ink); color: #fff;
+}
+.hm-pjt-chip.picked .hm-ptab-name { color: #fff; }
+.hm-pjt-chip.picked .hm-ptab-badge { background: rgba(255,255,255,.24); color: #fff; }
+.hm-pjt-chip.picked .hm-ptab-badge.on { background: var(--sk-red); color: #fff; }
+.hm-pjt-check { font-size: 11px; font-weight: 900; margin-right: 4px; }
+
+/* 선택 문맥 표시 줄 */
+.hm-ctx {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: #f3f6fd; border: 1px solid #dbe6fb; border-radius: 999px;
+  padding: 7px 14px; margin-bottom: 10px; font-size: 12.5px;
+}
+.hm-ctx.off { background: #fafbfc; border-color: var(--sk-border); justify-content: center; }
+.hm-ctx-l { font-size: 11px; font-weight: 800; color: #8a94a6; }
+.hm-ctx b { font-weight: 900; color: var(--sk-blue-deep); }
+.hm-ctx-d { font-size: 11.5px; color: #8a94a6; font-weight: 700; }
+.hm-ctx-x {
+  margin-left: auto; border: 0; background: transparent; cursor: pointer;
+  font-size: 13px; color: #98a2b3; padding: 0 2px;
+}
+.hm-ctx-x:hover { color: var(--sk-ink); }
+
+/* 간결 팝업 카드 */
+.hm-slim {
+  background: #fff; border: 1px solid var(--sk-border); border-left: 3px solid #c3cad4;
+  border-radius: 10px; padding: 13px 15px; margin-bottom: 9px;
+}
+.hm-slim.danger  { border-left-color: var(--sk-red); }
+.hm-slim.warning { border-left-color: #e39a2a; }
+.hm-slim.info    { border-left-color: var(--sk-blue); }
+.hm-slim-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.hm-slim-tag { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; background: #f2f4f7; color: #6a7382; }
+.hm-slim-tag.danger  { background: #fde8ec; color: #b8283f; }
+.hm-slim-tag.warning { background: #fdf3e0; color: #9a6206; }
+.hm-slim-tag.info    { background: #e8f1fd; color: #1f5fbf; }
+.hm-slim-t { font-size: 14px; font-weight: 800; color: var(--sk-ink); }
+.hm-slim-n { font-size: 12.5px; color: #6a7382; margin-top: 5px; font-variant-numeric: tabular-nums; }
+.hm-slim-n b { font-weight: 900; }
+.hm-slim-n b.up { color: var(--sk-red); } .hm-slim-n b.down { color: var(--sk-blue); }
+
+/* 팝업 하단 이동 버튼 */
+.hm-pm-foot {
+  display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap;
+  padding: 14px 20px; border-top: 1px solid var(--sk-border); background: #fff;
+}
+
+/* LLM 답변 본문 */
+.ai-llm-body { font-size: 13.5px; line-height: 1.7; color: #2b3442; margin-top: 6px; }
+
+@media (max-width: 720px) {
+  .hm-ctx-x { margin-left: 0; }
+  .hm-pm-foot { justify-content: stretch; }
+}
