@@ -340,3 +340,380 @@ button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: tr
   .hm-autostrip { border-radius: 14px; flex-wrap: wrap; }
   .hm-autostrip-more { margin-left: 0; width: 100%; }
 }
+
+/* ==========================================================================
+   결정 큐 고도화 — 메타 칩 · AI 추천 변경안 · 정렬 · 근거 원장
+   ========================================================================== */
+
+/* 정렬 셀렉트 */
+.hm-sort {
+  margin-left: auto; border: 1px solid var(--sk-border); background: #fff;
+  border-radius: 999px; padding: 5px 11px; font-size: 11.5px; font-weight: 700;
+  color: var(--sk-ink); cursor: pointer;
+}
+
+/* 카드 헤더 메타 칩 */
+.hm-meta-chips { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-left: auto; }
+.hm-chip {
+  display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 800;
+  border-radius: 999px; padding: 2px 8px; white-space: nowrap; line-height: 1.6;
+}
+.hm-chip.grade.d { background: #e8f6f0; color: #0b7a52; }
+.hm-chip.grade.r { background: #f1eefd; color: #5546c9; }
+.hm-chip.grade.p { background: #eef0f4; color: #55606f; }
+.hm-chip.impact.up   { background: #fde8ec; color: #b8283f; }
+.hm-chip.impact.down { background: #e8f1fd; color: #1f5fbf; }
+.hm-chip.due { background: #f5f6f8; color: #6a7382; }
+.hm-chip.due.near { background: #fdf3e0; color: #9a6206; }
+.hm-chip.src { background: #fff; border: 1px solid var(--sk-border); color: #8a94a6; }
+
+/* AI 추천 변경안 */
+.hm-plan { margin: 12px 0 0; border: 1px solid #e5e0fb; border-radius: 12px; overflow: hidden; }
+.hm-plan-hd { display: flex; align-items: center; gap: 8px; background: #fbfaff; padding: 9px 13px; border-bottom: 1px solid #efebfd; }
+.hm-plan-t { font-size: 12px; font-weight: 900; color: #4b3fb5; }
+.hm-plan-ev { font-size: 10.5px; font-weight: 800; color: #8a94a6; background: #fff; border: 1px solid var(--sk-border); border-radius: 999px; padding: 2px 8px; }
+.hm-plan-why { margin-left: auto; border: 0; background: transparent; font-size: 11.5px; font-weight: 800; color: #5546c9; cursor: pointer; white-space: nowrap; }
+.hm-plan-why:hover { text-decoration: underline; }
+
+.hm-plan-body { padding: 11px 13px; display: flex; flex-direction: column; gap: 7px; }
+.hm-plan-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.hm-plan-nm { color: #6a7382; font-weight: 700; min-width: 116px; }
+.hm-plan-a  { color: #aab2c0; text-decoration: line-through; }
+.hm-plan-ar { color: #c3cad4; font-size: 11px; }
+.hm-plan-b  { font-weight: 900; color: var(--sk-ink); }
+.hm-plan-d  { font-size: 11px; font-weight: 800; border-radius: 999px; padding: 1px 7px; margin-left: auto; }
+.hm-plan-d.up   { background: #fde8ec; color: #b8283f; }
+.hm-plan-d.down { background: #e8f1fd; color: #1f5fbf; }
+
+.hm-plan-ft { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 13px; border-top: 1px solid #efebfd; background: #fdfcff; }
+.hm-plan-ok { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: #6a7382; }
+.hm-plan-ok i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.hm-plan-ok.ok i   { background: #12a46b; }
+.hm-plan-ok.warn i { background: #e39a2a; }
+.hm-plan-ok.warn { color: #9a6206; }
+
+/* 근거 원장 드로어 */
+.hm-ev-row { border: 1px solid var(--sk-border); border-radius: 10px; padding: 11px 13px; margin-bottom: 8px; background: #fff; }
+.hm-ev-k { font-size: 10.5px; font-weight: 900; color: #98a2b3; }
+.hm-ev-v { font-size: 12.5px; color: #3f4855; margin-top: 3px; line-height: 1.7; }
+
+@media (max-width: 720px) {
+  .hm-meta-chips { margin-left: 0; width: 100%; margin-top: 6px; }
+  .hm-plan-nm { min-width: 0; width: 100%; }
+  .hm-plan-d { margin-left: 0; }
+  .hm-sort { margin-left: 0; }
+}
+
+/* ==========================================================================
+   예산 신호 레이어 — Headroom 리본 · Runway · 월마감 타임레일 · 프로젝트 신호등
+   ========================================================================== */
+
+.hm-signal { margin: 22px 0 26px; }
+
+/* 신호 색 (레이어 공통) */
+.hm-hr-dot.ok,   .hm-hr-bar i.ok,   .hm-ptab-dot.ok,   .hm-ptab-bar i.ok   { background: #12a46b; }
+.hm-hr-dot.warn, .hm-hr-bar i.warn, .hm-ptab-dot.warn, .hm-ptab-bar i.warn { background: #e39a2a; }
+.hm-hr-dot.risk, .hm-hr-bar i.risk, .hm-ptab-dot.risk, .hm-ptab-bar i.risk { background: #dc5548; }
+.hm-hr-dot.na,   .hm-hr-bar i.na                                           { background: #d3d8df; }
+
+/* Headroom 리본 */
+.hm-headroom { display: flex; align-items: stretch; border: 1px solid var(--sk-border); border-radius: 12px; overflow: hidden; background: #fff; }
+.hm-hr-lbl {
+  display: flex; flex-direction: column; justify-content: center; flex: none;
+  padding: 0 14px; background: #fafbfc; border-right: 1px solid var(--sk-border);
+  font-size: 11px; font-weight: 900; color: #8a94a6; white-space: nowrap;
+}
+.hm-hr-lbl em { font-style: normal; font-size: 10px; font-weight: 700; color: #aab2c0; }
+.hm-hr-seg { flex: 1; min-width: 0; padding: 10px 12px; border-right: 1px solid var(--sk-border); }
+.hm-hr-seg:last-child { border-right: none; }
+.hm-hr-n { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: #6a7382; font-weight: 700; }
+.hm-hr-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.hm-hr-v { font-size: 15px; font-weight: 900; letter-spacing: -0.3px; margin-top: 1px; color: var(--sk-ink); font-variant-numeric: tabular-nums; }
+.hm-hr-v.risk { color: #dc5548; }
+.hm-hr-v.warn { color: #9a6206; }
+.hm-hr-v.na   { font-size: 12px; color: #aab2c0; }
+.hm-hr-bar { height: 3px; border-radius: 2px; background: #eef0f4; margin-top: 6px; overflow: hidden; }
+.hm-hr-bar i { display: block; height: 100%; border-radius: 2px; }
+
+/* Runway */
+.hm-runway {
+  display: flex; align-items: center; gap: 10px; margin-top: 10px;
+  background: #fdf8f0; border: 1px solid #f6e3c4; border-radius: 12px; padding: 10px 14px;
+}
+.hm-runway-ic { flex: none; font-size: 14px; }
+.hm-runway-t { font-size: 12.5px; font-weight: 700; color: #8a5a08; }
+.hm-runway-t b { color: #7a3e06; font-weight: 900; }
+.hm-runway-spark { margin-left: auto; flex: none; }
+
+/* 월마감 타임레일 */
+.hm-rail { margin-top: 10px; padding: 14px 18px 12px; border: 1px solid var(--sk-border); border-radius: 12px; background: #fff; }
+.hm-rail-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.hm-rail-tt { font-size: 12px; font-weight: 900; color: var(--sk-ink); }
+.hm-rail-sys { margin-left: auto; font-size: 11px; color: #aab2c0; font-weight: 700; }
+.hm-rail-line { position: relative; height: 40px; }
+.hm-rail-ln { position: absolute; top: 5px; left: 0; right: 0; height: 2px; background: #e3e7ec; border-radius: 2px; }
+.hm-rail-ln i { display: block; height: 100%; background: var(--sk-ink); border-radius: 2px; }
+.hm-rail-p { position: absolute; top: 0; transform: translateX(-50%); text-align: center; white-space: nowrap; }
+.hm-rail-pin { display: block; width: 11px; height: 11px; border-radius: 50%; background: #fff; border: 2px solid #e3e7ec; margin: 0 auto 5px; }
+.hm-rail-d { display: block; font-size: 10.5px; font-weight: 800; color: #aab2c0; }
+.hm-rail-l { display: block; font-size: 10.5px; color: #8a94a6; margin-top: 1px; }
+.hm-rail-p.now .hm-rail-pin   { background: var(--sk-ink); border-color: var(--sk-ink); }
+.hm-rail-p.now .hm-rail-d     { color: var(--sk-ink); font-weight: 900; }
+.hm-rail-p.auto .hm-rail-pin  { background: #6c5ce7; border-color: #6c5ce7; }
+.hm-rail-p.human .hm-rail-pin { background: #fff; border-color: #e39a2a; }
+
+/* 프로젝트 탭 신호등 */
+.hm-ptab-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.hm-ptab-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.hm-ptab-bar { display: block; height: 3px; border-radius: 2px; background: #eef0f4; margin-top: 6px; overflow: hidden; }
+.hm-ptab-bar i { display: block; height: 100%; border-radius: 2px; }
+.hm-ptab.active .hm-ptab-bar { background: rgba(255, 255, 255, 0.28); }
+.hm-ptab.active .hm-ptab-bar i { background: #fff; }
+
+@media (max-width: 980px) {
+  .hm-headroom { flex-wrap: wrap; }
+  .hm-hr-lbl { width: 100%; border-right: none; border-bottom: 1px solid var(--sk-border); padding: 8px 14px; flex-direction: row; gap: 6px; align-items: center; }
+  .hm-hr-seg { min-width: 44%; }
+  .hm-rail-line { overflow-x: auto; }
+  .hm-runway-spark { display: none; }
+  .hm-rail-sys { margin-left: 0; width: 100%; }
+}
+
+/* ==========================================================================
+   5차 — PJT 재무 현황(절대금액) · 여력 금액 병기 · 월마감 사이클 워크플로우
+   ========================================================================== */
+
+/* PJT 전체 현황 요약 */
+.hm-fin { border: 1px solid var(--sk-border); border-radius: 12px; background: #fff; overflow: hidden; margin-bottom: 10px; }
+.hm-fin-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 11px 16px; background: #fafbfc; border-bottom: 1px solid var(--sk-border); }
+.hm-fin-nm { font-size: 13.5px; font-weight: 900; color: var(--sk-ink); }
+.hm-fin-tag { font-size: 11px; font-weight: 800; border-radius: 999px; padding: 3px 10px; }
+.hm-fin-tag.ok   { background: #e8f6f0; color: #0b7a52; }
+.hm-fin-tag.warn { background: #fdf3e0; color: #9a6206; }
+.hm-fin-tag.risk { background: #fde8ec; color: #b8283f; }
+.hm-fin-note { margin-left: auto; font-size: 11px; color: #aab2c0; font-weight: 700; }
+
+.hm-fin-grid { display: flex; flex-wrap: wrap; }
+.hm-fin-t { flex: 1; min-width: 140px; padding: 12px 16px; border-right: 1px solid var(--sk-border); }
+.hm-fin-t:last-child { border-right: none; }
+.hm-fin-l { display: block; font-size: 11px; font-weight: 800; color: #98a2b3; }
+.hm-fin-v { display: block; font-size: 19px; font-weight: 900; letter-spacing: -0.5px; color: var(--sk-ink); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.hm-fin-v.risk { color: var(--sk-red); }
+.hm-fin-s { display: block; font-size: 11px; color: #8a94a6; font-weight: 700; margin-top: 2px; }
+
+/* Headroom — 금액 병기 */
+.hm-hr-amt { font-size: 11px; color: #6a7382; font-weight: 700; margin-top: 1px; }
+.hm-hr-amt b { color: var(--sk-ink); font-weight: 900; }
+.hm-hr-pa { font-size: 10.5px; color: #aab2c0; font-weight: 700; margin-top: 5px; }
+
+/* Runway — 여유 상태 */
+.hm-runway.calm { background: #f4fbf8; border-color: #cdebdf; }
+.hm-runway.calm .hm-runway-t { color: #0b7a52; }
+.hm-runway.calm .hm-runway-t b { color: #085f40; }
+
+/* 월마감 사이클 워크플로우 */
+.hm-cycle { margin-top: 10px; border: 1px solid var(--sk-border); border-radius: 12px; background: #fff; overflow: hidden; }
+.hm-cy-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 11px 16px; border-bottom: 1px solid var(--sk-border); }
+.hm-cy-tt { font-size: 12px; font-weight: 900; color: var(--sk-ink); }
+.hm-cy-prog { font-size: 11px; font-weight: 800; color: #5546c9; background: #f1eefd; border-radius: 999px; padding: 3px 9px; }
+.hm-cy-sys { margin-left: auto; font-size: 11px; color: #8a94a6; font-weight: 700; }
+.hm-cy-sys b { color: var(--sk-red); font-weight: 900; }
+
+.hm-cy-track { display: flex; padding: 6px 10px 14px; overflow-x: auto; }
+.hm-cy-step { flex: 1; min-width: 132px; padding: 0 6px; }
+.hm-cy-step.clickable { cursor: pointer; }
+.hm-cy-step.clickable:hover .hm-cy-h b { text-decoration: underline; }
+
+/* 연결선 + 단계 아이콘 */
+.hm-cy-line { position: relative; height: 26px; display: flex; align-items: center; }
+.hm-cy-line::before,
+.hm-cy-line::after { content: ''; position: absolute; top: 50%; height: 2px; background: #e3e7ec; }
+.hm-cy-line::before { left: -6px; right: 50%; margin-right: 11px; }
+.hm-cy-line::after  { left: 50%;  right: -6px; margin-left: 11px; }
+.hm-cy-step:first-child .hm-cy-line::before,
+.hm-cy-step:last-child  .hm-cy-line::after { display: none; }
+.hm-cy-ic {
+  position: relative; z-index: 1; margin: 0 auto;
+  width: 22px; height: 22px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-size: 11px; font-weight: 900;
+  background: #fff; border: 2px solid #e3e7ec; color: #aab2c0;
+}
+.hm-cy-step.done .hm-cy-ic   { background: #12a46b; border-color: #12a46b; color: #fff; }
+.hm-cy-step.done .hm-cy-line::before,
+.hm-cy-step.done .hm-cy-line::after { background: #a9dfc9; }
+.hm-cy-step.active .hm-cy-ic { background: var(--sk-ink); border-color: var(--sk-ink); color: #fff; box-shadow: 0 0 0 4px rgba(22, 21, 31, 0.08); }
+.hm-cy-step.active .hm-cy-line::before { background: #a9dfc9; }
+
+.hm-cy-b { text-align: center; margin-top: 7px; }
+.hm-cy-h { display: flex; align-items: center; justify-content: center; gap: 5px; flex-wrap: wrap; }
+.hm-cy-h b { font-size: 12.5px; font-weight: 900; color: #6a7382; }
+.hm-cy-step.active .hm-cy-h b { color: var(--sk-ink); }
+.hm-cy-step.done .hm-cy-h b { color: #55606f; }
+.hm-cy-own { font-size: 10px; font-weight: 800; border-radius: 999px; padding: 1px 6px; }
+.hm-cy-own.pm   { background: #e8f1fd; color: #1f5fbf; }
+.hm-cy-own.ai   { background: #f1eefd; color: #5546c9; }
+.hm-cy-own.lead { background: #fdf3e0; color: #9a6206; }
+.hm-cy-own.sys  { background: #f2f4f7; color: #6a7382; }
+.hm-cy-d { font-size: 10.5px; font-weight: 800; color: #aab2c0; margin-top: 2px; }
+.hm-cy-note { display: block; font-size: 10.5px; color: #8a94a6; margin-top: 3px; }
+.hm-cy-cnt { display: inline-block; font-size: 10.5px; font-weight: 800; color: #b8283f; background: #fde8ec; border-radius: 999px; padding: 1px 8px; margin-top: 3px; }
+
+@media (max-width: 980px) {
+  .hm-fin-t { min-width: 46%; border-bottom: 1px solid var(--sk-border); }
+  .hm-fin-note { margin-left: 0; width: 100%; }
+  .hm-cy-sys { margin-left: 0; width: 100%; }
+}
+
+/* ==========================================================================
+   6차 — 메인화면 단순화 (부문장님 지시)
+   상단 GNB 메뉴 · 우측 하단 네비 3개는 마크업을 남기고 숨김 처리만 한다.
+   되살릴 때는 아래 두 규칙만 지우면 된다.
+   ========================================================================== */
+
+/* 상단 메뉴 숨김 — 로고(.tb-brand)와 사용자 영역(.tb-right)은 유지.
+   로고에 showMain()이 걸려 있어 메인 복귀 동선으로 쓴다. */
+/* 수진: 상단 GNB 메뉴 다시 노출 (아래 숨김 규칙 해제) */
+/* .topbar .topnav { display: none !important; } */
+
+/* 우측 하단 바로가기 3개(Budget Navi/Q/Pilot) 숨김 —
+   역할은 메인 chatbot의 intent 라우팅(routeIntent)으로 통합됨 */
+.quick-shortcuts { display: none !important; }
+
+/* ── 단순화 레이아웃 ── */
+.home-simple .home2-hero.center { margin: 52px 0 26px; }
+.home-simple .home2-search { margin-bottom: 4px; }
+
+/* 입력창 아래 영역 */
+.hm-under { margin: 14px 0 30px; }
+.hm-under-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.hm-under-auto {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  background: linear-gradient(90deg, #f5f2ff, #f5fbfb);
+  border: 1px solid #e5e0fb; border-radius: 999px; padding: 7px 14px;
+  font-size: 12.5px; font-weight: 700; color: var(--sk-ink);
+}
+.hm-under-auto:hover { border-color: #cfc5f7; }
+.hm-under-auto b { color: #5546c9; font-weight: 900; }
+.hm-under-auto-ic {
+  width: 19px; height: 19px; flex: none; border-radius: 50%;
+  background: #6c5ce7; color: #fff; font-size: 10px; display: grid; place-items: center;
+}
+.hm-under-sum { margin-left: auto; font-size: 12px; font-weight: 700; color: #8a94a6; }
+.hm-under-sum b { color: var(--sk-red); font-weight: 900; }
+
+/* PJT 캐러셀 칩 — 클릭하면 팝업 */
+.hm-pjt-chip { cursor: pointer; }
+.hm-pjt-chip.calm { opacity: .62; }
+.hm-pjt-chip .hm-ptab-badge.on { background: var(--sk-red); color: #fff; }
+
+/* ── PJT 팝업 ── */
+.hm-modal-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  background: rgba(20, 22, 30, 0.42);
+  display: none; align-items: center; justify-content: center; padding: 24px;
+}
+.hm-modal-overlay.open { display: flex; }
+.hm-pm {
+  width: min(760px, 100%); max-height: 86vh; display: flex; flex-direction: column;
+  background: #fff; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 24px 60px -24px rgba(11, 18, 32, 0.5);
+}
+.hm-pm-head { display: flex; align-items: flex-start; gap: 10px; padding: 18px 20px; border-bottom: 1px solid var(--sk-border); }
+.hm-pm-eyebrow { font-size: 11.5px; font-weight: 800; color: #98a2b3; }
+.hm-pm-head strong { display: block; font-size: 18px; font-weight: 900; color: var(--sk-ink); margin-top: 2px; }
+.hm-pm-meta { font-size: 12px; color: #8a94a6; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.hm-pm-head .hm-drawer-x { margin-left: auto; }
+.hm-pm-body { flex: 1; overflow-y: auto; padding: 16px 20px 20px; background: #fafbfc; }
+
+/* 팝업 안 상세 단계 */
+.hm-pm-back {
+  border: 0; background: transparent; cursor: pointer;
+  font-size: 12.5px; font-weight: 800; color: #5546c9; padding: 0 0 10px;
+}
+.hm-pm-back:hover { text-decoration: underline; }
+.hm-pm-dt { background: #fff; border: 1px solid var(--sk-border); border-radius: 12px; padding: 16px 18px; }
+.hm-pm-dt-h { margin-bottom: 16px; }
+.hm-pm-dt-eyebrow { font-size: 11.5px; font-weight: 800; color: #98a2b3; }
+.hm-pm-dt-h strong { display: block; font-size: 16px; font-weight: 900; color: var(--sk-ink); margin-top: 2px; }
+.hm-pm-dt-meta { font-size: 12px; color: #8a94a6; }
+.hm-pm-dt-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--sk-border); }
+
+@media (max-width: 720px) {
+  .hm-modal-overlay { padding: 0; }
+  .hm-pm { width: 100%; max-height: 100vh; border-radius: 0; }
+  .hm-under-sum { margin-left: 0; width: 100%; }
+}
+
+/* ==========================================================================
+   7차 — 메뉴 토글 · PJT 선택 표식 · 간결 팝업 · LLM 답변
+   ========================================================================== */
+
+/* 상단 메뉴 토글 — ▦ 버튼과 동일 사이즈의 눈에 안 띄는 회색 버튼 */
+.tb-menu-toggle {
+  width: 34px; height: 34px; flex: none;
+  border: 1px solid var(--sk-border); border-radius: 9px;
+  background: #f5f6f8; color: #aab2c0; font-size: 15px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.tb-menu-toggle:hover { border-color: var(--sk-border-strong); color: #6a7382; background: #eef0f4; }
+.tb-menu-toggle.on { background: var(--sk-ink); border-color: var(--sk-ink); color: #fff; }
+
+/* 토글이 켜지면 숨겼던 메뉴를 되살린다 (기본은 6차 규칙대로 숨김) */
+body.menu-shown .topbar .topnav { display: flex !important; }
+
+/* PJT 선택 표식 */
+.hm-pjt-chip.picked {
+  background: var(--sk-ink); border-color: var(--sk-ink); color: #fff;
+}
+.hm-pjt-chip.picked .hm-ptab-name { color: #fff; }
+.hm-pjt-chip.picked .hm-ptab-badge { background: rgba(255,255,255,.24); color: #fff; }
+.hm-pjt-chip.picked .hm-ptab-badge.on { background: var(--sk-red); color: #fff; }
+.hm-pjt-check { font-size: 11px; font-weight: 900; margin-right: 4px; }
+
+/* 선택 문맥 표시 줄 */
+.hm-ctx {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: #f3f6fd; border: 1px solid #dbe6fb; border-radius: 999px;
+  padding: 7px 14px; margin-bottom: 10px; font-size: 12.5px;
+}
+.hm-ctx.off { background: #fafbfc; border-color: var(--sk-border); justify-content: center; }
+.hm-ctx-l { font-size: 11px; font-weight: 800; color: #8a94a6; }
+.hm-ctx b { font-weight: 900; color: var(--sk-blue-deep); }
+.hm-ctx-d { font-size: 11.5px; color: #8a94a6; font-weight: 700; }
+.hm-ctx-x {
+  margin-left: auto; border: 0; background: transparent; cursor: pointer;
+  font-size: 13px; color: #98a2b3; padding: 0 2px;
+}
+.hm-ctx-x:hover { color: var(--sk-ink); }
+
+/* 간결 팝업 카드 */
+.hm-slim {
+  background: #fff; border: 1px solid var(--sk-border); border-left: 3px solid #c3cad4;
+  border-radius: 10px; padding: 13px 15px; margin-bottom: 9px;
+}
+.hm-slim.danger  { border-left-color: var(--sk-red); }
+.hm-slim.warning { border-left-color: #e39a2a; }
+.hm-slim.info    { border-left-color: var(--sk-blue); }
+.hm-slim-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.hm-slim-tag { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; background: #f2f4f7; color: #6a7382; }
+.hm-slim-tag.danger  { background: #fde8ec; color: #b8283f; }
+.hm-slim-tag.warning { background: #fdf3e0; color: #9a6206; }
+.hm-slim-tag.info    { background: #e8f1fd; color: #1f5fbf; }
+.hm-slim-t { font-size: 14px; font-weight: 800; color: var(--sk-ink); }
+.hm-slim-n { font-size: 12.5px; color: #6a7382; margin-top: 5px; font-variant-numeric: tabular-nums; }
+.hm-slim-n b { font-weight: 900; }
+.hm-slim-n b.up { color: var(--sk-red); } .hm-slim-n b.down { color: var(--sk-blue); }
+
+/* 팝업 하단 이동 버튼 */
+.hm-pm-foot {
+  display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap;
+  padding: 14px 20px; border-top: 1px solid var(--sk-border); background: #fff;
+}
+
+/* LLM 답변 본문 */
+.ai-llm-body { font-size: 13.5px; line-height: 1.7; color: #2b3442; margin-top: 6px; }
+
+@media (max-width: 720px) {
+  .hm-ctx-x { margin-left: 0; }
+  .hm-pm-foot { justify-content: stretch; }
+}

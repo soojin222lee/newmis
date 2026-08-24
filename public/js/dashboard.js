@@ -563,12 +563,110 @@ function scrollHomeTabs(dir) {
   t.scrollLeft = Math.max(0, Math.min(max, t.scrollLeft + dir * 260));
 }
 
+// ── 예산 신호 레이어 · Headroom 리본 / Runway / 월마감 타임레일 / 프로젝트 신호등 ──
+// 계정별 남은 여력과 소진 속도를 먼저 보여주고, 이번 달 어디까지 왔는지를 한 줄로 잇는다.
+// lv: ok(여유) · warn(주의) · risk(임박) · na(해당없음)
+const HOME_HEADROOM = [
+  { name:'인건비',   lv:'ok',   pct:32, note:'여유' },
+  { name:'외주비',   lv:'risk', pct:4,  note:'임박' },
+  { name:'재료비',   lv:'ok',   pct:41, note:'여유' },
+  { name:'경비',     lv:'warn', pct:12, note:'주의' },
+  { name:'A/S Cost', lv:'na',   pct:0,  note:'해당없음' },
+];
+
+const HOME_RUNWAY = {
+  account:'외주비', month:'11월', months:'2.8개월', delta:'계획 대비 +18%',
+  spark:'0,6 20,8 40,7 60,11 80,15 100,20 118,24',
+};
+
+// 이번 달 예산 일정 — kind: now(오늘) · auto(AI 자동) · human(사람 확인) · done(완료)
+const HOME_RAIL = [
+  { at:2,  d:'8/10', l:'계획 확정',      kind:'done'  },
+  { at:34, d:'오늘 8/19', l:'',           kind:'now'   },
+  { at:55, d:'8/25', l:'검수 마감',      kind:'human' },
+  { at:74, d:'8/31', l:'월마감',         kind:'done'  },
+  { at:86, d:'9/1',  l:'자동 현행화',    kind:'auto'  },
+  { at:97, d:'9/3',  l:'팀장 승인',      kind:'human' },
+];
+
+// 프로젝트별 신호등 + 원가 소진률
+const HOME_SIGNAL = {
+  skon:{ lv:'risk', rate:74 }, logi:{ lv:'warn', rate:41 }, migr:{ lv:'warn', rate:28 },
+  erp:{ lv:'ok', rate:55 },    sec:{ lv:'ok', rate:38 },    cloud:{ lv:'ok', rate:62 },
+  mob:{ lv:'ok', rate:47 },    dw:{ lv:'ok', rate:33 },     aidoc:{ lv:'ok', rate:21 },
+};
+
+function homeHeadroomHtml() {
+  const segs = HOME_HEADROOM.map(h => `
+      <div class="hm-hr-seg">
+        <div class="hm-hr-n"><i class="hm-hr-dot ${h.lv}"></i>${h.name}</div>
+        <div class="hm-hr-v ${h.lv}">${h.lv === 'na' ? '해당없음' : h.pct + '%'}</div>
+        <div class="hm-hr-bar"><i class="${h.lv}" style="width:${h.pct}%"></i></div>
+      </div>`).join('');
+  return `<div class="hm-headroom">
+      <div class="hm-hr-lbl">예산 여력<em>Headroom</em></div>
+      ${segs}
+    </div>`;
+}
+
+function homeRunwayHtml() {
+  const r = HOME_RUNWAY;
+  return `<div class="hm-runway">
+      <span class="hm-runway-ic">📉</span>
+      <div class="hm-runway-t">현재 소진 속도면 <b>${r.account}는 ${r.month}에 바닥납니다</b> · Runway ${r.months} · ${r.delta}</div>
+      <svg class="hm-runway-spark" width="120" height="26" viewBox="0 0 120 26" aria-hidden="true">
+        <polyline points="${r.spark}" fill="none" stroke="#e39a2a" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>`;
+}
+
+function homeRailHtml() {
+  const pins = HOME_RAIL.map(p => `
+        <div class="hm-rail-p ${p.kind}" style="left:${p.at}%">
+          <span class="hm-rail-pin"></span>
+          <span class="hm-rail-d">${p.d}</span>
+          ${p.l ? `<span class="hm-rail-l">${p.l}</span>` : ''}
+        </div>`).join('');
+  const now = HOME_RAIL.find(p => p.kind === 'now');
+  return `<div class="hm-rail">
+      <div class="hm-rail-head">
+        <span class="hm-rail-tt">이번 달 예산 일정</span>
+        <span class="hm-chip grade r">● 자동</span>
+        <span class="hm-chip due near">○ 사람 확인</span>
+        <span class="hm-rail-sys">연계 시스템 정상 · ERP 전송 대기 3건</span>
+      </div>
+      <div class="hm-rail-line">
+        <div class="hm-rail-ln"><i style="width:${now ? now.at : 0}%"></i></div>
+        ${pins}
+      </div>
+    </div>`;
+}
+
+function homeSignalBlockHtml() {
+  return homeHeadroomHtml() + homeRunwayHtml() + homeRailHtml();
+}
+
+// 프로젝트 탭 신호등 — 전체 탭은 신호등 없이 진행 평균만
+function homeTabSignalHtml(id) {
+  if (id === 'all') return '<span class="hm-ptab-bar"><i class="ok" style="width:45%"></i></span>';
+  const s = HOME_SIGNAL[id];
+  if (!s) return '';
+  return `<span class="hm-ptab-bar"><i class="${s.lv}" style="width:${s.rate}%"></i></span>`;
+}
+
+function homeTabDotHtml(id) {
+  if (id === 'all') return '';
+  const s = HOME_SIGNAL[id];
+  return s ? `<i class="hm-ptab-dot ${s.lv}"></i>` : '';
+}
+
 function renderHomeInsightBlock() {
   const tabs = [{ id:'all', name:'전체' }].concat(HOME_PROJECTS.map(p => ({ id:p.id, name:p.name })))
     .map(t => `
         <button class="hm-ptab ${homeSelectedProject === t.id ? 'active' : ''}" onclick="selectHomeProject('${t.id}')">
-          <span class="hm-ptab-name">${t.name}</span>
-          <span class="hm-ptab-badge">${homeInsightCount(t.id)}</span>
+          <span class="hm-ptab-row">${homeTabDotHtml(t.id)}<span class="hm-ptab-name">${t.name}</span>
+          <span class="hm-ptab-badge">${homeInsightCount(t.id)}</span></span>
+          ${homeTabSignalHtml(t.id)}
         </button>`).join('');
   const tabsCarousel = `
     <div class="hm-ptabs-carousel">
@@ -589,8 +687,8 @@ function renderHomeInsightBlock() {
   let body = '';
   if (!shown.length) body = `<div class="hm-empty">이 프로젝트는 지금 확인할 항목이 없어요. 정상 범위입니다.</div>`;
   else {
-    const budgetItems = shown.filter(i => i.cat === 'budget');
-    const workItems = shown.filter(i => i.cat === 'work');
+    const budgetItems = homeSortFeed(shown.filter(i => i.cat === 'budget'));
+    const workItems = homeSortFeed(shown.filter(i => i.cat === 'work'));
     if (budgetItems.length) body += `<div class="hm-feed-cat"><span class="hm-feed-cat-dot budget"></span>예산 점검 <em>MIS 데이터에서 발견한 시그널</em></div>` + budgetItems.map(feedCard).join('');
     if (workItems.length) body += `<div class="hm-feed-cat"><span class="hm-feed-cat-dot work"></span>업무 반영 <em>외부 이벤트 → 원가 영향 → 필요한 업무</em></div>` + workItems.map(feedCard).join('');
   }
@@ -600,9 +698,195 @@ function renderHomeInsightBlock() {
     <div class="home2-sec-head">
       <h2>확인이 필요한 것 <b>${filtered.length}가지</b></h2>
       <span>업무 이벤트가 수행원가에 미치는 영향과 다음 업무를 연결합니다</span>
+      ${homeSortHtml()}
     </div>
     ${catFilter}
     <div class="hm-feed">${body}</div>`;
+}
+
+// ── 결정 큐 고도화 · AI 추천 변경안 + 근거 원장 ────────────────────
+// HOME_FEED는 건드리지 않고 feedKey(proj|title)로 매핑만 덧붙인다(병합 충돌 최소화).
+// grade: D 확정(원천 IF 확정값) · R 규칙기반(산식 적용) · P 예측(확정 전, ERP 미전송)
+// impactWon: 정렬용 절대 임팩트(만원) · dueDays: 마감까지 남은 일수
+const HOME_AI = {
+  'skon|8월 외주비가 계획 대비 18% 증가했어요': {
+    grade:'R', src:'구매', impact:'+5,400만원', impactWon:5400, dueDays:2, dueNote:'월마감 전',
+    plan:[ ['외주비 8~11월 계획','2.30억','2.72억','+4,200만원'],
+           ['AI 예비비 상계','3,200만원','0','-3,200만원'],
+           ['연말 예상원가','27.20억','27.74억','+5,400만원'] ],
+    guard:[ ['ok','CP 한도 내 · 여유 2.61억'], ['warn','결재 경로 · 팀장 승인 필요'] ],
+    evidence:[ ['원천 IF 데이터','구매시스템 PO 확정분 3건 · 2026-08-17 09:12 수신 · 협력사 A/B/C'],
+               ['적용 규칙 · 산식','월별 계획 = 확정 PO 금액 × 검수월 배분율 (검수월 미확정분은 균등 배분)'],
+               ['계산 과정','① 확정 PO 4,200만원 인식 → ② 8~11월 배분 → ③ AI 예비비 3,200만원 상계 → ④ 연말 예상원가 재산정'],
+               ['참조한 유사 PJT','3건 · 동일 사업유형 · 평균 외주비 초과율 14.2% (본 건 18.0%는 상위 25% 구간)'],
+               ['데이터 등급','R · 규칙기반 — 산식 공개, 확정 후 ERP 전송 가능'],
+               ['신뢰도','92% · 표본 24건 · 최근 6개월 무수정 채택률 95.8%'],
+               ['후행 전송','전송 대기 · 팀장 승인 후 ERP 연계 큐 등재'] ] },
+
+  'skon|승인 이후 계약금액이 변경됐어요': {
+    grade:'D', src:'CRM', impact:'+1.2억', impactWon:12000, dueDays:2, dueNote:'월마감 전',
+    plan:[ ['계약금액','30.8억','32.0억','+1.2억'],
+           ['수행원가(현재)','27.2억','27.2억','-'],
+           ['예상 원가율','88.3%','85.0%','-3.3%p'] ],
+    guard:[ ['ok','원천 IF 확정값 · ERP 전송 가능'], ['ok','자가전결 가능'] ],
+    evidence:[ ['원천 IF 데이터','CRM 계약변경 통보 · 2026-08-18 수신 · 변경차수 2차'],
+               ['적용 규칙 · 산식','예상 원가율 = 수행원가 ÷ 계약금액'],
+               ['계산 과정','① 계약금액 30.8억 → 32.0억 인식 → ② 수행원가 27.2억 고정 → ③ 원가율 88.3% → 85.0% 재계산'],
+               ['데이터 등급','D · 확정 — 원천 확정값이므로 즉시 반영 가능'],
+               ['신뢰도','100% · 원천 확정값'],
+               ['후행 전송','ERP·BIX 전송 가능'] ] },
+
+  'migr|9월 투입인력이 확정됐어요': {
+    grade:'D', src:'SCM', impact:'+2,400만원', impactWon:2400, dueDays:9, dueNote:'9월 계획 확정 전',
+    plan:[ ['투입인원','12명','15명','+3명'],
+           ['9월 인건비','8,200만원','1억 600만원','+2,400만원'],
+           ['연말 예상원가','27.20억','27.44억','+2,400만원'] ],
+    guard:[ ['ok','SCM 확정 인력 기준 · 자가전결 가능'] ],
+    evidence:[ ['원천 IF 데이터','SCM 투입인력 확정 · 2026-08-18 수신 · Roll-in 3명'],
+               ['적용 규칙 · 산식','인건비 = Σ(투입 M/M × 등급별 단가)'],
+               ['계산 과정','① Roll-in 3명 인식 → ② 9월 M/M 재산정 → ③ 인건비 +2,400만원 → ④ 예상원가 반영'],
+               ['데이터 등급','D · 확정 — SCM 확정 인력'],
+               ['신뢰도','100% · 원천 확정값'],
+               ['후행 전송','원가 반영 후 ERP 연계'] ] },
+
+  'skon|외주 계약 3건이 확정됐어요': {
+    grade:'D', src:'구매', impact:'+4,000만원', impactWon:4000, dueDays:5, dueNote:'검수 마감 전',
+    plan:[ ['외주 계약금액','4.8억','5.2억','+4,000만원'],
+           ['외주비 계획','9.50억','9.90억','+4,000만원'],
+           ['연말 예상원가','28.10억','28.50억','+4,000만원'] ],
+    guard:[ ['ok','확정 계약 기준 · 계정 내 조정'], ['warn','CP 한도 여유 2.21억으로 감소'] ],
+    evidence:[ ['원천 IF 데이터','구매 계약 확정 3건 · 2026-08-18 수신'],
+               ['적용 규칙 · 산식','외주비 계획 = 확정 계약금액 × 검수월 배분율'],
+               ['계산 과정','① 확정 계약 5.2억 인식 → ② 기존 계획 4.8억 대비 차이 산출 → ③ 외주비 계획 +4,000만원'],
+               ['데이터 등급','D · 확정 — 계약 확정분'],
+               ['신뢰도','100% · 원천 확정값'],
+               ['후행 전송','ERP 전송 가능'] ] },
+
+  'logi|7월 경비 실적이 확정됐어요': {
+    grade:'D', src:'ERP', impact:'+840만원', impactWon:840, dueDays:7, dueNote:'잔여계획 재검토',
+    plan:[ ['7월 경비 계획','3,200만원','3,200만원','-'],
+           ['7월 경비 실적','—','4,040만원','+840만원'],
+           ['연말 예상원가','16.90억','16.98억','+840만원'] ],
+    guard:[ ['ok','확정 실적 · 이미 기표 완료'], ['warn','잔여기간 계획 재검토 필요'] ],
+    evidence:[ ['원천 IF 데이터','ERP 7월 확정 실적 기표 · 월마감 D+1 자동 수신'],
+               ['적용 규칙 · 산식','실적 초과분 = 확정 실적 − 당월 계획'],
+               ['계산 과정','① 실적 4,040만원 인식 → ② 계획 3,200만원 대비 +840만원 → ③ 연말 예상원가 반영'],
+               ['데이터 등급','D · 확정 — 기표 완료분'],
+               ['신뢰도','100% · 원천 확정값'],
+               ['후행 전송','BIX 손익 반영 완료'] ] },
+
+  'skon|8월 투입인력 변경이 확정됐어요': {
+    grade:'D', src:'SCM', impact:'-1,050만원', impactWon:1050, dueDays:4, dueNote:'8월 마감 전',
+    plan:[ ['투입인원','14명','13명','-1명'],
+           ['8월 인건비','9,200만원','8,150만원','-1,050만원'],
+           ['연말 예상원가','28.10억','28.00억','-1,050만원'] ],
+    guard:[ ['ok','계정 총액 감소 · 자가전결 가능'] ],
+    evidence:[ ['원천 IF 데이터','SCM 투입인력 변경 확정 · Roll-out 1명'],
+               ['적용 규칙 · 산식','인건비 = Σ(투입 M/M × 등급별 단가)'],
+               ['계산 과정','① Roll-out 1명 인식 → ② 8월 M/M 재산정 → ③ 인건비 -1,050만원'],
+               ['데이터 등급','D · 확정 — SCM 확정 인력'],
+               ['신뢰도','100% · 원천 확정값'],
+               ['후행 전송','원가 반영 후 ERP 연계'] ] },
+};
+
+const HOME_GRADE = { D:['d','D · 확정'], R:['r','R · 규칙기반'], P:['p','예측 · ERP 미전송'] };
+
+// 정렬 — 기본값은 기존 노출 순서 유지(비파괴)
+let homeSort = 'base';
+const HOME_SORTS = [
+  ['base','기본순'], ['risk','임팩트 × 마감임박순'], ['impact','임팩트순'], ['due','마감임박순'],
+];
+function selectHomeSort(v) { homeSort = v; rerenderHomeFeed(); }
+
+function homeAiOf(it) { return HOME_AI[feedKey(it)]; }
+
+function homeSortFeed(list) {
+  if (homeSort === 'base') return list;
+  const s = list.slice();
+  s.sort((a, b) => {
+    const x = homeAiOf(a), y = homeAiOf(b);
+    if (!x || !y) return 0;
+    if (homeSort === 'impact') return y.impactWon - x.impactWon;
+    if (homeSort === 'due')    return x.dueDays - y.dueDays;
+    return (y.impactWon / y.dueDays) - (x.impactWon / x.dueDays);
+  });
+  return s;
+}
+
+function homeSortHtml() {
+  const opts = HOME_SORTS.map(o => `<option value="${o[0]}" ${homeSort === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('');
+  return `<select class="hm-sort" onchange="selectHomeSort(this.value)" aria-label="정렬 기준">${opts}</select>`;
+}
+
+// 카드 헤더 메타 칩 — 근거등급 · 임팩트 · D-day · 출처 시스템
+function feedMetaChipsHtml(it) {
+  const ai = homeAiOf(it);
+  if (!ai) return '';
+  const g = HOME_GRADE[ai.grade] || HOME_GRADE.D;
+  const dn = /^-/.test(ai.impact) ? 'down' : 'up';
+  return `<span class="hm-meta-chips">
+    <span class="hm-chip grade ${g[0]}">${g[1]}</span>
+    <span class="hm-chip impact ${dn}">임팩트 ${ai.impact}</span>
+    <span class="hm-chip due ${ai.dueDays <= 3 ? 'near' : ''}">D-${ai.dueDays} · ${ai.dueNote}</span>
+    <span class="hm-chip src">${ai.src}</span>
+  </span>`;
+}
+
+// AI 추천 변경안 — 변경 전/후 diff + 반영 조건
+function aiPlanHtml(it, key) {
+  const ai = homeAiOf(it);
+  if (!ai) return '';
+  const rows = ai.plan.map(r => {
+    const d = r[3];
+    const cls = /^\+/.test(d) ? 'up' : /^-/.test(d) ? 'down' : '';
+    return `<div class="hm-plan-row">
+      <span class="hm-plan-nm">${r[0]}</span>
+      <span class="hm-plan-a">${r[1]}</span><span class="hm-plan-ar">→</span><span class="hm-plan-b">${r[2]}</span>
+      <span class="hm-plan-d ${cls}">${d}</span>
+    </div>`;
+  }).join('');
+  const guard = ai.guard.map(g => `<span class="hm-plan-ok ${g[0]}"><i></i>${g[1]}</span>`).join('');
+  return `<div class="hm-plan">
+    <div class="hm-plan-hd">
+      <span class="hm-plan-t">✦ AI 추천 변경안</span>
+      <span class="hm-plan-ev">근거 ${ai.evidence.length}건</span>
+      <button class="hm-plan-why" onclick="event.stopPropagation();openEvidenceDrawer('${key}')">AI 판단 근거 ›</button>
+    </div>
+    <div class="hm-plan-body">${rows}</div>
+    <div class="hm-plan-ft">${guard}</div>
+  </div>`;
+}
+
+// 근거 원장 드로어
+function openEvidenceDrawer(key) {
+  const it = HOME_FEED.find(i => feedKey(i) === key);
+  const ai = it && homeAiOf(it);
+  if (!ai) return;
+  const ov = document.getElementById('home-impact-drawer');
+  if (!ov) return;
+  const g = HOME_GRADE[ai.grade] || HOME_GRADE.D;
+  const rows = ai.evidence.map(e => `<div class="hm-ev-row"><div class="hm-ev-k">${e[0]}</div><div class="hm-ev-v">${e[1]}</div></div>`).join('');
+  ov.innerHTML = `
+    <div class="hm-drawer" onclick="event.stopPropagation()">
+      <div class="hm-drawer-head">
+        <div>
+          <div class="hm-drawer-eyebrow">AI 판단 근거 · 근거 원장</div>
+          <strong>${it.title}</strong>
+          <div class="hm-drawer-meta">${homeProjName(it.proj)} · ${ai.src} · 임팩트 ${ai.impact}</div>
+        </div>
+        <button class="hm-drawer-x" onclick="closeImpactDrawer()" aria-label="닫기">✕</button>
+      </div>
+      <div class="hm-drawer-body">
+        <div class="hm-auto-note">AI가 <b>어떤 원천 데이터</b>를 <b>어떤 산식</b>으로 계산했는지 그대로 공개합니다.
+          등급 <span class="hm-chip grade ${g[0]}">${g[1]}</span> 기준으로 후행 시스템 전송 가능 여부가 결정됩니다.</div>
+        ${rows}
+      </div>
+      <div class="hm-drawer-foot">
+        <button class="hm-btn" onclick="closeImpactDrawer()">닫기</button>
+        <button class="hm-btn pri" onclick="closeImpactDrawer();openCostStatus('budgetMock')">원가 현황에서 보기 →</button>
+      </div>
+    </div>`;
+  ov.classList.add('open');
 }
 
 function feedCard(it) {
@@ -627,8 +911,9 @@ function feedCard(it) {
 
 function feedActionsHtml(it, key) {
   const p = it.primary;
+  const plan = aiPlanHtml(it, key);
   const sec = it.secondaries.map(s => `<button class="hm-btn" onclick="feedAct('${key}','${s.act}')">${s.label}</button>`).join('');
-  return `<div class="hm-card-actions">
+  return plan + `<div class="hm-card-actions">
     <button class="hm-btn pri" onclick="feedAct('${key}','${p.act}')">${p.label}${p.ai ? ' <span class="hm-ai-spark">✦</span>' : ''}</button>${sec}
   </div>`;
 }
@@ -639,7 +924,7 @@ function feedCardHead(it, sum) {
     : `<span class="hm-tag work">업무 반영 · ${it.sub}</span>`;
   return `<div class="hm-card-head" onclick="toggleFeedCard(this)">
     <div class="hm-card-headmain">
-      <div class="hm-card-top">${tag}<span class="hm-card-proj">${homeProjName(it.proj)}</span></div>
+      <div class="hm-card-top">${tag}<span class="hm-card-proj">${homeProjName(it.proj)}</span>${feedMetaChipsHtml(it)}</div>
       <h3 class="hm-card-title">${it.title}</h3>
       <div class="hm-card-sum">${sum}</div>
     </div>
@@ -917,7 +1202,10 @@ function renderPmDashboard() {
           <button onmousedown="askExample('SKON 외주비가 왜 늘었어?')"><span class="ex-ag q">Q</span>SKON 외주비가 왜 늘었어?</button>
           <button onmousedown="askExample('실행예산 변경 화면 찾아줘')"><span class="ex-ag navi">N</span>실행예산 변경 화면 찾아줘</button>
           <button onmousedown="askExample('오늘 내가 처리해야 할 업무 알려줘')"><span class="ex-ag pilot">P</span>오늘 내가 처리해야 할 업무 알려줘</button>
+          <button onmousedown="askExample('개발자 2명 더 투입하면 어떻게 돼?')"><span class="ex-ag pilot">P</span>개발자 2명 더 투입하면?</button>
         </div>
+
+        <div class="hm-signal">${homeSignalBlockHtml()}</div>
 
         <div id="home-insight-block">${renderHomeInsightBlock()}</div>
 
@@ -999,4 +1287,576 @@ function renderLeadDashboard() {
         </div>
       </section>
     </div>`;
+}
+
+// ============================================================
+//  5차 — PJT 재무 현황(절대금액) + 월마감 사이클 워크플로우
+//  ※ 앞의 3차 신호 레이어를 여기서 override 한다.
+//    (프로젝트 규칙: 뒤에 정의된 코드가 앞을 override)
+//  - 예산 여력(%)만으로는 규모 감이 없어 계약·계획·실적·잔여 절대금액을 병기
+//  - 프로젝트 탭 선택에 연동 (선택 PJT의 전체 현황)
+//  - 월마감 사이클: 계획확정 → 투입원가 입력 → 검수·확정 → 월마감 대사
+//    → 자동 현행화 → 팀장 승인 (gap 보전 사이클을 화면에 드러냄)
+// ============================================================
+
+// 프로젝트별 계약금액(cp) + 계정별 [계정명, 수행원가 계획, 실적] · 단위: 억원
+// 잔여 / 여력% / 원가율은 모두 아래 값에서 파생 계산한다(수치 불일치 방지).
+const HOME_FIN = {
+  skon:  { cp:30.8, mgap:0.334, acc:[['인건비',12.60,8.57],['외주비',9.90,9.50],['재료비',3.20,1.89],['경비',1.50,1.32],['A/S Cost',0,0]] },
+  logi:  { cp:21.42, mgap:0.084, acc:[['인건비',8.20,5.30],['외주비',5.40,4.10],['재료비',2.30,1.40],['경비',1.00,0.82],['A/S Cost',0,0]] },
+  migr:  { cp:32.3, mgap:0.052, acc:[['인건비',15.40,9.80],['외주비',7.80,6.30],['재료비',2.60,1.70],['경비',1.40,1.02],['A/S Cost',0,0]] },
+  erp:   { cp:18.6, mgap:-0.021, acc:[['인건비',7.40,4.10],['외주비',4.20,2.30],['재료비',1.80,0.90],['경비',0.90,0.50],['A/S Cost',0,0]] },
+  sec:   { cp:12.4, mgap:0.008, acc:[['인건비',5.10,1.90],['외주비',2.80,1.10],['재료비',1.20,0.40],['경비',0.60,0.20],['A/S Cost',0,0]] },
+  cloud: { cp:24.8, mgap:0.036, acc:[['인건비',9.60,5.90],['외주비',5.80,3.70],['재료비',2.90,1.80],['경비',1.10,0.70],['A/S Cost',0,0]] },
+  mob:   { cp:9.8, mgap:-0.012,  acc:[['인건비',4.20,2.00],['외주비',2.10,0.90],['재료비',0.80,0.30],['경비',0.50,0.20],['A/S Cost',0,0]] },
+  dw:    { cp:15.2, mgap:0.018, acc:[['인건비',6.30,2.10],['외주비',3.40,1.10],['재료비',1.60,0.50],['경비',0.70,0.20],['A/S Cost',0,0]] },
+  aidoc: { cp:4.6, mgap:0.004,  acc:[['인건비',2.10,0.45],['외주비',0.90,0.15],['재료비',0.40,0.05],['경비',0.30,0.05],['A/S Cost',0,0]] },
+};
+
+// 억원 → 읽기 쉬운 금액 문자열 (1억 미만은 만원으로)
+function finAmt(v) {
+  if (!v) return '—';
+  if (v >= 1) return v.toFixed(2) + '억';
+  return Math.round(v * 10000).toLocaleString() + '만원';
+}
+function finSigned(v) {
+  if (!v) return '±0';
+  return (v > 0 ? '+' : '-') + finAmt(Math.abs(v));
+}
+function finPct(v) { return (Math.round(v * 10) / 10).toFixed(1) + '%'; }
+
+// 여력% → 신호 등급 (10% 미만 임박 · 20% 미만 주의)
+function finLv(pct, plan) {
+  if (!plan) return 'na';
+  if (pct < 10) return 'risk';
+  if (pct < 20) return 'warn';
+  return 'ok';
+}
+
+// 선택된 프로젝트(또는 전체 합산)의 재무 요약을 파생 계산
+function homeFinOf(id) {
+  const ids = (id === 'all') ? HOME_PROJECTS.map(p => p.id) : [id];
+  const names = HOME_FIN[ids[0]] ? HOME_FIN[ids[0]].acc.map(a => a[0]) : [];
+  const acc = names.map((nm, i) => {
+    let plan = 0, act = 0;
+    ids.forEach(k => { const f = HOME_FIN[k]; if (f && f.acc[i]) { plan += f.acc[i][1]; act += f.acc[i][2]; } });
+    const left = plan - act;
+    const pct = plan ? (left / plan) * 100 : 0;
+    return { name:nm, plan, act, left, pct, lv:finLv(pct, plan) };
+  });
+  let cp = 0, mgap = 0;
+  ids.forEach(k => { if (HOME_FIN[k]) { cp += HOME_FIN[k].cp; mgap += (HOME_FIN[k].mgap || 0); } });
+  const plan = acc.reduce((s, a) => s + a.plan, 0);
+  const act = acc.reduce((s, a) => s + a.act, 0);
+  return { cp, plan, act, mgap, left: plan - act, rate: cp ? (plan / cp) * 100 : 0,
+           exec: plan ? (act / plan) * 100 : 0, acc, count: ids.length };
+}
+
+// ── PJT 전체 현황 요약 (절대금액) ──
+function homeFinSummaryHtml() {
+  const f = homeFinOf(homeSelectedProject);
+  const nm = homeSelectedProject === 'all'
+    ? `담당 ${f.count}개 프로젝트 합계`
+    : homeProjName(homeSelectedProject);
+  const rateLv = f.rate >= 85 ? 'risk' : f.rate >= 80 ? 'warn' : 'ok';
+  const tile = (l, v, cls, sub) =>
+    `<div class="hm-fin-t"><span class="hm-fin-l">${l}</span><b class="hm-fin-v ${cls || ''}">${v}</b>${sub ? `<span class="hm-fin-s">${sub}</span>` : ''}</div>`;
+  return `<div class="hm-fin">
+      <div class="hm-fin-head">
+        <span class="hm-fin-nm">${nm}</span>
+        <span class="hm-fin-tag ${rateLv}">예상 원가율 ${finPct(f.rate)}</span>
+        <span class="hm-fin-note">관리 기준선 85% · 계약금액 대비 수행원가 계획</span>
+      </div>
+      <div class="hm-fin-grid">
+        ${tile('계약금액', finAmt(f.cp), '')}
+        ${tile('수행원가 계획', finAmt(f.plan), '')}
+        ${tile('실적(집행)', finAmt(f.act), '', `집행률 ${finPct(f.exec)}`)}
+        ${tile('잔여', finAmt(f.left), f.left / f.plan * 100 < 20 ? 'risk' : '', `여력 ${finPct(f.left / f.plan * 100)}`)}
+        ${tile('당월 계획 대비 실적', finSigned(f.mgap), f.mgap > 0 ? 'risk' : '', '8월 마감 보전 대상')}
+      </div>
+    </div>`;
+}
+
+// ── Headroom 리본 — 여력% + 잔여 절대금액 병기 (프로젝트 연동) ──
+function homeHeadroomHtml() {
+  const f = homeFinOf(homeSelectedProject);
+  const segs = f.acc.map(a => `
+      <div class="hm-hr-seg">
+        <div class="hm-hr-n"><i class="hm-hr-dot ${a.lv}"></i>${a.name}</div>
+        <div class="hm-hr-v ${a.lv}">${a.lv === 'na' ? '해당없음' : finPct(a.pct)}</div>
+        <div class="hm-hr-amt">${a.lv === 'na' ? '&nbsp;' : `잔여 <b>${finAmt(a.left)}</b>`}</div>
+        <div class="hm-hr-bar"><i class="${a.lv}" style="width:${Math.max(0, Math.min(100, a.pct))}%"></i></div>
+        <div class="hm-hr-pa">${a.plan ? `계획 ${finAmt(a.plan)} · 실적 ${finAmt(a.act)}` : '&nbsp;'}</div>
+      </div>`).join('');
+  return `<div class="hm-headroom">
+      <div class="hm-hr-lbl">예산 여력<em>Headroom</em></div>
+      ${segs}
+    </div>`;
+}
+
+// ── Runway — 선택 프로젝트에서 가장 먼저 바닥나는 계정 ──
+const HOME_RUNWAY_BY = {
+  skon: { month:'11월', months:'2.8개월', delta:'계획 대비 +18%' },
+  logi: { month:'12월', months:'3.6개월', delta:'계획 대비 +6%' },
+  migr: { month:'익년 1월', months:'5.1개월', delta:'계획 대비 +3%' },
+};
+function homeRunwayHtml() {
+  const f = homeFinOf(homeSelectedProject);
+  const live = f.acc.filter(a => a.plan > 0);
+  if (!live.length) return '';
+  const worst = live.reduce((m, a) => (a.pct < m.pct ? a : m), live[0]);
+  const key = homeSelectedProject === 'all' ? 'skon' : homeSelectedProject;
+  const r = HOME_RUNWAY_BY[key];
+  const calm = worst.pct >= 20 || !r;
+  const t = calm
+    ? `가장 여력이 낮은 계정은 <b>${worst.name} ${finPct(worst.pct)}</b> · 잔여 <b>${finAmt(worst.left)}</b>로 현재 소진 속도에서는 여유가 있어요`
+    : `현재 소진 속도면 <b>${worst.name}는 ${r.month}에 바닥납니다</b> · 잔여 ${finAmt(worst.left)} · Runway ${r.months} · ${r.delta}`;
+  return `<div class="hm-runway ${calm ? 'calm' : ''}">
+      <span class="hm-runway-ic">${calm ? '📈' : '📉'}</span>
+      <div class="hm-runway-t">${t}</div>
+      <svg class="hm-runway-spark" width="120" height="26" viewBox="0 0 120 26" aria-hidden="true">
+        <polyline points="${calm ? '0,20 20,19 40,17 60,16 80,14 100,13 118,11' : HOME_RUNWAY.spark}"
+          fill="none" stroke="${calm ? '#12a46b' : '#e39a2a'}" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>`;
+}
+
+// ── 월마감 사이클 워크플로우 ──────────────────────────────
+// 사용자 업무 개념: 월마감마다 계획-실적 gap을 보전하고, 투입원가를 즉시 입력해
+// 계획과 실적을 맞춘다. 각 단계의 담당(PM/AI/팀장)과 남은 건수를 함께 보여준다.
+// st: done(완료) · active(진행 중) · wait(대기)
+const HOME_CYCLE = [
+  { n:'계획 확정',      d:'8/10',  st:'done',   own:'PM',   note:'8월 계획 고정 완료' },
+  { n:'투입원가 입력',  d:'~8/24', st:'active', own:'PM',   note:'미입력', cnt:3, go:'adjust' },
+  { n:'검수·확정',      d:'8/25',  st:'wait',   own:'PM',   note:'확인 필요', cnt:2, go:'status' },
+  { n:'월마감 대사',    d:'8/31',  st:'wait',   own:'시스템', note:'계획-실적 gap 보전' },
+  { n:'자동 현행화',    d:'9/1',   st:'wait',   own:'AI',   note:'AI 자동 반영' },
+  { n:'팀장 승인',      d:'9/3',   st:'wait',   own:'팀장', note:'승인 대기' },
+];
+const HOME_CYCLE_OWN = { 'PM':'pm', 'AI':'ai', '팀장':'lead', '시스템':'sys' };
+
+function homeCycleHtml() {
+  const f = homeFinOf(homeSelectedProject);
+  const gap = f.mgap;
+  const doneN = HOME_CYCLE.filter(s => s.st === 'done').length;
+  const steps = HOME_CYCLE.map((s, i) => {
+    const ic = s.st === 'done' ? '✓' : (i + 1);
+    const cnt = s.cnt ? `<span class="hm-cy-cnt">${s.note} ${s.cnt}건</span>` : `<span class="hm-cy-note">${s.n === '월마감 대사' ? 'gap ' + finSigned(gap) : s.note}</span>`;
+    const click = s.go ? ` onclick="homeCycleGo('${s.go}')" role="button" tabindex="0"` : '';
+    return `<div class="hm-cy-step ${s.st}${s.go ? ' clickable' : ''}"${click}>
+        <div class="hm-cy-line"><span class="hm-cy-ic">${ic}</span></div>
+        <div class="hm-cy-b">
+          <div class="hm-cy-h"><b>${s.n}</b><span class="hm-cy-own ${HOME_CYCLE_OWN[s.own]}">${s.own}</span></div>
+          <div class="hm-cy-d">${s.d}</div>
+          ${cnt}
+        </div>
+      </div>`;
+  }).join('');
+  return `<div class="hm-cycle">
+      <div class="hm-cy-head">
+        <span class="hm-cy-tt">월마감 사이클 · 8월</span>
+        <span class="hm-cy-prog">${doneN}/${HOME_CYCLE.length} 단계 완료</span>
+        <span class="hm-cy-sys">당월 계획-실적 gap <b>${finSigned(gap)}</b> · 8월 마감 보전 대상</span>
+      </div>
+      <div class="hm-cy-track">${steps}</div>
+    </div>`;
+}
+function homeCycleGo(kind) {
+  if (kind === 'adjust' && typeof openCostAdjust === 'function') openCostAdjust('budgetMock');
+  else if (typeof openCostStatus === 'function') openCostStatus('budgetMock');
+}
+
+// ── 신호 레이어 조립 (재무 요약 → 여력 → Runway → 월마감 사이클) ──
+function homeSignalBlockHtml() {
+  return homeFinSummaryHtml() + homeHeadroomHtml() + homeRunwayHtml() + homeCycleHtml();
+}
+
+// ── 프로젝트 전환/카드 처리 시 신호 레이어까지 함께 갱신 ──
+function rerenderHomeFeed() {
+  const el = document.getElementById('home-insight-block'); if (el) el.innerHTML = renderHomeInsightBlock();
+  const br = document.getElementById('home-brief'); if (br) br.innerHTML = homeBriefHtml();
+  const ft = document.getElementById('home-foot');  if (ft) ft.innerHTML = homeFootHtml();
+  const sg = document.querySelector('.hm-signal');  if (sg) sg.innerHTML = homeSignalBlockHtml();
+}
+
+// ============================================================
+//  6차 — 메인화면 단순화 (부문장님 지시: 구글 첫 화면처럼)
+//  ※ 앞의 렌더 함수들을 여기서 override 한다.
+//    (프로젝트 규칙: 뒤에 정의된 코드가 앞을 override)
+//
+//  · 상단 GNB 메뉴 / 우측 하단 네비 3개 → CSS로 숨김 (마크업은 유지)
+//  · 제거: 예시 프롬프트 · 재무 요약 · 월마감 사이클 · 확인이 필요한 것 · 하단 요약
+//  · 입력창 아래: 자동 처리 내역 + PJT 캐러셀(To-Do 건수순)
+//  · PJT 클릭 → 팝업에서 해당 PJT의 확인 항목 + 상세까지 표시
+// ============================================================
+
+// 예산 신호는 Headroom + Runway만 남긴다 (재무 요약·월마감 사이클 제거)
+function homeSignalBlockHtml() {
+  return homeHeadroomHtml() + homeRunwayHtml();
+}
+
+// ── 입력창 아래 영역 — 자동 처리 내역 + PJT 캐러셀 ──
+// 처리 완료된 항목은 제외한 "남은 확인 건수" (homeInsightCount는 전체 건수를 세므로 별도 정의)
+function homeOpenCountOf(id) {
+  return HOME_FEED.filter(i => i.proj === id && !homeFeedState[feedKey(i)]).length;
+}
+
+function homePjtStripHtml() {
+  // To-Do 많은 순 → 이름순. 담당 전체를 좌우로 훑을 수 있게 전부 노출한다.
+  const list = HOME_PROJECTS.slice().sort((a, b) => {
+    const d = homeOpenCountOf(b.id) - homeOpenCountOf(a.id);
+    return d !== 0 ? d : a.name.localeCompare(b.name);
+  });
+  const chips = list.map(p => {
+    const n = homeOpenCountOf(p.id);
+    return `
+        <button class="hm-ptab hm-pjt-chip ${n ? '' : 'calm'}" onclick="openHomePjtModal('${p.id}')"
+          title="${p.name} · 확인 필요 ${n}건">
+          <span class="hm-ptab-name">${p.name}</span>
+          <span class="hm-ptab-badge ${n ? 'on' : ''}">${n}</span>
+        </button>`;
+  }).join('');
+  const total = homeOpenCount();
+  return `
+    <div class="hm-under">
+      <div class="hm-under-bar">
+        <button class="hm-under-auto" onclick="openAutoDrawer()">
+          <span class="hm-under-auto-ic">⚡</span>자동 처리 내역 <b>${HOME_AUTO_COUNT}건</b> 보기
+        </button>
+        <span class="hm-under-sum">담당 ${HOME_PROJECTS.length}개 · 확인 필요 <b>${total}건</b></span>
+      </div>
+      <div class="hm-ptabs-carousel">
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(-1)" aria-label="이전 프로젝트">‹</button>
+        <div class="hm-ptabs-track" id="hm-ptabs-track">${chips}</div>
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(1)" aria-label="다음 프로젝트">›</button>
+      </div>
+    </div>`;
+}
+
+// ── PJT 팝업 ─────────────────────────────────────────────
+// list 모드: 해당 PJT의 확인 항목 카드 / detail 모드: 카드 상세 (팝업 안에서 전환)
+let homePjtModalProj = null;
+
+function openHomePjtModal(id) {
+  homePjtModalProj = id;
+  const ov = document.getElementById('home-pjt-modal');
+  if (!ov) return;
+  ov.innerHTML = homePjtModalHtml(id);
+  ov.classList.add('open');
+}
+function closeHomePjtModal() {
+  homePjtModalProj = null;
+  const ov = document.getElementById('home-pjt-modal');
+  if (ov) ov.classList.remove('open');
+}
+function homePjtModalRerender() {
+  if (!homePjtModalProj) return;
+  const ov = document.getElementById('home-pjt-modal');
+  if (ov) ov.innerHTML = homePjtModalHtml(homePjtModalProj);
+}
+
+function homePjtModalHtml(id) {
+  const items = HOME_FEED.filter(i => i.proj === id);
+  const open = items.filter(i => !homeFeedState[feedKey(i)]).length;
+  const f = (typeof homeFinOf === 'function') ? homeFinOf(id) : null;
+  let body;
+  if (!items.length) {
+    body = `<div class="hm-empty">이 프로젝트는 지금 확인할 항목이 없어요. 정상 범위입니다.</div>`;
+  } else {
+    const budget = items.filter(i => i.cat === 'budget');
+    const work = items.filter(i => i.cat === 'work');
+    body = '';
+    if (budget.length) body += `<div class="hm-feed-cat"><span class="hm-feed-cat-dot budget"></span>예산 점검 <em>MIS 데이터에서 발견한 시그널</em></div>` + budget.map(feedCard).join('');
+    if (work.length) body += `<div class="hm-feed-cat"><span class="hm-feed-cat-dot work"></span>업무 반영 <em>외부 이벤트 → 원가 영향 → 필요한 업무</em></div>` + work.map(feedCard).join('');
+  }
+  return `
+    <div class="hm-pm" onclick="event.stopPropagation()">
+      <div class="hm-pm-head">
+        <div>
+          <div class="hm-pm-eyebrow">${homeProjName(id)}</div>
+          <strong>확인이 필요한 것 ${open}가지</strong>
+          ${f ? `<div class="hm-pm-meta">계약 ${finAmt(f.cp)} · 수행원가 계획 ${finAmt(f.plan)} · 예상 원가율 ${finPct(f.rate)}</div>` : ''}
+        </div>
+        <button class="hm-drawer-x" onclick="closeHomePjtModal()" aria-label="닫기">✕</button>
+      </div>
+      <div class="hm-pm-body" id="home-pjt-body">${body}</div>
+    </div>`;
+}
+
+// 카드 상세 — 팝업 안에서 단계 전환 (뒤로 가면 목록 복귀)
+function homePjtDetailHtml(it) {
+  const pv = it.preview;
+  const key = feedKey(it);
+  const reflect = pv.mode === 'reflect';
+  const rows = pv.rows.map(r => `<tr><td class="l">${r[0]}</td><td class="n">${r[1]}</td><td class="n">${r[2]}</td><td class="n ${/^[+]/.test(r[3]) ? 'up' : /^-/.test(r[3]) ? 'down' : ''}">${r[3]}</td></tr>`).join('');
+  const fc = pv.forecast;
+  return `
+      <button class="hm-pm-back" onclick="homePjtModalRerender()">‹ 확인 항목 목록으로</button>
+      <div class="hm-pm-dt">
+        <div class="hm-pm-dt-h">
+          <span class="hm-pm-dt-eyebrow">${reflect ? '수행원가 반영 미리보기' : '원가 영향 확인'}</span>
+          <strong>${pv.title}</strong>
+          <span class="hm-pm-dt-meta">확정일 ${pv.date} · ${homeProjName(it.proj)}</span>
+        </div>
+        <div class="hm-drawer-sec-t">변경내용</div>
+        <table class="hm-drawer-tbl"><tr class="h"><td>항목</td><td class="n">현재 계획</td><td class="n">확정</td><td class="n">증감</td></tr>${rows}</table>
+        <div class="hm-drawer-sec-t">반영 후 Project Forecast</div>
+        <div class="hm-fc">
+          <div class="hm-fc-item"><span>예상원가</span><div class="hm-fc-v">${fc.cost[0]} <i>→</i> <b>${fc.cost[1]}</b></div><span class="hm-fc-d ${/^[+]/.test(fc.cost[2]) ? 'up' : /^-/.test(fc.cost[2]) ? 'down' : ''}">${fc.cost[2]}</span></div>
+          <div class="hm-fc-item"><span>예상 원가율</span><div class="hm-fc-v">${fc.rate[0]} <i>→</i> <b>${fc.rate[1]}</b></div><span class="hm-fc-d ${/^[+]/.test(fc.rate[2]) ? 'up' : /^-/.test(fc.rate[2]) ? 'down' : ''}">${fc.rate[2]}</span></div>
+        </div>
+        ${pv.warning ? `<div class="hm-drawer-warn">⚠ ${pv.warning}</div>` : ''}
+        <div class="hm-pm-dt-foot">
+          <button class="hm-btn" onclick="homePjtModalRerender()">취소</button>
+          ${reflect
+            ? `<button class="hm-btn pri" onclick="feedReflectApply('${key}')">원가 조정안에 반영</button>`
+            : `<button class="hm-btn pri" onclick="closeHomePjtModal();openCostAdjust('budgetMock')">원가 조정으로 이동 →</button>`}
+        </div>
+      </div>`;
+}
+
+// 팝업이 열려 있으면 상세를 드로어가 아니라 팝업 안에 그린다
+function openImpactDrawer(key) {
+  const it = HOME_FEED.find(i => feedKey(i) === key);
+  if (!it || !it.preview) return;
+  if (homePjtModalProj) {
+    const b = document.getElementById('home-pjt-body');
+    if (b) { b.innerHTML = homePjtDetailHtml(it); b.scrollTop = 0; return; }
+  }
+  impactDrawerKey = key;
+  const ov = document.getElementById('home-impact-drawer');
+  if (!ov) return;
+  ov.innerHTML = impactDrawerHtml(it);
+  ov.classList.add('open');
+}
+
+// 반영/확인 처리 후 팝업도 함께 갱신
+function feedReflectApply(key) {
+  homeFeedState[key] = 'reflected';
+  rerenderHomeFeed();
+  if (homePjtModalProj) homePjtModalRerender(); else closeImpactDrawer();
+  showToast('원가 조정안(Draft V5)에 반영했어요.');
+}
+
+// 메인 재렌더 — 제거된 영역은 더 이상 갱신하지 않는다
+function rerenderHomeFeed() {
+  const br = document.getElementById('home-brief'); if (br) br.innerHTML = homeBriefHtml();
+  const sg = document.querySelector('.hm-signal'); if (sg) sg.innerHTML = homeSignalBlockHtml();
+  const un = document.getElementById('home-under'); if (un) un.innerHTML = homePjtStripHtml();
+}
+
+// ── 메인화면 — 단순화 버전 ──
+function renderPmDashboard() {
+  homeSelectedProject = 'all';
+  homeCat = 'all';
+
+  return `
+    <div class="ai-workspace home2 home-simple">
+      <section class="home2-main centered">
+        <div class="home2-hero center">
+          <h1>좋은 아침이에요, 봄님</h1>
+          <p class="home2-brief" id="home-brief">${homeBriefHtml()}</p>
+        </div>
+
+        <div class="home2-search">
+          <span class="home2-orb" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
+              <path d="M12 4.4V8"/>
+              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
+              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <path d="M2 13v3M22 13v3"/>
+            </svg>
+          </span>
+          <input id="ai-main-query" type="text" placeholder="원하는 업무를 입력하세요 — 화면을 찾거나, 숫자의 이유를 묻거나, 다음 업무를 요청해보세요"
+            onkeydown="if(event.key==='Enter') askFromHome()">
+          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+        </div>
+
+        <div id="home-under">${homePjtStripHtml()}</div>
+
+        <div class="hm-signal">${homeSignalBlockHtml()}</div>
+      </section>
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
+    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}
+
+// ── 6차-3 — 메인화면에서 예산 여력(Headroom)·Runway 제거 ──
+// 부문장님 지시(구글 첫 화면처럼 단순화)에 따라 메인에서는 걷어낸다.
+// 함수 자체는 남겨두어 PJT 팝업/상세화면에서 재사용할 수 있게 한다.
+function renderPmDashboard() {
+  // 선택된 PJT는 화면을 다녀와도 유지한다 (대화 문맥이므로 초기화하지 않음)
+  homeCat = 'all';
+
+  return `
+    <div class="ai-workspace home2 home-simple">
+      <section class="home2-main centered">
+        <div class="home2-hero center">
+          <h1>좋은 아침이에요, 봄님</h1>
+          <p class="home2-brief" id="home-brief">${homeBriefHtml()}</p>
+        </div>
+
+        <div class="home2-search">
+          <span class="home2-orb" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
+              <path d="M12 4.4V8"/>
+              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
+              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <path d="M2 13v3M22 13v3"/>
+            </svg>
+          </span>
+          <input id="ai-main-query" type="text" placeholder="원하는 업무를 입력하세요 — 화면을 찾거나, 숫자의 이유를 묻거나, 다음 업무를 요청해보세요"
+            onkeydown="if(event.key==='Enter') askFromHome()">
+          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+        </div>
+
+        <div id="home-under">${homePjtStripHtml()}</div>
+      </section>
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
+    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}
+
+// ============================================================
+//  7차 — 메뉴 토글 · PJT 선택 문맥 · 간결 팝업 · LLM 대화
+//  ※ 공유 파일(index.html · app.js)은 수정하지 않고,
+//    버튼은 JS로 주입하고 함수는 파일 끝 override로 처리한다.
+// ============================================================
+
+// ── ③ 상단 메뉴 토글 버튼 (구매시스템 ▦ 버튼과 동일 사이즈의 회색 버튼) ──
+// index.html이 공유 파일이라 마크업을 넣지 않고 .tb-right에 주입한다.
+function homeMenuToggle() {
+  document.body.classList.toggle('menu-shown');
+  const on = document.body.classList.contains('menu-shown');
+  const b = document.getElementById('tb-menu-toggle');
+  if (b) {
+    b.classList.toggle('on', on);
+    b.title = on ? '상단 메뉴 숨기기' : '상단 메뉴 보기';
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+}
+
+(function injectMenuToggle() {
+  function bind() {
+    const right = document.querySelector('.topbar .tb-right');
+    if (!right) { setTimeout(bind, 300); return; }
+    if (document.getElementById('tb-menu-toggle')) return;
+    const b = document.createElement('button');
+    b.id = 'tb-menu-toggle';
+    b.className = 'tb-menu-toggle';
+    b.type = 'button';
+    b.textContent = '☰';
+    b.title = '상단 메뉴 보기';
+    b.setAttribute('aria-label', '상단 메뉴 표시 전환');
+    b.setAttribute('aria-pressed', 'false');
+    b.onclick = homeMenuToggle;
+    const apps = right.querySelector('.tb-apps');
+    if (apps) right.insertBefore(b, apps); else right.appendChild(b);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+// ── ② PJT 캐러셀 = 선택 (팝업 아님) ──
+// 선택된 PJT는 chatbot 질의의 문맥이 된다.
+function selectHomePjt(id) {
+  homeSelectedProject = (homeSelectedProject === id) ? 'all' : id;
+  const un = document.getElementById('home-under');
+  if (un) un.innerHTML = homePjtStripHtml();
+}
+function clearHomePjt() { selectHomePjt(homeSelectedProject); }
+
+function homePjtLabel() {
+  return homeSelectedProject === 'all' ? '' : homeProjName(homeSelectedProject);
+}
+
+function homePjtStripHtml() {
+  const list = HOME_PROJECTS.slice().sort((a, b) => {
+    const d = homeOpenCountOf(b.id) - homeOpenCountOf(a.id);
+    return d !== 0 ? d : a.name.localeCompare(b.name);
+  });
+  const chips = list.map(p => {
+    const n = homeOpenCountOf(p.id);
+    const on = homeSelectedProject === p.id;
+    return `
+        <button class="hm-ptab hm-pjt-chip ${on ? 'picked' : ''} ${n ? '' : 'calm'}"
+          onclick="selectHomePjt('${p.id}')" aria-pressed="${on}"
+          title="${p.name} · 확인 필요 ${n}건">
+          ${on ? '<span class="hm-pjt-check">✓</span>' : ''}
+          <span class="hm-ptab-name">${p.name}</span>
+          <span class="hm-ptab-badge ${n ? 'on' : ''}">${n}</span>
+        </button>`;
+  }).join('');
+  const picked = homePjtLabel();
+  const ctx = picked
+    ? `<div class="hm-ctx"><span class="hm-ctx-l">선택된 프로젝트</span><b>${picked}</b>
+         <span class="hm-ctx-d">이 프로젝트를 기준으로 답변해요</span>
+         <button class="hm-ctx-x" onclick="clearHomePjt()" aria-label="선택 해제">✕</button></div>`
+    : `<div class="hm-ctx off"><span class="hm-ctx-d">프로젝트를 선택하면 그 프로젝트를 기준으로 답변해요</span></div>`;
+  return `
+    <div class="hm-under">
+      ${ctx}
+      <div class="hm-under-bar">
+        <button class="hm-under-auto" onclick="openAutoDrawer()">
+          <span class="hm-under-auto-ic">⚡</span>자동 처리 내역 <b>${HOME_AUTO_COUNT}건</b> 보기
+        </button>
+        <span class="hm-under-sum">담당 ${HOME_PROJECTS.length}개 · 확인 필요 <b>${homeOpenCount()}건</b></span>
+      </div>
+      <div class="hm-ptabs-carousel">
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(-1)" aria-label="이전 프로젝트">‹</button>
+        <div class="hm-ptabs-track" id="hm-ptabs-track">${chips}</div>
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(1)" aria-label="다음 프로젝트">›</button>
+      </div>
+    </div>`;
+}
+
+// ── 간결 팝업 — "AI 추천 변경안" 제거, 하단 버튼으로 화면 이동 ──
+function homePjtModalHtml(id) {
+  const items = HOME_FEED.filter(i => i.proj === id && !homeFeedState[feedKey(i)]);
+  let body;
+  if (!items.length) {
+    body = `<div class="hm-empty">이 프로젝트는 지금 확인할 항목이 없어요. 정상 범위입니다.</div>`;
+  } else {
+    body = items.map(it => homePjtSlimCard(it)).join('');
+  }
+  return `
+    <div class="hm-pm" onclick="event.stopPropagation()">
+      <div class="hm-pm-head">
+        <div>
+          <div class="hm-pm-eyebrow">${homeProjName(id)}</div>
+          <strong>확인이 필요한 것 ${items.length}가지</strong>
+        </div>
+        <button class="hm-drawer-x" onclick="closeHomePjtModal()" aria-label="닫기">✕</button>
+      </div>
+      <div class="hm-pm-body" id="home-pjt-body">${body}</div>
+      <div class="hm-pm-foot">
+        <button class="hm-btn" onclick="closeHomePjtModal()">닫기</button>
+        <button class="hm-btn pri" onclick="closeHomePjtModal();openCostStatus('budgetMock')">원가 현황으로 이동 →</button>
+        <button class="hm-btn pri" onclick="closeHomePjtModal();openCostAdjust('budgetMock')">원가 조정으로 이동 →</button>
+      </div>
+    </div>`;
+}
+
+// 카드 1장 — 태그 · 제목 · 핵심 수치 한 줄 (추천 변경안 없음)
+function homePjtSlimCard(it) {
+  const ai = (typeof homeAiOf === 'function') ? homeAiOf(it) : null;
+  const sev = it.sev === 'danger' ? 'danger' : it.sev === 'warning' ? 'warning' : 'info';
+  let line = '';
+  if (it.change) line = `${it.change.fromL} ${it.change.from} → ${it.change.toL} ${it.change.to} <b class="up">${it.change.delta}</b>`;
+  else if (it.dual) line = `${it.dual.leftL} ${it.dual.left} → ${it.dual.rightL} ${it.dual.right} <b class="up">${it.dual.delta}</b>`;
+  else if (it.flow) line = `${it.flow.sSub} ${it.flow.sVal} · ${it.flow.iL} <b class="${/-/.test(it.flow.iVal) ? 'down' : 'up'}">${it.flow.iVal}</b>`;
+  return `
+      <div class="hm-slim ${sev}">
+        <div class="hm-slim-top">
+          <span class="hm-slim-tag ${sev}">${it.cat === 'budget' ? '예산 점검' : '업무 반영'} · ${it.sub}</span>
+          ${ai ? `<span class="hm-chip impact ${/^-/.test(ai.impact) ? 'down' : 'up'}">임팩트 ${ai.impact}</span>
+                  <span class="hm-chip due ${ai.dueDays <= 3 ? 'near' : ''}">D-${ai.dueDays}</span>` : ''}
+        </div>
+        <div class="hm-slim-t">${it.title}</div>
+        ${line ? `<div class="hm-slim-n">${line}</div>` : ''}
+      </div>`;
 }

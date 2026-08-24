@@ -8,15 +8,10 @@
 var renderBudgetAccountEditorBeforeExpenseSingleFinal = renderBudgetAccountEditor;
 renderBudgetAccountEditor = function(data, account) {
   if (account !== CATS[3]) return renderBudgetAccountEditorBeforeExpenseSingleFinal(data, account);
+  // 편집기 헤드([← 계정 선택] 버튼 + "경비 수정" 제목/설명)는 제거했습니다(5개 계정 공통 정책).
+  // 계정 선택으로 돌아가는 경로는 브라우저 뒤로가기(#/budget-adjust)로 유지됩니다.
   return `
     <div class="setup-editor expense-single-editor">
-      <div class="setup-editor-head">
-        <button class="budget-process-back" onclick="closeBudgetAccountEditor()">← 계정 선택</button>
-        <div>
-          <div class="setup-title">경비 수정</div>
-          <div class="setup-editor-sub">경비는 자원계획 그리드에서 소계정별 월별 계획을 직접 작성하며, 이 화면이 경비 예산내역 요약 역할을 함께 합니다.</div>
-        </div>
-      </div>
       ${renderExpensePlanPanel(data)}
     </div>`;
 };
@@ -67,6 +62,31 @@ function expensePlanTotalFinal(row) {
   return row.monthly.reduce((sum, value) => sum + Number(value || 0), 0);
 }
 
+// 경비 계획은 연단위로 수립한다. 월별 입력은 의미가 없어 연도(2026/2027)로 통합.
+// EXPENSE_PLAN_MONTHS(예: 2026-07~2027-04)에서 연도별 월 인덱스 구간을 도출한다.
+function expensePlanYearsFinal() {
+  const map = {};
+  EXPENSE_PLAN_MONTHS.forEach((m, idx) => {
+    const y = m.slice(0, 4);
+    (map[y] = map[y] || []).push(idx);
+  });
+  return Object.keys(map).sort().map(y => ({ year: y, idxs: map[y] }));
+}
+
+// 특정 연도(월 인덱스 구간)의 계획 합계
+function expenseYearPlan(row, idxs) {
+  return idxs.reduce((sum, i) => sum + Number(row.monthly[i] || 0), 0);
+}
+
+// 연도 헤더 라벨 — 예: "26년 (7월~12월)". 월 범위는 데이터에서 자동 계산.
+function expenseYearLabel(year, idxs) {
+  const yy = year.slice(2);
+  const mNum = i => parseInt(EXPENSE_PLAN_MONTHS[i].slice(5, 7), 10);
+  const first = mNum(idxs[0]);
+  const last = mNum(idxs[idxs.length - 1]);
+  return `${yy}년 (${first}월~${last}월)`;
+}
+
 validateExpenseErpAvailability = function(rows = getExpenseRows()) {
   const invalid = rows.find(row => row.controlled && expensePlanTotalFinal(row) > Number(row.erpAvailable || 0));
   if (!invalid) return { ok:true };
@@ -84,11 +104,16 @@ getExpenseTransferLimit = function() {
 };
 
 saveExpensePlan = function() {
+  const years = expensePlanYearsFinal();
   getExpenseRows().forEach(row => {
-    row.monthly = EXPENSE_PLAN_MONTHS.map((month, idx) => {
-      const el = document.getElementById(`expense-plan-${row.id}-${idx}`);
-      return parseBudgetAmount(el ? el.value : row.monthly[idx] || 0);
+    const next = row.monthly.slice();
+    years.forEach(({ year, idxs }) => {
+      const el = document.getElementById(`expense-plan-${row.id}-${year}`);
+      const amount = parseBudgetAmount(el ? el.value : expenseYearPlan(row, idxs));
+      // 연간 계획은 월별로 분배하지 않고 해당 연도 첫 월 슬롯에 통합 저장(합계는 동일하게 유지)
+      idxs.forEach((i, k) => { next[i] = k === 0 ? amount : 0; });
     });
+    row.monthly = next;
   });
   const validation = validateExpenseErpAvailability();
   if (!validation.ok) {
@@ -96,7 +121,7 @@ saveExpensePlan = function() {
     renderBudgetPage();
     return;
   }
-  showToast('경비 월별 계획이 저장되었습니다. 통제 중계정의 ERP 가용예산도 확인했습니다.');
+  showToast('경비 연도별 계획이 저장되었습니다. 통제 중계정의 ERP 가용예산도 확인했습니다.');
   renderBudgetPage();
 };
 
@@ -144,65 +169,116 @@ showExpenseErpAvailabilityModal = function() {
   modal.classList.add('open');
 };
 
+// 실적 열 펼침 상태 — 실적 헤더의 [+]로 지난 26년 월별 실적 열을 펼친다.
+let expenseActualExpanded = false;
+
+// 지난 실적 월(2026년 1월~7월)
+const EXPENSE_ACTUAL_MONTHS = ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07'];
+// 후반월 가중 배분(합계 1.0) — 마지막 월에서 잔여를 보정해 row.actual과 정확히 일치시킨다.
+const EXPENSE_ACTUAL_WEIGHTS = [0.05, 0.08, 0.12, 0.15, 0.18, 0.20, 0.22];
+
+// 월별 실적(목업) — 합계는 row.actual과 정확히 일치
+function expenseMonthlyActual(row) {
+  const a = Number(row.actual || 0);
+  if (a <= 0) return EXPENSE_ACTUAL_MONTHS.map(() => 0);
+  let acc = 0;
+  return EXPENSE_ACTUAL_WEIGHTS.map((w, i) => {
+    if (i === EXPENSE_ACTUAL_WEIGHTS.length - 1) return a - acc; // 마지막 월 잔여 보정
+    const v = Math.round(a * w);
+    acc += v;
+    return v;
+  });
+}
+
+function expenseActualMonthLabel(m) {
+  return `'${m.slice(2, 4)}.${parseInt(m.slice(5, 7), 10)}월`;
+}
+
+// 실적 헤더 [+] 토글 — 지난 26년 월별 실적 열 펼침/접힘
+function toggleExpenseActualCols() {
+  expenseActualExpanded = !expenseActualExpanded;
+  renderBudgetPage();
+}
+
+// 입력 시 계획합계·가용잔액을 실시간 재계산 (한눈에 작성)
+function expenseRecalcRow(id) {
+  const row = getExpenseRows().find(r => r.id === id);
+  if (!row) return;
+  let total = 0;
+  expensePlanYearsFinal().forEach(({ year }) => {
+    const el = document.getElementById(`expense-plan-${id}-${year}`);
+    total += parseBudgetAmount(el ? el.value : 0);
+  });
+  const totalCell = document.getElementById(`expense-total-${id}`);
+  if (totalCell) totalCell.textContent = fmt(total);
+  if (row.controlled) {
+    const bal = Number(row.erpAvailable || 0) - total;
+    const balCell = document.getElementById(`expense-bal-${id}`);
+    if (balCell) { balCell.textContent = fmt(Math.max(bal, 0)); balCell.classList.toggle('danger', bal < 0); }
+    const tr = document.getElementById(`expense-tr-${id}`);
+    if (tr) tr.classList.toggle('expense-over', bal < 0);
+  }
+}
+
 renderExpensePlanPanel = function(data) {
   const rows = getExpenseRows();
   const totalRows = rows.length;
+  const years = expensePlanYearsFinal();
   const body = rows.map(row => {
     const plan = expensePlanTotalFinal(row);
     const balance = row.controlled ? Number(row.erpAvailable || 0) - plan : null;
+    const monthlyActual = expenseActualExpanded ? expenseMonthlyActual(row) : null;
     return `
-      <tr class="${row.controlled && balance < 0 ? 'expense-over' : ''}">
-        <td>${row.middleCode}</td>
-        <td>
-          <strong>${row.middleName}</strong>
-          <i class="expense-control-badge ${row.controlled ? 'control' : 'free'}">${row.controlled ? '통제' : '비통제'}</i>
+      <tr id="expense-tr-${row.id}" class="${row.controlled && balance < 0 ? 'expense-over' : ''}">
+        <td class="exp-acct">
+          <strong>${row.name}</strong>
+          <span class="exp-acct-sub">${row.middleName}<i class="expense-control-badge ${row.controlled ? 'control' : 'free'}">${row.controlled ? '통제' : '비통제'}</i></span>
         </td>
-        <td>${row.code}</td>
-        <td><strong>${row.name}</strong></td>
         <td class="num">${fmt(row.carried)}</td>
-        <td class="num">${fmt(plan)}</td>
-        <td class="num">${fmt(row.actual)}</td>
-        <td class="num ${row.controlled && balance < 0 ? 'danger' : ''}">${row.controlled ? fmt(Math.max(balance, 0)) : '-'}</td>
-        ${EXPENSE_PLAN_MONTHS.map((month, idx) => `
-          <td><input class="expense-month-input" id="expense-plan-${row.id}-${idx}" value="${row.monthly[idx] || 0}" inputmode="numeric"></td>
+        ${expenseActualExpanded ? monthlyActual.map(v => `<td class="num exp-am-col">${v ? fmt(v) : '-'}</td>`).join('') : ''}
+        <td class="num exp-actual-sum">${fmt(row.actual)}</td>
+        ${years.map(({ year, idxs }) => `
+          <td class="num exp-in-col"><input class="exp-year-input" id="expense-plan-${row.id}-${year}" value="${expenseYearPlan(row, idxs)}" inputmode="numeric" oninput="expenseRecalcRow('${row.id}')"></td>
         `).join('')}
+        <td class="num exp-total" id="expense-total-${row.id}">${fmt(plan)}</td>
+        <td class="num ${row.controlled && balance < 0 ? 'danger' : ''}" id="expense-bal-${row.id}">${row.controlled ? fmt(Math.max(balance, 0)) : '-'}</td>
       </tr>`;
   }).join('');
 
+  const actualToggleBtn = `<button class="exp-actual-toggle ${expenseActualExpanded ? 'open' : ''}" title="${expenseActualExpanded ? '월별 실적 접기' : '지난 26년 월별 실적 펼치기'}" onclick="toggleExpenseActualCols()">${expenseActualExpanded ? '－' : '＋'}</button>`;
+  const actualMonthHeads = expenseActualExpanded
+    ? EXPENSE_ACTUAL_MONTHS.map(m => `<th class="num exp-am-col">${expenseActualMonthLabel(m)}</th>`).join('')
+    : '';
+
   return `
-    <div class="expense-plan-panel">
-      <div class="expense-plan-head">
+    <div class="sifr expense-plan-sifr ${expenseActualExpanded ? 'actual-expanded' : ''}">
+      <div class="exp-plan-head">
         <div>
-          <div class="expense-plan-title">경비 자원계획 <span>총 ${totalRows}건</span></div>
-          <p>경비 구분은 중계정명으로 관리하고, 전체 계획은 소계정별 월별 금액으로 작성합니다. 통제 중계정은 ERP에 해당 프로젝트의 매출귀속부서 가용예산이 있어야만 계획 수립이 가능합니다.</p>
+          <h2>경비 자원계획 <span class="exp-plan-cnt">총 ${totalRows}건</span></h2>
+          <p>계획은 소계정별로 <strong>연단위</strong>로 작성합니다(연두 칸). 실적 열의 <strong>＋</strong>를 누르면 지난 <strong>26년 1월~7월 월별 실적</strong>이 펼쳐집니다. 통제 중계정은 ERP 매출귀속부서 가용예산 내에서만 수립할 수 있습니다.</p>
         </div>
-        <div class="expense-plan-actions">
-          <button class="labor-sub-btn" onclick="showExpenseActualLookup()">경비 실적조회</button>
-          <button class="labor-sub-btn teal" onclick="showExpenseErpAvailabilityModal()">가용예산조회</button>
-          <button class="labor-main-btn" onclick="saveExpensePlan()">계획 저장</button>
+        <div class="exp-plan-actions">
+          <button class="exp-btn" onclick="showExpenseActualLookup()">경비 실적조회</button>
+          <button class="exp-btn teal" onclick="showExpenseErpAvailabilityModal()">가용예산조회</button>
+          <button class="exp-btn primary" onclick="saveExpensePlan()">계획 저장</button>
         </div>
       </div>
-      <div class="expense-plan-comment">
-        통제 중계정은 매출귀속부서 기준 ERP 가용예산을 초과할 수 없습니다. 계정별 예산 이관에서 경비 조정배분을 변경할 때도 동일한 한도를 체크합니다.
-      </div>
-      <div class="expense-grid-wrap">
-        <table class="expense-grid-table expense-grid-table-final">
+      <div class="exp-table-wrap">
+        <table>
           <thead>
             <tr>
-              <th rowspan="2">중계정코드</th>
-              <th rowspan="2">중계정명/통제</th>
-              <th rowspan="2">소계정코드</th>
-              <th rowspan="2">소계정명</th>
-              <th rowspan="2">이전계획</th>
-              <th rowspan="2">계획</th>
-              <th rowspan="2">실적</th>
-              <th rowspan="2">가용잔액</th>
-              <th colspan="${EXPENSE_PLAN_MONTHS.length}">월별 계획</th>
+              <th>계정</th>
+              <th class="num">이전계획</th>
+              ${actualMonthHeads}
+              <th class="num exp-actual-sumhead">실적${expenseActualExpanded ? ' 합계' : ''} ${actualToggleBtn}</th>
+              ${years.map(({ year, idxs }) => `<th class="num exp-in-col">${expenseYearLabel(year, idxs)}</th>`).join('')}
+              <th class="num">계획 합계</th>
+              <th class="num">가용잔액</th>
             </tr>
-            <tr>${EXPENSE_PLAN_MONTHS.map(m => `<th>${m}</th>`).join('')}</tr>
           </thead>
           <tbody>${body}</tbody>
         </table>
       </div>
+      <div class="exp-comment">통제 중계정은 매출귀속부서 기준 ERP 가용예산을 초과할 수 없습니다. 계정별 예산 이관에서 경비 조정배분을 변경할 때도 동일한 한도를 체크합니다.</div>
     </div>`;
 };

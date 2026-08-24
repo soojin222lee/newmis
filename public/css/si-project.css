@@ -21,3 +21,168 @@
 .si-p3-hint { font-size: 13px; color: #8a94a6; }
 .si-p3-done-tag { font-size: 14px; font-weight: 800; color: var(--sk-green); }
 .si-back-btn { margin-left: 12px !important; flex: 0 0 auto; }
+
+/* ══════════════════════════════════════════════════════════════
+   수주형 프로젝트 상세 — IF 이력 개선안 (scoped: .sifr)
+   ══════════════════════════════════════════════════════════════ */
+.sifr{
+  --bg:#F6F7F8; --card:#FFFFFF; --line:#E7E9EC; --line-soft:#F0F1F3;
+  --ink:#14181C; --ink-2:#4A5259; --ink-3:#7C858D;
+  --brand:#0F8A6A; --brand-soft:#E7F5F0;
+  --radius:14px; --shadow:0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+  max-width:1180px; margin:0 auto; color:var(--ink);
+  font-size:14px; line-height:1.5;
+}
+.sifr *{box-sizing:border-box}
+.sifr .num{font-variant-numeric:tabular-nums}
+.sifr-card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow)}
+
+/* 헤더 */
+.sifr-head-row{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:4px}
+.sifr-code{font-size:12px; color:var(--ink-3); letter-spacing:.02em; font-variant-numeric:tabular-nums}
+.sifr-h1{font-size:26px; font-weight:700; margin:4px 0 10px; letter-spacing:-.02em; color:var(--ink)}
+.sifr-meta-line{display:flex; align-items:center; gap:10px; flex-wrap:wrap; color:var(--ink-2); font-size:13px}
+.sifr-sep{color:#CFD5DA}
+.sifr-pill{display:inline-flex; align-items:center; gap:6px; background:var(--brand-soft); color:#0B6E55; font-size:12px; font-weight:600; padding:4px 10px; border-radius:999px}
+.sifr-pill .dot{width:6px; height:6px; border-radius:50%; background:var(--brand)}
+.sifr-head-btns{display:flex; gap:8px}
+.sifr-btn{border:1px solid var(--line); background:#fff; color:var(--ink-2); font-size:13px; font-weight:600; padding:9px 16px; border-radius:10px; cursor:pointer}
+.sifr-btn:hover{background:#FAFBFB}
+.sifr-btn-primary{background:var(--brand); border-color:var(--brand); color:#fff}
+.sifr-btn-primary:hover{background:#0C7359}
+
+/* 진행 단계 */
+.sifr-steps-card{margin-top:16px}
+.sifr-steps{display:flex; align-items:center; gap:0; padding:24px 26px 6px}
+.sifr-step{display:flex; flex-direction:column; align-items:center; gap:8px; width:80px}
+.sifr-node{width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:700; background:#EEF0F2; color:var(--ink-3)}
+.sifr-node.done{background:var(--brand); color:#fff}
+.sifr-node.now{background:var(--brand); color:#fff; box-shadow:0 0 0 4px var(--brand-soft)}
+.sifr-step small{font-size:12px; color:var(--ink-3); font-weight:600}
+.sifr-step.active small{color:var(--ink)}
+.sifr-bar{flex:1; height:2px; background:var(--line); margin-bottom:26px}
+.sifr-bar.done{background:var(--brand)}
+.sifr-steps-note{padding:0 26px 22px; color:var(--ink-3); font-size:12.5px}
+
+/* 섹션 타이틀 */
+.sifr-sec{margin-top:26px}
+.sifr-sec-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin:0 2px 12px}
+.sifr-sec-head h2{font-size:16px; font-weight:700; margin:0; letter-spacing:-.01em; color:var(--ink)}
+.sifr-sub{font-size:12px; color:var(--ink-3)}
+
+/* 동기화 스트립 */
+.sifr-sync{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden}
+.sifr-sync-item{background:#fff; padding:14px 16px; display:flex; flex-direction:column; gap:8px; position:relative}
+.sifr-sync-item::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--c)}
+.sifr-sync-top{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.sifr-sysbadge{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 8px; border-radius:6px; background:var(--cb); color:var(--c); letter-spacing:.01em}
+.sifr-sysbadge i{width:5px;height:5px;border-radius:50%;background:currentColor;display:block}
+.sifr-sync-when{font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums}
+.sifr-sync-cnt{font-size:12px; color:var(--ink-3)}
+.sifr-sync-cnt b{color:var(--ink); font-weight:700}
+.sifr-sync-item{cursor:pointer; transition:background .12s}
+.sifr-sync-item:hover{background:#FAFBFB}
+.sifr-sync-item:hover .sifr-sync-go{color:var(--brand)}
+.sifr-sync-go{margin-left:2px; font-weight:700; color:var(--ink-3)}
+
+/* 동기화 카드 클릭 팝업 */
+.sifr-modal-overlay{position:fixed; inset:0; z-index:200; display:none; background:rgba(20,24,33,.42); align-items:center; justify-content:center; padding:24px}
+.sifr-modal-overlay.open{display:flex}
+.sifr-modal{background:#fff; width:100%; max-width:640px; max-height:82vh; border-radius:14px; box-shadow:0 24px 60px rgba(16,24,40,.28); display:flex; flex-direction:column; overflow:hidden}
+.sifr-modal-head{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px 12px; border-bottom:1px solid var(--line)}
+.sifr-modal-title{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.sifr-modal-title b{font-size:15px; font-weight:800; color:var(--ink)}
+.sifr-modal-cnt{font-size:12px; color:var(--ink-3); font-weight:700}
+.sifr-modal-x{flex:0 0 auto; background:#F2F2EE; border:none; border-radius:8px; width:30px; height:30px; font-size:14px; color:#6b7585; cursor:pointer}
+.sifr-modal-x:hover{background:#E7E6DF; color:var(--ink)}
+.sifr-modal-sub{padding:10px 20px 0; font-size:12px; color:var(--ink-3)}
+.sifr-modal-sub b{color:var(--ink); font-weight:700}
+.sifr-modal-body{overflow-y:auto; padding:6px 0 10px}
+.sifr-modal-empty{padding:34px 20px; text-align:center; color:var(--ink-3); font-size:13px}
+.sifr-flag{font-size:11px; font-weight:700; padding:2px 7px; border-radius:5px}
+.sifr-flag.ok{background:var(--brand-soft); color:#0B6E55}
+.sifr-flag.warn{background:#FEF3E2; color:#9A5B06}
+.sifr-sync-badges{display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap}
+.sifr-dir{display:inline-flex; align-items:center; gap:3px; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:5px; letter-spacing:.01em}
+.sifr-dir b{font-weight:800; font-size:11px}
+.sifr-dir.both{background:#EAF6F1; color:#0B6E55}
+.sifr-dir.in{background:#EEF1F4; color:#475569}
+.sifr-dir.out{background:#EBF1FE; color:#2563EB}
+.sifr-dir-ink{font-weight:800}
+.sifr-dir-ink.both{color:#0B6E55}
+.sifr-dir-ink.in{color:#475569}
+/* 이력 1건 송수신 배지 */
+.sifr-io{display:inline-flex; align-items:center; gap:3px; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:5px; letter-spacing:.01em; white-space:nowrap}
+.sifr-io b{font-weight:800; font-size:11px}
+.sifr-io.out{background:#EAF2FF; color:#1D4ED8}
+.sifr-io.in{background:#EEF1F4; color:#475569}
+
+/* 기본정보 */
+.sifr-info{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line-soft); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden}
+.sifr-field{background:#fff; padding:15px 18px; display:flex; flex-direction:column; gap:6px}
+.sifr-field.changed{background:linear-gradient(90deg,#FFFDF5 0%,#fff 42%)}
+.sifr-field-k{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-3); font-weight:600}
+.sifr-field-v{font-size:15px; font-weight:600; letter-spacing:-.01em; color:var(--ink)}
+.sifr-src{font-size:10.5px; font-weight:700; padding:2px 6px; border-radius:5px; background:var(--cb); color:var(--c)}
+.sifr-src.manual{background:#EEF1F4; color:#475569}
+.sifr-new-tag{font-size:10.5px; font-weight:700; color:#9A5B06; background:#FEF3E2; padding:2px 6px; border-radius:5px}
+
+/* IF 이력: 컨트롤 */
+.sifr-controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:14px 16px; border-bottom:1px solid var(--line-soft)}
+.sifr-chip{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:#fff; padding:6px 12px; border-radius:999px; font-size:12.5px; font-weight:600; color:var(--ink-2); cursor:pointer; transition:.12s}
+.sifr-chip i{width:7px;height:7px;border-radius:50%;background:var(--c,#98A2AE);display:block}
+.sifr-chip .n{font-size:11px; color:var(--ink-3); font-variant-numeric:tabular-nums}
+.sifr-chip[aria-pressed="true"]{border-color:var(--c,#98A2AE); background:var(--cb,#F4F6F7); color:var(--c,#333)}
+.sifr-chip[aria-pressed="true"] .n{color:inherit; opacity:.75}
+.sifr-chip:hover{background:#FAFBFB}
+.sifr-spacer{flex:1}
+.sifr-seg{display:inline-flex; background:#F1F3F4; padding:3px; border-radius:9px}
+.sifr-seg button{border:0; background:transparent; font-size:12.5px; font-weight:600; color:var(--ink-3); padding:6px 12px; border-radius:7px; cursor:pointer}
+.sifr-seg button[aria-pressed="true"]{background:#fff; color:var(--ink); box-shadow:var(--shadow)}
+.sifr-fieldsel{border:1px solid var(--line); border-radius:9px; padding:6px 10px; font-size:12.5px; color:var(--ink-2); background:#fff; font-family:inherit}
+
+/* IF 이력: 타임라인 */
+.sifr-tl{padding:4px 0 8px}
+.sifr-day{position:sticky; top:0; z-index:2; background:rgba(255,255,255,.94); backdrop-filter:blur(6px); padding:10px 18px 8px; border-bottom:1px solid var(--line-soft); display:flex; align-items:center; gap:10px}
+.sifr-day b{font-size:12.5px; font-variant-numeric:tabular-nums; color:var(--ink)}
+.sifr-day span{font-size:11.5px; color:var(--ink-3)}
+.sifr-row{display:grid; grid-template-columns:62px 12px 1fr; gap:0 12px; padding:11px 18px; align-items:start; border-bottom:1px solid var(--line-soft); position:relative}
+.sifr-row:hover{background:#FBFCFC}
+.sifr-time{font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; padding-top:2px; text-align:right}
+.sifr-rail{position:relative; display:flex; justify-content:center; padding-top:6px}
+.sifr-rail::before{content:""; position:absolute; top:0; bottom:-11px; width:2px; background:var(--line-soft)}
+.sifr-rail i{width:9px; height:9px; border-radius:50%; background:var(--c); box-shadow:0 0 0 3px #fff; z-index:1}
+.sifr-rbody{min-width:0}
+.sifr-b1{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px}
+.sifr-fname{font-size:13.5px; font-weight:700; color:var(--ink)}
+.sifr-diff{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px}
+.sifr-old{color:var(--ink-3); text-decoration:line-through; text-decoration-color:#C6CCD1}
+.sifr-arrow{color:#BFC6CC; font-size:12px}
+.sifr-new{font-weight:700; background:var(--cb); color:var(--c); padding:2px 8px; border-radius:6px}
+.sifr-delta{font-size:11.5px; font-weight:700; color:#9A5B06; background:#FEF3E2; padding:2px 6px; border-radius:5px}
+.sifr-actor{font-size:11.5px; color:var(--ink-3); margin-top:5px}
+.sifr-row.sifr-hidden{display:none}
+.sifr-day.sifr-hidden{display:none}
+
+/* 항목별 뷰 */
+.sifr-grouped{padding:6px 0 8px; overflow-x:auto}
+.sifr-grouped table{width:100%; border-collapse:collapse}
+.sifr-grouped th{font-size:11.5px; color:var(--ink-3); font-weight:600; text-align:left; padding:10px 18px; border-bottom:1px solid var(--line); background:#FCFCFD; position:sticky; top:0}
+.sifr-grouped td{padding:12px 18px; border-bottom:1px solid var(--line-soft); vertical-align:middle; font-size:13px; color:var(--ink)}
+.sifr-grouped tr:hover td{background:#FBFCFC}
+.sifr-spark{display:flex; align-items:center; gap:4px}
+.sifr-spark span{width:8px; height:8px; border-radius:50%; background:var(--c)}
+.sifr-spark em{font-size:11.5px; color:var(--ink-3); font-style:normal; margin-left:2px; font-variant-numeric:tabular-nums}
+.sifr-cur{font-weight:700}
+
+.sifr-foot{padding:12px 18px; color:var(--ink-3); font-size:12px; border-top:1px solid var(--line-soft)}
+.sifr-legendline{display:flex; gap:14px; flex-wrap:wrap; align-items:center; font-size:11.5px; color:var(--ink-3)}
+.sifr-legendline em{font-style:normal; display:inline-flex; align-items:center; gap:5px}
+.sifr-legendline i{width:7px;height:7px;border-radius:50%}
+.sifr-note{margin-top:10px; font-size:12px; color:var(--ink-3); padding:0 2px}
+
+@media (max-width:760px){
+  .sifr-info{grid-template-columns:1fr}
+  .sifr-row{grid-template-columns:52px 12px 1fr; padding:11px 14px}
+  .sifr-h1{font-size:22px}
+}
