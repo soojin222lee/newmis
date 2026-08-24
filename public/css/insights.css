@@ -341,3 +341,20 @@
 #s-insights .ins-ask, #s-insights .ins-col-menu { border-color: #e4e2da !important; }
 #s-insights .ins-kpi2 { border-left-color: #efeee7 !important; }
 #s-insights .ins-tabs { border-bottom-color: #e4e2da !important; }
+
+/* ── 버전별 예산 배분 변동 (예산 돌려쓰기) ── */
+.ins-realloc-note { font-size: 13px; color: #45505f; line-height: 1.6; background: #f7f8fb; border: 1px solid #e6e9f0; border-radius: 10px; padding: 10px 13px; margin: 2px 0 14px; }
+.ins-realloc-note b { font-weight: 800; }
+.ins-realloc-note .up { color: var(--sk-red); } .ins-realloc-note .down { color: var(--sk-blue); }
+.ins-ver-chart { margin-bottom: 10px; }
+.ins-ver-tablewrap { overflow-x: auto; }
+.ins-ver-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ins-ver-table th { text-align: left; font-size: 11.5px; color: #8a94a6; font-weight: 700; padding: 8px 12px; border-bottom: 1px solid #e4e2da; white-space: nowrap; }
+.ins-ver-table td { padding: 9px 12px; border-bottom: 1px solid #f0f1f3; color: #16151f; }
+.ins-ver-table th.num, .ins-ver-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ins-ver-table td.up { color: var(--sk-red); font-weight: 800; }
+.ins-ver-table td.down { color: var(--sk-blue); font-weight: 800; }
+.ins-ver-table td b { font-weight: 800; }
+.ins-acc-dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; vertical-align: middle; }
+.ins-ver-tot td { font-weight: 800; color: #16151f; background: #fafbfc; border-top: 2px solid #e4e2da; }
+.ins-vt-sub { font-weight: 600; color: #b3bcc9; }

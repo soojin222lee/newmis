@@ -42,6 +42,76 @@ function projAccounts(p) {
     return { name: c.key, color: c.c, base, plan, actual, forecast: fc, share: Math.round(sh * 100), delta: +(fc - plan).toFixed(1), deltaBase: +(fc - base).toFixed(1) };
   });
 }
+// ── 버전별 계정 예산 배분(돌려쓰기) ──
+// 총 실행예산은 버전 내내 동일하고, 계정 간 배분만 이동한다(=예산 돌려쓰기).
+const INS_ACCTS = [
+  { key:'인건비', c:'#2f6bed' },
+  { key:'외주비', c:'#ea002c' },
+  { key:'재료비', c:'#f5a623' },
+  { key:'경비',   c:'#22b07d' },
+];
+function projVersions(p) {
+  const B = p.budget;                                  // 총 실행예산(억) — 버전 동일
+  const cur = { 인건비:0.40, 외주비:0.35, 재료비:0.17, 경비:0.08 }; // 현재(V4) 배분 비율
+  const shift = [0.055, 0.036, 0.018, 0];              // V1→V4: 인건비→외주비 이동량(비율)
+  const labels = ['V1 · 최초', 'V2', 'V3', 'V4 · 현재'];
+  return shift.map((s, i) => ({
+    label: labels[i],
+    vals: {
+      인건비: +(B * (cur.인건비 + s)).toFixed(1),
+      외주비: +(B * (cur.외주비 - s)).toFixed(1),
+      재료비: +(B * cur.재료비).toFixed(1),
+      경비:   +(B * cur.경비).toFixed(1),
+    },
+  }));
+}
+// 버전별 그룹 컬럼 차트 (x=버전, 계정별 막대)
+function insVersionChartSvg(vers) {
+  const W = 560, H = 260, L = 30, R = 14, T = 16, Bt = 38;
+  const yMax = Math.max(...vers.flatMap(v => INS_ACCTS.map(a => v.vals[a.key]))) * 1.2 || 1;
+  const y = v => (H - Bt) - v / yMax * (H - Bt - T);
+  const gap = (W - L - R) / vers.length, n = INS_ACCTS.length, bw = gap * 0.15, ig = 3;
+  const cluster = n * bw + (n - 1) * ig;
+  let out = `<line x1="${L}" y1="${H - Bt}" x2="${W - R}" y2="${H - Bt}" stroke="#e4e2da"/>`;
+  vers.forEach((ver, i) => {
+    const cx = L + gap * i + gap / 2;
+    INS_ACCTS.forEach((a, j) => {
+      const val = ver.vals[a.key], bx = cx - cluster / 2 + j * (bw + ig);
+      out += `<rect x="${bx.toFixed(1)}" y="${y(val).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H - Bt - y(val)).toFixed(1)}" fill="${a.c}" rx="1.5"><title>${ver.label} · ${a.key} ${val.toFixed(1)}억</title></rect>`;
+    });
+    out += `<text x="${cx}" y="${H - 18}" class="ins-ax" text-anchor="middle">${ver.label}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" class="ins-svg">${out}</svg>`;
+}
+// 버전×계정 금액 표 + 증감(현재−최초)
+function insVersionTable(vers) {
+  const first = vers[0].vals, last = vers[vers.length - 1].vals;
+  const head = `<tr><th>계정</th>${vers.map(v => `<th class="num">${v.label}</th>`).join('')}<th class="num">증감<span class="ins-vt-sub"> 현재−최초</span></th></tr>`;
+  const rows = INS_ACCTS.map(a => {
+    const d = +(last[a.key] - first[a.key]).toFixed(1);
+    const cls = d > 0 ? 'up' : (d < 0 ? 'down' : '');
+    return `<tr>
+      <td><span class="ins-acc-dot" style="background:${a.c}"></span>${a.key}</td>
+      ${vers.map(v => `<td class="num">${v.vals[a.key].toFixed(1)}억</td>`).join('')}
+      <td class="num ${cls}"><b>${d > 0 ? '+' : ''}${d.toFixed(1)}억</b></td>
+    </tr>`;
+  }).join('');
+  const tot = vers.map(v => Object.values(v.vals).reduce((x, y2) => x + y2, 0));
+  const totRow = `<tr class="ins-ver-tot"><td>총 실행예산</td>${tot.map(t => `<td class="num">${t.toFixed(1)}억</td>`).join('')}<td class="num">±0.0억</td></tr>`;
+  return `<table class="ins-ver-table"><thead>${head}</thead><tbody>${rows}${totRow}</tbody></table>`;
+}
+// 돌려쓰기 요약 문장
+function insReallocSummary(vers) {
+  const first = vers[0].vals, last = vers[vers.length - 1].vals;
+  const deltas = INS_ACCTS.map(a => ({ key:a.key, d:+(last[a.key] - first[a.key]).toFixed(1) }));
+  const up = deltas.filter(x => x.d > 0).sort((a, b) => b.d - a.d);
+  const dn = deltas.filter(x => x.d < 0).sort((a, b) => a.d - b.d);
+  const fmt = arr => arr.map(x => `<b class="${x.d >= 0 ? 'up' : 'down'}">${x.key} ${x.d >= 0 ? '+' : ''}${x.d.toFixed(1)}억</b>`).join(', ');
+  const tot = Object.values(last).reduce((a, b) => a + b, 0);
+  if (!up.length && !dn.length) return `버전 간 배분 변동이 없습니다. 총 실행예산 <b>${tot.toFixed(1)}억</b>.`;
+  return `최초(V1) 대비 ${fmt(dn)} 에서 ${fmt(up)} (으)로 <b>돌려썼어요.</b> 총 실행예산은 <b>${tot.toFixed(1)}억</b>으로 버전 내내 동일합니다.`;
+}
+
 function projTrend(p) {
   const sum = MW.reduce((a, b) => a + b, 0);
   const w = MW.map(x => x / sum);
@@ -284,7 +354,18 @@ function insOverviewHtml(p) {
         </div>
       </div>
       ${insAccountTableHtml(p)}
-    </section>`;
+    </section>
+
+    ${(() => { const vers = projVersions(p); return `
+    <section class="ins-panel">
+      <div class="ins-panel-head">
+        <h2>버전별 예산 배분 변동 <span class="ins-panel-sub">계정 간 예산 돌려쓰기 (총 실행예산 동일)</span></h2>
+        <div class="ins-legend">${INS_ACCTS.map(a => `<span><i class="lg" style="background:${a.c}"></i>${a.key}</span>`).join('')}</div>
+      </div>
+      <div class="ins-realloc-note">${insReallocSummary(vers)}</div>
+      <div class="ins-ver-chart">${insVersionChartSvg(vers)}</div>
+      <div class="ins-ver-tablewrap">${insVersionTable(vers)}</div>
+    </section>`; })()}`;
 }
 
 function insPlanActualHtml(p) {
