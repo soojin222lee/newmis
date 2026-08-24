@@ -386,3 +386,5 @@
 .ins-ai-loading { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #55606f; padding: 8px 0; }
 .ins-ai-spin { width: 16px; height: 16px; border: 2px solid #d3e0f5; border-top-color: var(--sk-blue); border-radius: 50%; animation: insaispin .7s linear infinite; }
 @keyframes insaispin { to { transform: rotate(360deg); } }
+/* 보고서 요약 AI 태그 */
+.rp-ai-tag { font-size: 11px; font-weight: 800; color: var(--sk-blue-deep); background: #eef3fb; border: 1px solid #d3e0f5; padding: 2px 8px; border-radius: 6px; margin-left: 8px; vertical-align: middle; }

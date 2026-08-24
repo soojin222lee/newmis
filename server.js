@@ -117,6 +117,10 @@ function handleAPI(pathname, method, body, res) {
   if (pathname === "/api/budget-summary" && method === "POST") {
     handleBudgetSummary(body, res); return;
   }
+  // AI 보고서 요약/제언 (인사이트 보고서 생성)
+  if (pathname === "/api/report-summary" && method === "POST") {
+    handleReportSummary(body, res); return;
+  }
   res.writeHead(404); res.end(JSON.stringify({ error: "Not found" }));
 }
 
@@ -184,6 +188,38 @@ function handleBudgetSummary(body, res) {
     res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback" })); return;
   }
   callLLM(buildBudgetPrompt(body), (err, text) => {
+    if (err || !text) { res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback", note: err ? String(err.message || err) : "empty" })); return; }
+    res.writeHead(200); res.end(JSON.stringify({ summary: text, source: "ai" }));
+  });
+}
+
+// ── AI 보고서 요약/제언 ──
+function localReportSummary(d) {
+  const m = d.metrics || {};
+  let s = `${d.project}은 계약금액 ${m.contract}억 규모로, 계약 원가 기준은 ${m.base}억입니다. 현재 실적은 ${m.actual}억(진행 ${m.prog}%), 실행예산은 ${m.budget}억, 예상원가는 ${m.forecast}억으로 예상 원가율은 ${m.rate}%입니다. `;
+  if ((m.diff || 0) >= 0) s += `예상 원가율이 계획 대비 +${m.diff}%p 상승해 수익성 저하가 우려됩니다. 주요 원인은 ${d.cause}이며, 현재 추세가 유지될 경우 실행예산 변경 검토가 필요합니다. 외주비 비중이 높아 우선 관리 대상입니다.`;
+  else s += `예상 원가율이 계획 대비 ${m.diff}%p 개선되어 계획 범위 내에서 안정적으로 관리되고 있습니다. 주요 요인은 ${d.cause}입니다.`;
+  return s;
+}
+function buildReportPrompt(d) {
+  const m = d.metrics || {};
+  const acc = (d.accounts || []).map(a => `  - ${a.name}: 계획 ${a.plan}억 / 실적 ${a.actual}억 / 예상 ${a.forecast}억 (계획대비 ${a.delta >= 0 ? "+" : ""}${a.delta}억, 비중 ${a.share}%)`).join("\n");
+  return `너는 SI 프로젝트 손익·원가 보고서를 쓰는 애널리스트다. 아래 데이터로 경영진 보고용 '요약 및 제언'을 한국어로 작성해라. 4~6문장, 자연스러운 문단(마크다운·불릿 금지). 현황 요약 → 핵심 원인/리스크 → 다음 행동 제언 순서로 쓰고, 숫자는 억·% 단위 그대로 사용해라.
+
+프로젝트: ${d.project} (상태: ${d.status})
+계약금액 ${m.contract}억 / 원가(계약) ${m.base}억 / 실행예산 ${m.budget}억
+실적 ${m.actual}억(진행 ${m.prog}%) / 예상원가 ${m.forecast}억 / 예상 원가율 ${m.rate}% (계획대비 ${m.diff >= 0 ? "+" : ""}${m.diff}%p)
+주요 원인: ${d.cause}
+계정별:
+${acc}`;
+}
+function handleReportSummary(body, res) {
+  if (!body || !body.project) { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid payload" })); return; }
+  const fallback = localReportSummary(body);
+  if (!process.env.OPENAI_API_KEY) {
+    res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback" })); return;
+  }
+  callLLM(buildReportPrompt(body), (err, text) => {
     if (err || !text) { res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback", note: err ? String(err.message || err) : "empty" })); return; }
     res.writeHead(200); res.end(JSON.stringify({ summary: text, source: "ai" }));
   });

@@ -276,8 +276,8 @@ function insightsHtml() {
     ${insReportHtml()}`;
 }
 
-// ── 보고서 생성 (3초 로딩 → 레포트 팝업) ──
-function insGenerateReport() {
+// ── 보고서 생성 (LLM으로 요약/제언 작성 → 레포트 팝업) ──
+async function insGenerateReport() {
   const ov = document.getElementById('ins-report');
   const load = document.getElementById('ins-report-loading');
   const page = document.getElementById('ins-report-page');
@@ -286,11 +286,22 @@ function insGenerateReport() {
   load.removeAttribute('hidden');
   page.setAttribute('hidden', '');
   page.innerHTML = '';
-  setTimeout(() => {
-    page.innerHTML = insReportPageHtml(INS_PROJECTS[insProject]);
-    load.setAttribute('hidden', '');
-    page.removeAttribute('hidden');
-  }, 2000);
+  const p = INS_PROJECTS[insProject];
+  let aiText = null, aiSource = null;
+  try {
+    const prog = Math.round(p.actual / p.forecast * 100);
+    const accts = projAccounts(p);
+    const payload = {
+      project: p.name, status: p.status, cause: p.cause,
+      metrics: { contract:+p.contract.toFixed(1), base:+p.base.toFixed(1), budget:+p.budget.toFixed(1), actual:+p.actual.toFixed(1), forecast:+p.forecast.toFixed(1), rate:+p.rate.toFixed(1), diff:+p.diff.toFixed(1), prog },
+      accounts: accts.map(a => ({ name:a.name, plan:a.plan, actual:a.actual, forecast:a.forecast, delta:a.delta, share:a.share })),
+    };
+    const r = await fetch('/api/report-summary', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+    const d = await r.json(); aiText = d.summary; aiSource = d.source;
+  } catch (e) { aiText = null; }
+  page.innerHTML = insReportPageHtml(p, aiText, aiSource);
+  load.setAttribute('hidden', '');
+  page.removeAttribute('hidden');
 }
 function insCloseReport() { const ov = document.getElementById('ins-report'); if (ov) ov.classList.remove('open'); }
 function insReportHtml() {
@@ -304,7 +315,7 @@ function insReportHtml() {
       <div class="ins-report-page" id="ins-report-page" hidden></div>
     </div>`;
 }
-function insReportPageHtml(p) {
+function insReportPageHtml(p, aiText, aiSource) {
   const prog = Math.round(p.actual / p.forecast * 100);
   const profit = +(p.contract - p.forecast).toFixed(1);
   const marginRate = +(profit / p.contract * 100).toFixed(1);
@@ -346,9 +357,10 @@ function insReportPageHtml(p) {
           <span class="rp-badge ${p.status === '관리필요' ? 'warn' : 'ok'}">${p.status}</span>
         </div>
 
-        <h2 class="rp-h2">요약</h2>
-        <p class="rp-p">${p1}</p>
-        <p class="rp-p">${p2}</p>
+        <h2 class="rp-h2">요약 및 제언 ${aiText ? `<span class="rp-ai-tag">${aiSource === 'ai' ? '✦ AI 생성' : '샘플'}</span>` : ''}</h2>
+        ${aiText
+          ? aiText.split(/\n\n+/).map(t => `<p class="rp-p">${t.replace(/</g, '&lt;')}</p>`).join('')
+          : `<p class="rp-p">${p1}</p><p class="rp-p">${p2}</p>`}
 
         <h2 class="rp-h2">당월 누계 실적</h2>
         <table class="rp-metrics">
