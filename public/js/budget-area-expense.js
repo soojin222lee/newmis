@@ -8,15 +8,10 @@
 var renderBudgetAccountEditorBeforeExpenseSingleFinal = renderBudgetAccountEditor;
 renderBudgetAccountEditor = function(data, account) {
   if (account !== CATS[3]) return renderBudgetAccountEditorBeforeExpenseSingleFinal(data, account);
+  // 편집기 헤드([← 계정 선택] 버튼 + "경비 수정" 제목/설명)는 제거했습니다(5개 계정 공통 정책).
+  // 계정 선택으로 돌아가는 경로는 브라우저 뒤로가기(#/budget-adjust)로 유지됩니다.
   return `
     <div class="setup-editor expense-single-editor">
-      <div class="setup-editor-head">
-        <button class="budget-process-back" onclick="closeBudgetAccountEditor()">← 계정 선택</button>
-        <div>
-          <div class="setup-title">경비 수정</div>
-          <div class="setup-editor-sub">경비는 자원계획 그리드에서 소계정별 월별 계획을 직접 작성하며, 이 화면이 경비 예산내역 요약 역할을 함께 합니다.</div>
-        </div>
-      </div>
       ${renderExpensePlanPanel(data)}
     </div>`;
 };

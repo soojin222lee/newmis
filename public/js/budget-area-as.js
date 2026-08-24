@@ -199,15 +199,10 @@ renderBudgetAccountEditor = function(data, account) {
   ensureAsCostPlanAmount(data);
   if (account !== CATS[4]) return renderBudgetAccountEditorBeforeAsCost(data, account);
   const monthly = renderAccountMonthlyBudgetTable(data, account);
+  // 편집기 헤드([← 계정 선택] 버튼 + "A/S비 수정" 제목/설명)는 제거했습니다(5개 계정 공통 정책).
+  // 계정 선택으로 돌아가는 경로는 브라우저 뒤로가기(#/budget-adjust)로 유지됩니다.
   return `
     <div class="setup-editor">
-      <div class="setup-editor-head">
-        <button class="budget-process-back" onclick="closeBudgetAccountEditor()">← 계정 선택</button>
-        <div>
-          <div class="setup-title">A/S비 수정</div>
-          <div class="setup-editor-sub">A/S 프로젝트에 수립할 인건비, 외주비, 재료비, 경비 계정을 직접 입력합니다.</div>
-        </div>
-      </div>
       ${monthly}
       ${renderAsCostPanel(data)}
     </div>`;
@@ -216,7 +211,13 @@ renderBudgetAccountEditor = function(data, account) {
 var renderAccountMonthlyBudgetTableBeforeAsCost = renderAccountMonthlyBudgetTable;
 renderAccountMonthlyBudgetTable = function(data, account) {
   const html = renderAccountMonthlyBudgetTableBeforeAsCost(data, account);
-  return account === CATS[4] ? html.replaceAll(CATS[4], 'A/S비') : html;
+  if (account !== CATS[4]) return html;
+  // 라벨 치환 + 예산내역 겉박스 제거(5개 계정 공통 정책).
+  // .account-monthly-card 는 인건비·재료비도 함께 쓰므로 공유 CSS 대신 인라인 !important 로 자기 계정만 처리합니다.
+  return html.replaceAll(CATS[4], 'A/S비')
+    .replace('class="account-monthly-card"',
+      'class="account-monthly-card" style="border:0 !important;background:transparent !important;padding:0 !important;border-radius:0 !important"')
+    .replace('class="account-monthly-table"', 'class="account-monthly-table" style="background:#fff"');
 };
 
 // ── A/S 데코레이터: 집행계획 행 / 상세행 (원래 budget-status-4.js:2274~2297) ──

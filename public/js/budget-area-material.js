@@ -11,18 +11,26 @@ var renderBudgetAccountEditorBeforeMaterial = renderBudgetAccountEditor;
 renderBudgetAccountEditor = function(data, account) {
   if (account !== CATS[2]) return renderBudgetAccountEditorBeforeMaterial(data, account);
   const monthly = renderAccountMonthlyBudgetTable(data, account);
+  // 편집기 헤드([← 계정 선택] 버튼 + "재료비 수정" 제목/설명)는 제거했습니다(5개 계정 공통 정책).
+  // 계정 선택으로 돌아가는 경로는 브라우저 뒤로가기(#/budget-adjust)로 유지됩니다.
   return `
     <div class="setup-editor">
-      <div class="setup-editor-head">
-        <button class="budget-process-back" onclick="closeBudgetAccountEditor()">← 계정 선택</button>
-        <div>
-          <div class="setup-title">재료비 수정</div>
-          <div class="setup-editor-sub">상품재료비, 감가상각비, 기타재료비를 구분해 계획을 등록합니다.</div>
-        </div>
-      </div>
       ${monthly}
       ${renderMaterialPlanPanel(data)}
     </div>`;
+};
+
+// 재료비 예산내역 겉박스 제거(5개 계정 공통 정책).
+// .account-monthly-card 는 인건비·A/S도 함께 쓰므로 공유 CSS를 건드리지 않고, 반환된 HTML에
+// 인라인 !important 스타일만 덧붙여 자기 계정에서만 테두리·배경·패딩을 무력화합니다.
+var renderAccountMonthlyBudgetTableBeforeMaterialFlat = renderAccountMonthlyBudgetTable;
+renderAccountMonthlyBudgetTable = function(data, account) {
+  const html = renderAccountMonthlyBudgetTableBeforeMaterialFlat(data, account);
+  if (account !== CATS[2]) return html;
+  return html
+    .replace('class="account-monthly-card"',
+      'class="account-monthly-card" style="border:0 !important;background:transparent !important;padding:0 !important;border-radius:0 !important"')
+    .replace('class="account-monthly-table"', 'class="account-monthly-table" style="background:#fff"');
 };
 
 // 재료비 서브탭 분기(상품재료비/감가상각비/기타재료비) — 원래 budget-status-4.js:34
