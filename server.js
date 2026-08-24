@@ -1,6 +1,7 @@
-const http = require("http");
-const fs   = require("fs");
-const path = require("path");
+const http  = require("http");
+const https = require("https");
+const fs    = require("fs");
+const path  = require("path");
 
 const PORT = Number(process.env.PORT || 57291);
 
@@ -112,7 +113,76 @@ function handleAPI(pathname, method, body, res) {
     saveData(appData);
     res.writeHead(200); res.end(JSON.stringify(risk)); return;
   }
+  // 예산 변동 LLM 요약 (키는 환경변수, 브라우저는 이 서버 경유 → 키 노출 없음)
+  if (pathname === "/api/budget-summary" && method === "POST") {
+    handleBudgetSummary(body, res); return;
+  }
   res.writeHead(404); res.end(JSON.stringify({ error: "Not found" }));
+}
+
+// ── 예산 변동 요약 ──
+function localBudgetSummary(d) {
+  const acc = Array.isArray(d.accounts) ? d.accounts : [];
+  const ups = acc.filter(a => a.delta > 0).sort((x, y) => y.delta - x.delta);
+  const dns = acc.filter(a => a.delta < 0).sort((x, y) => x.delta - y.delta);
+  const f = arr => arr.map(a => `${a.name} ${a.delta >= 0 ? "+" : ""}${a.delta}억`).join(", ");
+  let s = `${d.project || "이 프로젝트"}의 총 실행예산은 ${d.total}억으로 버전 내내 동일하지만, 계정 간 배분이 이동했습니다. `;
+  if (dns.length) s += `${f(dns)}가 줄고, `;
+  if (ups.length) s += `${f(ups)}(으)로 옮겨갔습니다. `;
+  s += `총액은 그대로이므로 계정 간 '예산 돌려쓰기'이며, 특히 ${ups[0] ? ups[0].name : "외주비"} 증가 추세를 주의 깊게 볼 필요가 있습니다.`;
+  return s;
+}
+function buildBudgetPrompt(d) {
+  const lines = (d.accounts || []).map(a =>
+    `- ${a.name}: 기준 ${a.base}억 → 현재 ${a.current}억 (증감 ${a.delta >= 0 ? "+" : ""}${a.delta}억)`).join("\n");
+  return `다음은 한 SI 프로젝트의 버전별 계정 예산 배분 데이터입니다. 총 실행예산은 유지하면서 계정 간 배분만 이동하는 '예산 돌려쓰기'를 비개발자 PM이 이해하기 쉽게 3~4문장으로 간단히 요약해 주세요. 숫자는 억 단위로, 어느 계정이 늘고 줄었는지와 주의할 점 중심으로. 마크다운·불릿 없이 자연스러운 한국어 문장으로만 답하세요.
+
+프로젝트: ${d.project}
+총 실행예산: ${d.total}억 (계약 원가 기준 ${d.baseTotal}억)
+계정별 (기준 → 현재, 증감):
+${lines}`;
+}
+function callAnthropic(prompt, cb) {
+  const key = process.env.ANTHROPIC_API_KEY;
+  const model = process.env.LLM_MODEL || "claude-opus-5";
+  const payload = JSON.stringify({
+    model, max_tokens: 600,
+    output_config: { effort: "low" },
+    messages: [{ role: "user", content: prompt }],
+  });
+  const req = https.request({
+    hostname: "api.anthropic.com", path: "/v1/messages", method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "content-length": Buffer.byteLength(payload),
+    },
+  }, r => {
+    let b = ""; r.on("data", c => b += c);
+    r.on("end", () => {
+      try {
+        const j = JSON.parse(b);
+        if (r.statusCode >= 400) { cb(new Error(j.error && j.error.message ? j.error.message : "HTTP " + r.statusCode)); return; }
+        const text = (j.content || []).filter(x => x.type === "text").map(x => x.text).join("\n").trim();
+        cb(null, text || null);
+      } catch (e) { cb(e); }
+    });
+  });
+  req.on("error", cb);
+  req.setTimeout(20000, () => req.destroy(new Error("timeout")));
+  req.write(payload); req.end();
+}
+function handleBudgetSummary(body, res) {
+  if (!body || !Array.isArray(body.accounts)) { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid payload" })); return; }
+  const fallback = localBudgetSummary(body);
+  if (!process.env.ANTHROPIC_API_KEY) {
+    res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback" })); return;
+  }
+  callAnthropic(buildBudgetPrompt(body), (err, text) => {
+    if (err || !text) { res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback", note: err ? String(err.message || err) : "empty" })); return; }
+    res.writeHead(200); res.end(JSON.stringify({ summary: text, source: "ai" }));
+  });
 }
 
 server.listen(PORT, () => {

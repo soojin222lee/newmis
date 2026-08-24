@@ -83,10 +83,50 @@ function insVerPanel(p) {
     <div class="ins-ver-ctrl">
       <div class="ins-seg accts">${tabs.map(t => `<button class="${insVerAcct === t ? 'on' : ''}" onclick="selectInsVerAcct('${t}')">${t}</button>`).join('')}</div>
       <div class="ins-seg unit">${['금액','비율'].map(u => `<button class="${insVerUnit === u ? 'on' : ''}" onclick="setInsVerUnit('${u}')">${u}</button>`).join('')}</div>
+      <span style="flex:1"></span>
+      <button class="ins-ai-sum-btn" onclick="insBudgetAiSummary()">✦ AI 요약</button>
     </div>`;
   const chart = insVerAcct === '전체' ? insVerAllChart(cols) : insVerOneChart(cols, insVerAcct);
   return ctrl + `<div class="ins-ver-chart">${chart}</div>` + insVerTable(cols);
 }
+
+// ── 예산 변동 AI 요약 팝업 ──
+async function insBudgetAiSummary() {
+  const p = INS_PROJECTS[insProject];
+  const cols = insVerCols(p), last = cols[cols.length - 1], base = cols[0];
+  const payload = {
+    project: p.name, total: +p.budget.toFixed(1), baseTotal: +p.base.toFixed(1),
+    accounts: INS_ACCTS.map(a => ({
+      name: a.key, base: base.vals[a.key], current: last.vals[a.key],
+      delta: +(last.vals[a.key] - base.vals[a.key]).toFixed(1),
+    })),
+  };
+  openInsAiModal('loading');
+  try {
+    const r = await fetch('/api/budget-summary', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+    const d = await r.json();
+    openInsAiModal('done', d.summary, d.source);
+  } catch (e) { openInsAiModal('error'); }
+}
+function openInsAiModal(state, text, source) {
+  let m = document.getElementById('ins-ai-modal');
+  if (!m) {
+    m = document.createElement('div'); m.id = 'ins-ai-modal'; m.className = 'ins-ai-modal-overlay';
+    m.onclick = e => { if (e.target === m) closeInsAiModal(); };
+    document.body.appendChild(m);
+  }
+  let bodyHtml;
+  if (state === 'loading') bodyHtml = `<div class="ins-ai-loading"><span class="ins-ai-spin"></span>예산 변동을 요약하고 있어요…</div>`;
+  else if (state === 'error') bodyHtml = `<div class="ins-ai-loading">요약을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</div>`;
+  else bodyHtml = `<p class="ins-ai-text">${(text || '').replace(/</g,'&lt;')}</p>
+    <div class="ins-ai-src">${source === 'ai' ? '✦ AI 생성 요약' : '로컬 요약 (API 키 미설정 · 샘플)'}</div>`;
+  m.innerHTML = `<div class="ins-ai-modal">
+    <div class="ins-ai-mhead"><span><span class="ins-ai-badge">AI</span>예산 변동 요약</span><button class="ins-ai-x" onclick="closeInsAiModal()" aria-label="닫기">✕</button></div>
+    <div class="ins-ai-mbody">${bodyHtml}</div>
+  </div>`;
+  m.classList.add('open');
+}
+function closeInsAiModal() { const m = document.getElementById('ins-ai-modal'); if (m) m.classList.remove('open'); }
 // 개별 계정: 기준선(점선) + 컬럼 막대 + 기준 대비 증감
 function insVerOneChart(cols, acct) {
   const color = (INS_ACCTS.find(a => a.key === acct) || {}).c || '#2f6bed';
