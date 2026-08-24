@@ -12,7 +12,7 @@
 <link rel="stylesheet" href="/css/initiation-extra2.css?v=20260814-fontbump" />
 <link rel="stylesheet" href="/css/sk-theme.css?v=20260814-split2" />
 <link rel="stylesheet" href="/css/home.css?v=20260814-feed2" />
-<link rel="stylesheet" href="/css/ai-agent.css?v=20260814-setup2" />
+<link rel="stylesheet" href="/css/ai-agent.css?v=20260820-groundrules2" />
 <link rel="stylesheet" href="/css/si-project.css?v=20260819-ifredesign4" />
 <link rel="stylesheet" href="/css/insights.css?v=20260814-insborder2" />
 </head>
@@ -33,6 +33,7 @@
             <button class="nav-group-btn topnav-item" id="ngbtn-sub-ops">프로젝트 <span class="tb-caret">▾</span></button>
             <div class="topnav-menu" id="sub-ops">
               <button class="nav-sub-item" id="nav-si-project" onclick="showSIProject()">수주형 프로젝트</button>
+              <button class="nav-sub-item" id="nav-proposal-project" onclick="showProposalProject()">제안 프로젝트</button>
               <button class="nav-sub-item" id="nav-wg-project" onclick="showWGProject()">W/G 프로젝트</button>
               <button class="nav-sub-item" id="nav-internal-project" onclick="showInternalProject()">사내 프로젝트</button>
               <button class="nav-sub-item" id="nav-investment-project" onclick="showInvestmentProject()">투자프로젝트</button>
@@ -57,8 +58,8 @@
         </nav>
       </div>
       <div class="tb-right">
-        <button class="tb-guide" onclick="openSetupGuide()" title="팀 개발 셋업 가이드">
-          <span class="tb-guide-ic">&lt;/&gt;</span>셋업 가이드
+        <button class="tb-guide" onclick="openSetupGuide()" title="팀 그라운드 룰 · 개발 셋업">
+          <span class="tb-guide-ic">📋</span>그라운드 룰
         </button>
         <div class="tb-user">
           <div class="tb-user-name">이봄 님</div>
@@ -84,6 +85,7 @@
       <div class="screen" id="s-monthly-close"></div>
       <div class="screen" id="s-system-desc"></div>
       <div class="screen" id="s-si-project"></div>
+      <div class="screen" id="s-proposal-project"></div>
       <div class="screen" id="s-wg-project"></div>
       <div class="screen" id="s-internal-project"></div>
       <div class="screen" id="s-investment-project"></div>
@@ -97,79 +99,61 @@
   </main>
 </div>
 
-<!-- ════ MODAL: 팀 개발 셋업 가이드 ════ -->
+<!-- ════ MODAL: 팀 그라운드 룰 ════ -->
 <div class="setup-guide-overlay" id="setup-guide-overlay" onclick="if(event.target===this)closeSetupGuide()">
-  <div class="setup-guide-modal" role="dialog" aria-modal="true" aria-label="팀 개발 셋업 가이드">
+  <div class="setup-guide-modal" role="dialog" aria-modal="true" aria-label="팀 그라운드 룰">
     <div class="sg-head">
       <div>
-        <div class="sg-eyebrow">TEAM ONBOARDING</div>
-        <strong>팀 개발 셋업 가이드</strong>
+        <div class="sg-eyebrow">TEAM GROUND RULES</div>
+        <strong>팀 그라운드 룰</strong>
       </div>
       <button class="sg-x" onclick="closeSetupGuide()" aria-label="닫기">✕</button>
     </div>
     <div class="sg-body">
-      <div class="sg-claude">
-        <div class="sg-claude-top"><span class="sg-claude-badge">추천</span>Claude Code로 자동 셋업</div>
-        <p>아래 링크를 <b>Claude Code에서 열면</b> Claude가 알아서 소스를 받고, <code>develop</code> 브랜치로 전환하고, 서버를 실행하고, 담당 화면 브랜치까지 만들어 줘요.</p>
-        <div class="sg-claude-link">
-          <code>https://claude.ai/claude-code/onboard/NjtaO-J6OC7x</code>
-          <button class="sg-copy" onclick="copySetupText('https://claude.ai/claude-code/onboard/NjtaO-J6OC7x', this)">복사</button>
-        </div>
-        <p class="sg-hint">전제: GitHub 레포(<code>soojin222lee/newmis</code>) 접근 권한 + Node.js 설치.</p>
+      <!-- 브랜치 룰 -->
+      <div class="sg-rule">
+        <div class="sg-rule-head"><span class="sg-rule-ic">🌿</span>브랜치 룰</div>
+        <ul class="sg-rule-list">
+          <li>각자 <b>자기 이니셜 브랜치</b>(sj·cj…)에서만 작업 — 매번 새로 만들지 않기</li>
+          <li>작업 시작 전 <b>develop 최신 받기</b> — 브랜치는 자동 동기화 안 돼요</li>
+          <li><b>develop 직접 커밋 금지</b></li>
+          <li><code>main</code>은 안 써요 → <b><code>develop</code>이 최종본</b></li>
+        </ul>
       </div>
 
-      <div class="sg-or">또는 직접 셋업</div>
+      <!-- 커밋 메시지 룰 -->
+      <div class="sg-rule">
+        <div class="sg-rule-head"><span class="sg-rule-ic">✍️</span>커밋 메시지 룰</div>
+        <div class="sg-commit-fmt">[화면경로] 요약 - 이름</div>
+        <div class="sg-eg-label">예시</div>
+        <ul class="sg-rule-list">
+          <li><code>[프로젝트&gt;제안프로젝트] 화면 추가 - 수진</code></li>
+          <li><code>[수행원가&gt;원가조정] 계정별 URL 분리 - 수진</code></li>
+        </ul>
+        <p class="sg-hint" style="margin-top:7px">전역·문서는 <code>[공통]</code> · 한 줄로 간단히 (시간·유형은 생략)</p>
+      </div>
 
-      <p class="sg-lead">빌드가 필요 없는 <b>정적 SPA</b>예요. Node.js만 있으면 바로 실행됩니다. 외부 라이브러리가 없어 <code>npm install</code>도 필요 없어요.</p>
+      <!-- 시작 프롬프트: Claude에게 학습시킬 내용 -->
+      <div class="sg-rule">
+        <div class="sg-rule-head"><span class="sg-rule-ic">🤖</span>시작 프롬프트 (처음에 Claude에게 붙여넣기)</div>
+        <p style="font-size:13px;color:#55606f;margin:0 0 9px;line-height:1.55">비개발자 바이브코딩이니, 명령어는 몰라도 돼요. 작업 시작할 때 <b>아래 프롬프트를 Claude에게 그대로 붙여넣으면</b> 브랜치·커밋 규칙을 알아서 지켜줘요. (매번 하기 번거로우면 레포 <code>CLAUDE.md</code>에 저장 → 자동 적용)</p>
+        <div class="sg-code">
+          <pre>나는 &lt;이니셜&gt; 브랜치에서만 작업하는 비개발자야. 규칙 지켜줘:
+- develop·main 에 직접 커밋 금지 (내 브랜치에만 커밋)
+- 작업 시작 전 develop 최신을 내 브랜치로 받아줘
+- 커밋 메시지는 항상 "[화면경로] 요약 - 이름" 한 줄로 남겨줘
+   (예: [프로젝트&gt;제안프로젝트] 화면 추가 - 수진)
+- 커밋·푸시·develop 머지는 내가 시킬 때만 해줘</pre>
+          <button class="sg-copy" onclick="copySetupCode(this)">복사</button>
+        </div>
+      </div>
+
+      <div class="sg-or">개발 셋업</div>
 
       <div class="sg-repo">
         <span class="sg-repo-l">GIT REPO</span>
         <code id="sg-repo-url">https://github.com/soojin222lee/newmis.git</code>
         <button class="sg-copy" onclick="copySetupText('https://github.com/soojin222lee/newmis.git', this)">복사</button>
-      </div>
-
-      <div class="sg-step">
-        <div class="sg-step-n">1</div>
-        <div class="sg-step-main">
-          <h4>레포 클론 &amp; 실행</h4>
-          <div class="sg-code">
-            <pre>git clone https://github.com/soojin222lee/newmis.git
-cd newmis
-git checkout develop
-npm start</pre>
-            <button class="sg-copy" onclick="copySetupCode(this)">복사</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="sg-step">
-        <div class="sg-step-n">2</div>
-        <div class="sg-step-main">
-          <h4>브라우저 접속</h4>
-          <p><code>http://localhost:57291</code> — 변경이 안 보이면 <b>Ctrl+Shift+R</b>(하드 리로드).</p>
-        </div>
-      </div>
-
-      <div class="sg-step">
-        <div class="sg-step-n">3</div>
-        <div class="sg-step-main">
-          <h4>내 담당 화면 확인</h4>
-          <p>루트의 <code>CONTRIBUTING.md</code> — <b>화면 = 소스파일 = 담당자</b> 표에서 자기 화면의 JS/CSS 파일만 수정하세요. 공유 파일(<code>index.html</code> · <code>app.js</code> · <code>sk-theme.css</code>)만 조율하면 충돌이 거의 없어요.</p>
-        </div>
-      </div>
-
-      <div class="sg-step">
-        <div class="sg-step-n">4</div>
-        <div class="sg-step-main">
-          <h4>작업 브랜치 &amp; PR</h4>
-          <p><code>develop</code>이 팀 통합 브랜치예요. 여기서 화면별 브랜치를 따서 작업하고 <code>develop</code>으로 PR 하세요.</p>
-          <div class="sg-code">
-            <pre>git checkout develop &amp;&amp; git pull
-git checkout -b feature/&lt;내화면&gt;-&lt;이름&gt;</pre>
-            <button class="sg-copy" onclick="copySetupCode(this)">복사</button>
-          </div>
-          <p class="sg-hint">예: <code>feature/insights-jieun</code>. <code>main</code>은 안정 배포본이라 직접 커밋하지 않아요.</p>
-        </div>
       </div>
     </div>
   </div>
@@ -310,7 +294,7 @@ git checkout -b feature/&lt;내화면&gt;-&lt;이름&gt;</pre>
 
 <div id="toast"></div>
 
-<script src="/js/app.js?v=20260819-areasplit"></script>
+<script src="/js/app.js?v=20260820-ppdash"></script>
 <script src="/js/dashboard.js?v=20260814-feed2"></script>
 <script src="/js/risk-history.js?v=20260814-fontbump"></script>
 <script src="/js/budget-status.js?v=20260814-split1"></script>
@@ -338,7 +322,8 @@ git checkout -b feature/&lt;내화면&gt;-&lt;이름&gt;</pre>
 <script src="/js/closure-report.js?v=20260814-fontbump"></script>
 <script src="/js/monthly-close.js?v=20260814-fontbump"></script>
 <script src="/js/system-desc.js?v=20260814-fontbump"></script>
-<script src="/js/si-project.js?v=20260819-ifredesign5"></script>
+<script src="/js/si-project.js?v=20260820-ppdash"></script>
+<script src="/js/proposal-project.js?v=20260820-ppdash"></script>
 <script src="/js/wg-project.js?v=20260814-fontbump"></script>
 <script src="/js/internal-project.js?v=20260814-fontbump"></script>
 <script src="/js/investment-project.js?v=20260814-fontbump"></script>

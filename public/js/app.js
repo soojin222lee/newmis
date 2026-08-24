@@ -57,6 +57,7 @@ const SCREEN_ROUTES = {
   's-insights': 'insights',
   's-custom-report': 'custom-report',
   's-si-project': 'si-project',
+  's-proposal-project': 'proposal-project',
   's-wg-project': 'wg-project',
   's-internal-project': 'internal-project',
   's-investment-project': 'investment-project',
@@ -78,6 +79,7 @@ const ROUTE_ACTIONS = {
   'insights': () => (typeof showInsights === 'function' ? showInsights('overview') : null),
   'custom-report': () => showCustomReport(),
   'si-project': () => showSIProject(),
+  'proposal-project': () => showProposalProject(),
   'wg-project': () => showWGProject(),
   'internal-project': () => showInternalProject(),
   'investment-project': () => showInvestmentProject(),
@@ -194,6 +196,14 @@ function showSIProject() {
   setScreen('s-si-project');
   setNav('nav-si-project');
   renderSIProject();
+}
+
+function showProposalProject() {
+  openNavGroup('sub-ops');
+  ppView = 'list';
+  setScreen('s-proposal-project');
+  setNav('nav-proposal-project');
+  renderProposalProject();
 }
 
 function showWGProject() {
