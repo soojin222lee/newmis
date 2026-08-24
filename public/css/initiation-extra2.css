@@ -4680,6 +4680,91 @@
   border-color: #0ea5e9;
   box-shadow: none;
 }
+/* 연단위 계획 입력 — 월별보다 큰 금액을 담으므로 폭 확대 */
+.expense-year-input {
+  width: 130px;
+}
+
+/* ============================================================
+   경비 자원계획 — 수주형 상세(.sifr) 디자인 톤 매칭
+   (.sifr 래퍼가 --ink/--line/--brand 등 토큰과 기본 폰트를 상속)
+   ============================================================ */
+.expense-plan-sifr { margin-top: 4px; }
+.expense-plan-sifr .exp-plan-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin: 0 2px 12px; flex-wrap: wrap;
+}
+.expense-plan-sifr .exp-plan-head h2 {
+  font-size: 16px; font-weight: 700; margin: 0 0 5px;
+  letter-spacing: -.01em; color: var(--ink);
+}
+.expense-plan-sifr .exp-plan-cnt { font-size: 12px; font-weight: 600; color: var(--ink-3); margin-left: 4px; }
+.expense-plan-sifr .exp-plan-head p {
+  font-size: 12.5px; color: var(--ink-3); margin: 0; max-width: 660px; line-height: 1.55;
+}
+.expense-plan-sifr .exp-plan-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.expense-plan-sifr .exp-btn {
+  border: 1px solid var(--line); background: #fff; color: var(--ink-2);
+  font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 10px; cursor: pointer;
+}
+.expense-plan-sifr .exp-btn:hover { background: #FAFBFB; }
+.expense-plan-sifr .exp-btn.teal { border-color: var(--brand); color: var(--brand); }
+.expense-plan-sifr .exp-btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.expense-plan-sifr .exp-btn.primary:hover { background: #0C7359; }
+
+.expense-plan-sifr .exp-table-wrap {
+  border: 1px solid var(--line); border-radius: 14px; overflow-x: auto;
+  box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+}
+.expense-plan-sifr table { width: 100%; border-collapse: collapse; background: #fff; }
+/* 실적 펼침 시엔 열이 많아 억지로 압축하지 않고 내용 너비로 두어 가로 스크롤 */
+.expense-plan-sifr.actual-expanded table { width: max-content; min-width: 100%; }
+/* sk-theme.css의 `table th { background/color !important }`를 이기기 위해 !important 사용 */
+.expense-plan-sifr th {
+  font-size: 11.5px; color: var(--ink-3) !important; font-weight: 600; text-align: left;
+  padding: 11px 16px; border-bottom: 1px solid var(--line); background: #FCFCFD !important; white-space: nowrap;
+}
+.expense-plan-sifr th.num, .expense-plan-sifr td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.expense-plan-sifr td {
+  padding: 10px 16px; border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle; font-size: 13px; color: var(--ink);
+}
+.expense-plan-sifr tbody tr:last-child td { border-bottom: 0; }
+.expense-plan-sifr tbody tr:hover td { background: #FBFCFC; }
+.expense-plan-sifr .exp-acct { min-width: 168px; }
+.expense-plan-sifr .exp-acct strong { display: block; font-size: 13.5px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.expense-plan-sifr .exp-acct-sub { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-3); margin-top: 3px; white-space: nowrap; }
+.expense-plan-sifr .exp-total { font-weight: 700; color: var(--ink); }
+
+/* 입력 컬럼 강조 (연두) */
+.expense-plan-sifr th.exp-in-col { background: var(--brand-soft) !important; color: #0B6E55 !important; }
+.expense-plan-sifr td.exp-in-col { background: #F6FBF9; }
+.expense-plan-sifr .exp-year-input {
+  width: 100%; min-width: 120px; height: 34px; border: 1px solid #CBD5E1;
+  border-radius: 9px; background: #fff; color: var(--ink); font-size: 14px; font-weight: 700;
+  text-align: right; padding: 0 10px; font-variant-numeric: tabular-nums;
+}
+.expense-plan-sifr .exp-year-input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+
+.expense-plan-sifr td.danger { color: #DC2626; font-weight: 700; }
+.expense-plan-sifr tr.expense-over td { background: #FEF2F2; }
+
+/* 실적 헤더 [+] 토글 → 지난 26년 월별 실적 열 펼침 */
+.expense-plan-sifr .exp-actual-sumhead {
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px; white-space: nowrap;
+}
+.expense-plan-sifr .exp-actual-toggle {
+  flex: 0 0 auto; width: 20px; height: 20px; border: 1px solid var(--line); border-radius: 6px;
+  background: #fff; color: var(--ink-2); font-size: 13px; font-weight: 800; line-height: 1;
+  cursor: pointer; display: grid; place-items: center; padding: 0;
+}
+.expense-plan-sifr .exp-actual-toggle:hover { background: #fff; border-color: var(--brand); color: var(--brand); }
+.expense-plan-sifr .exp-actual-toggle.open { background: var(--brand); border-color: var(--brand); color: #fff; }
+/* 펼쳐진 월별 실적 열 — 옅은 회색 톤으로 구분 */
+.expense-plan-sifr th.exp-am-col { background: #F4F6F8 !important; color: var(--ink-3) !important; }
+.expense-plan-sifr td.exp-am-col { background: #FAFBFC; color: var(--ink-2); }
+.expense-plan-sifr .exp-actual-sum { font-weight: 700; }
+.expense-plan-sifr .exp-comment { margin-top: 10px; font-size: 12px; color: var(--ink-3); padding: 0 2px; line-height: 1.5; }
 .expense-over td {
   background: #fff1f2;
 }
