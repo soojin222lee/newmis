@@ -1,6 +1,7 @@
-const http = require("http");
-const fs   = require("fs");
-const path = require("path");
+const http  = require("http");
+const https = require("https");
+const fs    = require("fs");
+const path  = require("path");
 
 const PORT = Number(process.env.PORT || 57291);
 
@@ -112,7 +113,116 @@ function handleAPI(pathname, method, body, res) {
     saveData(appData);
     res.writeHead(200); res.end(JSON.stringify(risk)); return;
   }
+  // 예산 변동 LLM 요약 (키는 환경변수, 브라우저는 이 서버 경유 → 키 노출 없음)
+  if (pathname === "/api/budget-summary" && method === "POST") {
+    handleBudgetSummary(body, res); return;
+  }
+  // AI 보고서 요약/제언 (인사이트 보고서 생성)
+  if (pathname === "/api/report-summary" && method === "POST") {
+    handleReportSummary(body, res); return;
+  }
   res.writeHead(404); res.end(JSON.stringify({ error: "Not found" }));
+}
+
+// ── 예산 변동 요약 ──
+function localBudgetSummary(d) {
+  const acc = Array.isArray(d.accounts) ? d.accounts : [];
+  const ups = acc.filter(a => a.delta > 0).sort((x, y) => y.delta - x.delta);
+  const dns = acc.filter(a => a.delta < 0).sort((x, y) => x.delta - y.delta);
+  const f = arr => arr.map(a => `${a.name} ${a.delta >= 0 ? "+" : ""}${a.delta}억`).join(", ");
+  let s = `${d.project || "이 프로젝트"}의 총 실행예산은 ${d.total}억으로 버전 내내 동일하지만, 계정 간 배분이 이동했습니다. `;
+  if (dns.length) s += `${f(dns)}가 줄고, `;
+  if (ups.length) s += `${f(ups)}(으)로 옮겨갔습니다. `;
+  s += `총액은 그대로이므로 계정 간 '예산 돌려쓰기'이며, 특히 ${ups[0] ? ups[0].name : "외주비"} 증가 추세를 주의 깊게 볼 필요가 있습니다.`;
+  return s;
+}
+function buildBudgetPrompt(d) {
+  const lines = (d.accounts || []).map(a =>
+    `- ${a.name}: 기준 ${a.base}억 → 현재 ${a.current}억 (증감 ${a.delta >= 0 ? "+" : ""}${a.delta}억)`).join("\n");
+  return `다음은 한 SI 프로젝트의 버전별 계정 예산 배분 데이터입니다. 총 실행예산은 유지하면서 계정 간 배분만 이동하는 '예산 돌려쓰기'를 비개발자 PM이 이해하기 쉽게 3~4문장으로 간단히 요약해 주세요. 숫자는 억 단위로, 어느 계정이 늘고 줄었는지와 주의할 점 중심으로. 마크다운·불릿 없이 자연스러운 한국어 문장으로만 답하세요.
+
+프로젝트: ${d.project}
+총 실행예산: ${d.total}억 (계약 원가 기준 ${d.baseTotal}억)
+계정별 (기준 → 현재, 증감):
+${lines}`;
+}
+// OpenAI Chat Completions 호출 — 키는 환경변수(OPENAI_API_KEY)에서만 읽는다(코드/깃에 저장 안 함)
+function callLLM(prompt, cb) {
+  const key = process.env.OPENAI_API_KEY;
+  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const payload = JSON.stringify({
+    model,
+    messages: [
+      { role: "system", content: "너는 SI 프로젝트 예산 분석을 돕는 어시스턴트다. 비개발자 PM이 이해하기 쉽게 간결한 한국어 문장으로만 답한다. 마크다운·불릿은 쓰지 않는다." },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.3,
+    max_tokens: 600,
+  });
+  const req = https.request({
+    hostname: "api.openai.com", path: "/v1/chat/completions", method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "authorization": "Bearer " + key,
+      "content-length": Buffer.byteLength(payload),
+    },
+  }, r => {
+    let b = ""; r.on("data", c => b += c);
+    r.on("end", () => {
+      try {
+        const j = JSON.parse(b);
+        if (r.statusCode >= 400) { cb(new Error(j.error && j.error.message ? j.error.message : "HTTP " + r.statusCode)); return; }
+        const text = (((j.choices || [])[0] || {}).message || {}).content;
+        cb(null, text ? text.trim() : null);
+      } catch (e) { cb(e); }
+    });
+  });
+  req.on("error", cb);
+  req.setTimeout(20000, () => req.destroy(new Error("timeout")));
+  req.write(payload); req.end();
+}
+function handleBudgetSummary(body, res) {
+  if (!body || !Array.isArray(body.accounts)) { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid payload" })); return; }
+  const fallback = localBudgetSummary(body);
+  if (!process.env.OPENAI_API_KEY) {
+    res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback" })); return;
+  }
+  callLLM(buildBudgetPrompt(body), (err, text) => {
+    if (err || !text) { res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback", note: err ? String(err.message || err) : "empty" })); return; }
+    res.writeHead(200); res.end(JSON.stringify({ summary: text, source: "ai" }));
+  });
+}
+
+// ── AI 보고서 요약/제언 ──
+function localReportSummary(d) {
+  const m = d.metrics || {};
+  let s = `${d.project}은 계약금액 ${m.contract}억 규모로, 계약 원가 기준은 ${m.base}억입니다. 현재 실적은 ${m.actual}억(진행 ${m.prog}%), 실행예산은 ${m.budget}억, 예상원가는 ${m.forecast}억으로 예상 원가율은 ${m.rate}%입니다. `;
+  if ((m.diff || 0) >= 0) s += `예상 원가율이 계획 대비 +${m.diff}%p 상승해 수익성 저하가 우려됩니다. 주요 원인은 ${d.cause}이며, 현재 추세가 유지될 경우 실행예산 변경 검토가 필요합니다. 외주비 비중이 높아 우선 관리 대상입니다.`;
+  else s += `예상 원가율이 계획 대비 ${m.diff}%p 개선되어 계획 범위 내에서 안정적으로 관리되고 있습니다. 주요 요인은 ${d.cause}입니다.`;
+  return s;
+}
+function buildReportPrompt(d) {
+  const m = d.metrics || {};
+  const acc = (d.accounts || []).map(a => `  - ${a.name}: 계획 ${a.plan}억 / 실적 ${a.actual}억 / 예상 ${a.forecast}억 (계획대비 ${a.delta >= 0 ? "+" : ""}${a.delta}억, 비중 ${a.share}%)`).join("\n");
+  return `너는 SI 프로젝트 손익·원가 보고서를 쓰는 애널리스트다. 아래 데이터로 경영진 보고용 '요약 및 제언'을 한국어로 작성해라. 4~6문장, 자연스러운 문단(마크다운·불릿 금지). 현황 요약 → 핵심 원인/리스크 → 다음 행동 제언 순서로 쓰고, 숫자는 억·% 단위 그대로 사용해라.
+
+프로젝트: ${d.project} (상태: ${d.status})
+계약금액 ${m.contract}억 / 원가(계약) ${m.base}억 / 실행예산 ${m.budget}억
+실적 ${m.actual}억(진행 ${m.prog}%) / 예상원가 ${m.forecast}억 / 예상 원가율 ${m.rate}% (계획대비 ${m.diff >= 0 ? "+" : ""}${m.diff}%p)
+주요 원인: ${d.cause}
+계정별:
+${acc}`;
+}
+function handleReportSummary(body, res) {
+  if (!body || !body.project) { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid payload" })); return; }
+  const fallback = localReportSummary(body);
+  if (!process.env.OPENAI_API_KEY) {
+    res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback" })); return;
+  }
+  callLLM(buildReportPrompt(body), (err, text) => {
+    if (err || !text) { res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback", note: err ? String(err.message || err) : "empty" })); return; }
+    res.writeHead(200); res.end(JSON.stringify({ summary: text, source: "ai" }));
+  });
 }
 
 server.listen(PORT, () => {

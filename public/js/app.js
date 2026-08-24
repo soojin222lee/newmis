@@ -978,3 +978,117 @@ function pilotWhatIfHtml(text) {
     </div>
   </div>`;
 }
+
+// ============================================================
+//  6차-2 — 우측 고정 채팅 패널 + 메인 복귀
+//  ※ 공유 파일(app.js)의 기존 줄은 건드리지 않고 여기서 override 한다.
+//
+//  · 메인 chatbot으로 상세 화면에 진입하면 대화창이 닫히지 않고
+//    우측 레일로 "도킹"되어 같은 대화를 이어갈 수 있다.
+//  · 메인(s-main)으로 복귀하면 우측 레일은 자동으로 사라진다.
+//  · 도킹 상태에서는 헤더에 "메인으로" 버튼을 넣어 복귀 동선을 만든다.
+//    (상단 GNB 메뉴가 숨겨져 있어 로고 클릭과 함께 유일한 버튼 동선)
+// ============================================================
+
+function dockAiChat() {
+  const ov = document.getElementById('ai-chat-overlay');
+  if (!ov) return;
+  ov.classList.add('open', 'docked');
+  document.body.classList.add('chat-docked');
+  const head = ov.querySelector('.ai-chat-head');
+  if (head && !head.querySelector('.ai-chat-home')) {
+    const b = document.createElement('button');
+    b.className = 'ai-chat-home';
+    b.type = 'button';
+    b.textContent = '‹ 메인으로';
+    b.setAttribute('aria-label', '메인 화면으로 돌아가기');
+    b.onclick = function () { if (typeof showMain === 'function') showMain(); };
+    head.insertBefore(b, head.querySelector('.ai-chat-close'));
+  }
+  const inp = document.getElementById('ai-chat-query');
+  if (inp) setTimeout(() => inp.focus(), 60);
+}
+
+function undockAiChat() {
+  const ov = document.getElementById('ai-chat-overlay');
+  document.body.classList.remove('chat-docked');
+  if (!ov) return;
+  ov.classList.remove('docked');
+  const b = ov.querySelector('.ai-chat-home');
+  if (b) b.remove();
+}
+
+// 닫기는 도킹 해제까지 함께
+function closeAiChat() {
+  const ov = document.getElementById('ai-chat-overlay');
+  if (ov) ov.classList.remove('open');
+  undockAiChat();
+}
+
+// 채팅에서 화면으로 이동 — 대화를 닫지 않고 우측 레일로 유지
+function agentGoto(dest) {
+  if (dest === 'exec' || dest === 'exec-outsource') {
+    if (typeof showBudget === 'function') showBudget();
+    if (typeof openBudgetProjectScreen === 'function') openBudgetProjectScreen('budgetMock');
+    if (typeof goBudgetSetupStage === 'function') goBudgetSetupStage('edit');
+    if (dest === 'exec-outsource' && typeof openBudgetAccountEditor === 'function') openBudgetAccountEditor('외주비');
+  }
+  dockAiChat();
+}
+
+// Navi 길안내의 "버전 이력 확인"도 대화를 유지한 채 이동
+function chatGotoHistory() {
+  if (typeof openCostHistory === 'function') openCostHistory('budgetMock');
+  dockAiChat();
+}
+
+// 메인 복귀 감지 — s-main이 활성화되면 우측 레일을 자동으로 걷는다.
+// 공유 함수 setScreen을 덮지 않고 클래스 변화만 관찰한다.
+(function watchMainScreen() {
+  function bind() {
+    const main = document.getElementById('s-main');
+    if (!main) { setTimeout(bind, 300); return; }
+    new MutationObserver(function () {
+      if (main.classList.contains('active') && document.body.classList.contains('chat-docked')) closeAiChat();
+    }).observe(main, { attributes: true, attributeFilter: ['class'] });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+// ── Intent 라우팅 — 메인 복귀 의도를 앞단에 추가 (4차 라우팅 규칙 유지) ──
+function routeIntent(text) {
+  const t = text.replace(/\s/g, '');
+
+  // 메인 복귀 (대화로도 복귀 가능해야 함)
+  if (/(메인|홈|처음|첫화면|대시보드)/.test(t) && /(가|이동|보여|복귀|돌아|줘)/.test(t)) {
+    return { agent:'navi', render: () => {
+      aiAgentMsg('navi', '<div class="ai-result"><div class="ai-r-lead">메인 화면으로 이동합니다.</div></div>');
+      setTimeout(function () { if (typeof showMain === 'function') showMain(); }, 450);
+    } };
+  }
+
+  // Pilot — What-if 가정 시뮬레이션
+  if (/(하면|한다면|투입하면|늘리면|줄이면|시뮬|가정|만약)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotWhatIfHtml(text)) };
+  // Pilot — 자동 처리 내역
+  if (/(자동|자동반영|자동처리|AI가처리|알아서)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotAutoHtml()) };
+  // Pilot — 위임 등급 / 신뢰도
+  if (/(위임|자동조종|등급|얼마나믿|신뢰|정확)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotTrustHtml()) };
+  // Pilot — 오늘 브리핑
+  if (/(오늘|처리|해야|확인할|업무|리스크|브리핑|briefing)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotBriefingHtml()) };
+
+  // Q — 외주비 증가 원인
+  if (/외주비/.test(t) && /(왜|늘|증가|많|올랐|초과)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qOutsourceHtml()) };
+  // Q — 원가율
+  if (/원가율/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qCostRateHtml()) };
+  // Q — 계획 대비 실적
+  if (/(계획대비|실적|차이|비교|대비)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qComparePlanHtml()) };
+
+  // Navi — 화면/절차 길안내
+  if (/(찾아|어디|어떻게|화면|이동|바로가기|절차|방법|메뉴)/.test(t) || /(변경|수정).*(시작|하고싶|할래|할게|화면)/.test(t)) {
+    return { agent:'navi', render: () => aiAgentMsg('navi', naviRouteHtml(text)) };
+  }
+
+  if (/(왜|늘|줄|증가|감소|얼마|달라|초과|이유)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qGenericHtml(text)) };
+  return { agent:'q', render: () => aiAgentMsg('q', qGenericHtml(text)) };
+}
