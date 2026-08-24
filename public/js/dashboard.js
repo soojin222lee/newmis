@@ -1478,3 +1478,245 @@ function rerenderHomeFeed() {
   const ft = document.getElementById('home-foot');  if (ft) ft.innerHTML = homeFootHtml();
   const sg = document.querySelector('.hm-signal');  if (sg) sg.innerHTML = homeSignalBlockHtml();
 }
+
+// ============================================================
+//  6차 — 메인화면 단순화 (부문장님 지시: 구글 첫 화면처럼)
+//  ※ 앞의 렌더 함수들을 여기서 override 한다.
+//    (프로젝트 규칙: 뒤에 정의된 코드가 앞을 override)
+//
+//  · 상단 GNB 메뉴 / 우측 하단 네비 3개 → CSS로 숨김 (마크업은 유지)
+//  · 제거: 예시 프롬프트 · 재무 요약 · 월마감 사이클 · 확인이 필요한 것 · 하단 요약
+//  · 입력창 아래: 자동 처리 내역 + PJT 캐러셀(To-Do 건수순)
+//  · PJT 클릭 → 팝업에서 해당 PJT의 확인 항목 + 상세까지 표시
+// ============================================================
+
+// 예산 신호는 Headroom + Runway만 남긴다 (재무 요약·월마감 사이클 제거)
+function homeSignalBlockHtml() {
+  return homeHeadroomHtml() + homeRunwayHtml();
+}
+
+// ── 입력창 아래 영역 — 자동 처리 내역 + PJT 캐러셀 ──
+// 처리 완료된 항목은 제외한 "남은 확인 건수" (homeInsightCount는 전체 건수를 세므로 별도 정의)
+function homeOpenCountOf(id) {
+  return HOME_FEED.filter(i => i.proj === id && !homeFeedState[feedKey(i)]).length;
+}
+
+function homePjtStripHtml() {
+  // To-Do 많은 순 → 이름순. 담당 전체를 좌우로 훑을 수 있게 전부 노출한다.
+  const list = HOME_PROJECTS.slice().sort((a, b) => {
+    const d = homeOpenCountOf(b.id) - homeOpenCountOf(a.id);
+    return d !== 0 ? d : a.name.localeCompare(b.name);
+  });
+  const chips = list.map(p => {
+    const n = homeOpenCountOf(p.id);
+    return `
+        <button class="hm-ptab hm-pjt-chip ${n ? '' : 'calm'}" onclick="openHomePjtModal('${p.id}')"
+          title="${p.name} · 확인 필요 ${n}건">
+          <span class="hm-ptab-name">${p.name}</span>
+          <span class="hm-ptab-badge ${n ? 'on' : ''}">${n}</span>
+        </button>`;
+  }).join('');
+  const total = homeOpenCount();
+  return `
+    <div class="hm-under">
+      <div class="hm-under-bar">
+        <button class="hm-under-auto" onclick="openAutoDrawer()">
+          <span class="hm-under-auto-ic">⚡</span>자동 처리 내역 <b>${HOME_AUTO_COUNT}건</b> 보기
+        </button>
+        <span class="hm-under-sum">담당 ${HOME_PROJECTS.length}개 · 확인 필요 <b>${total}건</b></span>
+      </div>
+      <div class="hm-ptabs-carousel">
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(-1)" aria-label="이전 프로젝트">‹</button>
+        <div class="hm-ptabs-track" id="hm-ptabs-track">${chips}</div>
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(1)" aria-label="다음 프로젝트">›</button>
+      </div>
+    </div>`;
+}
+
+// ── PJT 팝업 ─────────────────────────────────────────────
+// list 모드: 해당 PJT의 확인 항목 카드 / detail 모드: 카드 상세 (팝업 안에서 전환)
+let homePjtModalProj = null;
+
+function openHomePjtModal(id) {
+  homePjtModalProj = id;
+  const ov = document.getElementById('home-pjt-modal');
+  if (!ov) return;
+  ov.innerHTML = homePjtModalHtml(id);
+  ov.classList.add('open');
+}
+function closeHomePjtModal() {
+  homePjtModalProj = null;
+  const ov = document.getElementById('home-pjt-modal');
+  if (ov) ov.classList.remove('open');
+}
+function homePjtModalRerender() {
+  if (!homePjtModalProj) return;
+  const ov = document.getElementById('home-pjt-modal');
+  if (ov) ov.innerHTML = homePjtModalHtml(homePjtModalProj);
+}
+
+function homePjtModalHtml(id) {
+  const items = HOME_FEED.filter(i => i.proj === id);
+  const open = items.filter(i => !homeFeedState[feedKey(i)]).length;
+  const f = (typeof homeFinOf === 'function') ? homeFinOf(id) : null;
+  let body;
+  if (!items.length) {
+    body = `<div class="hm-empty">이 프로젝트는 지금 확인할 항목이 없어요. 정상 범위입니다.</div>`;
+  } else {
+    const budget = items.filter(i => i.cat === 'budget');
+    const work = items.filter(i => i.cat === 'work');
+    body = '';
+    if (budget.length) body += `<div class="hm-feed-cat"><span class="hm-feed-cat-dot budget"></span>예산 점검 <em>MIS 데이터에서 발견한 시그널</em></div>` + budget.map(feedCard).join('');
+    if (work.length) body += `<div class="hm-feed-cat"><span class="hm-feed-cat-dot work"></span>업무 반영 <em>외부 이벤트 → 원가 영향 → 필요한 업무</em></div>` + work.map(feedCard).join('');
+  }
+  return `
+    <div class="hm-pm" onclick="event.stopPropagation()">
+      <div class="hm-pm-head">
+        <div>
+          <div class="hm-pm-eyebrow">${homeProjName(id)}</div>
+          <strong>확인이 필요한 것 ${open}가지</strong>
+          ${f ? `<div class="hm-pm-meta">계약 ${finAmt(f.cp)} · 수행원가 계획 ${finAmt(f.plan)} · 예상 원가율 ${finPct(f.rate)}</div>` : ''}
+        </div>
+        <button class="hm-drawer-x" onclick="closeHomePjtModal()" aria-label="닫기">✕</button>
+      </div>
+      <div class="hm-pm-body" id="home-pjt-body">${body}</div>
+    </div>`;
+}
+
+// 카드 상세 — 팝업 안에서 단계 전환 (뒤로 가면 목록 복귀)
+function homePjtDetailHtml(it) {
+  const pv = it.preview;
+  const key = feedKey(it);
+  const reflect = pv.mode === 'reflect';
+  const rows = pv.rows.map(r => `<tr><td class="l">${r[0]}</td><td class="n">${r[1]}</td><td class="n">${r[2]}</td><td class="n ${/^[+]/.test(r[3]) ? 'up' : /^-/.test(r[3]) ? 'down' : ''}">${r[3]}</td></tr>`).join('');
+  const fc = pv.forecast;
+  return `
+      <button class="hm-pm-back" onclick="homePjtModalRerender()">‹ 확인 항목 목록으로</button>
+      <div class="hm-pm-dt">
+        <div class="hm-pm-dt-h">
+          <span class="hm-pm-dt-eyebrow">${reflect ? '수행원가 반영 미리보기' : '원가 영향 확인'}</span>
+          <strong>${pv.title}</strong>
+          <span class="hm-pm-dt-meta">확정일 ${pv.date} · ${homeProjName(it.proj)}</span>
+        </div>
+        <div class="hm-drawer-sec-t">변경내용</div>
+        <table class="hm-drawer-tbl"><tr class="h"><td>항목</td><td class="n">현재 계획</td><td class="n">확정</td><td class="n">증감</td></tr>${rows}</table>
+        <div class="hm-drawer-sec-t">반영 후 Project Forecast</div>
+        <div class="hm-fc">
+          <div class="hm-fc-item"><span>예상원가</span><div class="hm-fc-v">${fc.cost[0]} <i>→</i> <b>${fc.cost[1]}</b></div><span class="hm-fc-d ${/^[+]/.test(fc.cost[2]) ? 'up' : /^-/.test(fc.cost[2]) ? 'down' : ''}">${fc.cost[2]}</span></div>
+          <div class="hm-fc-item"><span>예상 원가율</span><div class="hm-fc-v">${fc.rate[0]} <i>→</i> <b>${fc.rate[1]}</b></div><span class="hm-fc-d ${/^[+]/.test(fc.rate[2]) ? 'up' : /^-/.test(fc.rate[2]) ? 'down' : ''}">${fc.rate[2]}</span></div>
+        </div>
+        ${pv.warning ? `<div class="hm-drawer-warn">⚠ ${pv.warning}</div>` : ''}
+        <div class="hm-pm-dt-foot">
+          <button class="hm-btn" onclick="homePjtModalRerender()">취소</button>
+          ${reflect
+            ? `<button class="hm-btn pri" onclick="feedReflectApply('${key}')">원가 조정안에 반영</button>`
+            : `<button class="hm-btn pri" onclick="closeHomePjtModal();openCostAdjust('budgetMock')">원가 조정으로 이동 →</button>`}
+        </div>
+      </div>`;
+}
+
+// 팝업이 열려 있으면 상세를 드로어가 아니라 팝업 안에 그린다
+function openImpactDrawer(key) {
+  const it = HOME_FEED.find(i => feedKey(i) === key);
+  if (!it || !it.preview) return;
+  if (homePjtModalProj) {
+    const b = document.getElementById('home-pjt-body');
+    if (b) { b.innerHTML = homePjtDetailHtml(it); b.scrollTop = 0; return; }
+  }
+  impactDrawerKey = key;
+  const ov = document.getElementById('home-impact-drawer');
+  if (!ov) return;
+  ov.innerHTML = impactDrawerHtml(it);
+  ov.classList.add('open');
+}
+
+// 반영/확인 처리 후 팝업도 함께 갱신
+function feedReflectApply(key) {
+  homeFeedState[key] = 'reflected';
+  rerenderHomeFeed();
+  if (homePjtModalProj) homePjtModalRerender(); else closeImpactDrawer();
+  showToast('원가 조정안(Draft V5)에 반영했어요.');
+}
+
+// 메인 재렌더 — 제거된 영역은 더 이상 갱신하지 않는다
+function rerenderHomeFeed() {
+  const br = document.getElementById('home-brief'); if (br) br.innerHTML = homeBriefHtml();
+  const sg = document.querySelector('.hm-signal'); if (sg) sg.innerHTML = homeSignalBlockHtml();
+  const un = document.getElementById('home-under'); if (un) un.innerHTML = homePjtStripHtml();
+}
+
+// ── 메인화면 — 단순화 버전 ──
+function renderPmDashboard() {
+  homeSelectedProject = 'all';
+  homeCat = 'all';
+
+  return `
+    <div class="ai-workspace home2 home-simple">
+      <section class="home2-main centered">
+        <div class="home2-hero center">
+          <h1>좋은 아침이에요, 봄님</h1>
+          <p class="home2-brief" id="home-brief">${homeBriefHtml()}</p>
+        </div>
+
+        <div class="home2-search">
+          <span class="home2-orb" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
+              <path d="M12 4.4V8"/>
+              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
+              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <path d="M2 13v3M22 13v3"/>
+            </svg>
+          </span>
+          <input id="ai-main-query" type="text" placeholder="원하는 업무를 입력하세요 — 화면을 찾거나, 숫자의 이유를 묻거나, 다음 업무를 요청해보세요"
+            onkeydown="if(event.key==='Enter') askFromHome()">
+          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+        </div>
+
+        <div id="home-under">${homePjtStripHtml()}</div>
+
+        <div class="hm-signal">${homeSignalBlockHtml()}</div>
+      </section>
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
+    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}
+
+// ── 6차-3 — 메인화면에서 예산 여력(Headroom)·Runway 제거 ──
+// 부문장님 지시(구글 첫 화면처럼 단순화)에 따라 메인에서는 걷어낸다.
+// 함수 자체는 남겨두어 PJT 팝업/상세화면에서 재사용할 수 있게 한다.
+function renderPmDashboard() {
+  homeSelectedProject = 'all';
+  homeCat = 'all';
+
+  return `
+    <div class="ai-workspace home2 home-simple">
+      <section class="home2-main centered">
+        <div class="home2-hero center">
+          <h1>좋은 아침이에요, 봄님</h1>
+          <p class="home2-brief" id="home-brief">${homeBriefHtml()}</p>
+        </div>
+
+        <div class="home2-search">
+          <span class="home2-orb" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
+              <path d="M12 4.4V8"/>
+              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
+              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <path d="M2 13v3M22 13v3"/>
+            </svg>
+          </span>
+          <input id="ai-main-query" type="text" placeholder="원하는 업무를 입력하세요 — 화면을 찾거나, 숫자의 이유를 묻거나, 다음 업무를 요청해보세요"
+            onkeydown="if(event.key==='Enter') askFromHome()">
+          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+        </div>
+
+        <div id="home-under">${homePjtStripHtml()}</div>
+      </section>
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
+    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}

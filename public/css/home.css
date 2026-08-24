@@ -563,3 +563,82 @@ button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: tr
   .hm-fin-note { margin-left: 0; width: 100%; }
   .hm-cy-sys { margin-left: 0; width: 100%; }
 }
+
+/* ==========================================================================
+   6차 — 메인화면 단순화 (부문장님 지시)
+   상단 GNB 메뉴 · 우측 하단 네비 3개는 마크업을 남기고 숨김 처리만 한다.
+   되살릴 때는 아래 두 규칙만 지우면 된다.
+   ========================================================================== */
+
+/* 상단 메뉴 숨김 — 로고(.tb-brand)와 사용자 영역(.tb-right)은 유지.
+   로고에 showMain()이 걸려 있어 메인 복귀 동선으로 쓴다. */
+.topbar .topnav { display: none !important; }
+
+/* 우측 하단 바로가기 3개(Budget Navi/Q/Pilot) 숨김 —
+   역할은 메인 chatbot의 intent 라우팅(routeIntent)으로 통합됨 */
+.quick-shortcuts { display: none !important; }
+
+/* ── 단순화 레이아웃 ── */
+.home-simple .home2-hero.center { margin: 52px 0 26px; }
+.home-simple .home2-search { margin-bottom: 4px; }
+
+/* 입력창 아래 영역 */
+.hm-under { margin: 14px 0 30px; }
+.hm-under-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.hm-under-auto {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  background: linear-gradient(90deg, #f5f2ff, #f5fbfb);
+  border: 1px solid #e5e0fb; border-radius: 999px; padding: 7px 14px;
+  font-size: 12.5px; font-weight: 700; color: var(--sk-ink);
+}
+.hm-under-auto:hover { border-color: #cfc5f7; }
+.hm-under-auto b { color: #5546c9; font-weight: 900; }
+.hm-under-auto-ic {
+  width: 19px; height: 19px; flex: none; border-radius: 50%;
+  background: #6c5ce7; color: #fff; font-size: 10px; display: grid; place-items: center;
+}
+.hm-under-sum { margin-left: auto; font-size: 12px; font-weight: 700; color: #8a94a6; }
+.hm-under-sum b { color: var(--sk-red); font-weight: 900; }
+
+/* PJT 캐러셀 칩 — 클릭하면 팝업 */
+.hm-pjt-chip { cursor: pointer; }
+.hm-pjt-chip.calm { opacity: .62; }
+.hm-pjt-chip .hm-ptab-badge.on { background: var(--sk-red); color: #fff; }
+
+/* ── PJT 팝업 ── */
+.hm-modal-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  background: rgba(20, 22, 30, 0.42);
+  display: none; align-items: center; justify-content: center; padding: 24px;
+}
+.hm-modal-overlay.open { display: flex; }
+.hm-pm {
+  width: min(760px, 100%); max-height: 86vh; display: flex; flex-direction: column;
+  background: #fff; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 24px 60px -24px rgba(11, 18, 32, 0.5);
+}
+.hm-pm-head { display: flex; align-items: flex-start; gap: 10px; padding: 18px 20px; border-bottom: 1px solid var(--sk-border); }
+.hm-pm-eyebrow { font-size: 11.5px; font-weight: 800; color: #98a2b3; }
+.hm-pm-head strong { display: block; font-size: 18px; font-weight: 900; color: var(--sk-ink); margin-top: 2px; }
+.hm-pm-meta { font-size: 12px; color: #8a94a6; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.hm-pm-head .hm-drawer-x { margin-left: auto; }
+.hm-pm-body { flex: 1; overflow-y: auto; padding: 16px 20px 20px; background: #fafbfc; }
+
+/* 팝업 안 상세 단계 */
+.hm-pm-back {
+  border: 0; background: transparent; cursor: pointer;
+  font-size: 12.5px; font-weight: 800; color: #5546c9; padding: 0 0 10px;
+}
+.hm-pm-back:hover { text-decoration: underline; }
+.hm-pm-dt { background: #fff; border: 1px solid var(--sk-border); border-radius: 12px; padding: 16px 18px; }
+.hm-pm-dt-h { margin-bottom: 16px; }
+.hm-pm-dt-eyebrow { font-size: 11.5px; font-weight: 800; color: #98a2b3; }
+.hm-pm-dt-h strong { display: block; font-size: 16px; font-weight: 900; color: var(--sk-ink); margin-top: 2px; }
+.hm-pm-dt-meta { font-size: 12px; color: #8a94a6; }
+.hm-pm-dt-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--sk-border); }
+
+@media (max-width: 720px) {
+  .hm-modal-overlay { padding: 0; }
+  .hm-pm { width: 100%; max-height: 100vh; border-radius: 0; }
+  .hm-under-sum { margin-left: 0; width: 100%; }
+}
