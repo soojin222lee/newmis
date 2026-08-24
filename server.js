@@ -121,6 +121,10 @@ function handleAPI(pathname, method, body, res) {
   if (pathname === "/api/report-summary" && method === "POST") {
     handleReportSummary(body, res); return;
   }
+  // AI 대화 (메인 chatbot) — 선택된 PJT 숫자를 문맥으로 함께 받는다
+  if (pathname === "/api/chat" && method === "POST") {
+    handleChat(body, res); return;
+  }
   res.writeHead(404); res.end(JSON.stringify({ error: "Not found" }));
 }
 
@@ -229,3 +233,69 @@ server.listen(PORT, () => {
   console.log(`\n✅ PM 대시보드가 실행 중입니다.`);
   console.log(`   http://localhost:${PORT}\n`);
 });
+
+
+// ── AI 대화 (메인 chatbot) ─────────────────────────────────
+// 브라우저는 이 서버를 경유하므로 OPENAI_API_KEY가 클라이언트로 나가지 않는다.
+// 키가 없으면 문맥 숫자만으로 규칙 기반 답변을 만들어 화면이 비지 않게 한다.
+function buildChatPrompt(d) {
+  const q = String(d.question || "").slice(0, 500);
+  const c = d.context || {};
+  const lines = [];
+  if (c.project) lines.push("대상 프로젝트: " + c.project);
+  else lines.push("대상: 담당 전체 프로젝트");
+  const f = c.finance;
+  if (f) {
+    lines.push("계약금액 " + f.cp + "억 / 수행원가 계획 " + f.plan + "억 / 실적 " + f.act + "억 / 잔여 " + f.left + "억");
+    lines.push("예상 원가율 " + f.rate + "% (관리 기준선 85%)");
+    lines.push("당월 계획 대비 실적 차이 " + f.mgap + "억");
+    if (Array.isArray(f.accounts) && f.accounts.length) {
+      lines.push("계정별 (계획/실적/잔여/여력%):");
+      f.accounts.forEach(function (a) {
+        lines.push("- " + a.name + ": " + a.plan + "억 / " + a.act + "억 / " + a.left + "억 / " + a.pct + "%");
+      });
+    }
+  }
+  if (Array.isArray(c.todos) && c.todos.length) {
+    lines.push("확인이 필요한 항목: " + c.todos.join(" · "));
+  }
+  return "아래는 실행예산 시스템의 현재 데이터다. 이 숫자만 근거로 답하고, 없는 수치는 추측하지 마라.\n\n"
+    + lines.join("\n") + "\n\n질문: " + q;
+}
+
+function localChatAnswer(d) {
+  const c = d.context || {};
+  const f = c.finance;
+  const who = c.project ? c.project : "담당 전체 프로젝트";
+  if (!f) return who + "에 대한 질문을 받았습니다. 화면에서 프로젝트를 선택하면 더 구체적으로 답할 수 있어요.";
+  let s = who + "은 계약금액 " + f.cp + "억, 수행원가 계획 " + f.plan + "억이고 실적은 "
+    + f.act + "억입니다. 잔여는 " + f.left + "억이며 예상 원가율은 " + f.rate + "%입니다. ";
+  s += (f.rate >= 85)
+    ? "관리 기준선 85%를 넘어 손익 조기경보 대상입니다. "
+    : "관리 기준선 85% 이내입니다. ";
+  const tight = Array.isArray(f.accounts)
+    ? f.accounts.slice().sort(function (a, b) { return a.pct - b.pct; })[0] : null;
+  if (tight) s += "여력이 가장 낮은 계정은 " + tight.name + "으로 " + tight.pct + "%(잔여 " + tight.left + "억)입니다. ";
+  if (Array.isArray(c.todos) && c.todos.length) {
+    s += "지금 확인이 필요한 항목은 " + c.todos.length + "건입니다: " + c.todos.join(", ") + ".";
+  }
+  return s;
+}
+
+function handleChat(body, res) {
+  if (!body || typeof body.question !== "string" || !body.question.trim()) {
+    res.writeHead(400); res.end(JSON.stringify({ error: "Invalid payload" })); return;
+  }
+  const fallback = localChatAnswer(body);
+  if (!process.env.OPENAI_API_KEY) {
+    res.writeHead(200); res.end(JSON.stringify({ answer: fallback, source: "fallback" })); return;
+  }
+  callLLM(buildChatPrompt(body), function (err, text) {
+    if (err || !text) {
+      res.writeHead(200);
+      res.end(JSON.stringify({ answer: fallback, source: "fallback", note: err ? String(err.message || err) : "empty" }));
+      return;
+    }
+    res.writeHead(200); res.end(JSON.stringify({ answer: text, source: "ai" }));
+  });
+}
