@@ -382,3 +382,49 @@ body.chat-docked { padding-right: 392px; }
   .ai-chat-overlay.docked .ai-chat-modal { width: 100%; height: 78vh; max-height: 78vh; border-radius: 16px; border: 1px solid var(--sk-border); }
   body.chat-docked { padding-right: 0; }
 }
+
+/* ==========================================================================
+   8차 — AI 어시스턴트 대화창을 중앙 대형으로 · 확인 항목 병합
+   ========================================================================== */
+
+/* 도킹이 아닐 때는 화면 중앙에 크게 (여러 질의를 한 창에서 이어가도록) */
+.ai-chat-overlay:not(.docked) { align-items: center; justify-content: center; padding: 28px; }
+.ai-chat-overlay:not(.docked) .ai-chat-modal {
+  width: 900px; max-width: 94vw;
+  height: 84vh; max-height: 84vh;
+}
+@media (max-width: 900px) {
+  .ai-chat-overlay:not(.docked) { padding: 12px; }
+  .ai-chat-overlay:not(.docked) .ai-chat-modal { width: 100%; height: 90vh; max-height: 90vh; }
+}
+
+/* ── 확인 항목 목록 (대화 안) ── */
+.ai-iss-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.ai-iss {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: #fff; border: 1px solid var(--sk-border); border-left: 3px solid #c3cad4;
+  border-radius: 10px; padding: 11px 13px;
+}
+.ai-iss:hover { border-color: var(--sk-border-strong); box-shadow: 0 6px 18px -14px rgba(11,18,32,.5); }
+.ai-iss.danger  { border-left-color: var(--sk-red); }
+.ai-iss.warning { border-left-color: #e39a2a; }
+.ai-iss.info    { border-left-color: var(--sk-blue); }
+.ai-iss-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 5px; }
+.ai-iss-tag { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; background: #f2f4f7; color: #6a7382; }
+.ai-iss-tag.danger  { background: #fde8ec; color: #b8283f; }
+.ai-iss-tag.warning { background: #fdf3e0; color: #9a6206; }
+.ai-iss-tag.info    { background: #e8f1fd; color: #1f5fbf; }
+.ai-iss-proj { font-size: 10.5px; font-weight: 700; color: #98a2b3; }
+.ai-iss-t { display: block; font-size: 13.5px; font-weight: 800; color: var(--sk-ink); line-height: 1.45; }
+.ai-iss-go { display: block; font-size: 11px; font-weight: 800; color: #5546c9; margin-top: 5px; }
+
+/* ── 이슈 상세 (대화 안) ── */
+.ai-iss-kpis { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
+.ai-iss-kpis > div {
+  flex: 1; min-width: 120px; background: #f7f8fb; border-radius: 10px; padding: 9px 11px;
+}
+.ai-iss-kpis span { display: block; font-size: 10.5px; font-weight: 800; color: #8a94a6; }
+.ai-iss-kpis strong { display: block; font-size: 15px; font-weight: 900; color: var(--sk-ink); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.ai-iss-kpis strong.up { color: var(--sk-red); } .ai-iss-kpis strong.down { color: var(--sk-blue); }
+.ai-iss-kpis em { font-style: normal; font-size: 11.5px; }
+.ai-iss-sec { font-size: 12px; font-weight: 900; color: var(--sk-ink); margin: 16px 0 8px; }

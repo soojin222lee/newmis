@@ -1687,7 +1687,7 @@ function renderPmDashboard() {
 // 부문장님 지시(구글 첫 화면처럼 단순화)에 따라 메인에서는 걷어낸다.
 // 함수 자체는 남겨두어 PJT 팝업/상세화면에서 재사용할 수 있게 한다.
 function renderPmDashboard() {
-  homeSelectedProject = 'all';
+  // 선택된 PJT는 화면을 다녀와도 유지한다 (대화 문맥이므로 초기화하지 않음)
   homeCat = 'all';
 
   return `
@@ -1719,4 +1719,144 @@ function renderPmDashboard() {
     </div>
     <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
     <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}
+
+// ============================================================
+//  7차 — 메뉴 토글 · PJT 선택 문맥 · 간결 팝업 · LLM 대화
+//  ※ 공유 파일(index.html · app.js)은 수정하지 않고,
+//    버튼은 JS로 주입하고 함수는 파일 끝 override로 처리한다.
+// ============================================================
+
+// ── ③ 상단 메뉴 토글 버튼 (구매시스템 ▦ 버튼과 동일 사이즈의 회색 버튼) ──
+// index.html이 공유 파일이라 마크업을 넣지 않고 .tb-right에 주입한다.
+function homeMenuToggle() {
+  document.body.classList.toggle('menu-shown');
+  const on = document.body.classList.contains('menu-shown');
+  const b = document.getElementById('tb-menu-toggle');
+  if (b) {
+    b.classList.toggle('on', on);
+    b.title = on ? '상단 메뉴 숨기기' : '상단 메뉴 보기';
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+}
+
+(function injectMenuToggle() {
+  function bind() {
+    const right = document.querySelector('.topbar .tb-right');
+    if (!right) { setTimeout(bind, 300); return; }
+    if (document.getElementById('tb-menu-toggle')) return;
+    const b = document.createElement('button');
+    b.id = 'tb-menu-toggle';
+    b.className = 'tb-menu-toggle';
+    b.type = 'button';
+    b.textContent = '☰';
+    b.title = '상단 메뉴 보기';
+    b.setAttribute('aria-label', '상단 메뉴 표시 전환');
+    b.setAttribute('aria-pressed', 'false');
+    b.onclick = homeMenuToggle;
+    const apps = right.querySelector('.tb-apps');
+    if (apps) right.insertBefore(b, apps); else right.appendChild(b);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+// ── ② PJT 캐러셀 = 선택 (팝업 아님) ──
+// 선택된 PJT는 chatbot 질의의 문맥이 된다.
+function selectHomePjt(id) {
+  homeSelectedProject = (homeSelectedProject === id) ? 'all' : id;
+  const un = document.getElementById('home-under');
+  if (un) un.innerHTML = homePjtStripHtml();
+}
+function clearHomePjt() { selectHomePjt(homeSelectedProject); }
+
+function homePjtLabel() {
+  return homeSelectedProject === 'all' ? '' : homeProjName(homeSelectedProject);
+}
+
+function homePjtStripHtml() {
+  const list = HOME_PROJECTS.slice().sort((a, b) => {
+    const d = homeOpenCountOf(b.id) - homeOpenCountOf(a.id);
+    return d !== 0 ? d : a.name.localeCompare(b.name);
+  });
+  const chips = list.map(p => {
+    const n = homeOpenCountOf(p.id);
+    const on = homeSelectedProject === p.id;
+    return `
+        <button class="hm-ptab hm-pjt-chip ${on ? 'picked' : ''} ${n ? '' : 'calm'}"
+          onclick="selectHomePjt('${p.id}')" aria-pressed="${on}"
+          title="${p.name} · 확인 필요 ${n}건">
+          ${on ? '<span class="hm-pjt-check">✓</span>' : ''}
+          <span class="hm-ptab-name">${p.name}</span>
+          <span class="hm-ptab-badge ${n ? 'on' : ''}">${n}</span>
+        </button>`;
+  }).join('');
+  const picked = homePjtLabel();
+  const ctx = picked
+    ? `<div class="hm-ctx"><span class="hm-ctx-l">선택된 프로젝트</span><b>${picked}</b>
+         <span class="hm-ctx-d">이 프로젝트를 기준으로 답변해요</span>
+         <button class="hm-ctx-x" onclick="clearHomePjt()" aria-label="선택 해제">✕</button></div>`
+    : `<div class="hm-ctx off"><span class="hm-ctx-d">프로젝트를 선택하면 그 프로젝트를 기준으로 답변해요</span></div>`;
+  return `
+    <div class="hm-under">
+      ${ctx}
+      <div class="hm-under-bar">
+        <button class="hm-under-auto" onclick="openAutoDrawer()">
+          <span class="hm-under-auto-ic">⚡</span>자동 처리 내역 <b>${HOME_AUTO_COUNT}건</b> 보기
+        </button>
+        <span class="hm-under-sum">담당 ${HOME_PROJECTS.length}개 · 확인 필요 <b>${homeOpenCount()}건</b></span>
+      </div>
+      <div class="hm-ptabs-carousel">
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(-1)" aria-label="이전 프로젝트">‹</button>
+        <div class="hm-ptabs-track" id="hm-ptabs-track">${chips}</div>
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(1)" aria-label="다음 프로젝트">›</button>
+      </div>
+    </div>`;
+}
+
+// ── 간결 팝업 — "AI 추천 변경안" 제거, 하단 버튼으로 화면 이동 ──
+function homePjtModalHtml(id) {
+  const items = HOME_FEED.filter(i => i.proj === id && !homeFeedState[feedKey(i)]);
+  let body;
+  if (!items.length) {
+    body = `<div class="hm-empty">이 프로젝트는 지금 확인할 항목이 없어요. 정상 범위입니다.</div>`;
+  } else {
+    body = items.map(it => homePjtSlimCard(it)).join('');
+  }
+  return `
+    <div class="hm-pm" onclick="event.stopPropagation()">
+      <div class="hm-pm-head">
+        <div>
+          <div class="hm-pm-eyebrow">${homeProjName(id)}</div>
+          <strong>확인이 필요한 것 ${items.length}가지</strong>
+        </div>
+        <button class="hm-drawer-x" onclick="closeHomePjtModal()" aria-label="닫기">✕</button>
+      </div>
+      <div class="hm-pm-body" id="home-pjt-body">${body}</div>
+      <div class="hm-pm-foot">
+        <button class="hm-btn" onclick="closeHomePjtModal()">닫기</button>
+        <button class="hm-btn pri" onclick="closeHomePjtModal();openCostStatus('budgetMock')">원가 현황으로 이동 →</button>
+        <button class="hm-btn pri" onclick="closeHomePjtModal();openCostAdjust('budgetMock')">원가 조정으로 이동 →</button>
+      </div>
+    </div>`;
+}
+
+// 카드 1장 — 태그 · 제목 · 핵심 수치 한 줄 (추천 변경안 없음)
+function homePjtSlimCard(it) {
+  const ai = (typeof homeAiOf === 'function') ? homeAiOf(it) : null;
+  const sev = it.sev === 'danger' ? 'danger' : it.sev === 'warning' ? 'warning' : 'info';
+  let line = '';
+  if (it.change) line = `${it.change.fromL} ${it.change.from} → ${it.change.toL} ${it.change.to} <b class="up">${it.change.delta}</b>`;
+  else if (it.dual) line = `${it.dual.leftL} ${it.dual.left} → ${it.dual.rightL} ${it.dual.right} <b class="up">${it.dual.delta}</b>`;
+  else if (it.flow) line = `${it.flow.sSub} ${it.flow.sVal} · ${it.flow.iL} <b class="${/-/.test(it.flow.iVal) ? 'down' : 'up'}">${it.flow.iVal}</b>`;
+  return `
+      <div class="hm-slim ${sev}">
+        <div class="hm-slim-top">
+          <span class="hm-slim-tag ${sev}">${it.cat === 'budget' ? '예산 점검' : '업무 반영'} · ${it.sub}</span>
+          ${ai ? `<span class="hm-chip impact ${/^-/.test(ai.impact) ? 'down' : 'up'}">임팩트 ${ai.impact}</span>
+                  <span class="hm-chip due ${ai.dueDays <= 3 ? 'near' : ''}">D-${ai.dueDays}</span>` : ''}
+        </div>
+        <div class="hm-slim-t">${it.title}</div>
+        ${line ? `<div class="hm-slim-n">${line}</div>` : ''}
+      </div>`;
 }

@@ -1092,3 +1092,282 @@ function routeIntent(text) {
   if (/(왜|늘|줄|증가|감소|얼마|달라|초과|이유)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qGenericHtml(text)) };
   return { agent:'q', render: () => aiAgentMsg('q', qGenericHtml(text)) };
 }
+
+// ============================================================
+//  7차 — PJT 문맥 대화 · 이슈 팝업 트리거 · 실제 LLM 응답
+//  ※ 공유 파일 app.js의 기존 줄은 건드리지 않고 파일 끝 override.
+//
+//  라우팅 우선순위
+//   ① 메인 복귀  ② 이슈·확인사항 → 팝업  ③ Pilot(가정/자동/위임/브리핑)
+//   ④ Q(원가율/외주비/비교)  ⑤ Navi(화면·절차)  ⑥ 그 외 → 서버 경유 LLM
+// ============================================================
+
+// 선택된 PJT를 대화 문맥으로 넘긴다 (숫자 근거를 함께 보내 LLM이 추측하지 않게 함)
+function chatPjtContext() {
+  const id = (typeof homeSelectedProject !== 'undefined') ? homeSelectedProject : 'all';
+  const name = (id && id !== 'all' && typeof homeProjName === 'function') ? homeProjName(id) : null;
+  const ctx = { project: name };
+  try {
+    if (typeof homeFinOf === 'function') {
+      const f = homeFinOf(id);
+      ctx.finance = {
+        cp: +f.cp.toFixed(2), plan: +f.plan.toFixed(2),
+        act: +f.act.toFixed(2), left: +f.left.toFixed(2),
+        rate: +f.rate.toFixed(1), mgap: +f.mgap.toFixed(3),
+        accounts: f.acc.filter(a => a.plan > 0).map(a => ({
+          name: a.name, plan: +a.plan.toFixed(2), act: +a.act.toFixed(2),
+          left: +a.left.toFixed(2), pct: +a.pct.toFixed(1),
+        })),
+      };
+    }
+    if (typeof HOME_FEED !== 'undefined') {
+      ctx.todos = HOME_FEED
+        .filter(i => (id === 'all' || i.proj === id) && !homeFeedState[feedKey(i)])
+        .map(i => i.title);
+    }
+  } catch (e) { /* 문맥 없이도 답변은 가능하다 */ }
+  return ctx;
+}
+
+// 이슈·확인사항 질의 → 팝업으로 보여주고 하단 버튼으로 화면 이동
+function chatOpenPjtIssues() {
+  const id = (typeof homeSelectedProject !== 'undefined') ? homeSelectedProject : 'all';
+  if (id === 'all' || typeof openHomePjtModal !== 'function') {
+    aiAgentMsg('pilot', pilotBriefingHtml());
+    return;
+  }
+  const n = (typeof homeOpenCountOf === 'function') ? homeOpenCountOf(id) : 0;
+  aiAgentMsg('pilot', `<div class="ai-result">
+      <div class="ai-r-lead"><span class="ai-r-tag ink">확인 항목</span> ${escHtml(homeProjName(id))} · <b>${n}건</b>을 띄웠어요.</div>
+      <div class="ai-r-cause">팝업 하단 버튼으로 원가 현황 · 원가 조정 화면으로 바로 이동할 수 있어요.</div>
+    </div>`);
+  setTimeout(function () { openHomePjtModal(id); }, 320);
+}
+
+// ── 서버 경유 LLM 응답 (키가 없으면 서버가 규칙 기반으로 폴백) ──
+function llmAnswerHtml(j, fallbackText) {
+  const src = j && j.source === 'ai'
+    ? '<span class="ai-r-tag ink">AI 답변</span>'
+    : '<span class="ai-r-tag amber">규칙 기반 답변</span>';
+  const note = (j && j.source !== 'ai')
+    ? '<p class="ai-r-note">LLM 키가 설정되지 않아 서버의 규칙 기반 요약으로 답했어요.</p>'
+    : '';
+  const body = (j && j.answer) ? escHtml(j.answer).replace(/\n/g, '<br>') : escHtml(fallbackText || '답변을 만들지 못했어요.');
+  return `<div class="ai-result">
+      <div class="ai-r-lead">${src}</div>
+      <div class="ai-llm-body">${body}</div>
+      ${note}
+      <div class="ai-actions">
+        <button class="ai-act" onclick="agentGoto('exec')">수행원가에서 보기</button>
+      </div>
+    </div>`;
+}
+
+function askLLMAnswer(text) {
+  const t = aiTyping('q');
+  const payload = { question: text, context: chatPjtContext() };
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (j) { t.remove(); aiAgentMsg('q', llmAnswerHtml(j, null)); })
+    .catch(function () { t.remove(); aiAgentMsg('q', qGenericHtml(text)); });
+}
+
+// ── Intent 라우팅 ──
+function routeIntent(text) {
+  const t = text.replace(/\s/g, '');
+
+  // ① 메인 복귀
+  if (/(메인|홈|처음|첫화면|대시보드)/.test(t) && /(가|이동|보여|복귀|돌아|줘)/.test(t)) {
+    return { agent:'navi', render: () => {
+      aiAgentMsg('navi', '<div class="ai-result"><div class="ai-r-lead">메인 화면으로 이동합니다.</div></div>');
+      setTimeout(function () { if (typeof showMain === 'function') showMain(); }, 450);
+    } };
+  }
+
+  // ② 이슈·확인사항 → 팝업
+  if (/(이슈|확인할것|확인사항|확인해야|확인필요|해야할|해야하는|처리할|점검할|투두|todo|to-do)/i.test(t)) {
+    return { agent:'pilot', render: () => chatOpenPjtIssues() };
+  }
+
+  // ③ Pilot
+  if (/(하면|한다면|투입하면|늘리면|줄이면|시뮬|가정|만약)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotWhatIfHtml(text)) };
+  if (/(자동|자동반영|자동처리|AI가처리|알아서)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotAutoHtml()) };
+  if (/(위임|자동조종|등급|얼마나믿|신뢰|정확)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotTrustHtml()) };
+  if (/(오늘|브리핑|briefing|리스크)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotBriefingHtml()) };
+
+  // ④ Q — 정해진 분석 화면이 있는 질의
+  if (/외주비/.test(t) && /(왜|늘|증가|많|올랐|초과)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qOutsourceHtml()) };
+  if (/원가율/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qCostRateHtml()) };
+  if (/(계획대비|실적|차이|비교|대비)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qComparePlanHtml()) };
+
+  // ⑤ Navi — 화면·절차 길안내
+  if (/(찾아|어디|어떻게|화면|이동|바로가기|절차|방법|메뉴)/.test(t) || /(변경|수정).*(시작|하고싶|할래|할게|화면)/.test(t)) {
+    return { agent:'navi', render: () => aiAgentMsg('navi', naviRouteHtml(text)) };
+  }
+
+  // ⑥ 그 외 단순 질의 → 서버 경유 LLM
+  return { agent:'q', render: () => askLLMAnswer(text) };
+}
+
+// ============================================================
+//  8차 — 확인 항목을 AI 어시스턴트 대화 안으로 병합
+//  · 별도 팝업을 없애고 대화창 하나에서 여러 질의를 이어간다
+//  · 이슈 카드를 누르면 상세(AI 추천 변경안 제외)가 대화에 붙고,
+//    그 이슈의 액션 버튼으로 해당 화면으로 넘어간다
+// ============================================================
+
+// ── 이슈 목록 (대화 메시지로 렌더) ──
+function chatIssueListHtml(id) {
+  const all = id === 'all';
+  const items = HOME_FEED.filter(i => (all || i.proj === id) && !homeFeedState[feedKey(i)]);
+  const who = all ? '담당 전체 프로젝트' : homeProjName(id);
+  if (!items.length) {
+    return `<div class="ai-result">
+        <div class="ai-r-lead"><span class="ai-r-tag ink">확인 항목</span> ${escHtml(who)}</div>
+        <div class="ai-r-cause">지금 확인할 항목이 없어요. 정상 범위입니다.</div>
+      </div>`;
+  }
+  const cards = items.map(it => {
+    const ai = (typeof homeAiOf === 'function') ? homeAiOf(it) : null;
+    const sev = it.sev === 'danger' ? 'danger' : it.sev === 'warning' ? 'warning' : 'info';
+    return `
+      <button class="ai-iss ${sev}" onclick="chatIssueDetail('${escAttr(feedKey(it))}')">
+        <span class="ai-iss-top">
+          <span class="ai-iss-tag ${sev}">${escHtml(it.cat === 'budget' ? '예산 점검' : '업무 반영')} · ${escHtml(it.sub)}</span>
+          ${ai ? `<span class="hm-chip impact ${/^-/.test(ai.impact) ? 'down' : 'up'}">임팩트 ${escHtml(ai.impact)}</span>
+                  <span class="hm-chip due ${ai.dueDays <= 3 ? 'near' : ''}">D-${ai.dueDays}</span>` : ''}
+          ${all ? `<span class="ai-iss-proj">${escHtml(homeProjName(it.proj))}</span>` : ''}
+        </span>
+        <span class="ai-iss-t">${escHtml(it.title)}</span>
+        <span class="ai-iss-go">자세히 ›</span>
+      </button>`;
+  }).join('');
+  return `<div class="ai-result">
+      <div class="ai-r-lead"><span class="ai-r-tag ink">확인이 필요한 것</span> ${escHtml(who)} · <b>${items.length}가지</b></div>
+      <div class="ai-r-cause">항목을 누르면 상세와 조치 버튼이 나와요.</div>
+      <div class="ai-iss-list">${cards}</div>
+    </div>`;
+}
+
+// ── 이슈 상세 (AI 추천 변경안 제외) — 대화에 이어 붙인다 ──
+function chatIssueDetail(key) {
+  const it = HOME_FEED.find(i => feedKey(i) === key);
+  if (!it) return;
+  aiAgentMsg('pilot', chatIssueDetailHtml(it));
+}
+
+function chatIssueDetailHtml(it) {
+  const key = feedKey(it);
+  const ai = (typeof homeAiOf === 'function') ? homeAiOf(it) : null;
+  const sev = it.sev === 'danger' ? 'danger' : it.sev === 'warning' ? 'warning' : 'info';
+
+  // 수치 요약
+  let nums = '';
+  if (it.change) {
+    const c = it.change;
+    nums = `<div class="ai-iss-kpis">
+        <div><span>${escHtml(c.fromL)}</span><strong>${escHtml(c.from)}</strong></div>
+        <div><span>${escHtml(c.toL)}</span><strong>${escHtml(c.to)}</strong></div>
+        <div><span>${escHtml(c.deltaL)}</span><strong class="up">${escHtml(c.delta)} (${escHtml(c.pct)})</strong></div>
+      </div>`;
+  } else if (it.dual) {
+    const d = it.dual;
+    nums = `<div class="ai-iss-kpis">
+        <div><span>${escHtml(d.leftL)}</span><strong>${escHtml(d.left)}</strong></div>
+        <div><span>${escHtml(d.rightL)}</span><strong>${escHtml(d.right)} <em class="up">${escHtml(d.delta)}</em></strong></div>
+        <div><span>${escHtml(d.extraL)}</span><strong>${escHtml(d.extra)}</strong></div>
+      </div>`;
+  } else if (it.flow) {
+    const f = it.flow;
+    nums = `<div class="ai-iss-kpis">
+        <div><span>${escHtml(f.sL)} · ${escHtml(f.sSub)}</span><strong>${escHtml(f.sVal)}</strong></div>
+        <div><span>${escHtml(f.iL)}</span><strong class="${/-/.test(f.iVal) ? 'down' : 'up'}">${escHtml(f.iVal)}</strong></div>
+        <div><span>${escHtml(f.aL)}</span><strong>${escHtml(f.aVal)}</strong></div>
+      </div>`;
+  }
+
+  const note = it.note ? `<p class="ai-r-note">${escHtml(it.note)}</p>`
+    : (it.impact ? `<p class="ai-r-note">${escHtml(it.impact.note)} · ${escHtml(it.impact.label)} <b class="up">${escHtml(it.impact.value)}</b> ${escHtml(it.impact.tail)}</p>` : '');
+
+  // 변경 전/후 (있을 때만) — AI 추천 변경안은 넣지 않는다
+  let pv = '';
+  if (it.preview) {
+    const p = it.preview;
+    const rows = p.rows.map(r => `<tr><td class="l">${escHtml(r[0])}</td><td class="n">${escHtml(r[1])}</td><td class="n">${escHtml(r[2])}</td><td class="n ${/^[+]/.test(r[3]) ? 'up' : /^-/.test(r[3]) ? 'down' : ''}">${escHtml(r[3])}</td></tr>`).join('');
+    const fc = p.forecast;
+    pv = `<div class="ai-iss-sec">변경내용</div>
+      <table class="hm-drawer-tbl"><tr class="h"><td>항목</td><td class="n">현재 계획</td><td class="n">확정</td><td class="n">증감</td></tr>${rows}</table>
+      <div class="ai-iss-sec">반영 후 Project Forecast</div>
+      <div class="hm-fc">
+        <div class="hm-fc-item"><span>예상원가</span><div class="hm-fc-v">${escHtml(fc.cost[0])} <i>→</i> <b>${escHtml(fc.cost[1])}</b></div><span class="hm-fc-d ${/^[+]/.test(fc.cost[2]) ? 'up' : /^-/.test(fc.cost[2]) ? 'down' : ''}">${escHtml(fc.cost[2])}</span></div>
+        <div class="hm-fc-item"><span>예상 원가율</span><div class="hm-fc-v">${escHtml(fc.rate[0])} <i>→</i> <b>${escHtml(fc.rate[1])}</b></div><span class="hm-fc-d ${/^[+]/.test(fc.rate[2]) ? 'up' : /^-/.test(fc.rate[2]) ? 'down' : ''}">${escHtml(fc.rate[2])}</span></div>
+      </div>
+      ${p.warning ? `<div class="hm-drawer-warn">⚠ ${escHtml(p.warning)}</div>` : ''}`;
+  }
+
+  // 이 이슈의 조치 버튼 — 누르면 해당 화면으로 이동한다
+  const acts = [it.primary].concat(it.secondaries || []);
+  const btns = acts.map((a, i) => `<button class="ai-act ${i === 0 ? 'pri' : ''}" onclick="chatIssueAct('${escAttr(key)}','${a.act}')">${escHtml(a.label)}</button>`).join('');
+
+  return `<div class="ai-result">
+      <div class="ai-r-lead">
+        <span class="ai-r-tag ${sev === 'danger' ? 'red' : sev === 'warning' ? 'amber' : 'ink'}">${escHtml(it.sub)}</span>
+        ${escHtml(it.title)}
+      </div>
+      <div class="ai-r-cause">${escHtml(homeProjName(it.proj))}${ai ? ` · 임팩트 ${escHtml(ai.impact)} · D-${ai.dueDays}` : ''}</div>
+      ${nums}
+      ${note}
+      ${pv}
+      <div class="ai-actions">${btns}</div>
+    </div>`;
+}
+
+// ── 이슈 조치 — 화면 이동 시 대화는 우측 레일로 유지 ──
+function chatIssueAct(key, act) {
+  const it = HOME_FEED.find(i => feedKey(i) === key);
+  if (!it) return;
+  const goto = fn => { fn(); dockAiChat(); };
+  switch (act) {
+    case 'status':
+    case 'impact':
+      goto(() => openCostStatus('budgetMock')); break;
+    case 'adjust':
+      goto(() => openCostAdjust('budgetMock')); break;
+    case 'history':
+    case 'detail':
+      goto(() => openCostHistory('budgetMock')); break;
+    case 'cause': {
+      const inp = document.getElementById('ai-chat-query');
+      if (inp) { inp.value = it.primary.q || (it.title + ' 원인 분석해줘'); sendAiChat(); }
+      break;
+    }
+    case 'reflect':
+      homeFeedState[key] = 'reflected';
+      if (typeof rerenderHomeFeed === 'function') rerenderHomeFeed();
+      aiAgentMsg('pilot', `<div class="ai-result">
+          <div class="ai-r-lead"><span class="ai-r-tag ink">반영 완료</span> 원가 조정안(Draft ${escHtml(it.preview && it.preview.draft ? it.preview.draft : 'V5')})에 반영했어요.</div>
+          <div class="ai-actions"><button class="ai-act pri" onclick="chatIssueAct('${escAttr(key)}','adjust')">원가 조정 계속하기 →</button></div>
+        </div>`);
+      break;
+    case 'done':
+      homeFeedState[key] = 'done';
+      if (typeof rerenderHomeFeed === 'function') rerenderHomeFeed();
+      aiAgentMsg('pilot', chatIssueListHtml(typeof homeSelectedProject !== 'undefined' ? homeSelectedProject : 'all'));
+      break;
+    case 'later':
+      aiAgentMsg('pilot', '<div class="ai-result"><div class="ai-r-lead">나중에 다시 알려드릴게요.</div></div>');
+      break;
+    default:
+      goto(() => openCostStatus('budgetMock'));
+  }
+}
+
+// ── 이슈 질의 → 별도 팝업 대신 대화 안에서 처리 ──
+function chatOpenPjtIssues() {
+  const id = (typeof homeSelectedProject !== 'undefined') ? homeSelectedProject : 'all';
+  aiAgentMsg('pilot', chatIssueListHtml(id));
+}
