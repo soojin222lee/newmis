@@ -196,6 +196,123 @@ function renderLaborAlertsFinal() {
 }
 
 /* ==========================================================================
+   2-2. 이관인건비 — 요약을 건수 / 받은 / 보낸 / 순 이관금액 4칸으로
+   ========================================================================== */
+
+// 이관받은 금액(+)은 우리 프로젝트의 인건비 실적으로 잡히고,
+// 이관보낸 금액(−)은 우리 프로젝트 원가실적에서 빠집니다. 순 이관금액 = 받은 − 보낸.
+function getLaborTransferSummaryFinal() {
+  const rows = getLaborTransferRowsFinal();
+  const received = rows.reduce((s, r) => Number(r.amount || 0) > 0 ? s + Number(r.amount) : s, 0);
+  const sent = rows.reduce((s, r) => Number(r.amount || 0) < 0 ? s + Math.abs(Number(r.amount)) : s, 0);
+  return { rows, count:rows.length, received, sent, net:received - sent };
+}
+
+renderLaborTransferPanelFinal = function() {
+  const { rows, count, received, sent, net } = getLaborTransferSummaryFinal();
+  const editing = editingLaborTransferIdFinal ? rows.find(row => row.id === editingLaborTransferIdFinal) : null;
+  const editorOpen = laborTransferEditorOpenFinal || !!editing;
+  const listRows = rows.map((row, idx) => {
+    const locked = row.transferType === 'Sender Project' || row.actualized || row.status === '집행완료';
+    const amountClass = row.amount < 0 ? 'danger' : 'good';
+    return `
+      <div class="bpo-list-row material-transfer-row ${editingLaborTransferIdFinal === row.id ? 'active' : ''}">
+        <span>${idx + 1}</span>
+        <span>${row.transferType || 'Receiver Project'}</span>
+        <span>${row.expectedMonth || '-'}</span>
+        <strong class="${amountClass}">${fmt(row.amount || 0)}원</strong>
+        <span>${row.description || '-'}</span>
+        <em>${row.status || '계획'}</em>
+        ${locked
+          ? '<span class="bpo-readonly-text">조회</span>'
+          : `<button class="labor-sub-btn" onclick="editLaborTransferFinal('${row.id}')">수정</button>`}
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="os-sub-summary ma material-transfer-summary labor-transfer-summary">
+      <div><strong>${count}</strong><span>이관인건비 건수</span></div>
+      <div><strong class="good">+${fmt(received)}원</strong><span>이관받은 금액</span></div>
+      <div><strong class="danger">−${fmt(sent)}원</strong><span>이관보낸 금액</span></div>
+      <div><strong>${fmt(net)}원</strong><span>순 이관금액</span></div>
+      <p>이관<b>받은</b> 금액은 우리 프로젝트의 인건비 <b>실적으로 반영</b>되고,
+        이관<b>보낸</b> 금액은 우리 프로젝트 <b>원가실적에서 차감</b>됩니다. 순 이관금액이 예산내역의 이관인건비 행에 반영됩니다.
+        신규 계획 등록은 Receiver Project만 가능하며, Sender Project는 집행 완료 후 이관 결과로 수신되어 조회만 가능합니다.</p>
+    </div>
+    <div class="os-registered-card material-transfer-list-card">
+      <div class="labor-flow-title">
+        <strong>이관인건비 계획 등록</strong>
+        ${editorOpen ? '' : '<button class="labor-main-btn" onclick="openLaborTransferNewFinal()">신규등록</button>'}
+      </div>
+      <div class="bpo-list-card material-transfer-list labor-transfer-list">
+        <div class="bpo-list-head material-transfer-head">
+          <span>No</span><span>Project Type</span><span>이관예정월</span><span>금액</span><span>이관 사유</span><span>상태</span><span></span>
+        </div>
+        ${listRows || '<div class="labor-empty">등록된 이관인건비 계획이 없습니다.</div>'}
+      </div>
+    </div>
+    ${editorOpen ? renderLaborTransferFormFinal(editing) : ''}`;
+};
+
+/* ==========================================================================
+   2-3. OT비 — 계정 1줄만 유지 + 계정코드 열 제거
+   ========================================================================== */
+
+// ⑦ 공유 목업에는 701301(종업원급여-OT)과 701302(월별 OT 계획) 두 줄이 있는데,
+//    실제로는 OT 계정 한 줄만 쓰므로 701301 만 남깁니다.
+//    getLaborOtAmountForMonthFinal / saveLaborOtPlanFinal 도 이 함수를 쓰므로 함께 정합이 맞습니다.
+var getLaborOtRowsBeforeSingleFinal = getLaborOtRowsFinal;
+getLaborOtRowsFinal = function(proj) {
+  const rows = proj === undefined ? getLaborOtRowsBeforeSingleFinal() : getLaborOtRowsBeforeSingleFinal(proj);
+  return rows.filter(row => row.accountCode !== '701302');
+};
+
+// ⑧ 계정코드 열 제거(계정명만 표기)
+renderLaborOtPanelFinal = function() {
+  const rows = getLaborOtRowsFinal();
+  const body = rows.map(row => {
+    const plan = row.monthly.reduce((sum, value) => sum + Number(value || 0), 0);
+    return `
+      <tr>
+        <td><strong>${row.accountName}</strong></td>
+        <td class="num">${fmt(row.carried || 0)}</td>
+        <td class="num">${fmt(plan)}</td>
+        <td class="num">${fmt(row.actual || 0)}</td>
+        ${EXPENSE_PLAN_MONTHS.map((month, idx) => `
+          <td><input class="expense-month-input" id="labor-ot-${row.id}-${idx}" value="${row.monthly[idx] || 0}" inputmode="numeric"></td>
+        `).join('')}
+      </tr>`;
+  }).join('');
+  return `
+    <div class="expense-plan-panel labor-ot-panel">
+      <div class="expense-plan-head">
+        <div>
+          <div class="expense-plan-title">OT비 월별 계획 <span>총 ${rows.length}건</span></div>
+          <p>OT비는 경비 자원계획과 동일하게 월별 계획금액을 직접 입력합니다. 저장 후 인건비 예산내역의 OT비 행에 반영됩니다.</p>
+        </div>
+        <div class="expense-plan-actions">
+          <button class="labor-main-btn" onclick="saveLaborOtPlanFinal()">계획 저장</button>
+        </div>
+      </div>
+      <div class="expense-grid-wrap">
+        <table class="expense-grid-table expense-grid-table-final">
+          <thead>
+            <tr>
+              <th rowspan="2">계정명</th>
+              <th rowspan="2">이전계획</th>
+              <th rowspan="2">계획</th>
+              <th rowspan="2">실적</th>
+              <th colspan="${EXPENSE_PLAN_MONTHS.length}">월별 계획</th>
+            </tr>
+            <tr>${EXPENSE_PLAN_MONTHS.map(m => `<th>${m}</th>`).join('')}</tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+/* ==========================================================================
    3. 전용 스타일 주입 (공유 CSS 미변경)
    ========================================================================== */
 (function injectLaborTreeStyleFinal() {
@@ -235,6 +352,14 @@ function renderLaborAlertsFinal() {
   .labor-alert-btn:hover { color:#fff; }
   .labor-alert.info .labor-alert-btn:hover { background:var(--sk-blue-deep); }
   .labor-alert.warn .labor-alert-btn:hover { background:#8a5b06; }
+
+  /* [확정 인력 등록] 버튼을 요약 행 설명 칸 오른쪽에 배치 — 버튼만 별도 행을 차지하지 않게 */
+  .labor-scm-summary p.labor-scm-note { display:flex; align-items:center; gap:12px; }
+  .labor-scm-summary p.labor-scm-note > .labor-main-btn { flex:0 0 auto; margin-left:auto; }
+
+  /* 이관인건비 요약 4칸 — 받은(+)/보낸(−) 색 구분 */
+  .labor-transfer-summary strong.good { color:var(--sk-green); }
+  .labor-transfer-summary strong.danger { color:var(--sk-red); }
   `;
   document.head.appendChild(style);
 })();
@@ -250,10 +375,21 @@ renderBudgetAccountEditor = function(data, account) {
   //  ② 공유 renderLaborAssignmentPanel 이 자기 루트에 붙이는 .labor-panel 클래스도 떼어냅니다(1겹 더).
   //     .labor-scm-simple-panel 은 CSS가 없어 클래스만 남겨도 박스가 생기지 않습니다.
   //     이관/OT 패널은 .labor-panel 을 쓰지 않으므로 영향이 없습니다.
+  //  ② 헤드 3줄("인건비 등록 / 수정" · "SCM 확정 인력 등록" · 캡션) 삭제
+  //  ③ 버튼 문구를 [신규인력투입] → [확정 인력 등록] 으로 변경
+  //  ④ 헤드를 지우면 버튼만 남아 오히려 한 행을 독차지하므로, 버튼을 아래 요약 행(.labor-scm-summary)의
+  //     설명 칸 오른쪽으로 옮깁니다. 요약이 4열 그리드라 5번째 자식을 추가하면 줄이 넘어가므로
+  //     기존 <p> 안에 넣고 flex 로 우측 정렬합니다.
+  const scmRegisterBtn = '<button class="labor-main-btn" onclick="openLaborScmCandidatePopupFinal()">확정 인력 등록</button>';
   const detail = renderLaborDetailPlanPanelFinal(data)
-    .replace('class="labor-panel labor-scm-simple-panel"', 'class="labor-scm-simple-panel"');
+    .replace('class="labor-panel labor-scm-simple-panel"', 'class="labor-scm-simple-panel"')
+    .replace(/<div class="labor-panel-head">[\s\S]*?(<div class="os-sub-summary labor-scm-summary">)/, '$1')
+    .replace('<p>인건비 신규 등록은', '<p class="labor-scm-note">인건비 신규 등록은')
+    .replace('금액이 자동 배분됩니다.</p>', `금액이 자동 배분됩니다.${scmRegisterBtn}</p>`);
+  // ① "인건비 예산내역"을 감싸는 겉박스(.setup-editor)도 제거. 공유 CSS(sk-theme)의 !important 카드 규칙은
+  //    인라인 !important 로만 덮이며, 인건비 화면에만 적용되고 다른 계정은 그대로입니다.
   return `
-    <div class="setup-editor">
+    <div class="setup-editor" style="border:0 !important;background:transparent !important;padding:0 !important;border-radius:0 !important">
       ${renderAccountMonthlyBudgetTable(data, account)}
       ${renderLaborAlertsFinal()}
       ${renderLaborKindTabsFinal()}
