@@ -142,20 +142,24 @@ function buildBudgetPrompt(d) {
 계정별 (기준 → 현재, 증감):
 ${lines}`;
 }
-function callAnthropic(prompt, cb) {
-  const key = process.env.ANTHROPIC_API_KEY;
-  const model = process.env.LLM_MODEL || "claude-opus-5";
+// OpenAI Chat Completions 호출 — 키는 환경변수(OPENAI_API_KEY)에서만 읽는다(코드/깃에 저장 안 함)
+function callLLM(prompt, cb) {
+  const key = process.env.OPENAI_API_KEY;
+  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
   const payload = JSON.stringify({
-    model, max_tokens: 600,
-    output_config: { effort: "low" },
-    messages: [{ role: "user", content: prompt }],
+    model,
+    messages: [
+      { role: "system", content: "너는 SI 프로젝트 예산 분석을 돕는 어시스턴트다. 비개발자 PM이 이해하기 쉽게 간결한 한국어 문장으로만 답한다. 마크다운·불릿은 쓰지 않는다." },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.3,
+    max_tokens: 600,
   });
   const req = https.request({
-    hostname: "api.anthropic.com", path: "/v1/messages", method: "POST",
+    hostname: "api.openai.com", path: "/v1/chat/completions", method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
+      "authorization": "Bearer " + key,
       "content-length": Buffer.byteLength(payload),
     },
   }, r => {
@@ -164,8 +168,8 @@ function callAnthropic(prompt, cb) {
       try {
         const j = JSON.parse(b);
         if (r.statusCode >= 400) { cb(new Error(j.error && j.error.message ? j.error.message : "HTTP " + r.statusCode)); return; }
-        const text = (j.content || []).filter(x => x.type === "text").map(x => x.text).join("\n").trim();
-        cb(null, text || null);
+        const text = (((j.choices || [])[0] || {}).message || {}).content;
+        cb(null, text ? text.trim() : null);
       } catch (e) { cb(e); }
     });
   });
@@ -176,10 +180,10 @@ function callAnthropic(prompt, cb) {
 function handleBudgetSummary(body, res) {
   if (!body || !Array.isArray(body.accounts)) { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid payload" })); return; }
   const fallback = localBudgetSummary(body);
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.OPENAI_API_KEY) {
     res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback" })); return;
   }
-  callAnthropic(buildBudgetPrompt(body), (err, text) => {
+  callLLM(buildBudgetPrompt(body), (err, text) => {
     if (err || !text) { res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback", note: err ? String(err.message || err) : "empty" })); return; }
     res.writeHead(200); res.end(JSON.stringify({ summary: text, source: "ai" }));
   });
