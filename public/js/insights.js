@@ -42,6 +42,154 @@ function projAccounts(p) {
     return { name: c.key, color: c.c, base, plan, actual, forecast: fc, share: Math.round(sh * 100), delta: +(fc - plan).toFixed(1), deltaBase: +(fc - base).toFixed(1) };
   });
 }
+// ── 버전별 계정 예산 변동 (Cost 탭) ──
+// 기준선 = 계약 원가(base) 배분 · 버전(V1~V4) = 실행예산 배분(총액 동일, 계정 간 돌려쓰기)
+const INS_ACCTS = [
+  { key:'인건비', c:'#2f6bed' }, { key:'외주비', c:'#ea002c' },
+  { key:'재료비', c:'#f5a623' }, { key:'경비',   c:'#22b07d' },
+];
+let insVerAcct = '전체';   // '전체' | 계정명
+let insVerUnit = '금액';   // '금액' | '비율'
+function selectInsVerAcct(a) { insVerAcct = a; renderInsights(); }
+function setInsVerUnit(u) { insVerUnit = u; renderInsights(); }
+
+function projVersions(p) {
+  const B = p.budget;                                  // 총 실행예산(억) — 버전 동일
+  const cur = { 인건비:0.40, 외주비:0.35, 재료비:0.17, 경비:0.08 }; // 현재(V4) 배분 비율
+  const shift = [0.055, 0.036, 0.018, 0];              // V1→V4: 인건비→외주비 이동량(비율)
+  const labels = ['V1', 'V2', 'V3', 'V4'];
+  return shift.map((s, i) => ({ label: labels[i], vals: {
+    인건비: +(B * (cur.인건비 + s)).toFixed(1), 외주비: +(B * (cur.외주비 - s)).toFixed(1),
+    재료비: +(B * cur.재료비).toFixed(1),       경비:   +(B * cur.경비).toFixed(1),
+  }}));
+}
+function projBaseline(p) { // 기준(계약 원가) 배분
+  const r = { 인건비:0.42, 외주비:0.33, 재료비:0.17, 경비:0.08 };
+  const o = {}; INS_ACCTS.forEach(a => o[a.key] = +(p.base * r[a.key]).toFixed(1)); return o;
+}
+function insVerCols(p) { // 기준 + 버전들을 하나의 컬럼 배열로
+  return [{ label:'기준', sub:'계약원가', vals: projBaseline(p), isBase:true },
+          ...projVersions(p).map(v => ({ label:v.label, sub:'', vals:v.vals }))];
+}
+function colTotal(c) { return INS_ACCTS.reduce((s, a) => s + c.vals[a.key], 0); }
+function insVerVal(c, key) { return insVerUnit === '비율' ? +(c.vals[key] / colTotal(c) * 100).toFixed(1) : c.vals[key]; }
+function insVerFmt(v) { return insVerUnit === '비율' ? v.toFixed(1) + '%' : v.toFixed(1) + '억'; }
+function insVerDeltaUnit() { return insVerUnit === '비율' ? '%p' : '억'; }
+
+function insVerPanel(p) {
+  const cols = insVerCols(p);
+  const tabs = ['전체', ...INS_ACCTS.map(a => a.key)];
+  const ctrl = `
+    <div class="ins-ver-ctrl">
+      <div class="ins-seg accts">${tabs.map(t => `<button class="${insVerAcct === t ? 'on' : ''}" onclick="selectInsVerAcct('${t}')">${t}</button>`).join('')}</div>
+      <div class="ins-seg unit">${['금액','비율'].map(u => `<button class="${insVerUnit === u ? 'on' : ''}" onclick="setInsVerUnit('${u}')">${u}</button>`).join('')}</div>
+      <span style="flex:1"></span>
+      <button class="ins-ai-sum-btn" onclick="insBudgetAiSummary()">✦ AI 요약</button>
+    </div>`;
+  const chart = insVerAcct === '전체' ? insVerAllChart(cols) : insVerOneChart(cols, insVerAcct);
+  return ctrl + `<div class="ins-ver-chart">${chart}</div>` + insVerTable(cols);
+}
+
+// ── 예산 변동 AI 요약 팝업 ──
+async function insBudgetAiSummary() {
+  const p = INS_PROJECTS[insProject];
+  const cols = insVerCols(p), last = cols[cols.length - 1], base = cols[0];
+  const payload = {
+    project: p.name, total: +p.budget.toFixed(1), baseTotal: +p.base.toFixed(1),
+    accounts: INS_ACCTS.map(a => ({
+      name: a.key, base: base.vals[a.key], current: last.vals[a.key],
+      delta: +(last.vals[a.key] - base.vals[a.key]).toFixed(1),
+    })),
+  };
+  openInsAiModal('loading');
+  try {
+    const r = await fetch('/api/budget-summary', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+    const d = await r.json();
+    openInsAiModal('done', d.summary, d.source);
+  } catch (e) { openInsAiModal('error'); }
+}
+function openInsAiModal(state, text, source) {
+  let m = document.getElementById('ins-ai-modal');
+  if (!m) {
+    m = document.createElement('div'); m.id = 'ins-ai-modal'; m.className = 'ins-ai-modal-overlay';
+    m.onclick = e => { if (e.target === m) closeInsAiModal(); };
+    document.body.appendChild(m);
+  }
+  let bodyHtml;
+  if (state === 'loading') bodyHtml = `<div class="ins-ai-loading"><span class="ins-ai-spin"></span>예산 변동을 요약하고 있어요…</div>`;
+  else if (state === 'error') bodyHtml = `<div class="ins-ai-loading">요약을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</div>`;
+  else bodyHtml = `<p class="ins-ai-text">${(text || '').replace(/</g,'&lt;')}</p>
+    <div class="ins-ai-src">${source === 'ai' ? '✦ AI 생성 요약' : '로컬 요약 (API 키 미설정 · 샘플)'}</div>`;
+  m.innerHTML = `<div class="ins-ai-modal">
+    <div class="ins-ai-mhead"><span><span class="ins-ai-badge">AI</span>예산 변동 요약</span><button class="ins-ai-x" onclick="closeInsAiModal()" aria-label="닫기">✕</button></div>
+    <div class="ins-ai-mbody">${bodyHtml}</div>
+  </div>`;
+  m.classList.add('open');
+}
+function closeInsAiModal() { const m = document.getElementById('ins-ai-modal'); if (m) m.classList.remove('open'); }
+// 개별 계정: 기준선(점선) + 컬럼 막대 + 기준 대비 증감
+function insVerOneChart(cols, acct) {
+  const color = (INS_ACCTS.find(a => a.key === acct) || {}).c || '#2f6bed';
+  const W = 560, H = 250, L = 34, R = 16, T = 26, Bt = 40;
+  const vals = cols.map(c => insVerVal(c, acct)), baseVal = vals[0];
+  const yMax = Math.max(...vals, baseVal) * 1.28 || 1;
+  const y = v => (H - Bt) - v / yMax * (H - Bt - T);
+  const gap = (W - L - R) / cols.length, bw = Math.min(60, gap * 0.42);
+  let out = `<line x1="${L}" y1="${H - Bt}" x2="${W - R}" y2="${H - Bt}" stroke="#e4e2da"/>`;
+  out += `<line x1="${L}" y1="${y(baseVal).toFixed(1)}" x2="${W - R}" y2="${y(baseVal).toFixed(1)}" stroke="#8a94a6" stroke-dasharray="4 3"/>`;
+  out += `<text x="${W - R}" y="${(y(baseVal) - 6).toFixed(1)}" text-anchor="end" class="ins-ax" fill="#8a94a6">기준 ${insVerFmt(baseVal)}</text>`;
+  cols.forEach((c, i) => {
+    const v = vals[i], cx = L + gap * i + gap / 2, bx = cx - bw / 2;
+    out += `<rect x="${bx.toFixed(1)}" y="${y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H - Bt - y(v)).toFixed(1)}" fill="${c.isBase ? '#c3cad4' : color}" rx="2"><title>${c.label} ${insVerFmt(v)}</title></rect>`;
+    if (!c.isBase) { const d = +(v - baseVal).toFixed(1), cls = d > 0 ? 'up' : (d < 0 ? 'down' : ''); out += `<text x="${cx}" y="${(y(Math.max(v, baseVal)) - 8).toFixed(1)}" text-anchor="middle" class="ins-vd ${cls}">${d > 0 ? '+' : ''}${d.toFixed(1)}${insVerDeltaUnit()}</text>`; }
+    out += `<text x="${cx}" y="${H - 22}" text-anchor="middle" class="ins-ax">${c.label}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" class="ins-svg">${out}</svg>`;
+}
+// 전체: 금액=그룹 컬럼(기준 컬럼 흐리게) · 비율=100% 누적
+function insVerAllChart(cols) {
+  const W = 560, H = 260, L = 30, R = 14, T = 16, Bt = 40;
+  const gap = (W - L - R) / cols.length;
+  let out = `<line x1="${L}" y1="${H - Bt}" x2="${W - R}" y2="${H - Bt}" stroke="#e4e2da"/>`;
+  if (insVerUnit === '비율') {
+    const y = v => (H - Bt) - v / 100 * (H - Bt - T), bw = Math.min(46, gap * 0.5);
+    cols.forEach((c, i) => {
+      const cx = L + gap * i + gap / 2, bx = cx - bw / 2; let acc = 0;
+      INS_ACCTS.forEach(a => { const pct = c.vals[a.key] / colTotal(c) * 100, y0 = y(acc), y1 = y(acc + pct); acc += pct;
+        out += `<rect x="${bx.toFixed(1)}" y="${y1.toFixed(1)}" width="${bw.toFixed(1)}" height="${(y0 - y1).toFixed(1)}" fill="${a.c}"><title>${c.label} ${a.key} ${pct.toFixed(1)}%</title></rect>`; });
+      out += `<text x="${cx}" y="${H - 22}" text-anchor="middle" class="ins-ax">${c.label}</text>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" class="ins-svg">${out}</svg>`;
+  }
+  const yMax = Math.max(...cols.flatMap(c => INS_ACCTS.map(a => c.vals[a.key]))) * 1.2 || 1;
+  const y = v => (H - Bt) - v / yMax * (H - Bt - T);
+  const n = INS_ACCTS.length, bw = gap * 0.15, ig = 3, cluster = n * bw + (n - 1) * ig;
+  cols.forEach((c, i) => {
+    const cx = L + gap * i + gap / 2;
+    INS_ACCTS.forEach((a, j) => { const v = c.vals[a.key], bx = cx - cluster / 2 + j * (bw + ig);
+      out += `<rect x="${bx.toFixed(1)}" y="${y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H - Bt - y(v)).toFixed(1)}" fill="${a.c}" ${c.isBase ? 'opacity="0.4"' : ''} rx="1.5"><title>${c.label} ${a.key} ${v.toFixed(1)}억</title></rect>`; });
+    out += `<text x="${cx}" y="${H - 22}" text-anchor="middle" class="ins-ax">${c.label}${c.isBase ? '(원가)' : ''}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" class="ins-svg">${out}</svg>`;
+}
+// 표: 기준 + 버전들 + 증감(V4−기준)
+function insVerTable(cols) {
+  const baseCol = cols[0], lastCol = cols[cols.length - 1], showAll = insVerAcct === '전체';
+  const du = insVerDeltaUnit();
+  const head = `<tr><th>계정</th>${cols.map(c => `<th class="num">${c.label}${c.sub ? `<span class="ins-vt-sub"> ${c.sub}</span>` : ''}</th>`).join('')}<th class="num">증감<span class="ins-vt-sub"> V4−기준</span></th></tr>`;
+  const rows = INS_ACCTS.filter(a => showAll || a.key === insVerAcct).map(a => {
+    const d = +(insVerVal(lastCol, a.key) - insVerVal(baseCol, a.key)).toFixed(1), cls = d > 0 ? 'up' : (d < 0 ? 'down' : '');
+    return `<tr>
+      <td><span class="ins-acc-dot" style="background:${a.c}"></span>${a.key}</td>
+      ${cols.map(c => `<td class="num${c.isBase ? ' base' : ''}">${insVerFmt(insVerVal(c, a.key))}</td>`).join('')}
+      <td class="num ${cls}"><b>${d > 0 ? '+' : ''}${d.toFixed(1)}${du}</b></td>
+    </tr>`;
+  }).join('');
+  let totRow = '';
+  if (showAll) { const t = cols.map(c => insVerUnit === '비율' ? '100.0%' : colTotal(c).toFixed(1) + '억'); totRow = `<tr class="ins-ver-tot"><td>합계</td>${t.map(x => `<td class="num">${x}</td>`).join('')}<td class="num"></td></tr>`; }
+  return `<div class="ins-ver-tablewrap"><table class="ins-ver-table"><thead>${head}</thead><tbody>${rows}${totRow}</tbody></table></div>`;
+}
+
 function projTrend(p) {
   const sum = MW.reduce((a, b) => a + b, 0);
   const w = MW.map(x => x / sum);
@@ -128,8 +276,8 @@ function insightsHtml() {
     ${insReportHtml()}`;
 }
 
-// ── 보고서 생성 (3초 로딩 → 레포트 팝업) ──
-function insGenerateReport() {
+// ── 보고서 생성 (LLM으로 요약/제언 작성 → 레포트 팝업) ──
+async function insGenerateReport() {
   const ov = document.getElementById('ins-report');
   const load = document.getElementById('ins-report-loading');
   const page = document.getElementById('ins-report-page');
@@ -138,11 +286,22 @@ function insGenerateReport() {
   load.removeAttribute('hidden');
   page.setAttribute('hidden', '');
   page.innerHTML = '';
-  setTimeout(() => {
-    page.innerHTML = insReportPageHtml(INS_PROJECTS[insProject]);
-    load.setAttribute('hidden', '');
-    page.removeAttribute('hidden');
-  }, 2000);
+  const p = INS_PROJECTS[insProject];
+  let aiText = null, aiSource = null;
+  try {
+    const prog = Math.round(p.actual / p.forecast * 100);
+    const accts = projAccounts(p);
+    const payload = {
+      project: p.name, status: p.status, cause: p.cause,
+      metrics: { contract:+p.contract.toFixed(1), base:+p.base.toFixed(1), budget:+p.budget.toFixed(1), actual:+p.actual.toFixed(1), forecast:+p.forecast.toFixed(1), rate:+p.rate.toFixed(1), diff:+p.diff.toFixed(1), prog },
+      accounts: accts.map(a => ({ name:a.name, plan:a.plan, actual:a.actual, forecast:a.forecast, delta:a.delta, share:a.share })),
+    };
+    const r = await fetch('/api/report-summary', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+    const d = await r.json(); aiText = d.summary; aiSource = d.source;
+  } catch (e) { aiText = null; }
+  page.innerHTML = insReportPageHtml(p, aiText, aiSource);
+  load.setAttribute('hidden', '');
+  page.removeAttribute('hidden');
 }
 function insCloseReport() { const ov = document.getElementById('ins-report'); if (ov) ov.classList.remove('open'); }
 function insReportHtml() {
@@ -156,7 +315,7 @@ function insReportHtml() {
       <div class="ins-report-page" id="ins-report-page" hidden></div>
     </div>`;
 }
-function insReportPageHtml(p) {
+function insReportPageHtml(p, aiText, aiSource) {
   const prog = Math.round(p.actual / p.forecast * 100);
   const profit = +(p.contract - p.forecast).toFixed(1);
   const marginRate = +(profit / p.contract * 100).toFixed(1);
@@ -198,9 +357,10 @@ function insReportPageHtml(p) {
           <span class="rp-badge ${p.status === '관리필요' ? 'warn' : 'ok'}">${p.status}</span>
         </div>
 
-        <h2 class="rp-h2">요약</h2>
-        <p class="rp-p">${p1}</p>
-        <p class="rp-p">${p2}</p>
+        <h2 class="rp-h2">요약 및 제언 ${aiText ? `<span class="rp-ai-tag">${aiSource === 'ai' ? '✦ AI 생성' : '샘플'}</span>` : ''}</h2>
+        ${aiText
+          ? aiText.split(/\n\n+/).map(t => `<p class="rp-p">${t.replace(/</g, '&lt;')}</p>`).join('')
+          : `<p class="rp-p">${p1}</p><p class="rp-p">${p2}</p>`}
 
         <h2 class="rp-h2">당월 누계 실적</h2>
         <table class="rp-metrics">
@@ -341,7 +501,14 @@ function insCostHtml(p) {
         ${insWaterfallSvg(p)}
         <div class="ins-trend-foot">주요 원인 · ${p.cause}</div>
       </section>
-    </div>`;
+    </div>
+    <section class="ins-panel">
+      <div class="ins-panel-head">
+        <h3>버전별 계정 예산 변동 <span class="ins-panel-sub">기준(계약 원가) 대비 버전별 증감 · 계정 돌려쓰기</span></h3>
+        <div class="ins-legend">${INS_ACCTS.map(a => `<span><i class="lg" style="background:${a.c}"></i>${a.key}</span>`).join('')}</div>
+      </div>
+      ${insVerPanel(p)}
+    </section>`;
 }
 
 // 계정별 원가/계획/실적 grouped bar
