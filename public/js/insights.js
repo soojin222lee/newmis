@@ -9,6 +9,8 @@ let insProject = 0;
 let insSort = { key: 'forecast', dir: 'desc' };
 let insCols = { plan: true, actual: true, forecast: true, share: true };
 let insCurTrend = null;
+let insAiInsightCache = {};    // 종합현황 AI Insight 캐시 { 프로젝트id: {items, source} }
+let insAiInsightLoading = {};  // 로딩 중복 방지
 
 const INS_CUR = 8; // 현재 월(8월)
 const MW = [0.062, 0.07, 0.075, 0.08, 0.085, 0.088, 0.092, 0.094, 0.086, 0.08, 0.075, 0.068];
@@ -19,15 +21,15 @@ const COST_CATS = [
 
 // base=원가(계약 시 수립 기준) · budget=계획(실행예산) · actual=실적 · forecast=예상원가
 const INS_PROJECTS = [
-  { name:'SKON 통합관제', pm:'김OO', contract:32.0, base:26.5, budget:27.2, actual:18.4, forecast:28.1, rate:87.8, diff:+3.2, status:'관리필요',
+  { id:'pj7f3a9c', name:'SKON 통합관제', pm:'김OO', contract:32.0, base:26.5, budget:27.2, actual:18.4, forecast:28.1, rate:87.8, diff:+3.2, status:'관리필요',
     cost:{ 인건비:11.2, 외주비:9.5, 구매:4.1, 경비:2.3, 기타:1.0 }, cause:'개발 외주 인력 3명 투입기간 연장' },
-  { name:'차세대 물류', pm:'이OO', contract:21.5, base:17.5, budget:17.8, actual:10.2, forecast:16.9, rate:78.6, diff:-1.1, status:'정상',
+  { id:'pj2b8e14', name:'차세대 물류', pm:'이OO', contract:21.5, base:17.5, budget:17.8, actual:10.2, forecast:16.9, rate:78.6, diff:-1.1, status:'정상',
     cost:{ 인건비:7.0, 외주비:5.2, 구매:2.6, 경비:1.5, 기타:0.6 }, cause:'계획 범위 내 정상 집행' },
-  { name:'Data Migration', pm:'박OO', contract:14.2, base:11.2, budget:11.6, actual:8.1, forecast:12.4, rate:87.3, diff:+4.7, status:'관리필요',
+  { id:'pj9c4d7a', name:'Data Migration', pm:'박OO', contract:14.2, base:11.2, budget:11.6, actual:8.1, forecast:12.4, rate:87.3, diff:+4.7, status:'관리필요',
     cost:{ 인건비:5.1, 외주비:4.0, 구매:1.9, 경비:1.0, 기타:0.4 }, cause:'데이터 정합성 검증 외주 확대' },
-  { name:'AI Platform', pm:'최OO', contract:18.7, base:14.5, budget:14.3, actual:9.8, forecast:13.9, rate:74.3, diff:-0.8, status:'정상',
+  { id:'pjab35f0', name:'AI Platform', pm:'최OO', contract:18.7, base:14.5, budget:14.3, actual:9.8, forecast:13.9, rate:74.3, diff:-0.8, status:'정상',
     cost:{ 인건비:6.6, 외주비:3.5, 구매:2.3, 경비:1.1, 기타:0.4 }, cause:'GPU 구매 지연으로 원가 하향' },
-  { name:'ERP Renewal', pm:'정OO', contract:9.8, base:7.8, budget:7.9, actual:5.1, forecast:7.2, rate:73.5, diff:-0.4, status:'정상',
+  { id:'pj61e2d8', name:'ERP Renewal', pm:'정OO', contract:9.8, base:7.8, budget:7.9, actual:5.1, forecast:7.2, rate:73.5, diff:-0.4, status:'정상',
     cost:{ 인건비:3.4, 외주비:1.8, 구매:1.3, 경비:0.5, 기타:0.2 }, cause:'표준화 모듈 재사용으로 절감' },
 ];
 
@@ -50,8 +52,18 @@ const INS_ACCTS = [
 ];
 let insVerAcct = '전체';   // '전체' | 계정명
 let insVerUnit = '금액';   // '금액' | '비율'
+let insVerExpanded = {};   // 계정별 상세 펼침 상태 { 인건비:true, ... }
 function selectInsVerAcct(a) { insVerAcct = a; renderInsights(); }
 function setInsVerUnit(u) { insVerUnit = u; renderInsights(); }
+function toggleInsVerAcct(key) { insVerExpanded[key] = !insVerExpanded[key]; renderInsights(); }
+
+// 계정별 상세 하위계정 — 수행원가(원가조정) 상세계정 기준. r = 계정 내 배분비율(합 1.0)
+const INS_SUB_ACCTS = {
+  인건비: [ { n:'실투입인건비', r:0.72 }, { n:'이관인건비', r:0.18 }, { n:'OT비', r:0.10 } ],
+  외주비: [ { n:'실투입 외주비', r:0.40 }, { n:'전문직 외주비', r:0.16 }, { n:'외주출장비', r:0.10 }, { n:'공사MA', r:0.14 }, { n:'이관외주비', r:0.12 }, { n:'기타외주비', r:0.08 } ],
+  재료비: [ { n:'상품재료비', r:0.68 }, { n:'감가상각비', r:0.20 }, { n:'기타재료비', r:0.12 } ],
+  경비:   [ { n:'조직운영비', r:0.34 }, { n:'소모품비', r:0.22 }, { n:'접대비', r:0.14 }, { n:'교육훈련비', r:0.12 }, { n:'기타경비', r:0.18 } ],
+};
 
 function projVersions(p) {
   const B = p.budget;                                  // 총 실행예산(억) — 버전 동일
@@ -108,7 +120,10 @@ async function insBudgetAiSummary() {
     openInsAiModal('done', d.summary, d.source);
   } catch (e) { openInsAiModal('error'); }
 }
-function openInsAiModal(state, text, source) {
+function openInsAiModal(state, text, source, opts) {
+  opts = opts || {};
+  const title = opts.title || '예산 변동 요약';
+  const loadingText = opts.loadingText || '예산 변동을 요약하고 있어요…';
   let m = document.getElementById('ins-ai-modal');
   if (!m) {
     m = document.createElement('div'); m.id = 'ins-ai-modal'; m.className = 'ins-ai-modal-overlay';
@@ -116,15 +131,36 @@ function openInsAiModal(state, text, source) {
     document.body.appendChild(m);
   }
   let bodyHtml;
-  if (state === 'loading') bodyHtml = `<div class="ins-ai-loading"><span class="ins-ai-spin"></span>예산 변동을 요약하고 있어요…</div>`;
-  else if (state === 'error') bodyHtml = `<div class="ins-ai-loading">요약을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</div>`;
+  if (state === 'loading') bodyHtml = `<div class="ins-ai-loading"><span class="ins-ai-spin"></span>${loadingText}</div>`;
+  else if (state === 'error') bodyHtml = `<div class="ins-ai-loading">분석을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</div>`;
   else bodyHtml = `<p class="ins-ai-text">${(text || '').replace(/</g,'&lt;')}</p>
-    <div class="ins-ai-src">${source === 'ai' ? '✦ AI 생성 요약' : '로컬 요약 (API 키 미설정 · 샘플)'}</div>`;
+    <div class="ins-ai-src">${source === 'ai' ? '✦ AI 생성 분석' : '로컬 분석 (API 키 미설정 · 샘플)'}</div>`;
   m.innerHTML = `<div class="ins-ai-modal">
-    <div class="ins-ai-mhead"><span><span class="ins-ai-badge">AI</span>예산 변동 요약</span><button class="ins-ai-x" onclick="closeInsAiModal()" aria-label="닫기">✕</button></div>
+    <div class="ins-ai-mhead"><span><span class="ins-ai-badge">AI</span>${title}</span><button class="ins-ai-x" onclick="closeInsAiModal()" aria-label="닫기">✕</button></div>
     <div class="ins-ai-mbody">${bodyHtml}</div>
   </div>`;
   m.classList.add('open');
+}
+
+// ── 원가 소진율 AI 분석 팝업 (LLM) ──
+async function insProgressAiSummary() {
+  const p = INS_PROJECTS[insProject];
+  const g = projProgress(p), m = projMoney(p, insProject);
+  const cats = [{ name:'인건비', key:'인건비' }, { name:'외주비', key:'외주비' }, { name:'재료비', key:'구매' }, { name:'경비', key:'경비' }];
+  const fcSum = Object.values(p.cost).reduce((a, b) => a + b, 0) || 1;
+  const accounts = cats.map(c => { const sh = (p.cost[c.key] || 0) / fcSum; return { name:c.name, base:+(p.base*sh).toFixed(1), plan:+(p.budget*sh).toFixed(1), actual:+(p.actual*sh).toFixed(1) }; });
+  const payload = {
+    project: p.name, period: { total: MW.length, current: INS_CUR },
+    planRate: +g.planNow.toFixed(0), actualRate: +g.actualNow.toFixed(0), dev: +(g.actualNow - g.planNow).toFixed(0), fcEnd: +g.fcEnd.toFixed(0),
+    cost: m.cost, actual: m.actual, committed: m.committed, remaining: m.remaining, reserve: m.reserve, accounts,
+  };
+  const opts = { title: '원가 소진율 AI 분석', loadingText: '원가 소진율을 분석하고 있어요…' };
+  openInsAiModal('loading', null, null, opts);
+  try {
+    const r = await fetch('/api/progress-summary', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+    const d = await r.json();
+    openInsAiModal('done', d.summary, d.source, opts);
+  } catch (e) { openInsAiModal('error', null, null, opts); }
 }
 function closeInsAiModal() { const m = document.getElementById('ins-ai-modal'); if (m) m.classList.remove('open'); }
 // 개별 계정: 기준선(점선) + 컬럼 막대 + 기준 대비 증감
@@ -179,11 +215,26 @@ function insVerTable(cols) {
   const head = `<tr><th>계정</th>${cols.map(c => `<th class="num">${c.label}${c.sub ? `<span class="ins-vt-sub"> ${c.sub}</span>` : ''}</th>`).join('')}<th class="num">증감<span class="ins-vt-sub"> V4−기준</span></th></tr>`;
   const rows = INS_ACCTS.filter(a => showAll || a.key === insVerAcct).map(a => {
     const d = +(insVerVal(lastCol, a.key) - insVerVal(baseCol, a.key)).toFixed(1), cls = d > 0 ? 'up' : (d < 0 ? 'down' : '');
-    return `<tr>
-      <td><span class="ins-acc-dot" style="background:${a.c}"></span>${a.key}</td>
+    const subs = INS_SUB_ACCTS[a.key] || [];
+    const open = !!insVerExpanded[a.key];
+    const parent = `<tr class="ins-vt-parent">
+      <td><button class="ins-vt-tog ${open ? 'open' : ''}" title="${open ? '상세 접기' : '상세 계정 펼치기'}" onclick="toggleInsVerAcct('${a.key}')">${open ? '−' : '+'}</button><span class="ins-acc-dot" style="background:${a.c}"></span>${a.key}</td>
       ${cols.map(c => `<td class="num${c.isBase ? ' base' : ''}">${insVerFmt(insVerVal(c, a.key))}</td>`).join('')}
       <td class="num ${cls}"><b>${d > 0 ? '+' : ''}${d.toFixed(1)}${du}</b></td>
     </tr>`;
+    let detail = '';
+    if (open) {
+      detail = subs.map(s => {
+        const sd = +((insVerVal(lastCol, a.key) - insVerVal(baseCol, a.key)) * s.r).toFixed(1);
+        const scls = sd > 0 ? 'up' : (sd < 0 ? 'down' : '');
+        return `<tr class="ins-vt-detail">
+          <td><span class="ins-vt-subname">${s.n}</span></td>
+          ${cols.map(c => `<td class="num${c.isBase ? ' base' : ''}">${insVerFmt(+(insVerVal(c, a.key) * s.r).toFixed(1))}</td>`).join('')}
+          <td class="num ${scls}">${sd > 0 ? '+' : ''}${sd.toFixed(1)}${du}</td>
+        </tr>`;
+      }).join('');
+    }
+    return parent + detail;
   }).join('');
   let totRow = '';
   if (showAll) { const t = cols.map(c => insVerUnit === '비율' ? '100.0%' : colTotal(c).toFixed(1) + '억'); totRow = `<tr class="ins-ver-tot"><td>합계</td>${t.map(x => `<td class="num">${x}</td>`).join('')}<td class="num"></td></tr>`; }
@@ -220,13 +271,26 @@ function projAI(p) {
 }
 
 // ── 진입 ──
+// 딥링크용 프로젝트 ID 헬퍼 (URL엔 프로젝트 번호 대신 불투명 ID를 노출한다)
+function insRouteId() { return INS_PROJECTS[insProject] ? INS_PROJECTS[insProject].id : null; }
+function insProjectIndexById(id) { const i = INS_PROJECTS.findIndex(p => p.id === id); return i >= 0 ? i : 0; }
+
 function showInsights(tab) {
-  insTab = (tab === 'overview' || tab === 'planactual' || tab === 'cost') ? tab : 'overview';
+  insTab = (tab === 'overview' || tab === 'progress' || tab === 'version') ? tab : 'overview';
   setScreen('s-insights');
   setNav('ngbtn-sub-insight');
   renderInsights();
 }
-function selectInsProject(i) { insProject = i; renderInsights(); }
+// AI 바로가기/딥링크 진입점: URL #/insights/<프로젝트ID>/<탭> 또는 gotoInsights(id, tab)
+function gotoInsights(id, tab) {
+  if (id) insProject = insProjectIndexById(id);
+  showInsights(tab);
+}
+function selectInsProject(i) {
+  insProject = i;
+  renderInsights();
+  if (typeof updateHashForScreen === 'function') updateHashForScreen('s-insights'); // 프로젝트 변경도 URL에 반영
+}
 function scrollInsProj(dir) {
   const t = document.getElementById('ins-proj-track');
   if (!t) return;
@@ -240,7 +304,7 @@ function renderInsights() {
 
 // ── 렌더 ──
 function insightsHtml() {
-  const TABS = [['overview', '종합 현황'], ['planactual', '계획 vs 실적'], ['cost', 'Cost 분석']];
+  const TABS = [['overview', '종합 현황'], ['progress', '원가 소진율'], ['version', '버전별 예산']];
   const p = INS_PROJECTS[insProject];
   return `
     <div class="ins-wrap">
@@ -270,7 +334,7 @@ function insightsHtml() {
         ${TABS.map(([k, v]) => `<button class="ins-tab ${insTab === k ? 'on' : ''}" onclick="showInsights('${k}')">${v}</button>`).join('')}
       </div>
 
-      ${insTab === 'overview' ? insOverviewHtml(p) : insTab === 'planactual' ? insPlanActualHtml(p) : insCostHtml(p)}
+      ${insTab === 'overview' ? insOverviewHtml(p) : insTab === 'progress' ? insProgressHtml(p) : insVersionHtml(p)}
     </div>
     ${insBuilderHtml()}
     ${insReportHtml()}`;
@@ -291,10 +355,15 @@ async function insGenerateReport() {
   try {
     const prog = Math.round(p.actual / p.forecast * 100);
     const accts = projAccounts(p);
+    // 3개 탭 종합: 종합현황(metrics/accounts) + 원가 소진율(progress) + 버전별 변동(versions)
+    const g = projProgress(p), money = projMoney(p, insProject);
+    const vcols = insVerCols(p), vb = vcols[0], vl = vcols[vcols.length - 1];
     const payload = {
       project: p.name, status: p.status, cause: p.cause,
       metrics: { contract:+p.contract.toFixed(1), base:+p.base.toFixed(1), budget:+p.budget.toFixed(1), actual:+p.actual.toFixed(1), forecast:+p.forecast.toFixed(1), rate:+p.rate.toFixed(1), diff:+p.diff.toFixed(1), prog },
       accounts: accts.map(a => ({ name:a.name, plan:a.plan, actual:a.actual, forecast:a.forecast, delta:a.delta, share:a.share })),
+      progress: { planRate:+g.planNow.toFixed(0), actualRate:+g.actualNow.toFixed(0), dev:+(g.actualNow - g.planNow).toFixed(0), fcEnd:+g.fcEnd.toFixed(0), cost:money.cost, actual:money.actual, committed:money.committed, remaining:money.remaining, reserve:money.reserve, periodTotal:MW.length, periodCur:INS_CUR },
+      versions: INS_ACCTS.map(a => ({ name:a.key, base:vb.vals[a.key], current:vl.vals[a.key], delta:+(vl.vals[a.key] - vb.vals[a.key]).toFixed(1) })),
     };
     const r = await fetch('/api/report-summary', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
     const d = await r.json(); aiText = d.summary; aiSource = d.source;
@@ -397,10 +466,40 @@ function insReportPageHtml(p, aiText, aiSource) {
     </div>`;
 }
 
+// 종합현황 AI Insight (LLM) — 캐시 없으면 로딩 표시 후 비동기 로드
+function insAiInsightItemsHtml(items) {
+  if (!items || !items.length) return `<div class="ins-ai-item"><div class="ins-ai-b">표시할 인사이트가 없습니다.</div></div>`;
+  return items.map(t => `<div class="ins-ai-item"><div class="ins-ai-b"><span class="ins-ai-sev info"></span>${(t || '').replace(/</g, '&lt;')}</div></div>`).join('');
+}
+async function loadInsOverviewAI(p) {
+  const accts = projAccounts(p);
+  const prog = Math.round(p.actual / p.forecast * 100);
+  const payload = {
+    project: p.name, status: p.status, cause: p.cause,
+    metrics: { contract:+p.contract.toFixed(1), base:+p.base.toFixed(1), budget:+p.budget.toFixed(1), actual:+p.actual.toFixed(1), forecast:+p.forecast.toFixed(1), rate:+p.rate.toFixed(1), diff:+p.diff.toFixed(1), prog },
+    accounts: accts.map(a => ({ name:a.name, plan:a.plan, actual:a.actual, forecast:a.forecast, share:a.share })),
+  };
+  let items = null, source = 'fallback';
+  try {
+    const r = await fetch('/api/insight', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+    const d = await r.json();
+    items = (d.insight || '').split(/\n+/).map(s => s.replace(/^[-•*•\d.\)\s]+/, '').trim()).filter(Boolean);
+    source = d.source;
+  } catch (e) {}
+  if (!items || !items.length) { items = projAI(p).map(a => `${a.title} — ${(a.body || '').replace(/<[^>]+>/g, '')}`); source = 'fallback'; }
+  insAiInsightCache[p.id] = { items, source };
+  insAiInsightLoading[p.id] = false;
+  if (insTab === 'overview' && INS_PROJECTS[insProject].id === p.id) {
+    const body = document.getElementById('ins-ai-insight-body'); if (body) body.innerHTML = insAiInsightItemsHtml(items);
+    const conf = document.getElementById('ins-ai-conf'); if (conf) conf.textContent = source === 'ai' ? '✦ AI 생성' : '샘플 분석';
+  }
+}
+
 function insOverviewHtml(p) {
   const kpis = projKpis(p);
-  const ai = projAI(p);
   insCurTrend = projTrend(p);
+  const cached = insAiInsightCache[p.id];
+  if (!cached && !insAiInsightLoading[p.id]) { insAiInsightLoading[p.id] = true; setTimeout(() => loadInsOverviewAI(p), 30); }
   return `
     <div class="ins-kpi-panel">
       ${kpis.map(k => `
@@ -421,13 +520,8 @@ function insOverviewHtml(p) {
         <div class="ins-trend-wrap">${insTrendSvg(insCurTrend)}<div class="ins-trend-tip" id="ins-trend-tip" hidden></div></div>
       </section>
       <aside class="ins-ai">
-        <div class="ins-ai-head"><span class="ins-ai-badge">AI</span>AI Insight<span class="ins-ai-conf">신뢰도 92%</span></div>
-        ${ai.map(a => `
-          <div class="ins-ai-item">
-            <div class="ins-ai-t"><span class="ins-ai-sev ${a.sev}"></span>${a.title}</div>
-            <div class="ins-ai-b">${a.body}</div>
-            <button class="ins-ai-act" onclick="openAiChat('main','${a.q}')">${a.act} →</button>
-          </div>`).join('')}
+        <div class="ins-ai-head"><span class="ins-ai-badge">AI</span>AI Insight<span class="ins-ai-conf" id="ins-ai-conf">${cached ? (cached.source === 'ai' ? '✦ AI 생성' : '샘플 분석') : 'AI 분석 중…'}</span></div>
+        <div id="ins-ai-insight-body">${cached ? insAiInsightItemsHtml(cached.items) : `<div class="ins-ai-loading2"><span class="ins-ai-spin"></span>AI가 현황을 분석하고 있어요…</div>`}</div>
         <div class="ins-ask">
           <div class="ins-ask-t">ASK AI</div>
           <p class="ins-ask-d">이 화면의 데이터를 근거로 질문하면 원인 분석과 시나리오를 계산해 드립니다.</p>
@@ -467,12 +561,58 @@ function insPlanActualHtml(p) {
     </section>`;
 }
 
-function insCostHtml(p) {
+// ── 진척률 탭 ──
+// 합의 Cost(=실행예산 budget) 분해: 실적(전표) + 집행예정(구매완료·전표 미집행) + 잔여(손실예비비 포함)
+function projMoney(p, i) {
+  const cost = +p.budget.toFixed(1);        // Cost: 애초에 써도 되는 합의된 금액(실행예산)
+  const actual = +p.actual.toFixed(1);      // 실적: 전표 발생분
+  const rest = +(cost - actual).toFixed(1); // 미집행 잔여 풀
+  const cRatio = [0.42, 0.34, 0.46, 0.30, 0.33][i] != null ? [0.42, 0.34, 0.46, 0.30, 0.33][i] : 0.35; // 집행예정 비중(잔여 대비)
+  const committed = +(rest * cRatio).toFixed(1);           // 집행예정: 구매(PO)했으나 전표 미집행
+  const remaining = +(rest - committed).toFixed(1);        // 잔여(나머지)
+  const reserve = +(remaining * 0.4).toFixed(1);           // 손실예비비: 잔여 중 언더런 잠재 금액
+  const remainFree = +(remaining - reserve).toFixed(1);    // 순수 가용 잔여
+  return { cost, actual, committed, remaining, reserve, remainFree };
+}
+
+// 전체 기간(12개월) 누적 진척: 계획율(누적 계획) · 소진율(누적 실적) · 예상(잔여 점선)
+function projProgress(p) {
+  const cum = []; let s = 0; MW.forEach(w => { s += w; cum.push(s); });
+  const total = cum[cum.length - 1];
+  const planPct = cum.map(v => v / total * 100);
+  const cost = p.budget;
+  const idxNow = INS_CUR - 1;               // 0-based 현재월
+  const cumNow = cum[idxNow];
+  const actualNow = p.actual / cost * 100;  // 현재 누적 소진율(실적)
+  const actualPct = [];
+  for (let i = 0; i <= idxNow; i++) actualPct.push(cum[i] / cumNow * actualNow);
+  const fcEnd = p.forecast / cost * 100;    // 예상 최종 소진율
+  const remCum = total - cumNow;
+  const fcPct = [];
+  for (let i = idxNow; i <= 11; i++) { const f = remCum > 0 ? (cum[i] - cumNow) / remCum : 0; fcPct.push(actualNow + f * (fcEnd - actualNow)); }
+  return { planPct, actualPct, fcPct, planNow: planPct[idxNow], actualNow, fcEnd, idxNow };
+}
+
+function insProgressHtml(p) {
+  const m = projMoney(p, insProject);
+  const g = projProgress(p);
+  const dev = g.actualNow - g.planNow;
   const prog = Math.round(p.actual / p.forecast * 100);
   const planVsBase = +(p.budget - p.base).toFixed(1);
   const fcVsBase = +(p.forecast - p.base).toFixed(1);
+  const TM = MW.length;                              // 전체 기간(개월)
+  const elapsed = Math.round(INS_CUR / TM * 100);    // 기간 경과율
+  const tip = t => `<span class="ins-pk-i" tabindex="0" role="note" title="${t.replace(/<br>/g, ' ').replace(/<\/?b>/g, '')}"><i>ⓘ</i><span class="ins-pk-tip">${t}</span></span>`;
   return `
-    ${insTabIntro('원가 분석', '계약 시 수립한 원가 기준 · 수행 중 세운 계획 · 실제 실적을 비교합니다.')}
+    ${insTabIntro('원가 소진율', p.name + ' · 전체 기간의 원가 소진율(실적)과 계획율을 비교하고, 합의 Cost를 실적·집행예정·잔여로 분해합니다.')}
+
+    <div class="ins-period">
+      <span class="ins-period-badge">전체 기간 <b>${TM}개월</b> 중 <b>${INS_CUR}개월째</b></span>
+      <div class="ins-period-track"><i style="width:${elapsed}%"></i></div>
+      <span class="ins-period-pct">${elapsed}% 경과</span>
+      <button class="ins-ai-sum-btn" onclick="insProgressAiSummary()">✦ AI 분석</button>
+    </div>
+
     <div class="ins-cost3">
       <div class="ins-c3">
         <div class="ins-c3-t"><span class="ins-c3-dot base"></span>원가 <em>계약 기준</em></div>
@@ -490,18 +630,83 @@ function insCostHtml(p) {
         <div class="ins-c3-s">예상원가 ${p.forecast.toFixed(1)}억 · 원가 대비 <b class="${fcVsBase >= 0 ? 'up' : 'down'}">${fcVsBase >= 0 ? '+' : ''}${fcVsBase.toFixed(1)}억</b></div>
       </div>
     </div>
+
+    <div class="ins-prog-kpis">
+      <div class="ins-pk"><div class="ins-pk-l">계획율 <em>현재 ${INS_CUR}월</em>${tip(`계획율 = 누적 계획금액 ÷ 총 계획 × 100<br><b>현재 ${INS_CUR}/${TM}개월</b> 시점의 계획상 소진 비중입니다.`)}</div><div class="ins-pk-v">${g.planNow.toFixed(0)}<span>%</span></div><div class="ins-pk-s">누적 계획 소진</div></div>
+      <div class="ins-pk"><div class="ins-pk-l">소진율 <em>실적</em>${tip(`소진율 = 누적 실적(전표) ÷ 합의 Cost × 100<br>실적 <b>${m.actual.toFixed(1)}억</b> ÷ Cost <b>${m.cost.toFixed(1)}억</b> 기준입니다.`)}</div><div class="ins-pk-v act">${g.actualNow.toFixed(0)}<span>%</span></div><div class="ins-pk-s">전표 기준 누적 실적</div></div>
+      <div class="ins-pk"><div class="ins-pk-l">진척 편차${tip(`진척 편차 = 소진율 − 계획율<br><b>+</b>이면 계획보다 빨리 소진(주의), <b>−</b>이면 계획 내 집행입니다.`)}</div><div class="ins-pk-v ${dev >= 0 ? 'up' : 'down'}">${dev >= 0 ? '+' : ''}${dev.toFixed(0)}<span>%p</span></div><div class="ins-pk-s">소진율 − 계획율</div></div>
+      <div class="ins-pk"><div class="ins-pk-l">예상 최종${tip(`예상 최종 = 예상원가 ÷ 합의 Cost × 100<br>예상원가 <b>${p.forecast.toFixed(1)}억</b> · <b>100% 초과 시 오버런</b>입니다.`)}</div><div class="ins-pk-v ${g.fcEnd > 100 ? 'up' : 'down'}">${g.fcEnd.toFixed(0)}<span>%</span></div><div class="ins-pk-s">예상원가 / 합의 Cost</div></div>
+    </div>
+
     <div class="ins-two">
       <section class="ins-panel">
-        <div class="ins-panel-head"><h3>계정별 원가 vs 계획 vs 실적</h3><span class="ins-panel-sub">계약 원가 · 실행 계획 · 실제 실적</span></div>
-        <div class="ins-grp-legend"><span><i class="base"></i>원가(계약)</span><span><i class="plan"></i>계획(실행)</span><span><i class="act"></i>실적</span></div>
-        ${insGroupedBarSvg(p)}
+        <div class="ins-panel-head"><h3>전체 기간 원가 소진율 <span class="ins-panel-sub">계획율 vs 소진율 · 현재 ${INS_CUR}월</span></h3>
+          <div class="ins-legend"><span><i class="lg" style="background:#9aa6b6"></i>계획율</span><span><i class="lg" style="background:#1f2937"></i>소진율(실적)</span><span><i class="lg" style="background:#f5a623"></i>예상(잔여)</span></div>
+        </div>
+        ${insProgressSvg(p, g)}
+        <div class="ins-trend-foot">계획율보다 소진율이 ${dev >= 0 ? '높으면 조기 소진(주의)' : '낮으면 계획 내 집행'} — 현재 편차 <b class="${dev >= 0 ? 'up' : 'down'}">${dev >= 0 ? '+' : ''}${dev.toFixed(0)}%p</b></div>
       </section>
       <section class="ins-panel">
-        <div class="ins-panel-head"><h3>Cost Variance</h3><span class="ins-panel-sub">계약 원가 → 예상원가</span></div>
-        ${insWaterfallSvg(p)}
-        <div class="ins-trend-foot">주요 원인 · ${p.cause}</div>
+        <div class="ins-panel-head"><h3>합의 Cost 분해 <span class="ins-panel-sub">Cost = 실적 + 집행예정 + 잔여</span></h3></div>
+        ${insMoneyBreakdown(p, m)}
       </section>
     </div>
+
+    <section class="ins-panel">
+      <div class="ins-panel-head"><h3>계정별 원가 vs 계획 vs 실적</h3><span class="ins-panel-sub">계약 원가 · 실행 계획 · 실제 실적</span></div>
+      <div class="ins-grp-legend"><span><i class="base"></i>원가(계약)</span><span><i class="plan"></i>계획(실행)</span><span><i class="act"></i>실적</span></div>
+      <div class="ins-grp-wrap">${insGroupedBarSvg(p)}</div>
+      <div class="ins-trend-foot">주요 원인 · ${p.cause}</div>
+    </section>`;
+}
+
+function insProgressSvg(p, g) {
+  const W = 440, H = 250, L = 34, R = 14, T = 18, B = 34, n = 12;
+  const x = i => L + (W - L - R) * (i / (n - 1));
+  const y = v => (H - B) - v / 100 * (H - B - T);
+  const grid = [0, 25, 50, 75, 100].map(v => `<line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W - R}" y2="${y(v).toFixed(1)}" class="ins-pgrid"/><text x="${L - 6}" y="${(y(v) + 3).toFixed(1)}" class="ins-ax" text-anchor="end">${v}</text>`).join('');
+  const xlab = Array.from({ length: n }, (_, i) => `<text x="${x(i).toFixed(1)}" y="${H - 14}" class="ins-ax" text-anchor="middle">${i + 1}</text>`).join('');
+  const path = (arr, off = 0) => arr.map((v, k) => `${k ? 'L' : 'M'}${x(off + k).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  const nowX = x(g.idxNow);
+  return `<svg viewBox="0 0 ${W} ${H}" class="ins-svg">
+    ${grid}
+    <line x1="${nowX.toFixed(1)}" y1="${T}" x2="${nowX.toFixed(1)}" y2="${H - B}" class="ins-nowline"/>
+    <text x="${nowX.toFixed(1)}" y="${T - 5}" class="ins-ax now" text-anchor="middle">현재 ${INS_CUR}월</text>
+    <path d="${path(g.planPct)}" fill="none" stroke="#9aa6b6" stroke-width="2"/>
+    <path d="${path(g.fcPct, g.idxNow)}" fill="none" stroke="#f5a623" stroke-width="2" stroke-dasharray="4 3"/>
+    <path d="${path(g.actualPct)}" fill="none" stroke="#1f2937" stroke-width="2.5"/>
+    <circle cx="${x(g.idxNow).toFixed(1)}" cy="${y(g.actualNow).toFixed(1)}" r="3.4" fill="#1f2937"/>
+    ${xlab}
+  </svg>`;
+}
+
+function insMoneyBreakdown(p, m) {
+  const pct = v => v / m.cost * 100;
+  const segs = [
+    { k: '실적', v: m.actual, c: '#1f2937', s: '전표 발생' },
+    { k: '집행예정', v: m.committed, c: '#f5a623', s: '구매완료·전표 미집행' },
+    { k: '잔여(가용)', v: m.remainFree, c: '#cdd5df', s: '미사용 잔여' },
+    { k: '손실예비비', v: m.reserve, c: '#22b07d', s: '언더런 잠재' },
+  ];
+  const bar = segs.map(s => `<div class="ins-mb-seg" style="width:${pct(s.v).toFixed(1)}%;background:${s.c}" title="${s.k} ${s.v.toFixed(1)}억"></div>`).join('');
+  const rows = segs.map(s => `
+    <div class="ins-mb-row">
+      <span class="ins-mb-k"><i style="background:${s.c}"></i>${s.k}</span>
+      <span class="ins-mb-s">${s.s}</span>
+      <b class="ins-mb-v">${s.v.toFixed(1)}억</b>
+      <span class="ins-mb-p">${pct(s.v).toFixed(0)}%</span>
+    </div>`).join('');
+  return `
+    <div class="ins-mb-total"><span>합의 Cost <em>써도 되는 합의 금액</em></span><b>${m.cost.toFixed(1)}억</b></div>
+    <div class="ins-mb-bar">${bar}</div>
+    <div class="ins-mb-bracket"><span style="flex:${(m.actual + m.committed) || 0.01}">집행 ${(m.actual + m.committed).toFixed(1)}억</span><span class="rest" style="flex:${m.remaining || 0.01}">잔여 ${m.remaining.toFixed(1)}억</span></div>
+    <div class="ins-mb-list">${rows}</div>
+    <div class="ins-trend-foot">잔여 ${m.remaining.toFixed(1)}억 중 <b>손실예비비 ${m.reserve.toFixed(1)}억</b>은 언더런(원가 절감) 잠재 금액입니다.</div>`;
+}
+
+function insVersionHtml(p) {
+  return `
+    ${insTabIntro('버전별 예산', p.name + ' · 기준(계약 원가) 대비 실행예산 버전(V1~V4)의 계정 간 예산 돌려쓰기를 분석합니다.')}
     <section class="ins-panel">
       <div class="ins-panel-head">
         <h3>버전별 계정 예산 변동 <span class="ins-panel-sub">기준(계약 원가) 대비 버전별 증감 · 계정 돌려쓰기</span></h3>
@@ -511,22 +716,36 @@ function insCostHtml(p) {
     </section>`;
 }
 
-// 계정별 원가/계획/실적 grouped bar
+// 계정별 원가/계획/실적 grouped bar — 4대계정(인건비/외주비/재료비/경비). 구매→재료비 매핑, 기타 제외.
 function insGroupedBarSvg(p) {
-  const accts = projAccounts(p);
-  const W = 420, H = 250, L = 28, R = 14, T = 14, B = 42;
-  const yMax = Math.max(...accts.map(a => Math.max(a.base, a.plan, a.actual))) * 1.25 || 1;
-  const y = v => (H - B) - v / yMax * (H - B - T);
-  const gap = (W - L - R) / accts.length; const bw = gap * 0.18; const ig = 3;
-  const cluster = 3 * bw + 2 * ig;
-  let out = '';
+  const cats = [
+    { name: '인건비', key: '인건비' }, { name: '외주비', key: '외주비' },
+    { name: '재료비', key: '구매' }, { name: '경비', key: '경비' },
+  ];
+  const fcSum = Object.values(p.cost).reduce((a, b) => a + b, 0) || 1;
+  const accts = cats.map(c => {
+    const sh = (p.cost[c.key] || 0) / fcSum;
+    return { name: c.name, base: +(p.base * sh).toFixed(1), plan: +(p.budget * sh).toFixed(1), actual: +(p.actual * sh).toFixed(1) };
+  });
+  const W = 1040, H = 200, L = 60, R = 60, T = 10, B = 28;
+  const xMax = Math.max(...accts.flatMap(a => [a.base, a.plan, a.actual])) * 1.15 || 1;
+  const x = v => L + v / xMax * (W - L - R);
+  const rowH = (H - T - B) / accts.length;
+  const bh = Math.min(11, rowH * 0.22); const ig = 3;
+  const cluster = 3 * bh + 2 * ig;
+  // X축(금액) 그리드 + 눈금
+  const ticks = [0, xMax / 2, xMax];
+  let out = ticks.map(v => `<line x1="${x(v).toFixed(1)}" y1="${T}" x2="${x(v).toFixed(1)}" y2="${H - B}" class="ins-pgrid"/><text x="${x(v).toFixed(1)}" y="${H - 12}" class="ins-ax" text-anchor="middle">${v.toFixed(1)}</text>`).join('');
+  out += `<text x="${W - 4}" y="${H - 12}" class="ins-ax" text-anchor="end">억</text>`;
+  // 계정별 가로 막대(Y축=계정)
   accts.forEach((a, i) => {
-    const cx = L + gap * i + gap / 2;
+    const cy = T + rowH * i + rowH / 2;
+    out += `<text x="${L - 8}" y="${(cy + 4).toFixed(1)}" class="ins-ax" text-anchor="end" style="font-weight:800">${a.name}</text>`;
     [['#b7c0cc', a.base, '원가'], ['#2f6bed', a.plan, '계획'], ['#17161f', a.actual, '실적']].forEach((t, j) => {
-      const bx = cx - cluster / 2 + j * (bw + ig);
-      out += `<rect x="${bx.toFixed(1)}" y="${y(t[1]).toFixed(1)}" width="${bw.toFixed(1)}" height="${(H - B - y(t[1])).toFixed(1)}" fill="${t[0]}" rx="1.5"><title>${a.name} ${t[2]} ${t[1]}억</title></rect>`;
+      const by = cy - cluster / 2 + j * (bh + ig);
+      out += `<rect x="${L}" y="${by.toFixed(1)}" width="${Math.max(1, x(t[1]) - L).toFixed(1)}" height="${bh.toFixed(1)}" fill="${t[0]}" rx="1.5"><title>${a.name} ${t[2]} ${t[1]}억</title></rect>`;
+      out += `<text x="${(x(t[1]) + 4).toFixed(1)}" y="${(by + bh - 1).toFixed(1)}" class="ins-ax" text-anchor="start">${t[1].toFixed(1)}</text>`;
     });
-    out += `<text x="${cx}" y="${H - 22}" class="ins-ax" text-anchor="middle">${a.name}</text>`;
   });
   return `<svg viewBox="0 0 ${W} ${H}" class="ins-svg">${out}</svg>`;
 }
@@ -650,6 +869,17 @@ function insDonutSvg(p) {
 }
 
 // ── 계정별 원가 테이블 ──
+// 종합현황 계정표 상세 펼침 — 계정명 → 수행원가 상세계정(INS_SUB_ACCTS) 매핑 (구매→재료비)
+let insOvExpanded = {};
+function insOvSubs(name) {
+  const map = { '인건비':'인건비', '외주비':'외주비', '구매':'재료비', '경비':'경비' };
+  return map[name] ? INS_SUB_ACCTS[map[name]] : null;
+}
+function toggleInsOvAcct(name) {
+  insOvExpanded[name] = !insOvExpanded[name];
+  const tbl = document.querySelector('#s-insights .ins-table-scroll');
+  if (tbl) tbl.outerHTML = insAccountTableHtml(INS_PROJECTS[insProject]);
+}
 function insAccountTableHtml(p) {
   let rows = projAccounts(p).map((a, i) => ({ ...a, _i: i }));
   rows.sort((a, b) => { const d = a[insSort.key] < b[insSort.key] ? -1 : a[insSort.key] > b[insSort.key] ? 1 : 0; return insSort.dir === 'asc' ? d : -d; });
@@ -657,14 +887,27 @@ function insAccountTableHtml(p) {
   const head = `<tr><th onclick="insSortBy('name')">계정</th>
     ${insCols.plan ? th('plan', '계획') : ''}${insCols.actual ? th('actual', '실적') : ''}${insCols.forecast ? th('forecast', '예상원가') : ''}
     <th class="num">계획 대비</th>${insCols.share ? `<th class="num">비중</th>` : ''}</tr>`;
-  const body = rows.map(a => `<tr class="ins-row">
-    <td class="nm"><span class="ins-dot" style="background:${a.color}"></span>${a.name}</td>
-    ${insCols.plan ? `<td class="num">${a.plan.toFixed(1)}억</td>` : ''}
-    ${insCols.actual ? `<td class="num">${a.actual.toFixed(1)}억</td>` : ''}
-    ${insCols.forecast ? `<td class="num">${a.forecast.toFixed(1)}억</td>` : ''}
-    <td class="num ${a.delta >= 0 ? 'up' : 'down'}">${a.delta >= 0 ? '+' : ''}${a.delta.toFixed(1)}억</td>
-    ${insCols.share ? `<td class="num">${a.share}%</td>` : ''}
-  </tr>`).join('');
+  const body = rows.map(a => {
+    const subs = insOvSubs(a.name), open = subs && insOvExpanded[a.name];
+    const tog = subs ? `<button class="ins-vt-tog ${open ? 'open' : ''}" title="${open ? '상세 접기' : '소계정 펼치기'}" onclick="toggleInsOvAcct('${a.name}')">${open ? '−' : '+'}</button>` : `<span class="ins-vt-tog-space"></span>`;
+    const parent = `<tr class="ins-row">
+      <td class="nm">${tog}<span class="ins-dot" style="background:${a.color}"></span>${a.name}</td>
+      ${insCols.plan ? `<td class="num">${a.plan.toFixed(1)}억</td>` : ''}
+      ${insCols.actual ? `<td class="num">${a.actual.toFixed(1)}억</td>` : ''}
+      ${insCols.forecast ? `<td class="num">${a.forecast.toFixed(1)}억</td>` : ''}
+      <td class="num ${a.delta >= 0 ? 'up' : 'down'}">${a.delta >= 0 ? '+' : ''}${a.delta.toFixed(1)}억</td>
+      ${insCols.share ? `<td class="num">${a.share}%</td>` : ''}
+    </tr>`;
+    const detail = open ? subs.map(s => `<tr class="ins-row ins-ov-detail">
+      <td class="nm"><span class="ins-vt-subname">${s.n}</span></td>
+      ${insCols.plan ? `<td class="num">${(a.plan * s.r).toFixed(1)}억</td>` : ''}
+      ${insCols.actual ? `<td class="num">${(a.actual * s.r).toFixed(1)}억</td>` : ''}
+      ${insCols.forecast ? `<td class="num">${(a.forecast * s.r).toFixed(1)}억</td>` : ''}
+      <td class="num ${a.delta >= 0 ? 'up' : 'down'}">${a.delta >= 0 ? '+' : ''}${(a.delta * s.r).toFixed(1)}억</td>
+      ${insCols.share ? `<td class="num">${Math.round(a.share * s.r)}%</td>` : ''}
+    </tr>`).join('') : '';
+    return parent + detail;
+  }).join('');
   return `<div class="ins-table-scroll"><table class="ins-table">${head}${body}</table></div>`;
 }
 function insSortBy(k) { if (insSort.key === k) insSort.dir = insSort.dir === 'asc' ? 'desc' : 'asc'; else { insSort.key = k; insSort.dir = 'desc'; } renderInsights(); }
