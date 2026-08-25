@@ -87,13 +87,66 @@ function expenseYearLabel(year, idxs) {
   return `${yy}년 (${first}월~${last}월)`;
 }
 
+/* ── 예산통(pool) ──────────────────────────────────────────────
+   업무 규칙: 예산은 중계정 단위로 한 통이고, 사용자는 소계정 단위로 일한다.
+   즉 같은 중계정에 묶인 소계정들은 ERP 가용예산을 "나눠 쓰는" 게 아니라 "함께 쓴다".
+   → 화면에서는 중계정 코드·이름을 노출하지 않고, 같은 통에 묶인 행들이 가용잔액 칸을 공유하도록 보여준다.
+   → 한도 검증도 소계정별이 아니라 통 단위 합계로 한다. */
+
+// 같은 예산통(중계정)에 속한 소계정 행들
+function expensePoolRowsFinal(row, rows = getExpenseRows()) {
+  return rows.filter(r => r.middleCode === row.middleCode);
+}
+
+// 통 단위 가용예산 = 통에 속한 소계정 가용예산의 합
+function expensePoolAvailableFinal(row, rows = getExpenseRows()) {
+  return expensePoolRowsFinal(row, rows).reduce((sum, r) => sum + Number(r.erpAvailable || 0), 0);
+}
+
+// 통 단위 계획 합계 (인자로 화면 입력값 맵을 주면 그 값을 우선 사용 — 실시간 재계산용)
+function expensePoolPlanFinal(row, rows = getExpenseRows(), liveTotals = null) {
+  return expensePoolRowsFinal(row, rows).reduce((sum, r) => {
+    if (liveTotals && Object.prototype.hasOwnProperty.call(liveTotals, r.id)) return sum + liveTotals[r.id];
+    return sum + expensePlanTotalFinal(r);
+  }, 0);
+}
+
+// 통 단위 잔액
+function expensePoolBalanceFinal(row, rows = getExpenseRows(), liveTotals = null) {
+  return expensePoolAvailableFinal(row, rows) - expensePoolPlanFinal(row, rows, liveTotals);
+}
+
+// 화면 표시 순서 — 같은 통에 속한 행이 붙어 있어야 잔액 칸을 병합할 수 있다.
+function expensePoolIndexFinal(row, rows = getExpenseRows()) {
+  const seen = [];
+  rows.forEach(r => { if (!seen.includes(r.middleCode)) seen.push(r.middleCode); });
+  return seen.indexOf(row.middleCode);
+}
+
+function expenseRowsGroupedFinal() {
+  const rows = getExpenseRows();
+  const seen = [];
+  rows.forEach(r => { if (!seen.includes(r.middleCode)) seen.push(r.middleCode); });
+  return seen.flatMap(code => rows.filter(r => r.middleCode === code));
+}
+
 validateExpenseErpAvailability = function(rows = getExpenseRows()) {
-  const invalid = rows.find(row => row.controlled && expensePlanTotalFinal(row) > Number(row.erpAvailable || 0));
-  if (!invalid) return { ok:true };
-  return {
-    ok:false,
-    message:`${invalid.middleName} > ${invalid.name} 계획금액 ${fmt(expensePlanTotalFinal(invalid))}원이 ERP 가용예산 ${fmt(invalid.erpAvailable || 0)}원을 초과했습니다.`,
-  };
+  // 통 단위로 검증한다(소계정 개별 초과는 통 안에서 서로 메울 수 있으므로 오류가 아니다).
+  const checked = [];
+  for (const row of rows) {
+    if (!row.controlled || checked.includes(row.middleCode)) continue;
+    checked.push(row.middleCode);
+    const available = expensePoolAvailableFinal(row, rows);
+    const plan = expensePoolPlanFinal(row, rows);
+    if (plan > available) {
+      const names = expensePoolRowsFinal(row, rows).map(r => r.name).join(' · ');
+      return {
+        ok:false,
+        message:`같은 예산을 쓰는 [${names}] 계획 합계 ${fmt(plan)}원이 ERP 가용예산 ${fmt(available)}원을 초과했습니다.`,
+      };
+    }
+  }
+  return { ok:true };
 };
 
 getExpenseTransferLimit = function() {
@@ -128,16 +181,19 @@ saveExpensePlan = function() {
 showExpenseErpAvailabilityModal = function() {
   const middleRows = getExpenseMiddleRowsFinal().filter(row => row.controlled);
   const bodyRows = middleRows.map(group => {
-    const diff = group.plan - group.erpAvailable;
+    // 잔액 = 통 가용예산 − 통 계획합계 (음수면 초과)
+    const balance = group.erpAvailable - group.plan;
     return `
       ${group.children.map((row, idx) => `
         <tr>
-          ${idx === 0 ? `<td rowspan="${group.children.length}">${group.code}</td><td rowspan="${group.children.length}">${group.name}</td><td rowspan="${group.children.length}" class="center">통제</td><td rowspan="${group.children.length}" class="num">${fmt(group.erpAvailable)}</td>` : ''}
-          <td>${row.code}</td>
-          <td>${row.name}</td>
+          <td>${row.name}${group.children.length > 1 ? `<em class="exp-pool-tag">공동 ${group.children.length}건</em>` : ''}</td>
           <td class="num">${fmt(row.carried)}</td>
           <td class="num">${fmt(expensePlanTotalFinal(row))}</td>
-          ${idx === 0 ? `<td rowspan="${group.children.length}" class="num ${diff > 0 ? 'danger' : ''}">${diff >= 0 ? '+' : ''}${fmt(diff)}</td>` : ''}
+          ${idx === 0 ? `
+            <td rowspan="${group.children.length}" class="center">통제</td>
+            <td rowspan="${group.children.length}" class="num">${fmt(group.erpAvailable)}</td>
+            <td rowspan="${group.children.length}" class="num">${fmt(group.plan)}</td>
+            <td rowspan="${group.children.length}" class="num ${balance < 0 ? 'danger' : ''}">${fmt(balance)}</td>` : ''}
         </tr>
       `).join('')}`;
   }).join('');
@@ -156,11 +212,11 @@ showExpenseErpAvailabilityModal = function() {
         <strong>ERP 가용예산조회</strong>
         <button onclick="document.getElementById('expense-erp-modal').classList.remove('open')">×</button>
       </div>
-      <div class="expense-erp-note">* 통제 중계정은 해당 프로젝트의 매출귀속부서에 ERP 가용예산이 있어야 계획을 수립할 수 있습니다. 소계정별 계획 합계가 중계정 가용예산을 초과하면 저장할 수 없습니다.</div>
+      <div class="expense-erp-note">* 통제 계정은 해당 프로젝트의 매출귀속부서에 ERP 가용예산이 있어야 계획을 수립할 수 있습니다. 같은 예산을 쓰는 소계정들의 <b>계획 합계</b>가 가용예산을 초과하면 저장할 수 없습니다.</div>
       <div class="expense-erp-table-wrap">
         <table class="expense-erp-table">
           <thead>
-            <tr><th>중계정코드</th><th>중계정명</th><th>통제여부</th><th>ERP 가용예산</th><th>소계정코드</th><th>소계정명</th><th>이전예산(A)</th><th>현재계획(B)</th><th>차이(B-A)</th></tr>
+            <tr><th>소계정</th><th>이전예산(A)</th><th>현재계획(B)</th><th>통제여부</th><th>ERP 가용예산</th><th>계획 합계</th><th>잔액</th></tr>
           </thead>
           <tbody>${bodyRows}</tbody>
         </table>
@@ -200,39 +256,69 @@ function toggleExpenseActualCols() {
   renderBudgetPage();
 }
 
-// 입력 시 계획합계·가용잔액을 실시간 재계산 (한눈에 작성)
-function expenseRecalcRow(id) {
-  const row = getExpenseRows().find(r => r.id === id);
-  if (!row) return;
+// 현재 화면 입력값 기준의 소계정 계획 합계
+function expenseLiveTotalFinal(id) {
   let total = 0;
   expensePlanYearsFinal().forEach(({ year }) => {
     const el = document.getElementById(`expense-plan-${id}-${year}`);
     total += parseBudgetAmount(el ? el.value : 0);
   });
+  return total;
+}
+
+// 입력 시 계획합계·가용잔액을 실시간 재계산 (한눈에 작성)
+// 가용잔액은 예산통(중계정) 공동이므로, 한 칸을 고치면 같은 통의 모든 행을 함께 갱신한다.
+function expenseRecalcRow(id) {
+  const rows = getExpenseRows();
+  const row = rows.find(r => r.id === id);
+  if (!row) return;
+
+  const total = expenseLiveTotalFinal(id);
   const totalCell = document.getElementById(`expense-total-${id}`);
   if (totalCell) totalCell.textContent = fmt(total);
-  if (row.controlled) {
-    const bal = Number(row.erpAvailable || 0) - total;
-    const balCell = document.getElementById(`expense-bal-${id}`);
-    if (balCell) { balCell.textContent = fmt(Math.max(bal, 0)); balCell.classList.toggle('danger', bal < 0); }
-    const tr = document.getElementById(`expense-tr-${id}`);
-    if (tr) tr.classList.toggle('expense-over', bal < 0);
+  if (!row.controlled) return;
+
+  // 같은 통에 속한 행들의 현재 입력값을 모두 모아 통 잔액을 계산
+  const poolRows = expensePoolRowsFinal(row, rows);
+  const liveTotals = {};
+  poolRows.forEach(r => { liveTotals[r.id] = expenseLiveTotalFinal(r.id); });
+  const bal = expensePoolBalanceFinal(row, rows, liveTotals);
+
+  const balCell = document.getElementById(`expense-bal-pool-${expensePoolIndexFinal(row, rows)}`);
+  if (balCell) {
+    balCell.textContent = fmt(Math.max(bal, 0));
+    balCell.classList.toggle('danger', bal < 0);
   }
+  poolRows.forEach(r => {
+    const tr = document.getElementById(`expense-tr-${r.id}`);
+    if (tr) tr.classList.toggle('expense-over', bal < 0);
+  });
 }
 
 renderExpensePlanPanel = function(data) {
-  const rows = getExpenseRows();
+  const allRows = getExpenseRows();
+  const rows = expenseRowsGroupedFinal();   // 같은 예산통끼리 붙여서 정렬
   const totalRows = rows.length;
   const years = expensePlanYearsFinal();
+  const seenPools = [];
   const body = rows.map(row => {
     const plan = expensePlanTotalFinal(row);
-    const balance = row.controlled ? Number(row.erpAvailable || 0) - plan : null;
     const monthlyActual = expenseActualExpanded ? expenseMonthlyActual(row) : null;
+    // 가용잔액은 예산통 공동 → 통의 첫 행에만 셀을 만들고 나머지 행에 걸쳐 병합한다.
+    const poolRows = expensePoolRowsFinal(row, allRows);
+    const isPoolHead = !seenPools.includes(row.middleCode);
+    if (isPoolHead) seenPools.push(row.middleCode);
+    const balance = expensePoolBalanceFinal(row, allRows);
+    const shared = poolRows.length > 1;
+    const balCell = !isPoolHead ? '' : (row.controlled
+      ? `<td class="num exp-bal-cell ${balance < 0 ? 'danger' : ''} ${shared ? 'shared' : ''}" rowspan="${poolRows.length}" id="expense-bal-pool-${expensePoolIndexFinal(row, allRows)}"
+           title="${shared ? '같은 예산을 쓰는 소계정 ' + poolRows.length + '건이 함께 사용하는 잔액입니다.' : ''}">${fmt(Math.max(balance, 0))}</td>`
+      : `<td class="num" rowspan="${poolRows.length}">-</td>`);
     return `
-      <tr id="expense-tr-${row.id}" class="${row.controlled && balance < 0 ? 'expense-over' : ''}">
+      <tr id="expense-tr-${row.id}" class="${row.controlled && balance < 0 ? 'expense-over' : ''} ${shared ? 'exp-pooled' : ''} ${isPoolHead ? 'exp-pool-head' : ''}">
         <td class="exp-acct">
           <strong>${row.name}</strong>
-          <span class="exp-acct-sub">${row.middleName}<i class="expense-control-badge ${row.controlled ? 'control' : 'free'}">${row.controlled ? '통제' : '비통제'}</i></span>
+          <span class="exp-acct-sub"><i class="expense-control-badge ${row.controlled ? 'control' : 'free'}">${row.controlled ? '통제' : '비통제'}</i>${shared ? `<em class="exp-pool-tag">공동예산 ${poolRows.length}건</em>` : ''}</span>
         </td>
         <td class="num">${fmt(row.carried)}</td>
         ${expenseActualExpanded ? monthlyActual.map(v => `<td class="num exp-am-col">${v ? fmt(v) : '-'}</td>`).join('') : ''}
@@ -241,7 +327,7 @@ renderExpensePlanPanel = function(data) {
           <td class="num exp-in-col"><input class="exp-year-input" id="expense-plan-${row.id}-${year}" value="${expenseYearPlan(row, idxs)}" inputmode="numeric" oninput="expenseRecalcRow('${row.id}')"></td>
         `).join('')}
         <td class="num exp-total" id="expense-total-${row.id}">${fmt(plan)}</td>
-        <td class="num ${row.controlled && balance < 0 ? 'danger' : ''}" id="expense-bal-${row.id}">${row.controlled ? fmt(Math.max(balance, 0)) : '-'}</td>
+        ${balCell}
       </tr>`;
   }).join('');
 
@@ -255,7 +341,7 @@ renderExpensePlanPanel = function(data) {
       <div class="exp-plan-head">
         <div>
           <h2>경비 자원계획 <span class="exp-plan-cnt">총 ${totalRows}건</span></h2>
-          <p>계획은 소계정별로 <strong>연단위</strong>로 작성합니다(연두 칸). 실적 열의 <strong>＋</strong>를 누르면 지난 <strong>26년 1월~7월 월별 실적</strong>이 펼쳐집니다. 통제 중계정은 ERP 매출귀속부서 가용예산 내에서만 수립할 수 있습니다.</p>
+          <p>계획은 소계정별로 <strong>연단위</strong>로 작성합니다(연두 칸). 실적 열의 <strong>＋</strong>를 누르면 지난 <strong>26년 1월~7월 월별 실적</strong>이 펼쳐집니다. <strong>공동예산</strong>으로 묶인 소계정은 가용잔액을 함께 쓰므로, 한 계정이 더 쓰면 같은 묶음의 다른 계정이 줄어듭니다.</p>
         </div>
         <div class="exp-plan-actions">
           <button class="exp-btn" onclick="showExpenseActualLookup()">경비 실적조회</button>
@@ -279,6 +365,29 @@ renderExpensePlanPanel = function(data) {
           <tbody>${body}</tbody>
         </table>
       </div>
-      <div class="exp-comment">통제 중계정은 매출귀속부서 기준 ERP 가용예산을 초과할 수 없습니다. 계정별 예산 이관에서 경비 조정배분을 변경할 때도 동일한 한도를 체크합니다.</div>
+      <div class="exp-comment">공동예산 묶음의 계획 합계는 매출귀속부서 기준 ERP 가용예산을 초과할 수 없습니다. 묶음 안에서는 소계정끼리 서로 메울 수 있어, 한 계정이 한도를 넘어도 묶음 합계가 한도 이내면 저장됩니다. 계정별 예산 이관에서 경비 조정배분을 변경할 때도 동일한 한도를 체크합니다.</div>
     </div>`;
 };
+
+/* ==========================================================================
+   전용 스타일 주입 (공유 CSS 미변경)
+   공동예산(중계정) 묶음 표시 — 코드·중계정명을 노출하지 않고, 묶음이라는 사실과
+   공유 잔액만 보이도록 최소한의 표시만 더합니다.
+   ========================================================================== */
+(function injectExpensePoolStyleFinal() {
+  if (document.getElementById('expense-pool-style')) return;
+  const style = document.createElement('style');
+  style.id = 'expense-pool-style';
+  style.textContent = `
+  .exp-pool-tag {
+    margin-left:6px; padding:1px 7px; border-radius:999px;
+    background:var(--sk-blue-soft); color:var(--sk-blue-deep);
+    font-style:normal; font-size:11px; font-weight:800; white-space:nowrap;
+  }
+  /* 공동 잔액 칸 — 여러 행에 걸쳐 병합되므로 세로 가운데 정렬 + 옅은 배경으로 묶음을 드러냄 */
+  .exp-bal-cell.shared { vertical-align:middle; background:#f6f9ff; }
+  /* 같은 묶음의 첫 행에 윗선을 그어 경계를 표시 */
+  .expense-plan-sifr tbody tr.exp-pool-head > td { border-top:1px solid var(--sk-border-strong); }
+  `;
+  document.head.appendChild(style);
+})();
