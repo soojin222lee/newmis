@@ -2,6 +2,8 @@ const http  = require("http");
 const https = require("https");
 const fs    = require("fs");
 const path  = require("path");
+// 예산 알림 해설 AI(/api/ai/*) — 로직은 전부 ai-proxy.js. 키는 여기와 같이 process.env 만 사용.
+const { handleAiApi } = require("./ai-proxy");
 
 const PORT = Number(process.env.PORT || 57291);
 
@@ -133,6 +135,8 @@ function handleAPI(pathname, method, body, res) {
   if (pathname === "/api/insight" && method === "POST") {
     handleInsight(body, res); return;
   }
+  // 예산 알림 해설 (/api/ai/*) — ai-proxy.js 가 처리했으면 여기서 종료
+  if (handleAiApi(pathname, method, body, res)) return;
   res.writeHead(404); res.end(JSON.stringify({ error: "Not found" }));
 }
 

@@ -81,6 +81,22 @@
   .osv3-alert.ok    { background:#eefaf5; border-color:#bfe8d8; color:#146c50; }
   .osv3-alert.warn  { background:#fff8e8; border-color:#f3ddad; color:#8a5b06; }
 
+  /* AI 예산 알림 해설 (원가조정 계정 공용) */
+  .budget-ai-btn {
+    flex:0 0 auto; border:1px solid currentColor; border-radius:8px; background:#fff;
+    padding:6px 12px; font-size:13px; font-weight:800; color:inherit; cursor:pointer; white-space:nowrap;
+  }
+  .budget-ai-btn:hover { background:currentColor; color:#fff; }
+  .budget-ai-slot { display:block; }
+  .budget-ai-slot:empty { display:none; }
+  .budget-ai-loading { display:block; margin-top:8px; font-size:13px; font-weight:600; opacity:.75; }
+  .budget-ai-error { display:block; margin-top:8px; font-size:13px; font-weight:600; color:var(--sk-red-deep); }
+  .budget-ai-result { margin:9px 0 0; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,.75); border:1px solid rgba(0,0,0,.06); }
+  .budget-ai-result > div { display:flex; gap:8px; margin-bottom:5px; }
+  .budget-ai-result dt { flex:0 0 34px; font-size:12px; font-weight:800; opacity:.7; }
+  .budget-ai-result dd { margin:0; font-size:13px; font-weight:600; line-height:1.5; }
+  .budget-ai-meta { margin:7px 0 0; font-size:11px; font-weight:600; opacity:.6; }
+
   .osv3-hint { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; margin-left:6px; flex:0 0 auto;
     border-radius:50%; border:1px solid var(--sk-border-strong); background:#fff; color:var(--sk-muted);
     font-size:11px; font-weight:700; cursor:help; vertical-align:middle; }
@@ -176,6 +192,80 @@
   `;
   document.head.appendChild(style);
 })();
+
+/* ==========================================================================
+   0-2. AI 예산 알림 해설 클라이언트 (원가조정 계정 파일 공용)
+   ==========================================================================
+   서버의 /api/ai/explain 을 불러 "원인 / 영향 / 조치" 3줄을 받아옵니다.
+   API 키는 서버(.env)에만 있고 브라우저로 내려오지 않습니다 — 여기서는 숫자·상황만 보냅니다.
+   budget-area-outsource.js 가 budget-area-labor.js 보다 먼저 로드되므로, 인건비 알림도 이 함수를
+   그대로 씁니다(같은 담당자 파일). 다른 계정에서 쓰려면 로드 순서만 확인하면 됩니다. */
+
+// 알림 요소별 결과 캐시 — 같은 알림을 다시 펼칠 때 서버를 또 부르지 않습니다.
+var budgetAiCacheV1 = {};
+
+function budgetAiEscapeV1(text) {
+  return String(text == null ? '' : text).replace(/[&<>"']/g, c => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;',
+  }[c]));
+}
+
+function budgetAiRenderV1(slotId, state, data) {
+  const slot = document.getElementById(slotId);
+  if (!slot) return;
+  if (state === 'loading') {
+    slot.innerHTML = '<span class="budget-ai-loading">AI가 이 알림을 해설하고 있습니다…</span>';
+    return;
+  }
+  if (state === 'error') {
+    slot.innerHTML = `<span class="budget-ai-error">${budgetAiEscapeV1(data)}</span>`;
+    return;
+  }
+  // source: 'ai' = LLM 생성 / 'fallback' = 키 없음·호출 실패 시 서버의 규칙 기반 기본 해설
+  const isAi = data.source === 'ai';
+  const origin = isAi
+    ? `${budgetAiEscapeV1(data.model || 'AI')} 생성${data.cached ? ' · 캐시' : ''}`
+    : '기본 해설(AI 미연결)';
+  slot.innerHTML = `
+    <dl class="budget-ai-result">
+      <div><dt>원인</dt><dd>${budgetAiEscapeV1(data.cause)}</dd></div>
+      <div><dt>영향</dt><dd>${budgetAiEscapeV1(data.impact)}</dd></div>
+      <div><dt>조치</dt><dd>${budgetAiEscapeV1(data.action)}</dd></div>
+      <p class="budget-ai-meta">${origin} · 참고용이며 수치는 화면 값을 확인하세요${data.note ? ` · ${budgetAiEscapeV1(data.note)}` : ''}</p>
+    </dl>`;
+}
+
+// payload: { kind, title, summary, facts:{라벨:값} }
+function budgetAiExplainV1(slotId, payload) {
+  const slot = document.getElementById(slotId);
+  if (!slot) return;
+  // 이미 펼쳐져 있으면 접기(토글)
+  if (slot.dataset.open === '1') {
+    slot.dataset.open = '0';
+    slot.innerHTML = '';
+    return;
+  }
+  slot.dataset.open = '1';
+  const cached = budgetAiCacheV1[slotId];
+  if (cached) { budgetAiRenderV1(slotId, 'ok', cached); return; }
+
+  budgetAiRenderV1(slotId, 'loading');
+  fetch('/api/ai/explain', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+    .then(res => res.json())
+    .then(json => {
+      if (!json || json.ok !== true) {
+        budgetAiRenderV1(slotId, 'error', (json && json.message) || 'AI 해설을 가져오지 못했습니다.');
+        return;
+      }
+      budgetAiCacheV1[slotId] = json;
+      budgetAiRenderV1(slotId, 'ok', json);
+    })
+    .catch(() => budgetAiRenderV1(slotId, 'error', '서버에 연결할 수 없습니다. npm start 로 서버가 실행 중인지 확인하세요.'));
+}
 
 /* ==========================================================================
    1. 외주비 예산내역 — "외주비" 합계 부모행 + 접기/펼치기
@@ -735,10 +825,26 @@ function osv3RenderAlertV3(vendor, ctrl) {
   const time = Math.round(ctrl.timeRatio * 100);
   const pace = Math.round(ctrl.paceRatio * 100);
   if (ctrl.level === 'warn') {
+    const slot = `osv3-ai-${vendor.id}`;
+    const summary = `${vendor.vendor} · 계약기간 ${time}% 경과 / 예산 ${pace}% 발행 · 잔여 ${osv3WonV3(ctrl.remain)}`;
+    const facts = {
+      '업체': vendor.vendor, '업무': vendor.contract,
+      '전체기간': `${vendor.start} ~ ${vendor.end}`,
+      '전체기간 예산': osv3WonV3(vendor.budget),
+      'PO 발행액': osv3WonV3(ctrl.issued),
+      '잔여예산': osv3WonV3(ctrl.remain),
+      '실적': osv3WonV3(ctrl.actual),
+      '기간 경과율': `${time}%`, '예산 발행율': `${pace}%`,
+      'PO 건수': `${vendor.pos.length}건`,
+      '남은 분기 수': `${ctrl.restQuarters}개`,
+    };
+    const payload = budgetAiEscapeV1(JSON.stringify({ kind:'outsource-pace', title:'분기 편중 주의', summary, facts }));
     return `<div class="osv3-alert warn">
       <em>분기 편중 주의</em>
       <div>${vendor.vendor} · 계약기간은 <b>${time}%</b> 경과했는데 예산은 <b>${pace}%</b>가 이미 발행됐습니다.
-      잔여 기간동안 쓸 수 있는 금액은 <b>${osv3WonV3(ctrl.remain)}</b>뿐입니다.</div>
+        잔여 기간동안 쓸 수 있는 금액은 <b>${osv3WonV3(ctrl.remain)}</b>뿐입니다.
+        <span class="budget-ai-slot" id="${slot}"></span></div>
+      <button class="budget-ai-btn" onclick='budgetAiExplainV1("${slot}", ${payload})'>AI 해설</button>
     </div>`;
   }
   return `<div class="osv3-alert ok">

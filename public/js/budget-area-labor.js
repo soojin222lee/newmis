@@ -153,6 +153,16 @@ function laborOpenScmInboxFinal() {
   switchLaborKindFinal('direct');
 }
 
+// AI 해설 버튼 + 결과 표시 슬롯. budgetAiExplainV1 은 budget-area-outsource.js(먼저 로드)가 소유합니다.
+function laborAiBlockFinal(slot, kind, title, summary, facts) {
+  if (typeof budgetAiExplainV1 !== 'function') return { slot:'', btn:'' };
+  const payload = budgetAiEscapeV1(JSON.stringify({ kind, title, summary, facts }));
+  return {
+    slot: `<span class="budget-ai-slot" id="${slot}"></span>`,
+    btn: `<button class="budget-ai-btn" onclick='budgetAiExplainV1("${slot}", ${payload})'>AI 해설</button>`,
+  };
+}
+
 function renderLaborAlertsFinal() {
   const s = laborSignalsFinal;
   const won = v => `₩${fmt(Math.round(Number(v || 0)))}`;
@@ -161,34 +171,61 @@ function renderLaborAlertsFinal() {
   // Case3(가장 주요) — SCM 확정 → I/F 수신 → 등록 필요
   if (s.scmInbox && s.scmInbox.length) {
     const totalMm = s.scmInbox.reduce((sum, p) => sum + Number(p.mm || 0), 0);
+    const ai = laborAiBlockFinal('labor-ai-scm', 'labor-scm', 'SCM 인력 확정 수신',
+      `SCM 확정 인력 ${s.scmInbox.length}명 · ${totalMm.toFixed(1)}MM 이 I/F 수신되었고 아직 미등록`, {
+        '수신 인력 수': `${s.scmInbox.length}명`,
+        '합계 MM': `${totalMm.toFixed(1)}MM`,
+        '인력 상세': s.scmInbox.map(p => `${p.name}/${p.grade}/${p.role}/${p.mm}MM/${p.start}~${p.end}`).join(' | '),
+        '최근 수신일': s.scmInbox[s.scmInbox.length - 1].receivedOn,
+        '등록 여부': '미등록',
+      });
     items.push(`
       <div class="labor-alert info">
         <em>SCM 인력 확정 수신</em>
         <div>SCM에서 투입계획이 확정(승인)된 인력 <b>${s.scmInbox.length}명 · ${totalMm.toFixed(1)}MM</b>이 I/F로 수신됐습니다
-          (${s.scmInbox.map(p => `${p.name} ${p.grade}`).join(', ')}). 등록해야 인건비로 예산화됩니다.</div>
+          (${s.scmInbox.map(p => `${p.name} ${p.grade}`).join(', ')}). 등록해야 인건비로 예산화됩니다.${ai.slot}</div>
         <button class="labor-alert-btn" onclick="laborOpenScmInboxFinal()">확정 인력 등록</button>
+        ${ai.btn}
       </div>`);
   }
 
   // Case1 — 계획 없이 OT 실적이 먼저 발생
   if (s.otUnplanned && s.otUnplanned.amount > 0) {
+    const ai = laborAiBlockFinal('labor-ai-ot', 'labor-ot', 'OT비 실적 발생',
+      `계획 없이 OT 정산 ${s.otUnplanned.count}건 · ${won(s.otUnplanned.amount)} 이 실적 반영됨`, {
+        'OT 정산 건수': `${s.otUnplanned.count}건`,
+        '미계획 실적금액': won(s.otUnplanned.amount),
+        '발생 기간': `${s.otUnplanned.from} ~ ${s.otUnplanned.to}`,
+        'OT비 계획 수립 여부': '해당 기간 계획 없음',
+      });
     items.push(`
       <div class="labor-alert warn">
         <em>OT비 실적 발생</em>
         <div>계획에 없던 OT 정산 <b>${s.otUnplanned.count}건 · ${won(s.otUnplanned.amount)}</b>이
-          ${s.otUnplanned.from}~${s.otUnplanned.to} 실적으로 반영되어 인건비가 그만큼 증가했습니다. OT비 계획을 보정하세요.</div>
+          ${s.otUnplanned.from}~${s.otUnplanned.to} 실적으로 반영되어 인건비가 그만큼 증가했습니다. OT비 계획을 보정하세요.${ai.slot}</div>
         <button class="labor-alert-btn" onclick="laborGoKindFinal('ot')">OT비 계획 열기</button>
+        ${ai.btn}
       </div>`);
   }
 
   // Case2 — P레벨 단가 확정으로 인한 예산 초과
   if (s.pGradeRate && s.pGradeRate.impact > 0) {
     const p = s.pGradeRate;
+    const ai = laborAiBlockFinal('labor-ai-prate', 'labor-prate', 'P레벨 단가 확정',
+      `${p.year}년 단가 ${p.rate}% 인상 확정 · 인력·MM 변동 없이 ${won(p.impact)} 초과 가능`, {
+        '확정 연도': `${p.year}년`,
+        '확정일': p.confirmedOn,
+        '전년 대비 인상률': `${p.rate}%`,
+        '계획 수립 기준': p.planBasedOn,
+        '예상 초과금액': won(p.impact),
+        '투입 인력·MM 변동': '없음',
+      });
     items.push(`
       <div class="labor-alert danger">
         <em>P레벨 단가 확정</em>
         <div>${p.year}년 P레벨 단가가 <b>${p.confirmedOn}</b>에 확정되어 전년 대비 <b>${p.rate}%</b> 인상됐습니다.
-          계획은 ${p.planBasedOn} 기준으로 수립되어, 투입 인력·MM 변동이 없어도 예산이 <b>${won(p.impact)}</b> 초과될 수 있습니다.</div>
+          계획은 ${p.planBasedOn} 기준으로 수립되어, 투입 인력·MM 변동이 없어도 예산이 <b>${won(p.impact)}</b> 초과될 수 있습니다.${ai.slot}</div>
+        ${ai.btn}
       </div>`);
   }
 
