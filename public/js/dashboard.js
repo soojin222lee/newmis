@@ -1912,3 +1912,88 @@ function homeMenuToggle() {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
 })();
+
+// ============================================================
+//  10차 — 메인화면 재배치 · 도킹 채팅 재열기
+//  배치: PJT 캐러셀 (위) → 선택된 프로젝트 (중간) → chatbot 입력창 (아래)
+//  모두 입력창과 같은 720px 폭에 맞춘다.
+// ============================================================
+
+// ── 입력창 위 영역 — 캐러셀 + 선택 문맥 (자동 처리 내역 버튼은 대화창으로 이동) ──
+function homePjtStripHtml() {
+  const list = HOME_PROJECTS.slice().sort((a, b) => {
+    const d = homeOpenCountOf(b.id) - homeOpenCountOf(a.id);
+    return d !== 0 ? d : a.name.localeCompare(b.name);
+  });
+  const chips = list.map(p => {
+    const n = homeOpenCountOf(p.id);
+    const on = homeSelectedProject === p.id;
+    return `
+        <button class="hm-ptab hm-pjt-chip ${on ? 'picked' : ''} ${n ? '' : 'calm'}"
+          onclick="selectHomePjt('${p.id}')" aria-pressed="${on}"
+          title="${p.name} · 확인 필요 ${n}건">
+          ${on ? '<span class="hm-pjt-check">✓</span>' : ''}
+          <span class="hm-ptab-name">${p.name}</span>
+          <span class="hm-ptab-badge ${n ? 'on' : ''}">${n}</span>
+        </button>`;
+  }).join('');
+  const picked = homePjtLabel();
+  const ctx = picked
+    ? `<div class="hm-ctx"><span class="hm-ctx-l">선택된 프로젝트</span><b>${picked}</b>
+         <span class="hm-ctx-d">이 프로젝트를 기준으로 답변해요</span>
+         <button class="hm-ctx-x" onclick="clearHomePjt()" aria-label="선택 해제">✕</button></div>`
+    : `<div class="hm-ctx off"><span class="hm-ctx-d">프로젝트를 선택하면 그 프로젝트를 기준으로 답변해요</span></div>`;
+  return `
+    <div class="hm-under">
+      <div class="hm-under-head">
+        <span class="hm-under-t">담당 프로젝트 <b>${HOME_PROJECTS.length}</b></span>
+        <span class="hm-under-sum">확인 필요 <b>${homeOpenCount()}건</b></span>
+      </div>
+      <div class="hm-ptabs-carousel">
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(-1)" aria-label="이전 프로젝트">‹</button>
+        <div class="hm-ptabs-track" id="hm-ptabs-track">${chips}</div>
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(1)" aria-label="다음 프로젝트">›</button>
+      </div>
+      ${ctx}
+    </div>`;
+}
+
+// ── 메인화면 — 캐러셀 → 선택 문맥 → 입력창 ──
+function renderPmDashboard() {
+  // 선택된 PJT는 화면을 다녀와도 유지한다 (대화 문맥이므로 초기화하지 않음)
+  homeCat = 'all';
+
+  return `
+    <div class="ai-workspace home2 home-simple">
+      <section class="home2-main centered">
+        <div class="home2-hero center">
+          <h1>좋은 아침이에요, 봄님</h1>
+        </div>
+
+        <div id="home-under">${homePjtStripHtml()}</div>
+
+        <div class="home2-search">
+          <span class="home2-orb" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
+              <path d="M12 4.4V8"/>
+              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
+              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <path d="M2 13v3M22 13v3"/>
+            </svg>
+          </span>
+          <input id="ai-main-query" type="text" placeholder="원하는 업무를 입력하세요 — 화면을 찾거나, 숫자의 이유를 묻거나, 다음 업무를 요청해보세요"
+            onkeydown="if(event.key==='Enter') askFromHome()">
+          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+        </div>
+      </section>
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
+    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}
+
+// 히어로 브리핑 문구를 없앴으므로 갱신 대상에서 제외
+function rerenderHomeFeed() {
+  const un = document.getElementById('home-under'); if (un) un.innerHTML = homePjtStripHtml();
+}
