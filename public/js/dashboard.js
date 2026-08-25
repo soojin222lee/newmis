@@ -1860,3 +1860,55 @@ function homePjtSlimCard(it) {
         ${line ? `<div class="hm-slim-n">${line}</div>` : ''}
       </div>`;
 }
+
+// ── 9차 — 상단 메뉴 토글 상태 기억 ─────────────────────────
+// 기본은 숨김(부문장님 지시: 단순한 첫 화면)이지만, 실무자가 ☰ 버튼으로 켜면
+// 그 선택을 브라우저에 저장해 새로고침·재접속해도 유지한다.
+// (메뉴가 없어 작업이 불편하다는 팀 피드백을 기본값을 바꾸지 않고 해소)
+const MENU_PREF_KEY = 'newmis.menuShown';
+
+function menuPrefGet() {
+  try { return localStorage.getItem(MENU_PREF_KEY) === '1'; } catch (e) { return false; }
+}
+function menuPrefSet(on) {
+  try { localStorage.setItem(MENU_PREF_KEY, on ? '1' : '0'); } catch (e) { /* 사생활 모드 등 */ }
+}
+
+function syncMenuToggleBtn() {
+  const on = document.body.classList.contains('menu-shown');
+  const b = document.getElementById('tb-menu-toggle');
+  if (!b) return;
+  b.classList.toggle('on', on);
+  b.title = on ? '상단 메뉴 숨기기' : '상단 메뉴 보기';
+  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+
+function homeMenuToggle() {
+  const on = !document.body.classList.contains('menu-shown');
+  document.body.classList.toggle('menu-shown', on);
+  menuPrefSet(on);
+  syncMenuToggleBtn();
+}
+
+// 저장된 선택을 화면에 적용 + 버튼 주입(중복 주입 방지)
+(function applyMenuPref() {
+  function bind() {
+    const right = document.querySelector('.topbar .tb-right');
+    if (!right) { setTimeout(bind, 300); return; }
+    if (menuPrefGet()) document.body.classList.add('menu-shown');
+    if (!document.getElementById('tb-menu-toggle')) {
+      const b = document.createElement('button');
+      b.id = 'tb-menu-toggle';
+      b.className = 'tb-menu-toggle';
+      b.type = 'button';
+      b.textContent = '☰';
+      b.setAttribute('aria-label', '상단 메뉴 표시 전환');
+      b.onclick = homeMenuToggle;
+      const apps = right.querySelector('.tb-apps');
+      if (apps) right.insertBefore(b, apps); else right.appendChild(b);
+    }
+    syncMenuToggleBtn();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
