@@ -718,3 +718,67 @@ body.menu-shown .topbar .topnav { display: flex !important; }
   .hm-ctx-x { margin-left: 0; }
   .hm-pm-foot { justify-content: stretch; }
 }
+
+/* ==========================================================================
+   10차 — 메인화면 재배치 (캐러셀 → 선택 문맥 → 입력창), 720px 정렬
+   ========================================================================== */
+
+/* 입력창(.home2-search max-width:720px)과 같은 폭으로 맞춘다 */
+.home-simple .hm-under { max-width: 720px; margin: 0 auto 14px; }
+.home-simple .home2-hero.center { margin: 56px 0 22px; }
+.home-simple .home2-search { margin-bottom: 40px; }
+
+/* 캐러셀 위 요약 줄 */
+.hm-under-head {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 0 4px 8px; font-size: 12px; font-weight: 700; color: #8a94a6;
+}
+.hm-under-t b { color: var(--sk-ink); font-weight: 900; }
+.hm-under-sum { margin-left: auto; }
+.hm-under-sum b { color: var(--sk-red); font-weight: 900; }
+
+/* 선택 문맥 줄 — 입력창 바로 위, 같은 폭·같은 라운드 */
+.home-simple .hm-ctx { margin: 10px 0 8px; }
+
+/* ==========================================================================
+   10차 — 대화창 헤더의 자동 처리 버튼 · 닫은 대화 다시 열기 FAB
+   ========================================================================== */
+
+.ai-chat-auto {
+  margin-left: auto; flex: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: linear-gradient(90deg, #f5f2ff, #f5fbfb);
+  border: 1px solid #e5e0fb; border-radius: 999px; padding: 5px 11px;
+  font-size: 11.5px; font-weight: 700; color: var(--sk-ink);
+}
+.ai-chat-auto:hover { border-color: #cfc5f7; }
+.ai-chat-auto b { color: #5546c9; font-weight: 900; }
+.ai-chat-auto-ic {
+  width: 16px; height: 16px; flex: none; border-radius: 50%;
+  background: #6c5ce7; color: #fff; font-size: 9px;
+  display: grid; place-items: center;
+}
+/* 메인으로 버튼이 있으면 그쪽이 오른쪽 정렬을 맡는다 */
+.ai-chat-head .ai-chat-home ~ .ai-chat-auto { margin-left: 6px; }
+.ai-chat-head .ai-chat-home { margin-left: auto; }
+
+/* 닫은 대화를 다시 여는 플로팅 버튼 (우측 하단) */
+.ai-chat-fab {
+  position: fixed; right: 22px; bottom: 22px; z-index: 75;
+  width: 54px; height: 54px; border-radius: 50%; cursor: pointer;
+  border: 1px solid #e5e0fb; background: #fff; font-size: 22px;
+  display: none; align-items: center; justify-content: center;
+  box-shadow: 0 12px 28px -14px rgba(76, 60, 190, .55);
+}
+.ai-chat-fab.on { display: inline-flex; }
+.ai-chat-fab:hover { border-color: #6c5ce7; transform: translateY(-2px); }
+.ai-chat-fab::after {
+  content: ''; position: absolute; top: 6px; right: 7px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--sk-red); border: 2px solid #fff;
+}
+
+@media (max-width: 720px) {
+  .hm-under-sum { margin-left: 0; }
+  .ai-chat-auto { margin-left: 6px; }
+}

@@ -428,3 +428,66 @@ body.chat-docked { padding-right: 392px; }
 .ai-iss-kpis strong.up { color: var(--sk-red); } .ai-iss-kpis strong.down { color: var(--sk-blue); }
 .ai-iss-kpis em { font-style: normal; font-size: 11.5px; }
 .ai-iss-sec { font-size: 12px; font-weight: 900; color: var(--sk-ink); margin: 16px 0 8px; }
+
+/* ==========================================================================
+   11차 — Agent 4종 칩 · 오케스트레이터 줄 · Agent 소개 목록
+   ========================================================================== */
+
+/* 이상징후 감시 = 경고(빨강), 할 일 도우미 = 실행(보라) */
+.ag-risk { background: #fdeef0; color: #b80022; }
+.ag-risk .ai-agent-dot { background: #ea002c; }
+.ag-todo { background: #f1eefd; color: #4b3fb5; }
+.ag-todo .ai-agent-dot { background: #6c5ce7; }
+.ai-intro.ag-risk { border-left-color: var(--sk-red); background: #fdf7f8; }
+.ai-intro.ag-todo { border-left-color: #6c5ce7; background: #f9f8ff; }
+
+/* b 태그로 쓰일 때는 배경 없이 색만 */
+b.ag-navi { background: none; color: #1746a0; }
+b.ag-q    { background: none; color: #0f6e56; }
+b.ag-risk { background: none; color: #b80022; }
+b.ag-todo { background: none; color: #4b3fb5; }
+b.ag-pilot{ background: none; color: #b80022; }
+
+/* 오케스트레이터 — 어느 Agent가 담당하는지 알리는 얇은 줄 */
+.ai-msg.ai-orch { align-self: stretch; }
+.ai-orch-line {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  font-size: 11.5px; color: #8a94a6; font-weight: 700;
+  padding: 2px 2px 0;
+}
+.ai-orch-tag {
+  font-size: 10.5px; font-weight: 800; color: #55606f;
+  background: #eef0f4; border-radius: 999px; padding: 2px 8px;
+}
+.ai-orch-line b { font-weight: 900; }
+
+/* 진입 화면의 Agent 소개 목록 */
+.ai-roster { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.ai-roster-i {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  background: #f7f8fb; border-radius: 9px; padding: 8px 11px;
+}
+.ai-roster-i b { font-size: 12.5px; font-weight: 900; flex: none; }
+.ai-roster-i span { font-size: 11.5px; color: #6a7382; }
+
+/* ==========================================================================
+   12차 — 대화창 상단에 첫 질의 고정
+   ========================================================================== */
+
+.ai-chat-ask {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 9px 16px; background: #f7f8fb;
+  border-bottom: 1px solid var(--sk-border);
+}
+.ai-chat-ask-l {
+  flex: none; font-size: 10.5px; font-weight: 800; color: #fff;
+  background: var(--sk-blue); border-radius: 999px; padding: 2px 8px; margin-top: 1px;
+}
+.ai-chat-ask-t {
+  font-size: 12.5px; font-weight: 700; color: var(--sk-ink); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* 도킹(우측 레일)에서는 폭이 좁으므로 한 줄로 줄인다 */
+.ai-chat-overlay.docked .ai-chat-ask { padding: 8px 14px; }
+.ai-chat-overlay.docked .ai-chat-ask-t { -webkit-line-clamp: 1; font-size: 12px; }

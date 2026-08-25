@@ -1393,3 +1393,635 @@ function chatOpenPjtIssues() {
   const id = (typeof homeSelectedProject !== 'undefined') ? homeSelectedProject : 'all';
   aiAgentMsg('pilot', chatIssueListHtml(id));
 }
+
+// ============================================================
+//  10차 — 자동 처리 내역을 대화창으로 · 닫은 도킹 채팅 다시 열기
+//  ※ openAiChat은 함수 선언 호이스팅 때문에 래핑하면 무한 재귀가 되므로
+//    덮지 않고, 대화창이 열리는 순간을 MutationObserver로 관찰해 처리한다.
+// ============================================================
+
+// ── 대화창 헤더의 "자동 처리 내역" 버튼 (메인화면에서는 제거되어 여기로 옮김) ──
+function ensureChatAutoBtn() {
+  const head = document.querySelector('#ai-chat-overlay .ai-chat-head');
+  if (!head || head.querySelector('.ai-chat-auto')) return;
+  const b = document.createElement('button');
+  b.className = 'ai-chat-auto';
+  b.type = 'button';
+  const n = (typeof HOME_AUTO_COUNT !== 'undefined') ? HOME_AUTO_COUNT : 12;
+  b.innerHTML = '<span class="ai-chat-auto-ic">⚡</span>자동 처리 <b>' + n + '건</b>';
+  b.title = 'AI가 사람 확인 없이 반영한 내역 보기';
+  b.onclick = function () { aiAgentMsg('pilot', pilotAutoHtml()); };
+  const close = head.querySelector('.ai-chat-close');
+  if (close) head.insertBefore(b, close); else head.appendChild(b);
+}
+
+// ── 닫은 도킹 채팅을 다시 여는 플로팅 버튼 ──
+function ensureChatFab() {
+  let f = document.getElementById('ai-chat-fab');
+  if (f) return f;
+  f = document.createElement('button');
+  f.id = 'ai-chat-fab';
+  f.className = 'ai-chat-fab';
+  f.type = 'button';
+  f.innerHTML = '<span aria-hidden="true">💬</span>';
+  f.title = '대화 이어서 열기';
+  f.setAttribute('aria-label', '대화 이어서 열기');
+  f.onclick = function () { dockAiChat(); };
+  document.body.appendChild(f);
+  return f;
+}
+function showChatFab() { ensureChatFab().classList.add('on'); }
+function hideChatFab() { const f = document.getElementById('ai-chat-fab'); if (f) f.classList.remove('on'); }
+
+// 도킹할 때 헤더 버튼을 갖추고 FAB은 숨긴다
+function dockAiChat() {
+  const ov = document.getElementById('ai-chat-overlay');
+  if (!ov) return;
+  ov.classList.add('open', 'docked');
+  document.body.classList.add('chat-docked');
+  const head = ov.querySelector('.ai-chat-head');
+  if (head && !head.querySelector('.ai-chat-home')) {
+    const b = document.createElement('button');
+    b.className = 'ai-chat-home';
+    b.type = 'button';
+    b.textContent = '‹ 메인으로';
+    b.setAttribute('aria-label', '메인 화면으로 돌아가기');
+    b.onclick = function () { if (typeof showMain === 'function') showMain(); };
+    head.insertBefore(b, head.querySelector('.ai-chat-close'));
+  }
+  ensureChatAutoBtn();
+  hideChatFab();
+  const inp = document.getElementById('ai-chat-query');
+  if (inp) setTimeout(function () { inp.focus(); }, 60);
+}
+
+// 상세 화면에서 닫으면 대화를 지우지 않고 FAB으로 남긴다 (눌러서 이어감)
+function closeAiChat() {
+  const ov = document.getElementById('ai-chat-overlay');
+  const wasDocked = ov && ov.classList.contains('docked');
+  const onMain = !!document.querySelector('#s-main.active');
+  const hasTalk = !!(ov && ov.querySelector('#ai-chat-body .ai-msg'));
+  if (ov) ov.classList.remove('open');
+  undockAiChat();
+  if (wasDocked && !onMain && hasTalk) showChatFab(); else hideChatFab();
+}
+
+// 대화창이 열리는 순간을 관찰 — 자동 처리 버튼 주입 + FAB 정리
+(function watchChatOpen() {
+  function bind() {
+    const ov = document.getElementById('ai-chat-overlay');
+    const main = document.getElementById('s-main');
+    if (!ov || !main) { setTimeout(bind, 300); return; }
+    new MutationObserver(function () {
+      if (ov.classList.contains('open')) { ensureChatAutoBtn(); hideChatFab(); }
+    }).observe(ov, { attributes: true, attributeFilter: ['class'] });
+    // 메인으로 돌아오면 FAB도 정리
+    new MutationObserver(function () {
+      if (main.classList.contains('active')) hideChatFab();
+    }).observe(main, { attributes: true, attributeFilter: ['class'] });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+// ============================================================
+//  10차 — 화면 길안내 전면 개편
+//  기존 문제: 등록된 경로가 4개뿐이고 못 찾으면 무조건 첫 항목(수행원가 조정)으로
+//  떨어져서, "인사이트로 이동" 같은 요청이 전부 오답이었다.
+//  → 상단 메뉴 전체를 실제 진입 함수와 함께 등록하고, 못 찾으면 되묻는다.
+// ============================================================
+
+// go: 실제 화면 진입 함수 이름 (index.html의 메뉴가 호출하는 것과 동일)
+const NAVI_SCREENS = [
+  { id:'main',      k:/(메인|홈|첫화면|대시보드|myworkㅇ?)/i, t:'My Work',
+    path:['My Work'], go:'showMain',
+    need:'없음', min:'즉시', note:'담당 프로젝트와 확인할 항목을 한눈에 봐요.' },
+
+  { id:'cost-status', k:/(원가현황|원가\s*현황|현황조회|집행현황|계정별현황)/, t:'원가 현황',
+    path:['수행원가','원가현황'], go:'showCostStatus',
+    need:'없음', min:'약 2분', note:'계정별 계획·실적·잔여를 한 화면에서 봐요.' },
+  { id:'cost-adjust', k:/(원가조정|조정|변경입력|예산변경|편성)/, t:'원가 조정',
+    path:['수행원가','원가조정'], go:'showCostAdjust',
+    need:'변경 사유 · 근거 자료(계약서·확정 인력)', min:'약 5분',
+    note:'승인된 예산은 조정 시 새 버전(Draft)으로 남고, 확정 전까지 ERP에 전송되지 않아요.' },
+  { id:'cost-history', k:/(변경이력|이력|버전|히스토리|변경내역)/, t:'변경 이력',
+    path:['수행원가','변경 이력'], go:'showCostHistory',
+    need:'없음', min:'약 1분', note:'버전별 변경 전/후와 승인자를 함께 볼 수 있어요.' },
+
+  { id:'insights', k:/(인사이트|종합현황|종합\s*현황|분석화면|추이|trend)/i, t:'인사이트 종합현황',
+    path:['인사이트','종합 현황'], go:'showInsights',
+    need:'없음', min:'약 3분', note:'월별 원가 추이와 계획 대비 실적을 차트로 봐요.' },
+  { id:'report', k:/(레포트|리포트|보고서|보고자료)/, t:'맞춤 레포트',
+    path:['인사이트','맞춤 레포트'], go:'showCustomReport',
+    need:'보고 대상·기간', min:'약 3분', note:'필요한 항목만 골라 보고서 형태로 뽑을 수 있어요.' },
+
+  { id:'si', k:/(수주형|수주|SI프로젝트|si)/i, t:'수주형 프로젝트',
+    path:['프로젝트','수주형 프로젝트'], go:'showSIProject',
+    need:'없음', min:'약 2분', note:'계약·IF 이력 중심으로 수주 사업을 봐요.' },
+  { id:'proposal', k:/(제안)/, t:'제안 프로젝트',
+    path:['프로젝트','제안 프로젝트'], go:'showProposalProject',
+    need:'없음', min:'약 2분', note:'제안 단계 프로젝트를 관리해요.' },
+  { id:'wg', k:/(wg|w\/g|워킹그룹)/i, t:'W/G 프로젝트',
+    path:['프로젝트','W/G 프로젝트'], go:'showWGProject',
+    need:'없음', min:'약 2분', note:'W/G 프로젝트를 관리해요.' },
+  { id:'internal', k:/(사내)/, t:'사내 프로젝트',
+    path:['프로젝트','사내 프로젝트'], go:'showInternalProject',
+    need:'없음', min:'약 2분', note:'사내 프로젝트를 관리해요.' },
+  { id:'invest', k:/(투자)/, t:'투자 프로젝트',
+    path:['프로젝트','투자프로젝트'], go:'showInvestmentProject',
+    need:'없음', min:'약 2분', note:'투자 프로젝트를 관리해요.' },
+  { id:'advance', k:/(선투입)/, t:'선투입 프로젝트',
+    path:['프로젝트','선투입 프로젝트'], go:'showAdvanceProject',
+    need:'없음', min:'약 2분', note:'선투입 집행과 본 PJT 승계를 관리해요.' },
+
+  { id:'close', k:/(프로젝트종료|종료보고|사업종료)/, t:'프로젝트 종료',
+    path:['프로젝트','프로젝트 종료'], go:'showProjectClose',
+    need:'없음', min:'약 3분', note:'종료 단계 산출물과 정산을 확인해요.' },
+  { id:'monthly', k:/(월마감|마감)/, t:'월 마감',
+    path:['수행원가','월 마감'], go:'showMonthlyClose',
+    need:'없음', min:'약 3분', note:'당월 계획과 실적의 gap을 맞추는 단계예요.' },
+];
+
+// 실제 화면 이동 — 함수가 없으면 이동하지 않고 false를 돌려준다(엉뚱한 화면 방지)
+function naviGo(id) {
+  const s = NAVI_SCREENS.find(x => x.id === id);
+  if (!s) return false;
+  const fn = window[s.go];
+  if (typeof fn !== 'function') return false;
+  if (s.id === 'insights') fn('overview'); else fn();
+  if (typeof dockAiChat === 'function') dockAiChat();
+  return true;
+}
+
+function naviMatch(text) {
+  const t = String(text).replace(/\s/g, '');
+  return NAVI_SCREENS.find(x => x.k.test(t)) || null;
+}
+
+// 못 찾으면 엉뚱한 화면을 안내하지 않고 되묻는다
+function naviAskHtml(text) {
+  const picks = ['cost-status', 'cost-adjust', 'insights', 'report', 'si', 'monthly']
+    .map(id => NAVI_SCREENS.find(s => s.id === id))
+    .filter(Boolean)
+    .map(s => `<button class="ai-act" onclick="naviGo('${s.id}')">${escHtml(s.path.join(' › '))}</button>`)
+    .join('');
+  return `<div class="ai-result">
+      <div class="ai-r-lead">"${escHtml(String(text).slice(0, 40))}" — 어느 화면을 찾으시는지 정확히 모르겠어요.</div>
+      <div class="ai-r-cause">아래에서 골라주시거나, 화면 이름을 조금 더 구체적으로 말씀해 주세요.</div>
+      <div class="ai-actions">${picks}</div>
+    </div>`;
+}
+
+function naviRouteHtml(text) {
+  const s = naviMatch(text);
+  if (!s) return naviAskHtml(text);
+  const crumb = s.path.map((p, i) => `<span class="ai-nav-crumb${i === s.path.length - 1 ? ' on' : ''}">${escHtml(p)}</span>`).join('<i>›</i>');
+  const ok = typeof window[s.go] === 'function';
+  return `<div class="ai-result">
+      <div class="ai-r-lead"><b>${escHtml(s.t)}</b> 화면으로 안내할게요.</div>
+      <div class="ai-nav-path">${crumb}</div>
+      <div class="ai-navi-meta">
+        <div><span>준비할 것</span><strong>${escHtml(s.need)}</strong></div>
+        <div><span>예상 소요</span><strong>${escHtml(s.min)}</strong></div>
+      </div>
+      <p class="ai-r-note">${escHtml(s.note)}</p>
+      <div class="ai-actions">
+        ${ok ? `<button class="ai-act pri" onclick="naviGo('${s.id}')">${escHtml(s.t)} 열기 →</button>`
+             : `<span class="ai-r-note">이 화면은 아직 준비 중이라 바로 이동할 수 없어요.</span>`}
+      </div>
+    </div>`;
+}
+
+// 라우팅 — 화면 이동 의도를 다른 규칙보다 먼저 판정한다
+// (예: "인사이트 메뉴로 이동" 이 '이동' 때문에 엉뚱한 곳으로 가던 문제 해결)
+function routeIntent(text) {
+  const t = text.replace(/\s/g, '');
+
+  // ① 메인 복귀
+  if (/(메인|홈|처음|첫화면|대시보드)/.test(t) && /(가|이동|보여|복귀|돌아|줘)/.test(t)) {
+    return { agent:'navi', render: () => {
+      aiAgentMsg('navi', '<div class="ai-result"><div class="ai-r-lead">메인 화면으로 이동합니다.</div></div>');
+      setTimeout(function () { if (typeof showMain === 'function') showMain(); }, 450);
+    } };
+  }
+
+  // ② 화면 이동 의도 — 화면 이름이 잡히면 길안내가 최우선
+  const wantsNav = /(찾아|어디|어떻게|화면|이동|바로가기|절차|방법|메뉴|열어|가줘|보여줘|이동해)/.test(t);
+  const hit = naviMatch(t);
+  if (wantsNav && hit) return { agent:'navi', render: () => aiAgentMsg('navi', naviRouteHtml(text)) };
+
+  // ③ 이슈·확인사항 → 대화 안 목록
+  if (/(이슈|확인할것|확인사항|확인해야|확인필요|해야할|해야하는|처리할|점검할|투두|todo|to-do)/i.test(t)) {
+    return { agent:'pilot', render: () => chatOpenPjtIssues() };
+  }
+
+  // ④ Pilot
+  if (/(하면|한다면|투입하면|늘리면|줄이면|시뮬|가정|만약)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotWhatIfHtml(text)) };
+  if (/(자동반영|자동처리|AI가처리|알아서)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotAutoHtml()) };
+  if (/(위임|자동조종|얼마나믿|신뢰도)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotTrustHtml()) };
+  if (/(오늘|브리핑|briefing|리스크)/.test(t)) return { agent:'pilot', render: () => aiAgentMsg('pilot', pilotBriefingHtml()) };
+
+  // ⑤ Q — 정해진 분석 화면이 있는 질의
+  if (/외주비/.test(t) && /(왜|늘|증가|많|올랐|초과)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qOutsourceHtml()) };
+  if (/원가율/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qCostRateHtml()) };
+  if (/(계획대비|계획\s*대비)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qComparePlanHtml()) };
+
+  // ⑥ 화면 이름만 말한 경우(동사 없이)도 길안내
+  if (hit) return { agent:'navi', render: () => aiAgentMsg('navi', naviRouteHtml(text)) };
+
+  // ⑦ 이동 의도인데 화면을 특정 못한 경우 → 되묻기 (엉뚱한 화면 안내 금지)
+  if (wantsNav) return { agent:'navi', render: () => aiAgentMsg('navi', naviAskHtml(text)) };
+
+  // ⑧ 그 외 → 서버 경유 LLM
+  return { agent:'q', render: () => askLLMAnswer(text) };
+}
+
+// ============================================================
+//  11차 — Agent 재정의 (한글 역할명) · 이상징후 / 할 일 분리 · 오케스트레이터 노출
+//
+//  구성: 오케스트레이터 1 + 상세 Agent 4
+//   · AI 어시스턴트   — 질의 유형을 판정해 담당 Agent에 배정 (칩으로 노출)
+//   · 화면 길잡이     — 어디서 · 무엇을 준비해서 · 몇 분
+//   · 데이터 분석     — 숫자의 의미와 원인을 근거와 함께 (What-if 포함)
+//   · 이상징후 감시   — MIS 데이터에서 발견한 위험 신호 경고 (cat:'budget')
+//   · 할 일 도우미    — 선행 이벤트로 생긴 조치 업무 제시 (cat:'work', 자동처리·위임등급)
+// ============================================================
+
+Object.assign(AGENTS.navi, {
+  name: '화면 길잡이', role: '화면·절차 안내', desc: '어디서 어떻게 하는지 안내해요',
+  ex2: ['원가 조정 어디서 해?', '인사이트 화면 열어줘', '변경 이력 보고싶어'],
+});
+Object.assign(AGENTS.q, {
+  name: '데이터 분석', role: '숫자의 이유', desc: '숫자의 의미와 원인을 근거와 함께 설명해요',
+  ex2: ['외주비 왜 늘었어?', '원가율 높은 프로젝트 알려줘', '개발자 2명 더 투입하면?'],
+});
+AGENTS.risk = {
+  name: '이상징후 감시', role: '위험 신호 경고', desc: 'MIS 데이터에서 발견한 이상을 먼저 알려드려요',
+  ex: '이상징후 있어?', ex2: ['이상징후 있어?', '계약금액 정합성 확인해줘', '급증한 계정 알려줘'],
+};
+AGENTS.todo = {
+  name: '할 일 도우미', role: '조치 업무 제시', desc: '선행 시스템 이벤트로 생긴 해야 할 일을 제시해요',
+  ex: '오늘 할 일 알려줘', ex2: ['오늘 할 일 알려줘', 'AI가 자동 처리한 내역', '위임 등급 보여줘'],
+};
+// 기존 pilot 키를 참조하는 코드가 남아 있어도 깨지지 않게 할 일 도우미로 흡수
+Object.assign(AGENTS.pilot, {
+  name: '할 일 도우미', role: '조치 업무 제시', desc: '선행 시스템 이벤트로 생긴 해야 할 일을 제시해요',
+  ex2: AGENTS.todo.ex2,
+});
+
+// ── 오케스트레이터 — 어느 Agent가 담당하는지 한 줄로 보여준다 ──
+const ORCH = { name: 'AI 어시스턴트', role: '질의 유형 판정' };
+
+function aiOrchestratorMsg(agentKey, agents) {
+  const body = document.getElementById('ai-chat-body');
+  if (!body) return;
+  const keys = (Array.isArray(agents) && agents.length) ? agents : [agentKey];
+  const names = keys.filter(k => AGENTS[k])
+    .map(k => `<b class="ag-${k}">${escHtml(AGENTS[k].name)}</b>`);
+  if (!names.length) return;
+  const who = names.length > 1
+    ? names.join(' · ') + '가 함께 답합니다'
+    : names[0] + '가 담당합니다';
+  const d = document.createElement('div');
+  d.className = 'ai-msg ai-orch';
+  d.innerHTML = `<div class="ai-orch-line">
+      <span class="ai-orch-tag">${escHtml(ORCH.name)}</span>이 질문은 ${who}
+    </div>`;
+  body.appendChild(d);
+  body.scrollTop = body.scrollHeight;
+}
+
+function sendAiChat() {
+  const input = document.getElementById('ai-chat-query');
+  const text = (input.value || '').trim();
+  if (!text) return;
+  aiUserMsg(text); input.value = '';
+  const route = routeIntent(text);
+  aiOrchestratorMsg(route.agent, route.agents);
+  const t = aiTyping(route.agent);
+  setTimeout(function () { t.remove(); route.render(); }, 560);
+}
+
+// ── 확인 항목 — 이상징후(budget) / 할 일(work) 분리 ──
+// cat 을 주면 그 갈래만, 안 주면 둘 다 각각의 Agent 메시지로 나눠 보여준다.
+function chatIssueListHtml(id, cat) {
+  const all = id === 'all';
+  const items = HOME_FEED.filter(i =>
+    (all || i.proj === id) && !homeFeedState[feedKey(i)] && (!cat || i.cat === cat));
+  const who = all ? '담당 전체 프로젝트' : homeProjName(id);
+  const isRisk = cat === 'budget';
+  const label = cat ? (isRisk ? '이상징후' : '해야 할 일') : '확인이 필요한 것';
+  const desc = cat
+    ? (isRisk ? 'MIS 데이터에서 발견한 위험 신호예요.' : '선행 시스템 이벤트로 생긴 조치 업무예요.')
+    : '항목을 누르면 상세와 조치 버튼이 나와요.';
+  if (!items.length) {
+    return `<div class="ai-result">
+        <div class="ai-r-lead"><span class="ai-r-tag ink">${escHtml(label)}</span> ${escHtml(who)}</div>
+        <div class="ai-r-cause">지금 ${escHtml(cat ? label : '확인할 항목')}은 없어요. 정상 범위입니다.</div>
+      </div>`;
+  }
+  const cards = items.map(it => {
+    const ai = (typeof homeAiOf === 'function') ? homeAiOf(it) : null;
+    const sev = it.sev === 'danger' ? 'danger' : it.sev === 'warning' ? 'warning' : 'info';
+    return `
+      <button class="ai-iss ${sev}" onclick="chatIssueDetail('${escAttr(feedKey(it))}')">
+        <span class="ai-iss-top">
+          <span class="ai-iss-tag ${sev}">${escHtml(it.sub)}</span>
+          ${ai ? `<span class="hm-chip impact ${/^-/.test(ai.impact) ? 'down' : 'up'}">임팩트 ${escHtml(ai.impact)}</span>
+                  <span class="hm-chip due ${ai.dueDays <= 3 ? 'near' : ''}">D-${ai.dueDays}</span>` : ''}
+          ${all ? `<span class="ai-iss-proj">${escHtml(homeProjName(it.proj))}</span>` : ''}
+        </span>
+        <span class="ai-iss-t">${escHtml(it.title)}</span>
+        <span class="ai-iss-go">자세히 ›</span>
+      </button>`;
+  }).join('');
+  return `<div class="ai-result">
+      <div class="ai-r-lead"><span class="ai-r-tag ${isRisk ? 'red' : 'ink'}">${escHtml(label)}</span> ${escHtml(who)} · <b>${items.length}건</b></div>
+      <div class="ai-r-cause">${escHtml(desc)}</div>
+      <div class="ai-iss-list">${cards}</div>
+    </div>`;
+}
+
+// 이상징후만 / 할 일만 / 둘 다
+function chatOpenRisks() {
+  const id = (typeof homeSelectedProject !== 'undefined') ? homeSelectedProject : 'all';
+  aiAgentMsg('risk', chatIssueListHtml(id, 'budget'));
+}
+function chatOpenTodos() {
+  const id = (typeof homeSelectedProject !== 'undefined') ? homeSelectedProject : 'all';
+  aiAgentMsg('todo', chatIssueListHtml(id, 'work'));
+}
+function chatOpenPjtIssues() {
+  chatOpenRisks();
+  chatOpenTodos();
+}
+
+// 상세는 항목 성격에 맞는 Agent가 답한다
+function chatIssueDetail(key) {
+  const it = HOME_FEED.find(i => feedKey(i) === key);
+  if (!it) return;
+  aiAgentMsg(it.cat === 'budget' ? 'risk' : 'todo', chatIssueDetailHtml(it));
+}
+
+// ── 라우팅 — 이상징후 / 할 일을 구분해 배정 ──
+function routeIntent(text) {
+  const t = text.replace(/\s/g, '');
+
+  // ① 메인 복귀
+  if (/(메인|홈|처음|첫화면|대시보드)/.test(t) && /(가|이동|보여|복귀|돌아|줘)/.test(t)) {
+    return { agent:'navi', render: () => {
+      aiAgentMsg('navi', '<div class="ai-result"><div class="ai-r-lead">메인 화면으로 이동합니다.</div></div>');
+      setTimeout(function () { if (typeof showMain === 'function') showMain(); }, 450);
+    } };
+  }
+
+  // ② 화면 이동 의도
+  const wantsNav = /(찾아|어디|어떻게|화면|이동|바로가기|절차|방법|메뉴|열어|가줘|보여줘|이동해)/.test(t);
+  const hit = naviMatch(t);
+  if (wantsNav && hit) return { agent:'navi', render: () => aiAgentMsg('navi', naviRouteHtml(text)) };
+
+  // ③ 이상징후 감시 — 위험 신호
+  if (/(이상징후|이상|징후|리스크|위험|경고|급증|초과|정합성|알림)/.test(t)) {
+    return { agent:'risk', render: () => chatOpenRisks() };
+  }
+
+  // ④ 할 일 도우미 — 조치 업무 / 자동처리 / 위임등급
+  if (/(자동반영|자동처리|AI가처리|알아서)/.test(t)) return { agent:'todo', render: () => aiAgentMsg('todo', pilotAutoHtml()) };
+  if (/(위임|자동조종|얼마나믿|신뢰도)/.test(t)) return { agent:'todo', render: () => aiAgentMsg('todo', pilotTrustHtml()) };
+  // 확인 요청은 이상징후와 할 일을 함께 봐야 하므로 먼저 판정한다
+  if (/(확인할것|확인사항|확인해야|확인필요|점검할|다보여|전부보여|모두보여)/.test(t)) {
+    return { agent:'todo', agents:['risk','todo'], render: () => chatOpenPjtIssues() };
+  }
+  if (/(할일|해야할|해야하는|처리할|투두|todo|to-do|오늘|브리핑|briefing)/i.test(t)) {
+    return { agent:'todo', render: () => chatOpenTodos() };
+  }
+
+  // ⑤ 데이터 분석 — What-if 포함
+  if (/(하면|한다면|투입하면|늘리면|줄이면|시뮬|가정|만약)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', pilotWhatIfHtml(text)) };
+  if (/외주비/.test(t) && /(왜|늘|증가|많|올랐)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qOutsourceHtml()) };
+  if (/원가율/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qCostRateHtml()) };
+  if (/(계획대비|계획\s*대비)/.test(t)) return { agent:'q', render: () => aiAgentMsg('q', qComparePlanHtml()) };
+
+  // ⑥ 화면 이름만 말한 경우
+  if (hit) return { agent:'navi', render: () => aiAgentMsg('navi', naviRouteHtml(text)) };
+  // ⑦ 이동 의도인데 화면 특정 불가 → 되묻기
+  if (wantsNav) return { agent:'navi', render: () => aiAgentMsg('navi', naviAskHtml(text)) };
+
+  // ⑧ 그 외 → 서버 경유 LLM
+  return { agent:'q', render: () => askLLMAnswer(text) };
+}
+
+// ── 진입 인사 — 4개 Agent 소개 ──
+function openAiChat(entry, initialQuery) {
+  document.getElementById('ai-chat-title').textContent = 'AI 어시스턴트';
+  document.getElementById('ai-chat-sub').textContent = '물어보면 담당 AI가 알아서 답해요';
+  setChatAvatar(entry);
+  const body = document.getElementById('ai-chat-body');
+  body.innerHTML = '';
+  document.getElementById('ai-chat-overlay').classList.add('open');
+
+  const key = (entry === 'navi' || entry === 'q' || entry === 'risk' || entry === 'todo') ? entry : null;
+  if (key) {
+    document.getElementById('ai-chat-title').textContent = AGENTS[key].name;
+    document.getElementById('ai-chat-sub').textContent = AGENTS[key].desc;
+    aiAgentMsg(key, agentIntroHtml(key));
+    if (key === 'todo') chatOpenTodos();
+    if (key === 'risk') chatOpenRisks();
+    if (key === 'navi') aiAgentMsg('navi', naviGuideHtml());
+  } else {
+    aiAgentMsg('ai', `<div class="ai-result">
+        <div class="ai-r-lead">무엇을 도와드릴까요?</div>
+        <div class="ai-r-cause">질문을 하시면 <b>AI 어시스턴트</b>가 유형을 판단해 담당 AI에게 넘깁니다.</div>
+        <div class="ai-roster">
+          ${['navi','q','risk','todo'].map(k => `<div class="ai-roster-i"><b class="ag-${k}">${escHtml(AGENTS[k].name)}</b><span>${escHtml(AGENTS[k].desc)}</span></div>`).join('')}
+        </div>
+      </div>` + examplesHtml(['원가 조정 어디서 해?', '외주비 왜 늘었어?', '이상징후 있어?', '오늘 할 일 알려줘']));
+  }
+  const input = document.getElementById('ai-chat-query');
+  input.value = '';
+  setTimeout(function () { input.focus(); }, 50);
+  if (initialQuery) { input.value = initialQuery; sendAiChat(); }
+}
+
+// ============================================================
+//  12차 — 멀티 에이전트 응답 · 팝업에 첫 질의 고정
+//
+//  기존: routeIntent가 "가장 먼저 걸린 규칙 하나"만 돌려줘서
+//        "이상징후 있는지, 그리고 할 일 알려줘" 같은 복합 질의에 한 쪽만 답했다.
+//  변경: 규칙을 개별 판정기로 나눠 걸리는 것을 모두 모으고, 담당 Agent가
+//        차례로 답한다. (최대 3개까지 — 그 이상은 대화가 산만해짐)
+// ============================================================
+
+const INTENT_MAX = 3;
+
+// 개별 판정기 — key로 중복을 제거한다
+const INTENT_RULES = [
+  { key:'nav', agent:'navi',
+    test: t => /(찾아|어디|어떻게|화면|이동|바로가기|절차|방법|메뉴|열어|가줘|보여줘|이동해)/.test(t) && !!naviMatch(t),
+    render: text => aiAgentMsg('navi', naviRouteHtml(text)) },
+
+  { key:'risk', agent:'risk',
+    test: t => /(이상징후|이상|징후|리스크|위험|경고|급증|정합성|알림)/.test(t),
+    render: () => chatOpenRisks() },
+
+  { key:'auto', agent:'todo',
+    test: t => /(자동반영|자동처리|AI가처리|알아서)/.test(t),
+    render: () => aiAgentMsg('todo', pilotAutoHtml()) },
+
+  { key:'trust', agent:'todo',
+    test: t => /(위임|자동조종|얼마나믿|신뢰도)/.test(t),
+    render: () => aiAgentMsg('todo', pilotTrustHtml()) },
+
+  { key:'todo', agent:'todo',
+    test: t => /(할일|해야할|해야하는|처리할|투두|todo|to-?do|오늘|브리핑|briefing)/i.test(t),
+    render: () => chatOpenTodos() },
+
+  { key:'whatif', agent:'q',
+    test: t => /(하면|한다면|투입하면|늘리면|줄이면|시뮬|가정|만약)/.test(t),
+    render: text => aiAgentMsg('q', pilotWhatIfHtml(text)) },
+
+  { key:'outsource', agent:'q',
+    test: t => /외주비/.test(t) && /(왜|늘|증가|많|올랐)/.test(t),
+    render: () => aiAgentMsg('q', qOutsourceHtml()) },
+
+  { key:'rate', agent:'q',
+    test: t => /원가율/.test(t),
+    render: () => aiAgentMsg('q', qCostRateHtml()) },
+
+  { key:'compare', agent:'q',
+    test: t => /계획대비/.test(t),
+    render: () => aiAgentMsg('q', qComparePlanHtml()) },
+];
+
+// 걸리는 판정기를 모두 모아 담당 Agent 목록을 만든다
+function routeIntents(text) {
+  const t = String(text).replace(/\s/g, '');
+
+  // 메인 복귀는 단독 처리 (다른 것과 섞이면 안 됨)
+  if (/(메인|홈|처음|첫화면|대시보드)/.test(t) && /(가|이동|보여|복귀|돌아|줘)/.test(t)) {
+    return [{ agent:'navi', render: () => {
+      aiAgentMsg('navi', '<div class="ai-result"><div class="ai-r-lead">메인 화면으로 이동합니다.</div></div>');
+      setTimeout(function () { if (typeof showMain === 'function') showMain(); }, 450);
+    } }];
+  }
+
+  const hits = [];
+  const seen = {};
+
+  // "확인해야 할 것"류는 이상징후 + 할 일을 함께 본다
+  if (/(확인할것|확인사항|확인해야|확인필요|점검할|다보여|전부보여|모두보여)/.test(t)) {
+    hits.push({ agent:'risk', render: () => chatOpenRisks() });
+    hits.push({ agent:'todo', render: () => chatOpenTodos() });
+    seen.risk = seen.todo = true;
+  }
+
+  INTENT_RULES.forEach(function (r) {
+    if (hits.length >= INTENT_MAX) return;
+    if (seen[r.key]) return;
+    // risk/todo 목록은 위에서 이미 담았으면 중복하지 않는다
+    if (r.key === 'risk' && seen.risk) return;
+    if (r.key === 'todo' && seen.todo) return;
+    let ok = false;
+    try { ok = !!r.test(t); } catch (e) { ok = false; }
+    if (!ok) return;
+    seen[r.key] = true;
+    if (r.key === 'risk') seen.risk = true;
+    if (r.key === 'todo') seen.todo = true;
+    hits.push({ agent: r.agent, render: function () { r.render(text); } });
+  });
+
+  if (hits.length) return hits.slice(0, INTENT_MAX);
+
+  // 이동 의도인데 화면을 특정 못한 경우 → 되묻기
+  if (/(찾아|어디|어떻게|화면|이동|바로가기|절차|방법|메뉴|열어|가줘|보여줘|이동해)/.test(t)) {
+    return [{ agent:'navi', render: () => aiAgentMsg('navi', naviAskHtml(text)) }];
+  }
+  // 그 외 → 서버 경유 LLM
+  return [{ agent:'q', render: () => askLLMAnswer(text) }];
+}
+
+// 기존 호출부 호환 — 첫 담당만 돌려준다
+function routeIntent(text) {
+  const list = routeIntents(text);
+  const first = list[0];
+  return { agent: first.agent, agents: list.map(x => x.agent), render: first.render };
+}
+
+// 담당 Agent가 차례로 답한다
+function sendAiChat() {
+  const input = document.getElementById('ai-chat-query');
+  const text = (input.value || '').trim();
+  if (!text) return;
+  aiUserMsg(text); input.value = '';
+  setChatAskBar(text);
+
+  const routes = routeIntents(text);
+  aiOrchestratorMsg(routes[0].agent, routes.map(r => r.agent));
+
+  routes.forEach(function (r, i) {
+    const t = aiTyping(r.agent);
+    setTimeout(function () { t.remove(); r.render(); }, 560 + i * 640);
+  });
+}
+
+// ── 팝업 상단에 첫 질의 고정 ──
+// 대화가 길어져도 "무엇을 물었는지"가 계속 보이게 한다.
+let chatAskText = '';
+
+function setChatAskBar(text) {
+  if (chatAskText) return;           // 첫 질의만 고정
+  chatAskText = String(text || '').trim();
+  renderChatAskBar();
+}
+function clearChatAskBar() {
+  chatAskText = '';
+  const el = document.getElementById('ai-chat-ask');
+  if (el) el.remove();
+}
+function renderChatAskBar() {
+  const modal = document.querySelector('#ai-chat-overlay .ai-chat-modal');
+  const head = modal && modal.querySelector('.ai-chat-head');
+  if (!modal || !head || !chatAskText) return;
+  let el = document.getElementById('ai-chat-ask');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'ai-chat-ask';
+    el.className = 'ai-chat-ask';
+    head.insertAdjacentElement('afterend', el);
+  }
+  el.innerHTML = `<span class="ai-chat-ask-l">질문</span>
+    <span class="ai-chat-ask-t">${escHtml(chatAskText)}</span>`;
+}
+
+// 대화를 새로 열면 고정된 질의도 초기화한다
+function openAiChat(entry, initialQuery) {
+  clearChatAskBar();
+  document.getElementById('ai-chat-title').textContent = 'AI 어시스턴트';
+  document.getElementById('ai-chat-sub').textContent = '물어보면 담당 AI가 알아서 답해요';
+  setChatAvatar(entry);
+  const body = document.getElementById('ai-chat-body');
+  body.innerHTML = '';
+  document.getElementById('ai-chat-overlay').classList.add('open');
+
+  const key = (entry === 'navi' || entry === 'q' || entry === 'risk' || entry === 'todo') ? entry : null;
+  if (key) {
+    document.getElementById('ai-chat-title').textContent = AGENTS[key].name;
+    document.getElementById('ai-chat-sub').textContent = AGENTS[key].desc;
+    aiAgentMsg(key, agentIntroHtml(key));
+    if (key === 'todo') chatOpenTodos();
+    if (key === 'risk') chatOpenRisks();
+    if (key === 'navi') aiAgentMsg('navi', naviGuideHtml());
+  } else {
+    aiAgentMsg('ai', `<div class="ai-result">
+        <div class="ai-r-lead">무엇을 도와드릴까요?</div>
+        <div class="ai-r-cause">질문을 하시면 <b>AI 어시스턴트</b>가 유형을 판단해 담당 AI에게 넘깁니다. 두 가지를 함께 물으면 담당 AI가 각각 답합니다.</div>
+        <div class="ai-roster">
+          ${['navi','q','risk','todo'].map(k => `<div class="ai-roster-i"><b class="ag-${k}">${escHtml(AGENTS[k].name)}</b><span>${escHtml(AGENTS[k].desc)}</span></div>`).join('')}
+        </div>
+      </div>` + examplesHtml(['원가 조정 어디서 해?', '외주비 왜 늘었어?', '이상징후 있어?', '이상징후랑 할 일 같이 알려줘']));
+  }
+  const input = document.getElementById('ai-chat-query');
+  input.value = '';
+  setTimeout(function () { input.focus(); }, 50);
+  if (initialQuery) { input.value = initialQuery; sendAiChat(); }
+}
