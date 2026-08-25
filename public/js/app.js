@@ -54,7 +54,12 @@ const SCREEN_ROUTES = {
     }
     return (typeof costMode !== 'undefined' && costMode === 'history') ? 'budget-history' : 'budget-status';
   },
-  's-insights': 'insights',
+  // 인사이트 딥링크(AI 바로가기): 경로는 메뉴명(탭)까지, 프로젝트는 끝에 파라미터로 → insights/<탭>?pj=<프로젝트ID>
+  's-insights': () => {
+    const id = (typeof insRouteId === 'function') ? insRouteId() : null;
+    const tab = (typeof insTab !== 'undefined') ? insTab : 'overview';
+    return id ? ('insights/' + tab + '?pj=' + id) : ('insights/' + tab);
+  },
   's-custom-report': 'custom-report',
   's-si-project': 'si-project',
   's-proposal-project': 'proposal-project',
@@ -76,7 +81,7 @@ const SCREEN_ROUTES = {
 const ROUTE_ACTIONS = {
   'dashboard': () => showMain(),
   // 'budget-status' / 'budget-adjust' / 'budget-history'는 budget-cost-*.js에서 등록한다.
-  'insights': () => (typeof showInsights === 'function' ? showInsights('overview') : null),
+  'insights': () => (typeof gotoInsights === 'function' ? gotoInsights(routeQueryParam('pj'), 'overview') : (typeof showInsights === 'function' ? showInsights('overview') : null)),
   'custom-report': () => showCustomReport(),
   'si-project': () => showSIProject(),
   'proposal-project': () => showProposalProject(),
@@ -104,13 +109,30 @@ function updateHashForScreen(id) {
   if (location.hash !== target) { _suppressNextHash = true; location.hash = target; }
 }
 function routeName() { return (location.hash || '').replace(/^#\/?/, '').split('?')[0]; }
+// 해시의 쿼리 파라미터 읽기 (예: #/insights/progress?pj=xxx → routeQueryParam('pj'))
+function routeQueryParam(k) {
+  const h = location.hash || '';
+  const qi = h.indexOf('?');
+  if (qi < 0) return null;
+  return new URLSearchParams(h.slice(qi + 1)).get(k);
+}
+// 동적 라우트 (딥링크). 정적 ROUTE_ACTIONS에 없을 때만 매칭한다.
+//   insights[/<탭>]?pj=<프로젝트ID>  → gotoInsights(pj, tab)
+const DYNAMIC_ROUTES = [
+  { re: /^insights(?:\/([^/?]+))?$/, run: m => (typeof gotoInsights === 'function' ? gotoInsights(routeQueryParam('pj'), m[1]) : null) },
+];
+function resolveAction(name) {
+  if (ROUTE_ACTIONS[name]) return ROUTE_ACTIONS[name];
+  for (const d of DYNAMIC_ROUTES) { const m = name.match(d.re); if (m) return () => d.run(m); }
+  return null;
+}
 function routeFromHash() {
   if (_suppressNextHash) { _suppressNextHash = false; return; }
-  const action = ROUTE_ACTIONS[routeName()];
+  const action = resolveAction(routeName());
   if (action) action();
 }
 function routeInitial() {
-  const action = ROUTE_ACTIONS[routeName()];
+  const action = resolveAction(routeName());
   if (action) action(); else showMain();
 }
 window.addEventListener('hashchange', routeFromHash);
