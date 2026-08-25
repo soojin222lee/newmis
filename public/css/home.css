@@ -571,9 +571,10 @@ button.home2-chip:hover { border-color: var(--sk-blue) !important; transform: tr
    ========================================================================== */
 
 /* 상단 메뉴 숨김 — 로고(.tb-brand)와 사용자 영역(.tb-right)은 유지.
-   로고에 showMain()이 걸려 있어 메인 복귀 동선으로 쓴다. */
-/* 수진: 상단 GNB 메뉴 다시 노출 (아래 숨김 규칙 해제) */
-/* .topbar .topnav { display: none !important; } */
+   로고에 showMain()이 걸려 있어 메인 복귀 동선으로 쓴다.
+   기본은 숨김이지만 상단 우측 ☰ 버튼으로 켤 수 있고, 켠 상태는 브라우저에 기억된다.
+   (메뉴가 필요한 작업 중에는 한 번만 켜두면 계속 보인다 — 수진님 요청 반영) */
+.topbar .topnav { display: none !important; }
 
 /* 우측 하단 바로가기 3개(Budget Navi/Q/Pilot) 숨김 —
    역할은 메인 chatbot의 intent 라우팅(routeIntent)으로 통합됨 */
