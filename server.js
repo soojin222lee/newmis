@@ -125,6 +125,14 @@ function handleAPI(pathname, method, body, res) {
   if (pathname === "/api/chat" && method === "POST") {
     handleChat(body, res); return;
   }
+  // 원가 소진율 AI 분석 (인사이트 진척 탭)
+  if (pathname === "/api/progress-summary" && method === "POST") {
+    handleProgressSummary(body, res); return;
+  }
+  // 종합현황 AI Insight (인사이트 종합현황 탭)
+  if (pathname === "/api/insight" && method === "POST") {
+    handleInsight(body, res); return;
+  }
   res.writeHead(404); res.end(JSON.stringify({ error: "Not found" }));
 }
 
@@ -207,19 +215,34 @@ function localReportSummary(d) {
   let s = `${d.project}은 계약금액 ${m.contract}억 규모로, 계약 원가 기준은 ${m.base}억입니다. 현재 실적은 ${m.actual}억(진행 ${m.prog}%), 실행예산은 ${m.budget}억, 예상원가는 ${m.forecast}억으로 예상 원가율은 ${m.rate}%입니다. `;
   if ((m.diff || 0) >= 0) s += `예상 원가율이 계획 대비 +${m.diff}%p 상승해 수익성 저하가 우려됩니다. 주요 원인은 ${d.cause}이며, 현재 추세가 유지될 경우 실행예산 변경 검토가 필요합니다. 외주비 비중이 높아 우선 관리 대상입니다.`;
   else s += `예상 원가율이 계획 대비 ${m.diff}%p 개선되어 계획 범위 내에서 안정적으로 관리되고 있습니다. 주요 요인은 ${d.cause}입니다.`;
+  const g = d.progress;
+  if (g) s += ` 원가 소진율 측면에서는 계획율 ${g.planRate}% 대비 소진율 ${g.actualRate}%(편차 ${g.dev >= 0 ? "+" : ""}${g.dev}%p)이며, 합의 Cost ${g.cost}억 중 실적 ${g.actual}억·집행예정 ${g.committed}억·잔여 ${g.remaining}억(손실예비비 ${g.reserve}억)으로 예상 최종 소진율은 ${g.fcEnd}%입니다.`;
+  const ups = (d.versions || []).filter(v => v.delta > 0).sort((a, b) => b.delta - a.delta);
+  if (ups.length) s += ` 버전별로는 총액을 유지한 채 계정 간 배분이 이동해 ${ups[0].name}가 ${ups[0].delta >= 0 ? "+" : ""}${ups[0].delta}억 늘었습니다.`;
   return s;
 }
 function buildReportPrompt(d) {
   const m = d.metrics || {};
   const acc = (d.accounts || []).map(a => `  - ${a.name}: 계획 ${a.plan}억 / 실적 ${a.actual}억 / 예상 ${a.forecast}억 (계획대비 ${a.delta >= 0 ? "+" : ""}${a.delta}억, 비중 ${a.share}%)`).join("\n");
-  return `너는 SI 프로젝트 손익·원가 보고서를 쓰는 애널리스트다. 아래 데이터로 경영진 보고용 '요약 및 제언'을 한국어로 작성해라. 4~6문장, 자연스러운 문단(마크다운·불릿 금지). 현황 요약 → 핵심 원인/리스크 → 다음 행동 제언 순서로 쓰고, 숫자는 억·% 단위 그대로 사용해라.
+  const g = d.progress || null;
+  const progBlock = g ? `
+[원가 소진율]
+기간 전체 ${g.periodTotal}개월 중 ${g.periodCur}개월째 / 계획율 ${g.planRate}% vs 소진율(실적) ${g.actualRate}% (편차 ${g.dev >= 0 ? "+" : ""}${g.dev}%p) / 예상 최종 소진율 ${g.fcEnd}%
+합의 Cost ${g.cost}억 = 실적 ${g.actual}억 + 집행예정 ${g.committed}억 + 잔여 ${g.remaining}억 (그중 손실예비비 ${g.reserve}억)` : "";
+  const vers = (d.versions || []).map(v => `  - ${v.name}: 기준 ${v.base}억 → 현재 ${v.current}억 (${v.delta >= 0 ? "+" : ""}${v.delta}억)`).join("\n");
+  const verBlock = vers ? `
+[버전별 계정 변동 — 예산 돌려쓰기]
+총액은 유지하면서 계정 간 배분만 이동:
+${vers}` : "";
+  return `너는 SI 프로젝트 손익·원가 보고서를 쓰는 애널리스트다. 아래는 한 프로젝트의 세 가지 분석(① 종합현황 ② 원가 소진율 ③ 버전별 계정 변동)이다. 이 셋을 종합하여 경영진 보고용 '요약 및 제언'을 한국어로 작성해라. 6~8문장, 자연스러운 문단(마크다운·불릿 금지). 현황 요약 → 소진 속도/진척 → 계정 배분(돌려쓰기) 변화 → 핵심 리스크 → 다음 행동 제언 순서로 종합하고, 숫자는 억·% 단위 그대로 사용해라.
 
+[종합현황]
 프로젝트: ${d.project} (상태: ${d.status})
 계약금액 ${m.contract}억 / 원가(계약) ${m.base}억 / 실행예산 ${m.budget}억
 실적 ${m.actual}억(진행 ${m.prog}%) / 예상원가 ${m.forecast}억 / 예상 원가율 ${m.rate}% (계획대비 ${m.diff >= 0 ? "+" : ""}${m.diff}%p)
 주요 원인: ${d.cause}
 계정별:
-${acc}`;
+${acc}${progBlock}${verBlock}`;
 }
 function handleReportSummary(body, res) {
   if (!body || !body.project) { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid payload" })); return; }
@@ -228,6 +251,78 @@ function handleReportSummary(body, res) {
     res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback" })); return;
   }
   callLLM(buildReportPrompt(body), (err, text) => {
+    if (err || !text) { res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback", note: err ? String(err.message || err) : "empty" })); return; }
+    res.writeHead(200); res.end(JSON.stringify({ summary: text, source: "ai" }));
+  });
+}
+
+// ── 종합현황 AI Insight ──
+function localInsight(d) {
+  const m = d.metrics || {};
+  const lines = [];
+  if ((m.diff || 0) >= 0) lines.push(`예상 원가율이 계획 대비 +${m.diff}%p 상승했습니다. 주요 원인은 ${d.cause}이며 관리가 필요합니다.`);
+  else lines.push(`예상 원가율이 계획 대비 ${m.diff}%p 개선되어 계획 범위 내에서 관리되고 있습니다.`);
+  lines.push(`현재 실적은 ${m.actual}억(진행 ${m.prog}%)이며 예상원가는 ${m.forecast}억으로 전망됩니다.`);
+  const top = (d.accounts || []).slice().sort((a, b) => (b.forecast || 0) - (a.forecast || 0))[0];
+  if (top) lines.push(`${top.name} 비중이 ${top.share}%로 가장 커 우선 점검 대상입니다.`);
+  return lines.join("\n");
+}
+function buildInsightPrompt(d) {
+  const m = d.metrics || {};
+  const acc = (d.accounts || []).map(a => `  - ${a.name}: 계획 ${a.plan}억 / 실적 ${a.actual}억 / 예상 ${a.forecast}억 (비중 ${a.share}%)`).join("\n");
+  return `너는 SI 프로젝트 종합현황을 분석하는 애널리스트다. 아래 데이터에서 PM이 지금 주목해야 할 핵심 인사이트 3가지를 뽑아 각각 한국어 한 문장으로 써라. 각 인사이트는 줄바꿈으로만 구분하고, 불릿기호·번호·마크다운은 절대 쓰지 마라. 원인과 시사점 중심으로, 숫자는 억·% 단위 그대로 사용해라.
+
+프로젝트: ${d.project} (상태 ${d.status})
+계약 ${m.contract}억 / 원가(계약) ${m.base}억 / 실행예산 ${m.budget}억
+실적 ${m.actual}억(진행 ${m.prog}%) / 예상원가 ${m.forecast}억 / 예상 원가율 ${m.rate}% (계획대비 ${m.diff >= 0 ? "+" : ""}${m.diff}%p)
+주요 원인: ${d.cause}
+계정별:
+${acc}`;
+}
+function handleInsight(body, res) {
+  if (!body || !body.project) { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid payload" })); return; }
+  const fallback = localInsight(body);
+  if (!process.env.OPENAI_API_KEY) {
+    res.writeHead(200); res.end(JSON.stringify({ insight: fallback, source: "fallback" })); return;
+  }
+  callLLM(buildInsightPrompt(body), (err, text) => {
+    if (err || !text) { res.writeHead(200); res.end(JSON.stringify({ insight: fallback, source: "fallback", note: err ? String(err.message || err) : "empty" })); return; }
+    res.writeHead(200); res.end(JSON.stringify({ insight: text, source: "ai" }));
+  });
+}
+
+// ── 원가 소진율 분석 ──
+function localProgressSummary(d) {
+  const dev = d.dev || 0;
+  const tot = d.period ? d.period.total : 12, cur = d.period ? d.period.current : 0;
+  let s = `${d.project || "이 프로젝트"}은 전체 ${tot}개월 중 ${cur}개월째로, 계획율 ${d.planRate}% 대비 소진율(실적)은 ${d.actualRate}%입니다. `;
+  if (dev > 2) s += `계획보다 ${dev}%p 빠르게 소진되고 있어 조기 소진에 주의가 필요합니다. `;
+  else if (dev < -2) s += `계획보다 ${Math.abs(dev)}%p 느리게 집행되어 계획 범위 내에서 관리되고 있습니다. `;
+  else s += `계획과 소진 속도가 거의 일치해 정상 범위입니다. `;
+  s += `합의 Cost ${d.cost}억 중 실적 ${d.actual}억, 집행예정 ${d.committed}억이며 잔여는 ${d.remaining}억입니다. 잔여 중 손실예비비 ${d.reserve}억은 언더런(원가 절감) 잠재 금액입니다. `;
+  if ((d.fcEnd || 0) > 100) s += `다만 예상 최종 소진율이 ${d.fcEnd}%로 합의 Cost를 초과할 전망이라 실행예산 재검토가 필요합니다.`;
+  else s += `예상 최종 소진율은 ${d.fcEnd}%로 Cost 범위 내 착지가 예상됩니다.`;
+  return s;
+}
+function buildProgressPrompt(d) {
+  const acc = (d.accounts || []).map(a => `  - ${a.name}: 원가 ${a.base}억 / 계획 ${a.plan}억 / 실적 ${a.actual}억`).join("\n");
+  const tot = d.period ? d.period.total : 12, cur = d.period ? d.period.current : 0;
+  return `너는 SI 프로젝트의 원가 소진 현황을 분석하는 애널리스트다. 아래 데이터로 '원가 소진율 분석'을 비개발자 PM이 이해하기 쉽게 한국어 4~5문장으로 작성해라. 자연스러운 문단(마크다운·불릿 금지). 진행 속도(계획율 vs 소진율)와 편차 해석 → 합의 Cost 분해(실적/집행예정/잔여/손실예비비) → 예상 최종 착지와 다음 행동 제언 순서로. 숫자는 억·% 단위 그대로 사용해라.
+
+프로젝트: ${d.project}
+기간: 전체 ${tot}개월 중 ${cur}개월째
+계획율 ${d.planRate}% / 소진율(실적) ${d.actualRate}% / 진척 편차 ${d.dev >= 0 ? "+" : ""}${d.dev}%p / 예상 최종 소진율 ${d.fcEnd}%
+합의 Cost ${d.cost}억 = 실적 ${d.actual}억 + 집행예정 ${d.committed}억 + 잔여 ${d.remaining}억 (그중 손실예비비 ${d.reserve}억)
+계정별:
+${acc}`;
+}
+function handleProgressSummary(body, res) {
+  if (!body || !body.project) { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid payload" })); return; }
+  const fallback = localProgressSummary(body);
+  if (!process.env.OPENAI_API_KEY) {
+    res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback" })); return;
+  }
+  callLLM(buildProgressPrompt(body), (err, text) => {
     if (err || !text) { res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback", note: err ? String(err.message || err) : "empty" })); return; }
     res.writeHead(200); res.end(JSON.stringify({ summary: text, source: "ai" }));
   });
