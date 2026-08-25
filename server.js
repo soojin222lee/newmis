@@ -152,7 +152,8 @@ ${lines}`;
 }
 // OpenAI Chat Completions 호출 — 키는 환경변수(OPENAI_API_KEY)에서만 읽는다(코드/깃에 저장 안 함)
 function callLLM(prompt, cb) {
-  const key = process.env.OPENAI_API_KEY;
+  // 붙여넣기 시 딸려오는 공백·개행을 제거한다 (헤더에 개행이 들어가면 요청이 통째로 실패)
+  const key = String(process.env.OPENAI_API_KEY || "").trim();
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
   const payload = JSON.stringify({
     model,
@@ -163,7 +164,9 @@ function callLLM(prompt, cb) {
     temperature: 0.3,
     max_tokens: 600,
   });
-  const req = https.request({
+  let req;
+  try {
+  req = https.request({
     hostname: "api.openai.com", path: "/v1/chat/completions", method: "POST",
     headers: {
       "content-type": "application/json",
@@ -181,6 +184,7 @@ function callLLM(prompt, cb) {
       } catch (e) { cb(e); }
     });
   });
+  } catch (e) { cb(e); return; }
   req.on("error", cb);
   req.setTimeout(20000, () => req.destroy(new Error("timeout")));
   req.write(payload); req.end();
