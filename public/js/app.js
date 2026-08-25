@@ -61,6 +61,7 @@ const SCREEN_ROUTES = {
     return id ? ('insights/' + tab + '?pj=' + id) : ('insights/' + tab);
   },
   's-custom-report': 'custom-report',
+  's-ai-report': 'ai-report',
   's-si-project': 'si-project',
   's-proposal-project': 'proposal-project',
   's-wg-project': 'wg-project',
@@ -83,6 +84,7 @@ const ROUTE_ACTIONS = {
   // 'budget-status' / 'budget-adjust' / 'budget-history'는 budget-cost-*.js에서 등록한다.
   'insights': () => (typeof gotoInsights === 'function' ? gotoInsights(routeQueryParam('pj'), 'overview') : (typeof showInsights === 'function' ? showInsights('overview') : null)),
   'custom-report': () => showCustomReport(),
+  'ai-report': () => showAiReport(),
   'si-project': () => showSIProject(),
   'proposal-project': () => showProposalProject(),
   'wg-project': () => showWGProject(),
@@ -186,6 +188,11 @@ function showCustomReport() {
   setScreen('s-custom-report');
   setNav('nav-custom-report');
   renderCustomReport();
+}
+function showAiReport() {
+  setScreen('s-ai-report');
+  setNav('nav-ai-report');
+  renderAiReport();
 }
 
 function showSysDescConcept() {

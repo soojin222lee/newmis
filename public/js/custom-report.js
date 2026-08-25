@@ -101,6 +101,193 @@ const customBudgetReportPresets = {
   close: ['projectNo','projectName','projectStatus','approvalRequestedAt','approvalCompletedAt','previousTotalCost','executionCost'],
 };
 
+// ── AI 자연어 질의 (LLM → SQL → 실제 SQLite 실행) ──
+let crNlQuery = '';
+let crNlResult = null; // { state:'loading'|'done'|'error', sql, columns, rows, error, source }
+let crShowSql = false; // 운영자 전용 SQL 표시 토글 (기본: 일반 사용자 = 숨김)
+let crConditions = {}; // 선택 조건 { projectType:[...], salesDivision:[...], projectStatus:[...] }
+
+// 조건 선택 항목 — 뭘 물어볼 수 있는지 힌트. 값은 실제 데이터(맞춤레포트 필드 일부)에서 도출.
+const CR_COND_FACETS = [
+  { key: 'projectType', label: '프로젝트 유형' },
+  { key: 'salesDivision', label: '매출귀속부문' },
+  { key: 'projectStatus', label: '프로젝트 상태' },
+];
+// 프로젝트 유형 — 실제 유형 코드 기준 예시(사용자가 뭘 고를 수 있는지 힌트)
+const CR_PROJECT_TYPES = [
+  '제안-본제안', 'SI-컨설팅', 'SI-AD', 'SI-H/W S/W 설치', 'SI-OE', 'SI-MA', 'SI-인력공급', 'SI-공사',
+  'SI-용역보증', 'SI-인도기준', 'SI-Cloud개발', 'SI-AI/플랫폼 개발', 'SI-Cloud(V)', 'SI-AI/플랫폼(V)',
+  'OS-S/W', 'OS-AD', 'OS-컨설팅', 'OS-인력공급', 'OS-운영', 'OS-AM SW 유지보수', '투자-개발', '원가-선투입',
+];
+function crDistinct(key) {
+  if (key === 'projectType') return CR_PROJECT_TYPES;
+  return [...new Set(customReportRows.map(r => r[key]).filter(v => v != null && v !== ''))];
+}
+function crSyncInput() { const inp = document.getElementById('cr-ai-input'); if (inp) crNlQuery = inp.value; }
+function crToggleSql() { crSyncInput(); crShowSql = !crShowSql; renderAiReport(); }
+function crToggleCond(facet, value) {
+  if (!crConditions[facet]) crConditions[facet] = [];
+  const i = crConditions[facet].indexOf(value);
+  if (i >= 0) crConditions[facet].splice(i, 1); else crConditions[facet].push(value);
+  crSyncInput(); renderAiReport();
+}
+// 선택 조건 → LLM에 전달할 WHERE 힌트 문구
+function crConditionText() {
+  const parts = [];
+  CR_COND_FACETS.forEach(f => {
+    const vals = crConditions[f.key];
+    if (vals && vals.length) parts.push(`projects.${f.key}가 다음 문자열 값과 정확히 일치(= 또는 IN, 값을 쪼개지 말 것): ${vals.map(v => `'${v}'`).join(', ')}`);
+  });
+  return parts.length ? ` (반드시 다음 조건을 projects 테이블 컬럼으로 WHERE 적용하고, 조건에 필요 없으면 budget 테이블과 조인하지 마: ${parts.join(' 그리고 ')})` : '';
+}
+function crOperatorBarHtml() {
+  return `<div class="cr-op-bar">
+    <span class="cr-op-note">🔒 생성되는 SQL은 <b>일반 사용자에게 노출되지 않습니다.</b> 운영자만 확인용으로 볼 수 있어요.</span>
+    <button class="cr-op-toggle ${crShowSql ? 'on' : ''}" onclick="crToggleSql()" role="switch" aria-checked="${crShowSql}"><i></i>운영자 보기 · SQL ${crShowSql ? '표시' : '숨김'}</button>
+  </div>`;
+}
+function crConditionPanelHtml() {
+  return `<div class="cr-cond">
+    <div class="cr-cond-title">조건 선택 <span>선택한 조건은 질문에 자동 반영돼요 (복수 선택 가능)</span></div>
+    ${CR_COND_FACETS.map(f => `
+      <div class="cr-cond-row">
+        <div class="cr-cond-label">${f.label}</div>
+        <div class="cr-cond-chips">
+          ${crDistinct(f.key).map(v => {
+            const on = (crConditions[f.key] || []).includes(v);
+            return `<button class="cr-cond-chip ${on ? 'on' : ''}" data-v="${v.replace(/"/g, '&quot;')}" onclick="crToggleCond('${f.key}', this.dataset.v)">${v}</button>`;
+          }).join('')}
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+function crFmtCell(v) {
+  if (v == null) return '<span class="cr-ai-null">-</span>';
+  if (typeof v === 'number') return v.toLocaleString('ko-KR');
+  return String(v).replace(/</g, '&lt;');
+}
+function crNlResultHtml() {
+  const r = crNlResult;
+  if (!r) return '';
+  if (r.state === 'loading') return `<div class="cr-ai-loading"><span class="cr-ai-spin"></span>AI가 SQL을 생성하고 실행 중이에요…</div>`;
+  const srcTag = r.source === 'ai' ? `<span class="cr-ai-src ai">✦ AI 생성 SQL</span>` : (r.source === 'fallback' ? `<span class="cr-ai-src">샘플 (API 키 미설정)</span>` : '');
+  // SQL 블록은 운영자 보기(crShowSql)일 때만 노출 — 일반 사용자에게는 숨김
+  const sqlBlock = (crShowSql && r.sql) ? `<div class="cr-ai-sql"><div class="cr-ai-sql-h">생성된 SQL <span class="cr-ai-op-only">운영자 전용</span> ${srcTag}</div><pre>${String(r.sql).replace(/</g, '&lt;')}</pre></div>` : '';
+  if (r.state === 'error') return sqlBlock + `<div class="cr-ai-err">${String(r.error || '오류가 발생했습니다.').replace(/</g, '&lt;')}</div>`;
+  if (!r.columns || !r.columns.length) return sqlBlock + `<div class="cr-ai-err">조건에 맞는 결과가 없습니다.</div>`;
+  const head = `<tr>${r.columns.map(c => `<th>${c}</th>`).join('')}</tr>`;
+  const bodyRows = r.rows.map(row => `<tr>${r.columns.map(c => `<td>${crFmtCell(row[c])}</td>`).join('')}</tr>`).join('');
+  return sqlBlock + `<div class="cr-ai-count">${r.rows.length}건 조회</div><div class="cr-ai-tablewrap"><table class="cr-ai-table"><thead>${head}</thead><tbody>${bodyRows}</tbody></table></div>`;
+}
+function aiReportPanelHtml() {
+  return `
+      <div class="cr-ai-panel">
+        <div class="cr-ai-top">
+          <span class="cr-ai-chip">✦ AI</span>
+          <div class="cr-ai-title">자연어로 물어보면 <b>SQL로 변환해 실제 조회</b>합니다 <span class="cr-ai-tag2">LLM → SQL</span></div>
+        </div>
+        ${crOperatorBarHtml()}
+        ${crConditionPanelHtml()}
+        <div class="cr-ai-inputrow">
+          <input id="cr-ai-input" value="${(crNlQuery || '').replace(/"/g, '&quot;')}" placeholder="예) 외주비가 4억 넘는 프로젝트 보여줘 / 재료비 큰 순서 3개" onkeydown="if(event.key==='Enter')runNl2Sql()">
+          <button class="labor-main-btn" onclick="runNl2Sql()">질의 실행</button>
+        </div>
+        <div class="cr-ai-examples">
+          ${['상태가 수행인 프로젝트의 PM과 인건비', '재료비가 가장 큰 프로젝트 3개', '김민수 PM이 맡은 프로젝트', '실행예산 외주비를 부문별 합계로'].map(q => `<button onclick="runNl2Sql(this.textContent)">${q}</button>`).join('')}
+        </div>
+        <div id="cr-ai-result" class="cr-ai-result">${crNlResultHtml()}</div>
+      </div>`;
+}
+function renderAiReport() {
+  const root = document.getElementById('s-ai-report');
+  if (!root) return;
+  root.innerHTML = `
+    <div class="custom-report-page">
+      <div class="custom-report-hero">
+        <div>
+          <div class="setup-eyebrow">AI 레포트</div>
+          <div class="setup-title">자연어 데이터 질의</div>
+          <p>질문을 한국어로 입력하면 AI가 SQL로 변환해 실제 데이터를 조회합니다. 생성된 SQL도 함께 확인할 수 있고, 안전하게 조회(SELECT) 전용으로만 실행됩니다.</p>
+        </div>
+        <div class="custom-report-ai">
+          <span>LLM → SQL</span>
+          <strong>생성된 SQL을 그대로 보여주고 실제 DB에서 조회합니다.</strong>
+        </div>
+      </div>
+      ${aiReportPanelHtml()}
+    </div>`;
+}
+async function runNl2Sql(preset) {
+  const inp = document.getElementById('cr-ai-input');
+  const userQ = String(preset != null ? preset : (inp ? inp.value : crNlQuery)).trim();
+  const condText = crConditionText();
+  if (!userQ && !condText) { showToast('질문을 입력하거나 조건을 선택하세요.'); return; }
+  crNlQuery = userQ; if (inp && preset != null) inp.value = userQ;
+  const question = (userQ || '조건에 해당하는 프로젝트를 조회해줘') + condText;
+  crNlResult = { state: 'loading' };
+  const box = document.getElementById('cr-ai-result'); if (box) box.innerHTML = crNlResultHtml();
+  try {
+    const r = await fetch('/api/nl2sql', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question }) });
+    const d = await r.json();
+    if (d.error) crNlResult = { state: 'error', sql: d.sql, error: d.error, source: d.source };
+    else crNlResult = { state: 'done', sql: d.sql, columns: d.columns, rows: d.rows, source: d.source };
+  } catch (e) { crNlResult = { state: 'error', error: '요청 실패: ' + (e.message || e) }; }
+  const box2 = document.getElementById('cr-ai-result'); if (box2) box2.innerHTML = crNlResultHtml();
+}
+
+// ── 맞춤 레포트 AI 도우미 채팅 (필드 설명 + 목적별 필드 추천) ──
+let crChatMsgs = [];      // { role:'user'|'ai', text, fields? }
+let crChatLoading = false;
+function crEsc(s) { return String(s == null ? '' : s).replace(/</g, '&lt;'); }
+function reportChatHtml() {
+  const body = crChatMsgs.length
+    ? crChatMsgs.map(m => m.role === 'user'
+        ? `<div class="rc-msg user">${crEsc(m.text)}</div>`
+        : `<div class="rc-msg ai"><span class="rc-ai-ic">✦</span><div class="rc-ai-body">${crEsc(m.text)}${m.fields && m.fields.length ? `<div class="rc-applied">추천 필드 ${m.fields.length}개를 자동으로 선택했어요 ✓</div>` : ''}</div></div>`
+      ).join('')
+    : `<div class="rc-empty">필드가 뭘 의미하는지, 어떤 레포트가 필요한지 편하게 물어보세요.<br>목적을 말하면 <b>필요한 필드를 자동으로 골라드려요.</b></div>`;
+  const loading = crChatLoading ? `<div class="rc-msg ai"><span class="rc-ai-ic">✦</span><div class="rc-ai-body rc-loading"><span class="cr-ai-spin"></span>생각하는 중…</div></div>` : '';
+  return `
+      <div class="report-chat">
+        <div class="rc-head"><span class="cr-spark">✦</span> AI 레포트 도우미 <span class="rc-sub">필드 설명 · 목적별 필드 자동 추천</span></div>
+        <div class="rc-body" id="rc-body">${body}${loading}</div>
+        <div class="rc-examples">
+          ${['프로젝트 기본정보엔 뭐가 있어?', '매출귀속부서가 무슨 뜻이야?', '팀 귀속 프로젝트 원가 변동 비교분석 레포트 추천해줘'].map(q => `<button onclick="sendReportChat(this.textContent)">${q}</button>`).join('')}
+        </div>
+        <div class="rc-inputrow">
+          <input id="rc-input" placeholder="필드나 레포트에 대해 물어보세요 (예: 원가 비교분석용 레포트 추천)" onkeydown="if(event.key==='Enter')sendReportChat()">
+          <button class="labor-main-btn" onclick="sendReportChat()">전송</button>
+        </div>
+      </div>`;
+}
+function crScrollChat() { const b = document.getElementById('rc-body'); if (b) b.scrollTop = b.scrollHeight; }
+async function sendReportChat(preset) {
+  const inp = document.getElementById('rc-input');
+  const msg = String(preset != null ? preset : (inp ? inp.value : '')).trim();
+  if (!msg || crChatLoading) return;
+  crChatMsgs.push({ role: 'user', text: msg });
+  crChatLoading = true;
+  if (inp) inp.value = '';
+  renderCustomReport(); crScrollChat();
+  try {
+    const fields = getCustomReportFields().map(f => ({ key: f.key, label: f.label, group: f.group }));
+    const reportType = customReportType === 'budget' ? '실행예산 현황' : '프로젝트 현황';
+    const r = await fetch('/api/report-assist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg, reportType, fields }) });
+    const d = await r.json();
+    const validKeys = new Set(fields.map(f => f.key));
+    const rec = Array.isArray(d.fields) ? d.fields.filter(k => validKeys.has(k)) : [];
+    crChatMsgs.push({ role: 'ai', text: d.reply || '(응답이 없어요)', fields: rec });
+    if (rec.length) {
+      customReportSelectedFields = normalizeCustomReportFields([CUSTOM_REPORT_KEY_FIELD, ...rec]);
+      customReportAppliedFields = [...customReportSelectedFields];
+    }
+  } catch (e) {
+    crChatMsgs.push({ role: 'ai', text: '요청에 실패했어요. 잠시 후 다시 시도해 주세요.', fields: [] });
+  }
+  crChatLoading = false;
+  renderCustomReport(); crScrollChat();
+}
+
 let customReportType = 'project';
 let customReportSelectedFields = [...customReportPresets.all];
 let customReportAppliedFields = [...customReportSelectedFields];
@@ -262,16 +449,18 @@ function renderCustomReport() {
   root.innerHTML = `
     <div class="custom-report-page">
       <div class="custom-report-hero">
-        <div>
-          <div class="setup-eyebrow">AI 레포트</div>
+        <div class="cr-hero-main">
+          <div class="cr-hero-eyebrow"><span class="cr-spark">✦</span>AI 맞춤 레포트</div>
           <div class="setup-title">맞춤 레포트 조회</div>
-          <p>필요한 필드만 선택해서 조회하고, 조회된 컬럼 그대로 추출합니다. 프로젝트번호는 키값이라 고정되고, 나머지는 선택한 순서대로 컬럼이 배치됩니다.</p>
+          <p>필요한 필드만 골라 조회하고 그대로 추출합니다. 보고 목적을 고르면 <b>AI가 필드를 추천</b>해드려요.</p>
         </div>
         <div class="custom-report-ai">
-          <span>AI 적용 아이디어</span>
-          <strong>보고 목적을 선택하면 필요한 필드를 자동 추천합니다.</strong>
+          <span><span class="cr-spark">✦</span>AI 필드 추천</span>
+          <strong>보고 목적을 선택하면 필요한 필드를 자동으로 골라드려요.</strong>
         </div>
       </div>
+
+      ${reportChatHtml()}
 
       <div class="custom-report-toolbar">
         <label>
@@ -293,10 +482,11 @@ function renderCustomReport() {
       <div class="custom-report-presets">
         <button onclick="setCustomReportPreset('all')">전체 선택</button>
         <button onclick="customReportSelectedFields=[CUSTOM_REPORT_KEY_FIELD];renderCustomReport()">전체 해제</button>
-        <button onclick="setCustomReportPreset('pm')">AI 추천: PM용</button>
-        <button onclick="setCustomReportPreset('leader')">AI 추천: 팀장 보고용</button>
-        <button onclick="setCustomReportPreset('close')">AI 추천: 종료/정산용</button>
-        <span>선택 필드 ${selectedCount}개</span>
+        <span class="cr-preset-ailabel"><span class="cr-spark">✦</span>AI 추천</span>
+        <button class="cr-preset-ai" onclick="setCustomReportPreset('pm')">PM용</button>
+        <button class="cr-preset-ai" onclick="setCustomReportPreset('leader')">팀장 보고용</button>
+        <button class="cr-preset-ai" onclick="setCustomReportPreset('close')">종료·정산용</button>
+        <span class="cr-preset-count">선택 필드 <b>${selectedCount}</b>개</span>
       </div>
 
       <div class="custom-report-layout">

@@ -137,6 +137,14 @@ function handleAPI(pathname, method, body, res) {
   }
   // 예산 알림 해설 (/api/ai/*) — ai-proxy.js 가 처리했으면 여기서 종료
   if (handleAiApi(pathname, method, body, res)) return;
+  // 맞춤 레포트 자연어 질의 (LLM → SQL → 실제 SQLite 실행)
+  if (pathname === "/api/nl2sql" && method === "POST") {
+    handleNl2Sql(body, res); return;
+  }
+  // 맞춤 레포트 도우미 (필드 설명 + 목적별 필드 추천)
+  if (pathname === "/api/report-assist" && method === "POST") {
+    handleReportAssist(body, res); return;
+  }
   res.writeHead(404); res.end(JSON.stringify({ error: "Not found" }));
 }
 
@@ -163,17 +171,17 @@ function buildBudgetPrompt(d) {
 ${lines}`;
 }
 // OpenAI Chat Completions 호출 — 키는 환경변수(OPENAI_API_KEY)에서만 읽는다(코드/깃에 저장 안 함)
-function callLLM(prompt, cb) {
+function callLLM(prompt, cb, system) {
   // 붙여넣기 시 딸려오는 공백·개행을 제거한다 (헤더에 개행이 들어가면 요청이 통째로 실패)
   const key = String(process.env.OPENAI_API_KEY || "").trim();
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
   const payload = JSON.stringify({
     model,
     messages: [
-      { role: "system", content: "너는 SI 프로젝트 예산 분석을 돕는 어시스턴트다. 비개발자 PM이 이해하기 쉽게 간결한 한국어 문장으로만 답한다. 마크다운·불릿은 쓰지 않는다." },
+      { role: "system", content: system || "너는 SI 프로젝트 예산 분석을 돕는 어시스턴트다. 비개발자 PM이 이해하기 쉽게 간결한 한국어 문장으로만 답한다. 마크다운·불릿은 쓰지 않는다." },
       { role: "user", content: prompt },
     ],
-    temperature: 0.3,
+    temperature: system ? 0.1 : 0.3,
     max_tokens: 600,
   });
   let req;
@@ -330,6 +338,152 @@ function handleProgressSummary(body, res) {
     if (err || !text) { res.writeHead(200); res.end(JSON.stringify({ summary: fallback, source: "fallback", note: err ? String(err.message || err) : "empty" })); return; }
     res.writeHead(200); res.end(JSON.stringify({ summary: text, source: "ai" }));
   });
+}
+
+// ── 맞춤 레포트: LLM → SQL → 실제 SQLite(node:sqlite) 실행 ──
+// mock 데이터로 인메모리 DB를 시딩하고, LLM이 생성한 SELECT를 실제로 실행한다.
+const PROJECT_COLS = ["projectNo","projectName","orderCompany","projectType","salesDivision","salesHead","salesDept","pmName","projectStatus","startDate","endDate","finalLaborCost","finalMaterialCost","finalAsCost","budgetVersion","erpSendStatus","relatedCompanyYn","overseasPmYn"];
+const PROJECT_ROWS = [
+  { projectNo:"IV107817", projectName:"SKALA 2.0 지역 확대", orderCompany:"SK Telecom", projectType:"투자-개발", salesDivision:"기업문화부문", salesHead:"HR추진담당", salesDept:"AX교육사업1팀", pmName:"김영욱", projectStatus:"착수완료", startDate:"2026-05-23", endDate:"2027-01-31", finalLaborCost:0, finalMaterialCost:0, finalAsCost:0, budgetVersion:"V1.0", erpSendStatus:"전송대기", relatedCompanyYn:"N", overseasPmYn:"N" },
+  { projectNo:"IV107816", projectName:"SK에코플랜트 매터리얼즈 구축", orderCompany:"SK에코플랜트", projectType:"원가-선투입", salesDivision:"", salesHead:"AIM본부(제조컨설팅)", salesDept:"AIM본부(제조컨설팅)", pmName:"정병용", projectStatus:"수행", startDate:"2026-08-03", endDate:"2026-10-02", finalLaborCost:77244819, finalMaterialCost:0, finalAsCost:0, budgetVersion:"V1.2", erpSendStatus:"미전송", relatedCompanyYn:"N", overseasPmYn:"N" },
+  { projectNo:"IV107815", projectName:"SKI ES 26년 Enterprise Cloud 전환", orderCompany:"SKI ES", projectType:"원가-선투입", salesDivision:"Cloud부문", salesHead:"Cloud Tech본부", salesDept:"제조Cloud PM팀", pmName:"신동우", projectStatus:"착수완료", startDate:"2026-07-22", endDate:"2026-08-21", finalLaborCost:0, finalMaterialCost:0, finalAsCost:0, budgetVersion:"V1.0", erpSendStatus:"전송완료", relatedCompanyYn:"N", overseasPmYn:"N" },
+  { projectNo:"IV107814", projectName:"ISC 26년 AI PMO", orderCompany:"ISC", projectType:"원가-선투입", salesDivision:"", salesHead:"AI SCM본부(SCM컨설팅)", salesDept:"AI SCM본부(SCM컨설팅)", pmName:"안정준", projectStatus:"착수완료", startDate:"2026-07-20", endDate:"2026-08-14", finalLaborCost:0, finalMaterialCost:0, finalAsCost:0, budgetVersion:"V1.0", erpSendStatus:"전송대기", relatedCompanyYn:"N", overseasPmYn:"N" },
+  { projectNo:"IV107813", projectName:"그룹 통합 API 운영체계 구축", orderCompany:"SK AX", projectType:"투자-개발", salesDivision:"제조서비스부문", salesHead:"제조서비스2본부", salesDept:"Digital SHE/ESG서비스팀", pmName:"여인성", projectStatus:"수행", startDate:"2026-07-01", endDate:"2026-12-31", finalLaborCost:1169109563, finalMaterialCost:100000000, finalAsCost:0, budgetVersion:"V1.1", erpSendStatus:"미전송", relatedCompanyYn:"Y", overseasPmYn:"N" },
+  { projectNo:"IV107812", projectName:"SKT 26년 Tdic EOS 보안 고도화", orderCompany:"SKT", projectType:"원가-선투입", salesDivision:"Cloud부문", salesHead:"Cyber보안사업본부", salesDept:"보안사업개발팀", pmName:"김민수", projectStatus:"수행", startDate:"2026-07-15", endDate:"2026-10-31", finalLaborCost:810880000, finalMaterialCost:810880000, finalAsCost:0, budgetVersion:"V1.2", erpSendStatus:"전송완료", relatedCompanyYn:"N", overseasPmYn:"N" },
+  { projectNo:"IV107811", projectName:"SKT 26년 Tdic EOS 보안 운영", orderCompany:"SKT", projectType:"원가-선투입", salesDivision:"Cloud부문", salesHead:"Cyber보안사업본부", salesDept:"보안사업개발팀", pmName:"김민수", projectStatus:"수행", startDate:"2026-07-15", endDate:"2026-10-31", finalLaborCost:1998457000, finalMaterialCost:1998457000, finalAsCost:0, budgetVersion:"V1.2", erpSendStatus:"전송완료", relatedCompanyYn:"N", overseasPmYn:"N" },
+  { projectNo:"IV107810", projectName:"이엔에스 시티가스 Skyline 구축", orderCompany:"E&S", projectType:"원가-선투입", salesDivision:"Enterprise서비스부문", salesHead:"Enterprise Solution1본부", salesDept:"AX ERP사업개발팀", pmName:"이정호", projectStatus:"수행", startDate:"2026-07-21", endDate:"2026-08-31", finalLaborCost:660812211, finalMaterialCost:6297997200, finalAsCost:0, budgetVersion:"V1.1", erpSendStatus:"미전송", relatedCompanyYn:"N", overseasPmYn:"N" },
+];
+const BUDGET_COLS = ["projectNo","customer","projectName","budgetVersionNo","projectType","salesDivision","salesHead","projectStatus","pmName","approvalCompletedAt","previousTotalCost","executionCost","laborCost","otCost","outsourceCost","materialCost","expenseCost","pjtReserve","asCost"];
+const BUDGET_ROWS = [
+  { projectNo:"IV107816", customer:"SK에코플랜트", projectName:"SK에코플랜트 매터리얼즈 26년 기준정보 관리체계 전환_선투입", budgetVersionNo:1, projectType:"IV62", salesDivision:"Ackerton Partners", salesHead:"AIM본부(제조컨설팅)", projectStatus:"수행", pmName:"정병용", approvalCompletedAt:"2026-07-28", previousTotalCost:0, executionCost:0, laborCost:0, otCost:0, outsourceCost:0, materialCost:0, expenseCost:0, pjtReserve:0, asCost:0 },
+  { projectNo:"IV107813", customer:"", projectName:"그룹 통합 API운영체계 구축", budgetVersionNo:1, projectType:"IV50", salesDivision:"제조서비스2본부", salesHead:"Digital SHE/ESG서비스팀", projectStatus:"수행", pmName:"여인성", approvalCompletedAt:"2026-07-27", previousTotalCost:0, executionCost:1169109563, laborCost:528109563, otCost:0, outsourceCost:461000000, materialCost:100000000, expenseCost:17000000, pjtReserve:0, asCost:0 },
+  { projectNo:"IV107812", customer:"SKT", projectName:"SKT 26년 Tdic EOS 보안취약점 대응 대체체계", budgetVersionNo:2, projectType:"IV62", salesDivision:"Cyber보안사업본부", salesHead:"보안사업개발팀", projectStatus:"수행", pmName:"김민수", approvalCompletedAt:"2026-07-23", previousTotalCost:810880000, executionCost:810880000, laborCost:0, otCost:0, outsourceCost:0, materialCost:810880000, expenseCost:0, pjtReserve:0, asCost:0 },
+  { projectNo:"IV107810", customer:"", projectName:"이엔에스 시티가스 Skyline IT 구축 Project", budgetVersionNo:3, projectType:"IV62", salesDivision:"Enterprise Solution본부", salesHead:"AX ERP사업개발팀", projectStatus:"수행", pmName:"이정호", approvalCompletedAt:"2026-07-23", previousTotalCost:6608122711, executionCost:6608122711, laborCost:135243039, otCost:0, outsourceCost:171882472, materialCost:6297997200, expenseCost:3000000, pjtReserve:0, asCost:0 },
+  { projectNo:"IV107808", customer:"", projectName:"프로젝트 예산관리 시스템 구축", budgetVersionNo:1, projectType:"IV52", salesDivision:"전략기획부문", salesHead:"경영정보 AX CoE", projectStatus:"수행", pmName:"홍서연", approvalCompletedAt:"2026-07-21", previousTotalCost:88785272, executionCost:88785272, laborCost:77785272, otCost:0, outsourceCost:0, materialCost:0, expenseCost:11000000, pjtReserve:0, asCost:0 },
+  { projectNo:"IV107805", customer:"", projectName:"AX向 To-Be 조직구조 프로젝트", budgetVersionNo:2, projectType:"IV56", salesDivision:"HR추진담당", salesHead:"AX교육사업2팀", projectStatus:"수행", pmName:"조승민", approvalCompletedAt:"2026-07-22", previousTotalCost:91200000, executionCost:94315492, laborCost:73335492, otCost:0, outsourceCost:0, materialCost:0, expenseCost:20980000, pjtReserve:0, asCost:0 },
+];
+
+let _reportDB = null;
+function getReportDB() {
+  if (_reportDB) return _reportDB;
+  const { DatabaseSync } = require("node:sqlite");
+  const db = new DatabaseSync(":memory:");
+  const seed = (name, cols, rows) => {
+    db.exec(`CREATE TABLE ${name} (${cols.map(c => `"${c}"`).join(", ")})`);
+    const stmt = db.prepare(`INSERT INTO ${name} (${cols.map(c => `"${c}"`).join(", ")}) VALUES (${cols.map(() => "?").join(", ")})`);
+    for (const r of rows) stmt.run(...cols.map(c => (r[c] === undefined ? null : r[c])));
+  };
+  seed("projects", PROJECT_COLS, PROJECT_ROWS);
+  seed("budget", BUDGET_COLS, BUDGET_ROWS);
+  _reportDB = db;
+  return db;
+}
+function reportSchemaText() {
+  return `테이블 projects (프로젝트 현황): projectNo(프로젝트번호), projectName(프로젝트명), orderCompany(발주처), projectType(프로젝트유형), salesDivision(매출귀속부문), salesHead(매출귀속본부), salesDept(매출귀속부서), pmName(PM명), projectStatus(프로젝트상태 예:수행/착수완료), startDate(시작일 YYYY-MM-DD), endDate(종료일), finalLaborCost(최종예산인건비·원), finalMaterialCost(최종예산재료비·원), finalAsCost(최종예산AS비·원), budgetVersion(실행예산버전), erpSendStatus(ERP전송상태 예:전송완료/미전송/전송대기), relatedCompanyYn(관계사여부 Y/N), overseasPmYn(해외PM여부 Y/N)
+테이블 budget (실행예산 현황): projectNo, customer(고객사), projectName, budgetVersionNo(예산버전 숫자), projectType, salesDivision, salesHead, projectStatus, pmName, approvalCompletedAt(예산승인완료일), previousTotalCost(전버전 수행비용·원), executionCost(수행비용·원), laborCost(인건비), otCost(OT비), outsourceCost(외주비), materialCost(재료비), expenseCost(경비), pjtReserve(PJT손실예비비), asCost(AS비)
+두 테이블은 projectNo로 조인한다. 모든 금액 컬럼 단위는 원(KRW)이다.`;
+}
+function buildNl2SqlPrompt(question) {
+  return `너는 SQLite 텍스트-투-SQL 변환기다. 아래 스키마에서 사용자의 한국어 질문을 만족하는 SELECT 쿼리 한 개만 출력해라.
+
+규칙:
+- 반드시 읽기 전용 SELECT. 마크다운/설명/주석 없이 SQL만 출력.
+- 스키마에 실제로 존재하는 컬럼만 사용.
+- 모든 금액 컬럼 단위는 원(KRW)이다. 한국어 금액을 원으로 환산: '1억'=100000000, '1천만'=10000000, '1만'=10000. 예: '외주비 4억 넘는' → outsourceCost > 400000000.
+- 특정 값/이름(예: PM명 '김민수', 상태 '수행')을 말하면 GROUP BY가 아니라 WHERE 등호로 필터한다.
+- 인건비/외주비/재료비/경비 같은 비용 계정은 budget 테이블(laborCost/outsourceCost/materialCost/expenseCost)을 쓴다. 결과에는 식별용으로 projectName을 포함하면 좋다.
+
+예시)
+질문: 외주비가 4억 넘는 프로젝트를 외주비 큰 순으로
+SQL: SELECT projectNo, projectName, outsourceCost FROM budget WHERE outsourceCost > 400000000 ORDER BY outsourceCost DESC
+질문: 김민수 PM이 맡은 프로젝트의 이름과 상태
+SQL: SELECT projectName, projectStatus FROM projects WHERE pmName = '김민수'
+
+${reportSchemaText()}
+
+질문: ${question}
+SQL:`;
+}
+function extractSql(text) {
+  let t = String(text || "").trim();
+  const fence = t.match(/```(?:sql)?\s*([\s\S]*?)```/i);
+  if (fence) t = fence[1].trim();
+  return t.replace(/;+\s*$/, "").trim();
+}
+function isSafeSelect(sql) {
+  const s = String(sql || "").trim().replace(/;+\s*$/, "");
+  if (!s) return false;
+  if (/;/.test(s)) return false;                       // 다중문 차단
+  if (!/^select\b/i.test(s)) return false;             // SELECT만 허용
+  if (/\b(insert|update|delete|drop|alter|create|replace|attach|detach|pragma|vacuum|reindex|truncate)\b/i.test(s)) return false;
+  return true;
+}
+function handleNl2Sql(body, res) {
+  if (!body || !body.question) { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid payload" })); return; }
+  let db;
+  try { db = getReportDB(); }
+  catch (e) { res.writeHead(200); res.end(JSON.stringify({ error: "SQLite 사용 불가: " + (e.message || e), source: "error" })); return; }
+  const exec = (sql, source) => {
+    if (!isSafeSelect(sql)) { res.writeHead(200); res.end(JSON.stringify({ sql, error: "안전하지 않은 쿼리라 실행하지 않았습니다(SELECT 전용).", source })); return; }
+    try {
+      const rows = db.prepare(sql).all();
+      const columns = rows.length ? Object.keys(rows[0]) : [];
+      res.writeHead(200); res.end(JSON.stringify({ sql, columns, rows, source }));
+    } catch (e) {
+      res.writeHead(200); res.end(JSON.stringify({ sql, error: "쿼리 실행 오류: " + (e.message || e), source }));
+    }
+  };
+  const FALLBACK = "SELECT projectNo, projectName, pmName, projectStatus, finalLaborCost FROM projects LIMIT 20";
+  if (!process.env.OPENAI_API_KEY) { exec(FALLBACK, "fallback"); return; }
+  callLLM(buildNl2SqlPrompt(body.question), (err, text) => {
+    if (err || !text) { exec(FALLBACK, "fallback"); return; }
+    exec(extractSql(text), "ai");
+  }, "You are a precise SQLite text-to-SQL generator. Output ONLY one read-only SELECT statement. No markdown, no comments, no explanation.");
+}
+
+// ── 맞춤 레포트 도우미 (필드 설명 + 목적별 필드 추천) ──
+function buildAssistPrompt(d) {
+  const fieldList = (d.fields || []).map(f => `- ${f.key} : ${f.label} (${f.group})`).join("\n");
+  return `너는 '맞춤 레포트' 작성을 돕는 어시스턴트다. 사용자는 어떤 필드가 있는지, 각 필드가 무엇을 의미하는지 잘 모른다. 친절하고 쉽게 설명하고, 목적을 말하면 그에 맞는 필드를 추천한다.
+
+현재 레포트: ${d.reportType}
+선택 가능한 필드(key : 이름 (그룹)):
+${fieldList}
+
+사용자 메시지: ${d.message}
+
+반드시 아래 JSON 형식으로만 답해라(마크다운/코드펜스/설명 없이 순수 JSON 한 개):
+{"reply": "사용자에게 보여줄 한국어 설명 2~4문장. 필드 의미를 묻는 질문이면 해당 필드를 쉽게 설명하고, 목적/보고를 말하면 어떤 필드를 왜 추천하는지 설명한다.", "fields": ["추천 필드 key 배열 — 위 목록의 key만 사용, 목적에 필요한 것만, 추천이 필요 없으면 빈 배열"]}`;
+}
+function localAssist(d) {
+  return { reply: "지금은 AI 설명을 사용할 수 없어요(API 키 미설정). 상단의 'AI 추천' 프리셋 버튼으로 목적별 필드를 선택할 수 있어요.", fields: [] };
+}
+function parseAssist(text, validKeys) {
+  let t = String(text || "").trim();
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) t = fence[1].trim();
+  const s = t.indexOf("{"), e = t.lastIndexOf("}");
+  if (s >= 0 && e > s) t = t.slice(s, e + 1);
+  try {
+    const o = JSON.parse(t);
+    const fields = Array.isArray(o.fields) ? o.fields.filter(k => validKeys.includes(k)) : [];
+    return { reply: String(o.reply || "").trim() || "추천 결과입니다.", fields };
+  } catch (e) {
+    return { reply: String(text || "").replace(/[{}\[\]"]/g, "").trim() || "설명을 생성하지 못했어요.", fields: [] };
+  }
+}
+function handleReportAssist(body, res) {
+  if (!body || !body.message) { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid payload" })); return; }
+  const validKeys = (body.fields || []).map(f => f.key);
+  if (!process.env.OPENAI_API_KEY) {
+    const fb = localAssist(body);
+    res.writeHead(200); res.end(JSON.stringify({ reply: fb.reply, fields: fb.fields, source: "fallback" })); return;
+  }
+  callLLM(buildAssistPrompt(body), (err, text) => {
+    if (err || !text) { const fb = localAssist(body); res.writeHead(200); res.end(JSON.stringify({ reply: fb.reply, fields: fb.fields, source: "fallback" })); return; }
+    const parsed = parseAssist(text, validKeys);
+    res.writeHead(200); res.end(JSON.stringify({ reply: parsed.reply, fields: parsed.fields, source: "ai" }));
+  }, "너는 맞춤 레포트 필드를 설명하고 추천하는 어시스턴트다. 반드시 지정된 JSON 형식으로만 답한다.");
 }
 
 server.listen(PORT, () => {
