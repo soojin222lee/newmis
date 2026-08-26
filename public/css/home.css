@@ -782,3 +782,15 @@ body.menu-shown .topbar .topnav { display: flex !important; }
   .hm-under-sum { margin-left: 0; }
   .ai-chat-auto { margin-left: 6px; }
 }
+
+/* 화면 이동 네비게이터 진입 버튼 (홈 검색창 아래) */
+.home2-navi-row { display: flex; align-items: center; gap: 10px; margin-top: 9px; flex-wrap: wrap; }
+.home2-navi-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #c7cbfb; background: linear-gradient(135deg, #eef1ff, #f3efff); color: #4338ca; font-size: 13px; font-weight: 800; padding: 8px 14px; border-radius: 999px; cursor: pointer; }
+.home2-navi-btn:hover { border-color: #7c5cff; box-shadow: 0 2px 10px rgba(99,102,241,.15); }
+.home2-navi-ic { font-size: 13px; }
+.home2-navi-hint { font-size: 12px; color: #94a3b8; font-weight: 600; }
+
+/* 프로젝트 칩: 빨간 숫자공 클릭 → 확인 항목 팝업 (이름 클릭=선택과 분리) */
+.hm-ptab-badge.clickable { cursor: pointer; transition: transform .12s, box-shadow .12s; }
+.hm-ptab-badge.clickable:hover { transform: scale(1.18); box-shadow: 0 0 0 3px rgba(234,0,44,.18); }
+.hm-ptab-badge.clickable:focus-visible { outline: 2px solid #ea002c; outline-offset: 1px; }

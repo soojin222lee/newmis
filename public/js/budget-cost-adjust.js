@@ -9,7 +9,11 @@ function showCostAdjust() { costMode = 'adjust'; showBudget(); }
 // 특정 프로젝트의 원가조정으로 바로 이동(홈 Work Feed 반영 핸드오프 등에서 사용)
 function openCostAdjust(k) { costMode = 'adjust'; openBudgetProjectScreen(k || 'budgetMock'); }
 
-// 라우트 등록 (#/budget-adjust)
+// 라우트 등록 (#/budget-adjust[?pj=<프로젝트키>])
 if (typeof ROUTE_ACTIONS !== 'undefined') {
-  ROUTE_ACTIONS['budget-adjust'] = () => showCostAdjust();
+  ROUTE_ACTIONS['budget-adjust'] = () => {
+    const pj = (typeof routeQueryParam === 'function') ? routeQueryParam('pj') : null;
+    if (pj) { costMode = 'adjust'; openBudgetProjectScreen(pj); }  // 딥링크: 그 프로젝트 원가조정 바로 진입
+    else showCostAdjust();
+  };
 }

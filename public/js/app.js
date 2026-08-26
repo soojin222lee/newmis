@@ -47,12 +47,18 @@ const SCREEN_ROUTES = {
   //   #/budget-adjust/labor · /outsource · /material · /expense · /as
   //   (계정↔슬러그 매핑 BUDGET_AREA_SLUGS와 라우트 액션은 budget-area-*.js가 소유한다.)
   's-budget': () => {
+    let base;
     if (typeof costMode !== 'undefined' && costMode === 'adjust') {
       const acc = (typeof budgetSetupEditAccount !== 'undefined') ? budgetSetupEditAccount : null;
       const slug = (acc && typeof BUDGET_AREA_SLUGS !== 'undefined') ? BUDGET_AREA_SLUGS[acc] : null;
-      return slug ? ('budget-adjust/' + slug) : 'budget-adjust';
+      base = slug ? ('budget-adjust/' + slug) : 'budget-adjust';
+    } else {
+      base = (typeof costMode !== 'undefined' && costMode === 'history') ? 'budget-history' : 'budget-status';
     }
-    return (typeof costMode !== 'undefined' && costMode === 'history') ? 'budget-history' : 'budget-status';
+    // 상세(프로젝트) 화면이면 끝에 프로젝트 키를 파라미터로 — 딥링크로 그 프로젝트 화면 바로 진입
+    const detail = (typeof budgetScreenView !== 'undefined' && budgetScreenView === 'detail');
+    const pj = (detail && typeof currentBudgetProj !== 'undefined') ? currentBudgetProj : null;
+    return pj ? (base + '?pj=' + pj) : base;
   },
   // 인사이트 딥링크(AI 바로가기): 경로는 메뉴명(탭)까지, 프로젝트는 끝에 파라미터로 → insights/<탭>?pj=<프로젝트ID>
   's-insights': () => {
@@ -1205,6 +1211,111 @@ function askLLMAnswer(text) {
     .catch(function () { t.remove(); aiAgentMsg('q', qGenericHtml(text)); });
 }
 
+// ── 채팅 네비게이터: 자연어 → 화면 딥링크 이동 ──
+// 이동 가능한 화면 목록(설명 포함) — LLM이 이 중에서 고른다.
+const NAV_ROUTES = [
+  { key:'insights-overview', label:'인사이트 · 종합 현황', desc:'프로젝트 KPI, 월별 원가 트렌드, AI 인사이트 종합' },
+  { key:'insights-progress', label:'인사이트 · 원가 소진율', desc:'원가(Cost)/계획/실적 비교, 소진율·진척, 계정별 원가 vs 계획 vs 실적, 합의 Cost 분해' },
+  { key:'insights-version',  label:'인사이트 · 버전별 예산', desc:'실행예산 버전별 계정 배분 변동(예산 돌려쓰기)' },
+  { key:'ai-report',         label:'AI 레포트',        desc:'자연어로 물어보면 SQL로 데이터를 조회' },
+  { key:'custom-report',     label:'맞춤 레포트',       desc:'필드를 골라 프로젝트/실행예산 데이터 조회' },
+  { key:'budget-status',     label:'수행원가 · 원가현황', desc:'프로젝트 수행원가 계획/실적 현황' },
+  { key:'budget-adjust',     label:'수행원가 · 원가조정', desc:'인건비/외주비/재료비/경비 계정별 예산 조정' },
+  { key:'budget-history',    label:'수행원가 · 변경이력', desc:'실행예산 버전 변경 이력' },
+  { key:'si-project',        label:'수주형 프로젝트',    desc:'수주형 프로젝트 목록/상세' },
+  { key:'dashboard',         label:'메인 / 홈',         desc:'내 업무 홈 화면' },
+];
+// 홈 프로젝트 id → 인사이트 프로젝트 id (이름이 달라 수동 매핑, 없으면 인사이트 기본 프로젝트)
+const HOME_TO_INS = { skon:'pj7f3a9c', logi:'pj2b8e14', migr:'pj9c4d7a', erp:'pj61e2d8' };
+function homeSelInsightsId() {
+  const id = (typeof homeSelectedProject !== 'undefined') ? homeSelectedProject : 'all';
+  return HOME_TO_INS[id] || null;
+}
+// 홈 프로젝트 id → 수행원가 프로젝트 키 (원가 데이터가 키별로 있어 매핑, 없으면 목록)
+const HOME_TO_BUDGET = { skon:'cloud', logi:'mobile', migr:'erp', erp:'erp', sec:'sec', cloud:'cloud', mob:'mobile', dw:'budgetMock', aidoc:'budgetMock' };
+function homeSelBudgetKey() {
+  const id = (typeof homeSelectedProject !== 'undefined') ? homeSelectedProject : 'all';
+  return HOME_TO_BUDGET[id] || null;
+}
+function navGo(key) {
+  const insId = homeSelInsightsId();
+  const insHash = tab => `#/insights/${tab}${insId ? `?pj=${insId}` : ''}`;
+  const bKey = homeSelBudgetKey();
+  const budgetHash = base => `#/${base}${bKey ? `?pj=${bKey}` : ''}`;  // 선택 프로젝트 있으면 그 상세로, 없으면 목록
+  switch (key) {
+    case 'insights-overview': location.hash = insHash('overview'); break;
+    case 'insights-progress': location.hash = insHash('progress'); break;
+    case 'insights-version':  location.hash = insHash('version');  break;
+    case 'ai-report':      if (typeof showAiReport === 'function') showAiReport(); break;
+    case 'custom-report':  if (typeof showCustomReport === 'function') showCustomReport(); break;
+    case 'budget-status':  location.hash = budgetHash('budget-status');  break;
+    case 'budget-adjust':  location.hash = budgetHash('budget-adjust');  break;
+    case 'budget-history': location.hash = budgetHash('budget-history'); break;
+    case 'si-project':     if (typeof showSIProject === 'function') showSIProject(); break;
+    case 'dashboard':      if (typeof showMain === 'function') showMain(); break;
+    default: if (typeof showMain === 'function') showMain();
+  }
+}
+// 네비게이터 진입 — 채팅을 열고 화면 목록 카드를 띄운다
+function openNavigator() {
+  if (typeof openAiChat === 'function') openAiChat('navi');
+}
+// 칩 클릭으로 바로 이동 (이동 후 채팅은 우측에 도킹 유지)
+function naviPick(key) {
+  navGo(key);
+  if (typeof dockAiChat === 'function') dockAiChat();
+}
+// 화면 목록 카드 (뭘 갈 수 있는지 힌트 + 칩 클릭 이동)
+function naviCardHtml() {
+  const selId = (typeof homeSelectedProject !== 'undefined') ? homeSelectedProject : 'all';
+  const projName = (selId && selId !== 'all' && typeof homeProjName === 'function') ? homeProjName(selId) : null;
+  const projLine = projName
+    ? `<div class="ai-r-cause">현재 <b>${escHtml(projName)}</b> 기준으로 이동해요. (홈 상단에서 프로젝트를 바꾸면 그 프로젝트로 이동)</div>`
+    : `<div class="ai-r-cause">홈 상단에서 프로젝트를 먼저 고르면 해당 프로젝트 화면으로 이동해요.</div>`;
+  const chips = NAV_ROUTES.map(r => `<button class="navi-chip" onclick="naviPick('${r.key}')"><b>${escHtml(r.label)}</b><span>${escHtml(r.desc)}</span></button>`).join('');
+  return `<div class="ai-result">
+      <div class="ai-r-lead"><span class="ai-r-tag ink">화면 이동</span> 어디로 갈까요? 아래에서 고르거나 자연어로 말해도 돼요.</div>
+      ${projLine}
+      <div class="navi-chips">${chips}</div>
+      <div class="ai-r-cause" style="margin-top:8px">예) "<b>Cost랑 실적 비교 화면 가고싶어</b>" · "<b>버전별 예산 화면으로 가줘</b>"</div>
+    </div>`;
+}
+// 질문(답변형)에 대해 "관련 화면"으로도 이동 + 우측 도킹 (메시지는 추가하지 않음)
+function navToRelevant(text) {
+  fetch('/api/navigate', { method:'POST', headers:{ 'content-type':'application/json' },
+    body: JSON.stringify({ message: text, routes: NAV_ROUTES.map(r => ({ key:r.key, label:r.label, desc:r.desc })) }) })
+    .then(r => r.json())
+    .then(j => {
+      const route = NAV_ROUTES.find(r => r.key === j.key);
+      if (!route) return;
+      navGo(route.key);
+      if (typeof dockAiChat === 'function') dockAiChat();
+    })
+    .catch(function () {});
+}
+function chatNavigate(text) {
+  const t = aiTyping('navi');
+  fetch('/api/navigate', { method:'POST', headers:{ 'content-type':'application/json' },
+    body: JSON.stringify({ message: text, routes: NAV_ROUTES.map(r => ({ key:r.key, label:r.label, desc:r.desc })) }) })
+    .then(r => r.json())
+    .then(j => {
+      t.remove();
+      const route = NAV_ROUTES.find(r => r.key === j.key);
+      if (!route) { aiAgentMsg('navi', naviRouteHtml(text)); return; }
+      const selId = (typeof homeSelectedProject !== 'undefined') ? homeSelectedProject : 'all';
+      const projName = (selId && selId !== 'all' && typeof homeProjName === 'function') ? homeProjName(selId) : null;
+      const projTxt = (projName && /^insights-/.test(route.key)) ? `<b>${escHtml(projName)}</b>의 ` : '';
+      const srcTag = j.source === 'ai' ? '<span class="ai-r-tag ink">AI 길안내</span>' : '<span class="ai-r-tag amber">길안내</span>';
+      aiAgentMsg('navi', `<div class="ai-result">
+          <div class="ai-r-lead">${srcTag} ${projTxt}<b>${escHtml(route.label)}</b> 화면으로 이동할게요.</div>
+          ${j.reply ? `<div class="ai-r-cause">${escHtml(j.reply)}</div>` : ''}
+          <div class="ai-actions"><button class="ai-act" onclick="navGo('${route.key}')">지금 이동 →</button></div>
+        </div>`);
+      setTimeout(function () { navGo(route.key); if (typeof dockAiChat === 'function') dockAiChat(); }, 850);
+    })
+    .catch(function () { t.remove(); aiAgentMsg('navi', naviRouteHtml(text)); });
+}
+
 // ── Intent 라우팅 ──
 function routeIntent(text) {
   const t = text.replace(/\s/g, '');
@@ -1215,6 +1326,12 @@ function routeIntent(text) {
       aiAgentMsg('navi', '<div class="ai-result"><div class="ai-r-lead">메인 화면으로 이동합니다.</div></div>');
       setTimeout(function () { if (typeof showMain === 'function') showMain(); }, 450);
     } };
+  }
+
+  // ①.5 화면 이동(네비게이터) — 선택 프로젝트 + 자연어 → 딥링크 이동
+  if (/(가고싶|가고 싶|가줘|데려가|이동하|이동해|이동시|열어줘|화면으로|화면 보여|바로가|네비게|navigate)/.test(t)
+      && /(화면|인사이트|레포트|보고서|원가|실적|계획|비교|소진|버전|예산|현황|조정|프로젝트|cost|Cost|COST|SQL|sql)/.test(t)) {
+    return { agent:'navi', render: () => chatNavigate(text) };
   }
 
   // ② 이슈·확인사항 → 팝업
@@ -1834,7 +1951,7 @@ function openAiChat(entry, initialQuery) {
     aiAgentMsg(key, agentIntroHtml(key));
     if (key === 'todo') chatOpenTodos();
     if (key === 'risk') chatOpenRisks();
-    if (key === 'navi') aiAgentMsg('navi', naviGuideHtml());
+    if (key === 'navi') aiAgentMsg('navi', naviCardHtml());
   } else {
     aiAgentMsg('ai', `<div class="ai-result">
         <div class="ai-r-lead">무엇을 도와드릴까요?</div>
@@ -1864,8 +1981,8 @@ const INTENT_MAX = 3;
 // 개별 판정기 — key로 중복을 제거한다
 const INTENT_RULES = [
   { key:'nav', agent:'navi',
-    test: t => /(찾아|어디|어떻게|화면|이동|바로가기|절차|방법|메뉴|열어|가줘|보여줘|이동해)/.test(t) && !!naviMatch(t),
-    render: text => aiAgentMsg('navi', naviRouteHtml(text)) },
+    test: t => /(찾아줘|어디서|어디로|바로가기|화면으로|화면열|화면 열|메뉴로|열어줘|가줘|데려가|가고싶|이동하|이동해|이동시|네비게)/.test(t),
+    render: text => chatNavigate(text) },
 
   { key:'risk', agent:'risk',
     test: t => /(이상징후|이상|징후|리스크|위험|경고|급증|정합성|알림)/.test(t),
@@ -1912,6 +2029,12 @@ function routeIntents(text) {
     } }];
   }
 
+  // 화면 이동(네비게이터) — 단독 처리: 선택 프로젝트 + 자연어 → 딥링크 실제 이동
+  if (/(가고싶|가고 싶|가줘|데려가|이동하|이동해|이동시|열어줘|화면으로|화면 보여|보여줘|바로가|네비게|navigate)/.test(t)
+      && /(화면|인사이트|레포트|보고서|원가|실적|계획|비교|소진|버전|예산|현황|조정|프로젝트|cost|Cost|COST|SQL|sql)/.test(t)) {
+    return [{ agent:'navi', render: () => chatNavigate(text) }];
+  }
+
   const hits = [];
   const seen = {};
 
@@ -1939,9 +2062,9 @@ function routeIntents(text) {
 
   if (hits.length) return hits.slice(0, INTENT_MAX);
 
-  // 이동 의도인데 화면을 특정 못한 경우 → 되묻기
-  if (/(찾아|어디|어떻게|화면|이동|바로가기|절차|방법|메뉴|열어|가줘|보여줘|이동해)/.test(t)) {
-    return [{ agent:'navi', render: () => aiAgentMsg('navi', naviAskHtml(text)) }];
+  // 이동 의도인데 위에서 안 잡힌 경우 → 네비게이터가 화면을 판단해 이동
+  if (/(찾아|어디|어떻게|화면|이동|바로가기|절차|방법|메뉴|열어|가줘|보여줘|이동해|가고싶|데려가)/.test(t)) {
+    return [{ agent:'navi', render: () => chatNavigate(text) }];
   }
   // 그 외 → 서버 경유 LLM
   return [{ agent:'q', render: () => askLLMAnswer(text) }];
@@ -1969,6 +2092,11 @@ function sendAiChat() {
     const t = aiTyping(r.agent);
     setTimeout(function () { t.remove(); r.render(); }, 560 + i * 640);
   });
+
+  // 답변형 질문(q)이면 관련 화면으로도 이동 + 우측 도킹 (네비 인텐트는 이미 이동하므로 제외)
+  if (routes.some(r => r.agent === 'q') && !routes.some(r => r.agent === 'navi')) {
+    navToRelevant(text);
+  }
 }
 
 // ── 팝업 상단에 첫 질의 고정 ──
@@ -2017,7 +2145,7 @@ function openAiChat(entry, initialQuery) {
     aiAgentMsg(key, agentIntroHtml(key));
     if (key === 'todo') chatOpenTodos();
     if (key === 'risk') chatOpenRisks();
-    if (key === 'navi') aiAgentMsg('navi', naviGuideHtml());
+    if (key === 'navi') aiAgentMsg('navi', naviCardHtml());
   } else {
     aiAgentMsg('ai', `<div class="ai-result">
         <div class="ai-r-lead">무엇을 도와드릴까요?</div>

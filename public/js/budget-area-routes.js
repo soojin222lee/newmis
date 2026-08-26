@@ -33,9 +33,12 @@ function openCostArea(account, projectKey) {
   openBudgetAccountEditor(account);                    // 계정 선택 + URL 갱신
 }
 
-// 라우트 등록 (#/budget-adjust/<slug>)
+// 라우트 등록 (#/budget-adjust/<slug>[?pj=<프로젝트키>])
 if (typeof ROUTE_ACTIONS !== 'undefined') {
   Object.keys(BUDGET_AREA_BY_SLUG).forEach(slug => {
-    ROUTE_ACTIONS['budget-adjust/' + slug] = () => openCostArea(BUDGET_AREA_BY_SLUG[slug]);
+    ROUTE_ACTIONS['budget-adjust/' + slug] = () => {
+      const pj = (typeof routeQueryParam === 'function') ? routeQueryParam('pj') : null;
+      openCostArea(BUDGET_AREA_BY_SLUG[slug], pj || 'budgetMock');  // 딥링크: 그 프로젝트의 해당 계정 편집기로 바로
+    };
   });
 }

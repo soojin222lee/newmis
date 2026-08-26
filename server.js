@@ -145,6 +145,10 @@ function handleAPI(pathname, method, body, res) {
   if (pathname === "/api/report-assist" && method === "POST") {
     handleReportAssist(body, res); return;
   }
+  // 메인 채팅 네비게이터 (자연어 → 화면 route 선택)
+  if (pathname === "/api/navigate" && method === "POST") {
+    handleNavigate(body, res); return;
+  }
   res.writeHead(404); res.end(JSON.stringify({ error: "Not found" }));
 }
 
@@ -484,6 +488,55 @@ function handleReportAssist(body, res) {
     const parsed = parseAssist(text, validKeys);
     res.writeHead(200); res.end(JSON.stringify({ reply: parsed.reply, fields: parsed.fields, source: "ai" }));
   }, "너는 맞춤 레포트 필드를 설명하고 추천하는 어시스턴트다. 반드시 지정된 JSON 형식으로만 답한다.");
+}
+
+// ── 메인 채팅 네비게이터 (자연어 → 화면 route key 선택) ──
+function localNavigate(d) {
+  const m = String(d.message || "");
+  const has = re => re.test(m);
+  let key = "insights-overview";
+  if (has(/버전|돌려|배분/)) key = "insights-version";
+  else if (has(/소진|cost|Cost|원가.*(실적|계획|비교)|실적.*(원가|비교)|계획.*실적|비교/)) key = "insights-progress";
+  else if (has(/종합|현황|kpi|트렌드/) && has(/인사이트|insight/i)) key = "insights-overview";
+  else if (has(/자연어|물어|질의|sql/i)) key = "ai-report";
+  else if (has(/레포트|보고서|조회/)) key = "custom-report";
+  else if (has(/원가조정|조정|계정.*예산/)) key = "budget-adjust";
+  else if (has(/원가현황|수행원가/)) key = "budget-status";
+  else if (has(/수주/)) key = "si-project";
+  else if (has(/메인|홈/)) key = "dashboard";
+  const valid = (d.routes || []).map(r => r.key);
+  if (valid.length && !valid.includes(key)) key = valid[0];
+  return { key, reply: "요청하신 화면으로 안내할게요." };
+}
+function buildNavPrompt(d) {
+  const routes = (d.routes || []).map(r => `- ${r.key} : ${r.label} — ${r.desc}`).join("\n");
+  return `사용자가 이동하고 싶어하는 화면을 아래 목록에서 딱 하나 고른다. 사용자 메시지의 의도에 가장 잘 맞는 화면의 key를 선택하라.
+
+화면 목록:
+${routes}
+
+사용자 메시지: ${d.message}
+
+아래 JSON 한 개만 출력(마크다운/코드펜스/설명 없이): {"key": "위 목록에 있는 key 중 하나", "reply": "이 화면을 고른 이유를 한국어 1문장으로"}`;
+}
+function handleNavigate(body, res) {
+  if (!body || !body.message) { res.writeHead(400); res.end(JSON.stringify({ error: "Invalid payload" })); return; }
+  const valid = (body.routes || []).map(r => r.key);
+  if (!process.env.OPENAI_API_KEY) {
+    const fb = localNavigate(body);
+    res.writeHead(200); res.end(JSON.stringify({ key: fb.key, reply: fb.reply, source: "fallback" })); return;
+  }
+  callLLM(buildNavPrompt(body), (err, text) => {
+    if (err || !text) { const fb = localNavigate(body); res.writeHead(200); res.end(JSON.stringify({ key: fb.key, reply: fb.reply, source: "fallback" })); return; }
+    let key = null, reply = "";
+    try {
+      let t = String(text).trim(); const f = t.match(/```(?:json)?\s*([\s\S]*?)```/i); if (f) t = f[1].trim();
+      const s = t.indexOf("{"), e = t.lastIndexOf("}"); if (s >= 0 && e > s) t = t.slice(s, e + 1);
+      const o = JSON.parse(t); key = o.key; reply = String(o.reply || "").trim();
+    } catch (e) {}
+    if (!key || (valid.length && !valid.includes(key))) { const fb = localNavigate(body); res.writeHead(200); res.end(JSON.stringify({ key: fb.key, reply: reply || fb.reply, source: "fallback" })); return; }
+    res.writeHead(200); res.end(JSON.stringify({ key, reply: reply || "요청하신 화면으로 안내할게요.", source: "ai" }));
+  }, "너는 화면 네비게이터다. 사용자의 의도에 맞는 화면 key를 골라 반드시 지정된 JSON으로만 답한다.");
 }
 
 server.listen(PORT, () => {
