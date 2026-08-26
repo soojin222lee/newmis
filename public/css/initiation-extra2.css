@@ -839,7 +839,14 @@
 }
 .exec-budget-table {
   table-layout: fixed;
-  min-width: 1280px;
+  min-width: 1390px;
+}
+/* 목록 각 행은 항상 한 줄 — 프로젝트번호/기간이 접히지 않게 합니다. */
+.exec-budget-table thead th,
+.exec-budget-table tbody td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .exec-budget-table thead th {
   position: sticky;
@@ -857,9 +864,9 @@
   padding-bottom: 6px;
 }
 .exec-budget-table th:nth-child(1),
-.exec-budget-table td:nth-child(1) { width: 135px; }
+.exec-budget-table td:nth-child(1) { width: 150px; }
 .exec-budget-table th:nth-child(2),
-.exec-budget-table td:nth-child(2) { width: 390px; }
+.exec-budget-table td:nth-child(2) { width: 360px; }
 .exec-budget-table th:nth-child(3),
 .exec-budget-table td:nth-child(3) { width: 130px; }
 .exec-budget-table th:nth-child(4),
@@ -871,7 +878,7 @@
 .exec-budget-table th:nth-child(7),
 .exec-budget-table td:nth-child(7) { width: 150px; }
 .exec-budget-table th:nth-child(8),
-.exec-budget-table td:nth-child(8) { width: 190px; }
+.exec-budget-table td:nth-child(8) { width: 205px; }
 .exec-budget-table .pt-name {
   font-size: 14px;
   white-space: nowrap;
@@ -9345,4 +9352,16 @@ tbody td,
 .setup-account-progress,
 .expm-bar-bg {
   background: #ffedd5 !important;
+}
+
+/* 실행예산 계정별 작성 — [이력·계정별 작성·결재] 탭과 [임시저장·결재 상신] 버튼을 한 줄에 둡니다.
+   버튼 묶음이 마크업상 탭보다 앞에 있으므로, 오른쪽으로 흘려보내고 탭이 그 왼쪽 라인에 오게 합니다. */
+.setup-overview.compact > .setup-top-actions {
+  float: right;
+  align-items: center;
+  min-height: 54px;          /* 탭 묶음(.budget-flow-stepper)과 같은 높이 → 버튼이 세로 중앙 */
+  margin: 0 0 0 12px;
+}
+.setup-overview.compact > .setup-version-note {
+  clear: both;               /* 버튼 묶음이 아래 내용까지 밀고 들어오지 않게 끊습니다 */
 }
