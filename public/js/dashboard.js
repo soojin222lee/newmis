@@ -1785,10 +1785,10 @@ function homePjtStripHtml() {
     return `
         <button class="hm-ptab hm-pjt-chip ${on ? 'picked' : ''} ${n ? '' : 'calm'}"
           onclick="selectHomePjt('${p.id}')" aria-pressed="${on}"
-          title="${p.name} · 확인 필요 ${n}건">
+          title="${p.name} · 이름 클릭=프로젝트 선택${n ? ` · 숫자 클릭=확인 항목 ${n}건 보기` : ''}">
           ${on ? '<span class="hm-pjt-check">✓</span>' : ''}
           <span class="hm-ptab-name">${p.name}</span>
-          <span class="hm-ptab-badge ${n ? 'on' : ''}">${n}</span>
+          <span class="hm-ptab-badge ${n ? 'on clickable' : ''}"${n ? ` role="button" tabindex="0" title="확인 항목 ${n}건 보기" onclick="event.stopPropagation();openHomePjtModal('${p.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();openHomePjtModal('${p.id}')}"` : ''}>${n}</span>
         </button>`;
   }).join('');
   const picked = homePjtLabel();
@@ -1931,10 +1931,10 @@ function homePjtStripHtml() {
     return `
         <button class="hm-ptab hm-pjt-chip ${on ? 'picked' : ''} ${n ? '' : 'calm'}"
           onclick="selectHomePjt('${p.id}')" aria-pressed="${on}"
-          title="${p.name} · 확인 필요 ${n}건">
+          title="${p.name} · 이름 클릭=프로젝트 선택${n ? ` · 숫자 클릭=확인 항목 ${n}건 보기` : ''}">
           ${on ? '<span class="hm-pjt-check">✓</span>' : ''}
           <span class="hm-ptab-name">${p.name}</span>
-          <span class="hm-ptab-badge ${n ? 'on' : ''}">${n}</span>
+          <span class="hm-ptab-badge ${n ? 'on clickable' : ''}"${n ? ` role="button" tabindex="0" title="확인 항목 ${n}건 보기" onclick="event.stopPropagation();openHomePjtModal('${p.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();openHomePjtModal('${p.id}')}"` : ''}>${n}</span>
         </button>`;
   }).join('');
   const picked = homePjtLabel();
