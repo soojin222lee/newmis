@@ -31,6 +31,8 @@ function setScreen(id) {
   const el = document.getElementById(id);
   if (el) el.classList.add('active');
   updateHashForScreen(id);
+  // 어떤 경로로 이동하든 AI 어시스턴트를 열 수 있게 FAB 노출을 다시 판단합니다.
+  if (typeof syncChatFab === 'function') syncChatFab();
 }
 function setNav(id) {
   document.querySelectorAll('.nav-item, .nav-sub-item, .nav-sub2-item, .nav-group-btn').forEach(n => n.classList.remove('active'));
@@ -1548,14 +1550,43 @@ function ensureChatFab() {
   f.className = 'ai-chat-fab';
   f.type = 'button';
   f.innerHTML = '<span aria-hidden="true">💬</span>';
-  f.title = '대화 이어서 열기';
-  f.setAttribute('aria-label', '대화 이어서 열기');
-  f.onclick = function () { dockAiChat(); };
+  f.onclick = function () { openChatFromFab(); };
   document.body.appendChild(f);
   return f;
 }
-function showChatFab() { ensureChatFab().classList.add('on'); }
+
+// 진행 중인 대화가 있는지 (있으면 이어서, 없으면 인트로부터)
+function hasChatTalk() {
+  const ov = document.getElementById('ai-chat-overlay');
+  return !!(ov && ov.querySelector('#ai-chat-body .ai-msg'));
+}
+
+// FAB 클릭 — 이전 대화가 있으면 그대로 이어서 열고, 없으면 인트로를 띄운 뒤 도킹한다.
+// (대화를 연 적 없는 화면에서 눌러도 빈 창이 뜨지 않게 합니다)
+function openChatFromFab() {
+  if (!hasChatTalk() && typeof openAiChat === 'function') openAiChat();
+  dockAiChat();
+}
+
+function showChatFab() {
+  const f = ensureChatFab();
+  const talk = hasChatTalk();
+  f.classList.add('on');
+  f.classList.toggle('has-talk', talk);          // 빨간 점은 이어갈 대화가 있을 때만
+  const label = talk ? '대화 이어서 열기' : 'AI 어시스턴트 열기';
+  f.title = label;
+  f.setAttribute('aria-label', label);
+}
 function hideChatFab() { const f = document.getElementById('ai-chat-fab'); if (f) f.classList.remove('on'); }
+
+// FAB 노출 규칙 한 곳 — 메인 화면이 아니고 대화창이 닫혀 있으면 언제나 띄운다.
+// (메인에는 자체 채팅 진입점이 있으므로 제외)
+function syncChatFab() {
+  const ov = document.getElementById('ai-chat-overlay');
+  const onMain = !!document.querySelector('#s-main.active');
+  const chatOpen = !!(ov && ov.classList.contains('open'));
+  if (!onMain && !chatOpen) showChatFab(); else hideChatFab();
+}
 
 // 도킹할 때 헤더 버튼을 갖추고 FAB은 숨긴다
 function dockAiChat() {
@@ -1582,12 +1613,9 @@ function dockAiChat() {
 // 상세 화면에서 닫으면 대화를 지우지 않고 FAB으로 남긴다 (눌러서 이어감)
 function closeAiChat() {
   const ov = document.getElementById('ai-chat-overlay');
-  const wasDocked = ov && ov.classList.contains('docked');
-  const onMain = !!document.querySelector('#s-main.active');
-  const hasTalk = !!(ov && ov.querySelector('#ai-chat-body .ai-msg'));
   if (ov) ov.classList.remove('open');
   undockAiChat();
-  if (wasDocked && !onMain && hasTalk) showChatFab(); else hideChatFab();
+  syncChatFab();
 }
 
 // 대화창이 열리는 순간을 관찰 — 자동 처리 버튼 주입 + FAB 정리
@@ -1597,12 +1625,12 @@ function closeAiChat() {
     const main = document.getElementById('s-main');
     if (!ov || !main) { setTimeout(bind, 300); return; }
     new MutationObserver(function () {
-      if (ov.classList.contains('open')) { ensureChatAutoBtn(); hideChatFab(); }
+      if (ov.classList.contains('open')) ensureChatAutoBtn();
+      syncChatFab();
     }).observe(ov, { attributes: true, attributeFilter: ['class'] });
-    // 메인으로 돌아오면 FAB도 정리
-    new MutationObserver(function () {
-      if (main.classList.contains('active')) hideChatFab();
-    }).observe(main, { attributes: true, attributeFilter: ['class'] });
+    // 화면이 바뀌면(메인 진입/이탈 포함) FAB 노출도 다시 판단
+    new MutationObserver(syncChatFab).observe(main, { attributes: true, attributeFilter: ['class'] });
+    syncChatFab();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();

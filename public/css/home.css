@@ -772,7 +772,8 @@ body.menu-shown .topbar .topnav { display: flex !important; }
 }
 .ai-chat-fab.on { display: inline-flex; }
 .ai-chat-fab:hover { border-color: #6c5ce7; transform: translateY(-2px); }
-.ai-chat-fab::after {
+/* 빨간 점은 "이어갈 대화가 있다"는 뜻이므로 대화가 있을 때만 표시합니다 */
+.ai-chat-fab.has-talk::after {
   content: ''; position: absolute; top: 6px; right: 7px;
   width: 9px; height: 9px; border-radius: 50%;
   background: var(--sk-red); border: 2px solid #fff;
