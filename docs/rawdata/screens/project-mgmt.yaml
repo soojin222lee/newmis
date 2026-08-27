@@ -1,0 +1,341 @@
+# rawdata: 프로젝트 관리 화면 — 수주형 · 제안 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+# 범위: 수주형(SI)·제안(Proposal) 상세. W/G·사내·투자·선투입은 구분 수준으로만 요약(별도 화면).
+
+screen:
+  id: s-project-mgmt
+  name: 프로젝트 관리 (수주형 · 제안)
+  menu_path: 프로젝트 > 수주형 프로젝트 / 제안 프로젝트
+  routes:
+    - { id: si,       route: "#/si-project",       container: s-si-project,       entry: "showSIProject() → renderSIProject()" }
+    - { id: proposal, route: "#/proposal-project",  container: s-proposal-project, entry: "showProposalProject() → renderProposalProject()" }
+  source_files:
+    - public/js/si-project.js          # 수주형 전체 + 공용 IF 대시보드(siDetailHtml)·동기화 팝업·시스템/방향 메타
+    - public/js/proposal-project.js    # 제안(목록/상세) — siDetailHtml 재사용, P00N 채번 데이터
+    - public/js/app.js                 # 라우팅(SCREEN_ROUTES/ROUTE_ACTIONS), 진입 함수(show*Project), AI 바로가기 카탈로그
+    - public/css/*.css                 # sifr-* / si-* / proj-* 스타일
+  backend: null   # ★ 백엔드 없음 — 전부 JS 상수 목업(SI_PROJECTS/PROPOSAL_PROJECTS/CRM_PROJECTS_POOL). 실제 API 호출 없음, 새로고침 시 초기화.
+  purpose: >
+    CRM·ERP 등 선행 시스템에서 인터페이스(IF)로 수신한 수주형/제안 프로젝트의 기본정보·계약금액·투입인원·발주금액 변경을
+    조회·모니터링한다. 수주형은 CRM 최종계약완료 프로젝트를 조회해 선택 등록(목업)하고, 제안은 원 수주 프로젝트에 P00N을 채번한다.
+    상세 화면은 수주형·제안이 동일한 IF 대시보드(siDetailHtml)를 공유한다.
+
+# ── 화면 상태 ──
+# 목록↔상세↔등록 전환은 해시를 바꾸지 않고 내부 뷰 상태(siView/ppView)만 바꿔 재렌더한다(딥링크는 목록까지만).
+states:
+  # 수주형(siView, si-project.js:11)
+  - id: si-list
+    when: "siView == 'list'"
+    render: "renderSIList() (si-project.js:159)"
+    shows: [페이지헤더+신규등록버튼, 검색입력, 단계필터셀렉트, 총건수태그, 프로젝트테이블]
+    table_columns: [프로젝트코드, 프로젝트명·고객사, 수행PM, 매출귀속조직, 주관부서, 기간, 단계배지, "마지막 IF(🔄 lastSync)"]
+  - id: si-register
+    when: "siView == 'register'"
+    render: "renderSIRegister() (si-project.js:234)"
+    shows: ["← 목록 뒤로가기", 안내배너("CRM 최종계약완료만 등록가능"), "CRM 조회 카드(코드/PM 입력)", 조회결과영역, 가져온기본정보영역]
+  - id: si-detail
+    when: "siView == 'detail'"
+    render: "renderSIDetail() [최종 재할당본, si-project.js:810] → siActiveProject=p; siDetailHtml(p,'closeSIDetail()')"
+    shows: [헤더행, 진행스텝카드, 선행시스템동기화섹션, 기본정보섹션]
+  # 제안(ppView, proposal-project.js:6)
+  - id: pp-list
+    when: "ppView == 'list'"
+    render: "renderProposalList() (proposal-project.js:76)"
+    shows: [페이지헤더(신규등록버튼 없음), 검색입력, 총건수태그, 제안테이블]
+    table_columns: [제안코드, 제안명·원수주프로젝트, 수행PM, 매출귀속조직, 기간, 단계배지, "마지막 IF"]
+  - id: pp-detail
+    when: "ppView == 'detail'"
+    render: "renderProposalDetail() (proposal-project.js:139) → siActiveProject=p; siDetailHtml(p,'closeProposalDetail()', extraMeta)"
+    shows: [헤더행(메타줄에 '원 수주 {parent}' 추가), 진행스텝카드, 선행시스템동기화섹션, 기본정보섹션]
+  # 직교(모달) 상태 — 수주형·제안 공용
+  - id: sync-popup
+    when: "동기화 카드 클릭(siOpenSyncPopup) 후 #sifr-sync-modal.open"
+    render: "siOpenSyncPopup(sys) (si-project.js:838) → siSyncPopupBody(items) (si-project.js:819)"
+    effect: 선택 시스템의 IF 변경이력을 날짜별 타임라인 오버레이 모달로 표시(송/수신 배지·delta·before→after diff·note)
+    dismiss: "siCloseSyncPopup() (si-project.js:862) — 오버레이 클릭 또는 ✕"
+
+# ── 요소(버튼/입력/행/카드) 인벤토리 ── ★ 요소 단위 프론트 로직 (백엔드 전부 null: 목업)
+elements:
+  # ----- 수주형 목록 -----
+  - id: si-row-click
+    label: 프로젝트 행 클릭(수주형 목록)
+    type: table-row
+    area: 수주형 목록
+    event: onclick
+    front:
+      handler: "openSIDetail(id) (si-project.js:386)"
+      logic: "siSelectedId=id; siView='detail'; renderSIDetail()"
+      state_writes: [siSelectedId, siView]
+    backend: null
+    result: 수주형 상세 대시보드로 전환
+
+  - id: si-search
+    label: 목록 검색 입력
+    type: input
+    area: 수주형 목록 툴바
+    event: oninput
+    front:
+      handler: "siSearchQuery=this.value; renderSIList()"
+      logic: "검색어를 name·code·pm·revOrg·customer·projType·contractType·mainDept 부분일치(OR)로 필터, 단계필터와 AND (si-project.js:163-168)"
+      state_writes: [siSearchQuery]
+    backend: null
+
+  - id: si-stage-filter
+    label: 단계 필터 셀렉트
+    type: select
+    area: 수주형 목록 툴바
+    event: onchange
+    front:
+      handler: "siStageFilter=this.value; renderSIList()"
+      logic: "옵션 = ['', ...SI_STAGES]; p.stage 정확일치 필터"
+      state_writes: [siStageFilter]
+    values_source: "SI_STAGES (si-project.js:27)"
+    backend: null
+
+  - id: si-btn-new
+    label: "+ 신규 등록"
+    type: button
+    area: 수주형 목록 헤더
+    event: onclick
+    front:
+      handler: "siView='register'; renderSIProject()"
+      state_writes: [siView]
+    backend: null
+    result: 수주형 신규 등록(CRM 조회) 화면으로 전환
+
+  # ----- 수주형 신규 등록(목업 흐름) -----
+  - id: si-crm-fetch
+    label: "CRM 조회(코드/PM 입력)"
+    type: input+button
+    dom_id: si-reg-code
+    area: 신규 등록 CRM 조회 카드
+    event: "onclick / onkeydown(Enter)"
+    front:
+      handler: "siMockFetch() (si-project.js:271)"
+      logic: >
+        입력값으로 CRM_PROJECTS_POOL을 code/pm 부분일치 필터.
+        0건 → 경고 배너, 1건 → 자동 선택 siRegSelectProject(0), 복수 → 선택 목록 렌더
+      validation: "빈 입력 시 showToast('코드 또는 PM 이름을 입력하세요.')"
+      state_writes: [siRegResults]
+    backend: null   # 실제 CRM 아님 — CRM_PROJECTS_POOL 상수(si-project.js:19)
+    result: 조회 결과 영역(si-results-area)에 결과/선택목록 렌더
+
+  - id: si-reg-select
+    label: 조회 결과 프로젝트 선택
+    type: list-item
+    area: 신규 등록 결과 목록
+    event: onclick
+    front:
+      handler: "siRegSelectProject(idx) (si-project.js:318)"
+      logic: "선택 프로젝트 CRM 기본정보를 읽기전용 필드(buildSIFieldReadonly, 출처배지 ERP=IF·ERP/그외=수동입력)로 표시"
+      state_writes: [siRegSelected]
+    backend: null
+
+  - id: si-confirm-register
+    label: "✅ 등록 완료"
+    type: button
+    area: 신규 등록 가져온 기본정보
+    event: onclick
+    front:
+      handler: "siConfirmRegister() (si-project.js:350)"
+      logic: >
+        새 키 SI-00N(idx=기존 키 수+1, padStart 3)로 SI_PROJECTS에 추가.
+        code=CRM코드 승계, stage='등록완료', ifSource='CRM', lastSync=현재시각,
+        ifHistory 1건("프로젝트상태: 최종계약완료 → 등록완료(CRM)") 기록 후 상세 전환
+      state_writes: [SI_PROJECTS, siSelectedId, siView]
+      precondition: "CRM status==='최종계약완료' 프로젝트만(안내 배너·풀 데이터 근거)"
+    backend: null   # 메모리 내 객체 조작(새로고침 시 소멸)
+    result: SI_PROJECTS에 신규 추가 후 상세 화면 전환 + 토스트
+
+  # ----- 제안 목록 -----
+  - id: pp-row-click
+    label: 제안 행 클릭(제안 목록)
+    type: table-row
+    area: 제안 목록
+    event: onclick
+    front:
+      handler: "openProposalDetail(id) (proposal-project.js:136)"
+      logic: "ppSelectedId=id; ppView='detail'; renderProposalProject()"
+      state_writes: [ppSelectedId, ppView]
+    backend: null
+    result: 제안 상세 대시보드(수주형과 동일 siDetailHtml)로 전환
+
+  - id: pp-search
+    label: 제안 목록 검색 입력
+    type: input
+    area: 제안 목록 툴바
+    event: oninput
+    front:
+      handler: "ppSearchQuery=this.value; renderProposalList()"
+      logic: "검색 대상 = name·code·pm·revOrg·customer·parent·parentName 부분일치(OR) (proposal-project.js:80-81)"
+      state_writes: [ppSearchQuery]
+    backend: null
+    note: "제안 목록에는 신규 등록 버튼 없음 — 제안은 수주형에서 P00N 채번되는 개념"
+
+  # ----- 상세 대시보드 구성요소(수주형·제안 공용, siDetailHtml si-project.js:750) -----
+  - id: detail-back
+    label: "← 목록"
+    type: button
+    area: 상세 헤더행
+    event: onclick
+    front:
+      handler: "backOnclick 인자 — 수주형: closeSIDetail()(si-project.js:392) / 제안: closeProposalDetail()(proposal-project.js:137)"
+      logic: "해당 뷰를 'list'로 되돌리고 목록 재렌더"
+      state_writes: [siView 또는 ppView]
+    backend: null
+    result: 목록 화면으로 복귀
+
+  - id: detail-close-process
+    label: "종료 처리 →"
+    type: button
+    area: 상세 헤더행
+    event: onclick
+    front:
+      handler: "showToast('종료 처리는 준비 중입니다.') (si-project.js:787)"
+    backend: null   # ★ 종료처리 = toast 스텁(미구현 목업)
+    result: 안내 토스트만 표시(실제 종료 처리 없음)
+
+  - id: detail-stepper
+    label: "진행 스텝 카드(착수/수행/종료)"
+    type: display
+    area: 상세 진행 스텝
+    front:
+      handler: "siStepper(p.stage) (si-project.js:730)"
+      logic: >
+        5단계 SI_STAGES를 3단계로 압축 매핑 —
+        착수 done: stage∈{수행중,마감준비,종료완료} / now: stage==='착수';
+        수행 done: stage∈{마감준비,종료완료} / now: stage==='수행중';
+        종료 done: stage==='종료완료' / now: stage==='마감준비'
+    backend: null
+    note: "안내 문구 '착수·종료는 조건 충족 시 자동 실행되며, 필요 시 수동으로도 처리'. 노드는 표시 전용(클릭 액션 없음)"
+
+  - id: detail-sync-card
+    label: "선행 시스템 동기화 카드(시스템별)"
+    type: card(button)
+    area: 상세 · 선행 시스템 동기화 상태 섹션
+    event: "onclick / onkeydown(Enter·Space)"
+    front:
+      handler: "siOpenSyncPopup(s.sys) (si-project.js:838)"
+      logic: >
+        카드 = 시스템 배지 + IF 방향 칩(⇄/←/→, SI_DIR) + 상태(flag==='ok'?정상:값) +
+        마지막 교환시각 + 최근 30일 변경건수. 클릭 시 siActiveProject 기준 해당 시스템 IF 이력 팝업.
+      state_reads: [siActiveProject, ifDetail.sync]
+    backend: null
+    result: 해당 시스템의 IF 변경이력 팝업(sync-popup 상태) 오픈
+    note: "하단 노트 — ERP는 송신 위주(both), AI SCM·AI CRM·구매는 수신(in)"
+
+  - id: detail-basic-field
+    label: "기본정보 필드(출처 배지·최근변경 강조)"
+    type: display
+    area: 상세 · 기본정보 섹션
+    front:
+      handler: "siDetailHtml basic 매핑 (si-project.js:764-770)"
+      logic: "각 필드 = 라벨 + 출처 시스템 배지(sifr-src, ETC=manual) + (changed 시)변경 태그 + 값. 노란 배경(changed 클래스)=최근 변경"
+      data_source: "p.ifDetail.basic[] 또는 siBuildDetail(p) 파생"
+    backend: null
+
+  # ----- IF 이력 팝업 -----
+  - id: sync-popup-body
+    label: "IF 변경이력 타임라인(팝업 본문)"
+    type: modal-body
+    area: sync-popup 모달
+    front:
+      handler: "siSyncPopupBody(items) (si-project.js:819)"
+      logic: >
+        선택 시스템(e.sys===sys) 로그를 날짜별 그룹핑 타임라인 렌더.
+        각 행 = 시각 + 송/수신 배지(siIo 판정, si-project.js:696) + 필드명 + delta + before→after diff + note.
+        miss() 헬퍼로 '미등록'/'—'/빈값을 '미등록' 표기
+    backend: null
+  - id: sync-popup-close
+    label: "팝업 닫기(✕/오버레이)"
+    type: button
+    area: sync-popup 모달
+    event: onclick
+    front:
+      handler: "siCloseSyncPopup() (si-project.js:862) — modal.classList.remove('open')"
+    backend: null
+
+# ── 비즈니스 규칙 ──
+rules:
+  numbering:   # 채번 규칙
+    - id: si-code
+      rule: "수주형 코드 = {8자리 base}-D{3자리} (D 시리즈). 예 30142101-D001. CRM 풀 코드를 그대로 승계(siConfirmRegister code:p.code)"
+    - id: pp-code
+      rule: "제안 코드 = {수주형 base}-P{3자리} (P 시리즈, P00N 채번). 예 30142101-P001/P002. 원 수주 base 공유, 접미사만 D→P. parent/parentName로 원 수주와 연결"
+    - id: internal-key
+      rule: "맵 key(내부 식별자) — 수주형 SI-00N(기존 키 수+1, padStart 3), 제안 PP-00N"
+  stage_model:
+    formal: "SI_STAGES = ['등록완료','착수','수행중','마감준비','종료완료'] (si-project.js:27), 배지 SI_STATUS_STYLE(si-project.js:29)"
+    stepper: "상세 대시보드는 착수/수행/종료 3단계로 압축(siStepper). 제안 목록 배지는 SI_STATUS_STYLE 재사용(없으면 회색)"
+  if_sync:     # 선행 시스템 IF 동기화
+    systems: "SI_SYS (si-project.js:678) — ERP(dir=both,송수신) · SCM=AI SCM(in) · CRM=AI CRM(in) · PUR=구매(in) · ETC=수동입력(none)"
+    directions: "SI_DIR (si-project.js:688) — both=송수신(⇄) · in=수신(←) · out=송신(→)"
+    io_decision: "siIo(e) (si-project.js:696) — 건별 io 우선, 없으면 시스템 방향(수신 시스템=수신, ERP 등=송신)"
+    flag: "sync[].flag==='ok'면 '정상', 아니면 값 그대로 경고(예 '지연 3일','지연 4일')"
+    derive: "siBuildDetail(p) (si-project.js:703) — p.ifDetail 있으면 그대로, 없으면 ifHistory에서 sync/basic/log 파생. source 매핑 {ERP,SCM,BIX→CRM,CRM,PUR,구매→PUR}"
+  shared_detail: "수주형·제안 상세는 동일 siDetailHtml 사용. 현재 프로젝트는 공용 전역 siActiveProject(si-project.js:746)로 지정(상세 렌더 시 세팅)"
+  override_note: "renderSIDetail은 si-project.js:397의 옛 버전을 si-project.js:810에서 재할당 — 공용 대시보드 버전이 실사용. 옛 buildSIProgressV2/buildSIPhaseSection/buildSIHistory 등은 현재 미호출"
+  load_order: "proposal-project.js는 반드시 si-project.js 뒤에 로드(siDetailHtml·siActiveProject·siBuildDetail·SI_STATUS_STYLE 공용 심볼 참조)"
+
+# ── 데이터 모델 ──
+data:
+  state_vars:
+    - { name: siView,        shape: "'list'|'detail'|'register'", file: "si-project.js:11", purpose: 수주형 뷰 }
+    - { name: siSelectedId,  shape: string, file: "si-project.js:12", purpose: 수주형 선택 프로젝트 ID }
+    - { name: siSearchQuery, shape: string, file: "si-project.js:13", purpose: 목록 검색어 }
+    - { name: siStageFilter, shape: string, file: "si-project.js:14", purpose: 목록 단계 필터 }
+    - { name: siRegResults,  shape: "object[]", file: "si-project.js:15", purpose: CRM 조회 결과 }
+    - { name: siRegSelected, shape: object, file: "si-project.js:16", purpose: 등록 선택 항목 }
+    - { name: siActiveProject, shape: object, file: "si-project.js:746", purpose: 상세/팝업 대상 프로젝트(수주형·제안 공용) }
+    - { name: ppView,        shape: "'list'|'detail'", file: "proposal-project.js:6", purpose: 제안 뷰 }
+    - { name: ppSelectedId,  shape: string, file: "proposal-project.js:7", purpose: 제안 선택 ID }
+    - { name: ppSearchQuery, shape: string, file: "proposal-project.js:8", purpose: 제안 검색어 }
+  datasets:
+    - name: SI_PROJECTS
+      file: "si-project.js:45"
+      note: "수주형 프로젝트 맵(SI-00N). 필드: code, name, start, end, pm, revOrg, projType, stage, contractType, mainDept, customer, ifSource, lastSync, phases[], ifHistory[], ifDetail{asOf,sync[],basic[],log[]}"
+    - name: PROPOSAL_PROJECTS
+      file: "proposal-project.js:10"
+      note: "제안 프로젝트 맵(PP-00N). SI_PROJECTS 필드 + parent, parentName, projType='제안프로젝트'(고정), contractType='제안'(고정)"
+    - name: CRM_PROJECTS_POOL
+      file: "si-project.js:19"
+      note: "CRM 계약완료 조회 대상 상수. {code,name,pm,revOrg,projType,start,end,contractType,mainDept,customer,status='최종계약완료'}"
+    - name: SI_SYS
+      file: "si-project.js:678"
+      note: "선행 시스템 IF 메타 {label,c(색),cb(배경),dir}. ERP/SCM/CRM/PUR/ETC"
+    - name: SI_DIR
+      file: "si-project.js:688"
+      note: "IF 방향 메타 {t,arrow,hint}. both/in/out"
+  ifDetail_shapes:
+    sync:  "{sys, when, cnt, flag}  (sys=ERP/SCM/CRM/PUR, flag='ok'|'지연 N일')"
+    basic: "{k(라벨), v(값), sys(출처), changed?(변경설명), num?(숫자정렬)}"
+    log:   "{date, rel(상대시각), time, sys, field, before, after, delta?, num?, note?, io?}"
+
+# ── 대표 플로우 ──
+flows:
+  - name: 수주형 신규 등록(목업)
+    steps:
+      - "목록 #/si-project → [+ 신규 등록] (siView='register')"
+      - "CRM 코드/PM 입력 → 조회(siMockFetch): CRM_PROJECTS_POOL 필터 (0건 경고/1건 자동선택/복수 목록)"
+      - "프로젝트 선택(siRegSelectProject) → CRM 기본정보 읽기전용 확인"
+      - "[등록 완료](siConfirmRegister) → SI-00N 키로 SI_PROJECTS 추가(stage='등록완료') → 상세 전환 + 토스트"
+  - name: 수주형/제안 조회 및 IF 모니터링
+    steps:
+      - "목록에서 검색/단계 필터로 탐색 → 행 클릭(openSIDetail/openProposalDetail)"
+      - "상세 대시보드(siDetailHtml): 진행 스텝 · 선행 시스템 동기화 카드 · 기본정보(출처 배지·최근변경)"
+      - "동기화 카드 클릭(siOpenSyncPopup) → 해당 시스템 IF 변경이력 팝업(날짜별 타임라인, 송/수신·before→after)"
+      - "팝업 닫기(siCloseSyncPopup) → [← 목록](closeSIDetail/closeProposalDetail)로 복귀"
+
+# ── 요구사항 후보(FR) ──
+requirements:
+  - { id: FR-PJ-01, text: 사용자는 수주형/제안 프로젝트를 목록에서 검색어·단계로 필터링해 조회할 수 있다 }
+  - { id: FR-PJ-02, text: 사용자는 목록 행을 클릭해 프로젝트 상세 IF 대시보드로 진입할 수 있다(수주형·제안 동일 대시보드) }
+  - { id: FR-PJ-03, text: 사용자는 CRM 최종계약완료 프로젝트를 조회하여 수주형 프로젝트로 선택 등록할 수 있다(D 시리즈 코드 승계) }
+  - { id: FR-PJ-04, text: 제안 프로젝트는 원 수주 프로젝트 base 코드에 P00N을 채번하며 신규 등록 UI 없이 관리된다 }
+  - { id: FR-PJ-05, text: 상세 화면은 선행 시스템(ERP·AI SCM·AI CRM·구매)별 동기화 상태(방향·마지막 교환시각·변경건수·지연)를 표시한다 }
+  - { id: FR-PJ-06, text: 사용자는 동기화 카드를 클릭해 해당 시스템의 IF 변경이력을 날짜별 타임라인 팝업으로 확인할 수 있다 }
+  - { id: FR-PJ-07, text: 기본정보 각 필드는 출처 시스템 배지와 최근 변경 강조를 함께 제공한다 }
+  - { id: FR-PJ-08, text: 진행 단계는 착수/수행/종료 3단계 스테퍼로 표시되며 stage 값에 따라 자동 산출된다 }
+  - { id: FR-PJ-09, text: 종료 처리는 현재 안내 토스트 스텁이며 실제 종료 로직은 미구현이다(목업) }
+  - { id: FR-PJ-10, text: 모든 데이터는 JS 상수 기반 목업으로 백엔드 API 호출이 없으며 새로고침 시 초기화된다 }

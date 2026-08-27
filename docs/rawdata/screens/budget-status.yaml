@@ -1,0 +1,180 @@
+# rawdata: 수행원가 > 원가현황 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+# 주의: 렌더러는 budget-status.js + budget-status-2~5.js 5분할이며 동일 함수를 여러 번 override.
+#       "뒤에 정의된 코드가 앞을 override" — 본 문서는 최종 유효 버전 기준. 계정별 상세는 별도 파일 소관.
+
+screen:
+  id: s-budget            # 수행원가 3개 소메뉴가 공유하는 단일 화면(공유 렌더러 renderBudgetPage)
+  name: 수행원가 > 원가현황 (실행예산 집행 현황 조회 · 읽기 위주)
+  menu_path: 수행원가 > 원가현황
+  route: "#/budget-status"
+  cost_mode: status       # 이 소메뉴의 진입 모드
+  entry: "showCostStatus() → costMode='status'; showBudget()  /  openCostStatus(k) → openBudgetProjectScreen(k)"
+  source_files:
+    - public/js/budget-cost-status.js  # 원가현황 진입점 + 라우트 등록만 소유
+    - public/js/budget-status.js       # 상태변수·BUDGET_SOURCE·EXEC_BUDGET_PROJECTS·calcActual/Quasi/Remain
+    - public/js/budget-status-2.js     # showBudgetSummaryGrid·renderProjectPlanSummary·getProjectSummaryGridRows·summaryActualCell
+    - public/js/budget-status-3.js     # renderTotalBudgetBar·renderBudgetListView·최종 renderBudgetPage
+    - public/js/budget-status-4.js     # isPastActualMonth·showActualDetailModal·actualCellHtml
+    - public/js/budget-status-5.js     # openBudgetProjectScreen 최종 override(status → showBudgetSummaryGrid)
+    - public/js/app.js                 # SCREEN_ROUTES['s-budget']·updateHashForScreen·routeQueryParam
+  purpose: >
+    프로젝트 실행예산의 집행 현황을 조회한다(편집 없음). 목록 → 프로젝트 상세 → 전체 현황(월별 계획/실적 그리드).
+    기준월(당월 '2026-07' 경계) 이전은 ERP 실적(actual), 이후는 계획(plan)/투입확정(quasi)으로 수행비용을 계산.
+
+# ── 진입/딥링크(양방향) ──
+routing:
+  cost_mode: status
+  list_entry:    "showCostStatus() (budget-cost-status.js:8)"
+  project_entry: "openCostStatus(k) → openBudgetProjectScreen(k||'budgetMock') (budget-cost-status.js:10)"
+  route_action:  "ROUTE_ACTIONS['budget-status'] (budget-cost-status.js:14~18)"
+  deeplink:      "#/budget-status?pj=<프로젝트키>"
+  url_to_screen: >
+    routeQueryParam('pj') 있으면 costMode='status' 후 openBudgetProjectScreen(pj)로 상세 바로 진입,
+    없으면 showCostStatus()로 목록 (budget-cost-status.js:15~17).
+  screen_to_url: >
+    SCREEN_ROUTES['s-budget'](app.js:49~62): costMode!=='adjust'/'history'이면 base='budget-status',
+    budgetScreenView==='detail'이면 끝에 '?pj='+currentBudgetProj 부착. updateHashForScreen('s-budget')(app.js:112)로
+    반영(_suppressNextHash로 재진입 방지). → URL↔화면 양방향 일치(새로고침/공유 링크 복원).
+
+# ── 화면 상태 ── costMode × budgetScreenView 조합
+states:
+  - id: list
+    when: "costMode=='status' && budgetScreenView=='list'"
+    renderer: "renderBudgetListView (budget-status-3.js:1791)"
+    shows: [EXEC_BUDGET_PROJECTS 목록(16건 카드/행), 검색·유형·상태·고객·수행조직·PM 필터]
+    url: "#/budget-status"
+  - id: detail_summary
+    when: "costMode=='status' && budgetScreenView=='detail'"
+    renderer: "renderBudgetPage(총액바) → showBudgetSummaryGrid → renderProjectPlanSummary"
+    shows: [총액 KPI 바, 전체 현황 그리드(계정 계층 · 종합4열 · 월별 계획/실적)]
+    url: "#/budget-status?pj=<key>"
+    note: "openBudgetProjectScreen 종료 직후 costMode==='status'이면 showBudgetSummaryGrid() 호출(budget-status-5.js:92)"
+  - id: actual_detail_modal
+    when: "과거월(actual) 실적 금액 클릭"
+    renderer: "showActualDetailModal(account,month,detailName) (budget-status-4.js:180)"
+    shows: [계정별 상세 실적 내역(탭·엑셀·합계)]
+    trigger_rule: "row.account && isPastActualMonth(month) && actual>0 일 때만 클릭 버튼 생성(summaryActualCell budget-status-2.js:2590)"
+  - id: labor_plan_modal
+    when: "인건비 계획월 금액 클릭"
+    renderer: "showLaborPlanDetailModal (budget-status-2.js:2691)"
+    shows: [투입계획(조직·성명·역할·MM·단가·상태)]
+
+# ── 요소(버튼/행/필터) 인벤토리 ── ★ 프론트/백엔드 로직
+elements:
+  - id: row-project-open
+    label: 프로젝트 목록 행/카드 클릭
+    type: row(clickable)
+    area: 프로젝트 목록
+    event: onclick
+    front:
+      handler: "openBudgetProjectScreen('${p.key}')"
+      file: "budget-status-3.js:1815 (행) / :1758 (카드)"
+      logic: >
+        currentBudgetProj=key(BUDGET_SOURCE 없으면 'budgetMock'); budgetScreenView='detail';
+        budgetDetailStep='setup'; budgetSetupStage=(costMode==='adjust')?'edit':'history'; renderBudgetPage();
+        costMode==='status'이면 showBudgetSummaryGrid() (budget-status-5.js:71~92)
+      state_writes: [currentBudgetProj, budgetScreenView, budgetDetailStep, budgetSetupStage]
+    backend: null
+    result: 선택 프로젝트 상세(전체 현황 그리드) 진입 + URL ?pj= 갱신
+  - id: filter-search
+    label: 목록 필터 (검색어/유형/상태/고객/수행조직/PM)
+    type: input+select
+    area: 목록 필터 바
+    event: "oninput / onchange / 검색 버튼"
+    front:
+      handler: "budgetSearchQuery/budgetTypeFilter/budgetStatusFilter/budgetCustomerQuery/budgetSalesOrgQuery/budgetPmQuery = value; renderBudgetListView()"
+      file: "budget-status-3.js:1837~1864"
+      state_writes: [budgetSearchQuery, budgetTypeFilter, budgetStatusFilter, budgetCustomerQuery, budgetSalesOrgQuery, budgetPmQuery]
+    backend: null
+    result: EXEC_BUDGET_PROJECTS.filter로 목록 재렌더
+  - id: cell-actual-drilldown
+    label: 과거월 실적 금액(파란 링크)
+    type: button(cell)
+    area: 전체 현황 그리드
+    event: onclick
+    front:
+      handler: "showActualDetailModal(account, month, detailName)"
+      file: "budget-status-4.js:180 (셀 생성 summaryActualCell budget-status-2.js:2590)"
+      validation: "row.account && isPastActualMonth(month) && actual>0 일 때만 클릭 가능"
+    backend: null
+    result: 실적조회 모달(계정별 상세 실적 · 탭 · 엑셀 · 합계)
+  - id: cell-labor-plan
+    label: 인건비 계획월 금액
+    type: button(cell)
+    area: 전체 현황 그리드
+    event: onclick
+    front:
+      handler: "showLaborPlanDetailModal"
+      file: "budget-status-2.js:2691 (actualCellHtml budget-status-4.js:72~80)"
+    backend: null
+    result: 투입계획(조직·성명·MM·단가·상태) 조회 모달
+  - id: btn-goto-confirm
+    label: "예산 확정 화면 →"
+    type: button
+    area: 상세 하단
+    event: onclick
+    front:
+      handler: "budgetDetailStep='confirm' 이동"
+      file: budget-status-3.js
+    backend: null
+    result: 예산 확정 단계로 이동(편집은 원가조정 소관)
+  - id: btn-back-list
+    label: "← 목록으로"
+    type: button
+    area: 상세 상단
+    event: onclick
+    front: { handler: "budgetScreenView='list'; renderBudgetPage()", file: budget-status-3.js }
+    result: 목록으로 복귀(URL base로 복원)
+
+# ── 비즈니스 로직 & 규칙 ──
+rules:
+  month_boundary: "isPastActualMonth(month) = month < '2026-07' (budget-status-4.js:68). 이전=실적셀, 이후=계획/확정셀"
+  sum_formula: >
+    calcActual=Σactual(a), calcQuasi=Σquasi(q), calcRemain=plan−actual−quasi (budget-status.js:801~805).
+    catVal(:797): actual월은 {a,q}, plan월은 {q,p} 사용.
+  kpi_ratio: "집행률=actual/총액, 확정률=quasi/총액, 잔여율=remain/총액. 진행바 폭 max 100% 클램프(renderTotalBudgetBar budget-status-3.js:2019~2021)"
+  read_only: "원가현황은 이관/편집 UI 미노출 — 조회·드릴다운 위주(편집은 원가조정 소메뉴 담당)"
+
+# ── 데이터 모델 ──
+data:
+  state_vars:
+    - { name: costMode, shape: "'status'|'adjust'|'history'", file: "budget-status-5.js:69", purpose: 수행원가 진입 모드(원가현황=status) }
+    - { name: budgetScreenView, shape: "'list'|'detail'", file: budget-status.js, purpose: 목록/상세 뷰 }
+    - { name: currentBudgetProj, shape: string, file: budget-status.js, purpose: 현재 프로젝트 키 }
+    - { name: budgetDetailStep, shape: "'setup'|'confirm'...", file: budget-status.js, purpose: 상세 단계 }
+    - { name: "budgetSearchQuery 등 6종", shape: string, file: "budget-status-3.js:1796~1809", purpose: 목록 필터 }
+  datasets:
+    - { name: EXEC_BUDGET_PROJECTS, file: "budget-status.js:1200~1217", note: "실행예산 프로젝트 목록 16건 {key,no,name,type,status,pm,salesOrg,customer,period}" }
+    - { name: "BUDGET_SOURCE[projKey]", file: "budget-status.js:141~", note: "{projName,stage,dplus,start,end,current,plan{계정:금액},transfer{계정:±},months[]}" }
+    - { name: "months[] 항목", file: budget-status.js, note: "{m:'YYYY-MM',type:'actual'|'plan', 계정:{a|p,q,details[]}} — actual월 a(실적), plan월 p(계획)+q(투입확정)" }
+    - { name: "DETAIL_SCHEMA / PO_AMOUNTS", file: "budget-status.js:26~82 / 85~131", note: "계정별 상세 스키마 및 PO 계약금액" }
+    - { name: CATS, file: budget-status.js, note: "비용 계정 5종: 인건비·외주비·재료비·경비·A/S Cost" }
+    - { name: BUDGET_ACCT_LABELS, file: "budget-status.js:1243", note: "이관/집행 요약 대상 4계정 ['인건비','외주비','재료비','경비']" }
+  summary_grid_rows:
+    source: "getProjectSummaryGridRows / makeSummaryRow (budget-status-2.js:2575)"
+    hierarchy: "총실행비용 → 5계정 → 소계정"
+    subaccounts: "인건비(실투입/이관/증업OT) · 외주비(실투입/공사·MA/기타) · 재료비(재료비/감가상각비) · 경비(A/S Cost)"
+    columns: "종합 4열(계획·실적·잔여예산·진행률) + 월별 2열(계획·실적) 반복 (monthHeaders budget-status-2.js:2600~2601)"
+
+# ── 대표 플로우 ──
+flows:
+  - name: 목록 → 상세 → 실적 드릴다운
+    steps:
+      - "상단 메뉴 '원가현황' → #/budget-status → 목록(renderBudgetListView)"
+      - "(또는) 홈 Work Feed openCostStatus(k) / 딥링크 ?pj=k로 특정 프로젝트 바로 진입"
+      - "프로젝트 행 클릭 → openBudgetProjectScreen(k) → 총액 KPI 바 + 전체 현황 그리드(showBudgetSummaryGrid)"
+      - "종합/월별 KPI로 집행률·잔여 확인 → 과거월 실적 금액(파란 링크) 클릭 → showActualDetailModal"
+      - "필요 시 '예산 확정 화면 →' 이동, 또는 '← 목록으로' 복귀"
+
+# ── 요구사항 후보(FR) ──
+requirements:
+  - { id: FR-BST-01, text: 사용자는 실행예산 프로젝트 목록을 검색·필터(유형/상태/고객/수행조직/PM)로 조회할 수 있어야 한다 }
+  - { id: FR-BST-02, text: 원가현황은 #/budget-status?pj=<key> 딥링크로 특정 프로젝트에 바로 진입할 수 있어야 하고, 화면 상태 변화가 URL에 반영되어야 한다 }
+  - { id: FR-BST-03, text: 프로젝트 상세는 총액 대비 실집행/투입확정/투입미정을 KPI(금액+비율+진행바)로 제시해야 한다 }
+  - { id: FR-BST-04, text: 수행비용은 기준월 이전은 ERP 실적, 이후는 계획/투입확정으로 산정해 월별 계획·실적을 병렬 표시해야 한다 }
+  - { id: FR-BST-05, text: 계정은 총실행비용 → 5대 계정 → 소계정 계층으로 집계·표시해야 한다 }
+  - { id: FR-BST-06, text: 과거월 실적 금액은 클릭 시 계정별 상세 실적 내역(항목·금액·합계)을 모달로 드릴다운 조회할 수 있어야 한다 }
+  - { id: FR-BST-07, text: 인건비 계획월 금액 클릭 시 투입계획(조직·성명·MM·단가·상태) 조회를 제공해야 한다 }
+  - { id: FR-BST-08, text: 원가현황은 읽기 위주이며 예산 확정 단계로 이동할 수 있어야 한다(편집은 원가조정 소메뉴 소관) }

@@ -1,0 +1,230 @@
+# rawdata: 원가조정 > 경비 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+# 근거: 최종 유효본(override 정본) 기준. 상세는 docs/수행원가/계정/경비.md 참조.
+
+screen:
+  id: s-budget-expense
+  name: 원가조정 - 경비 (CATS[3], 예산통 단위·ERP 한도·연단위 계획)
+  menu_path: 수행원가 > 원가조정 > 경비
+  route: "#/budget-adjust/expense?pj=<프로젝트키>"
+  entry: "openCostArea('경비', pj||'budgetMock') → renderBudgetAccountEditor(data,'경비')"
+  source_files:
+    - public/js/budget-area-expense.js    # ★경비 계정 전용 정본: 데이터/그리드/검증/패널/모달/스타일(override 체인)
+    - public/js/budget-area-routes.js     # budget-adjust/expense 라우트 등록, slug 매핑(경비→expense), openCostArea
+    - public/js/budget-status.js          # CATS(:742), EXPENSE_PLAN_MONTHS(:2119, 인건비 OT와 공유)
+    - public/js/budget-status-4.js        # 구 경비 로직(월별 입력·소계정별 검증) — override 대상
+    - public/index.html                   # 스크립트 로드 순서(활성 override 결정)
+  purpose: >
+    경비 계정을 예산통(중계정) 단위로 관리한다. 사용자는 소계정 단위로 연단위(연도별) 계획을 입력하며,
+    통제 중계정은 매출귀속부서 ERP 가용예산 한도(통 단위 합계) 안에서만 계획 가능하다. 저장 시 연 합계를
+    각 연도 첫 월 슬롯에 통합 저장하고 통 단위 한도를 재검증한다.
+  special_notes:
+    - "예산통(pool) 단위 관리: 같은 중계정 소계정들은 ERP 가용예산을 '함께 쓴다'. 한도 검증도 통 단위 합계."
+    - "통제/비통제 구분: 통제 중계정만 ERP 가용예산 한도 대상. 비통제(일반비통제성/인건비)는 erpAvailable=null, 미적용."
+    - "연단위 계획: 월별 입력 대신 연도(2026/2027) 단위 통 입력. 연 합계는 해당 연도 첫 월 슬롯에 통합 저장(합계 유지)."
+  load_order_note: >
+    budget-status-4.js의 renderBudgetAccountEditor/getExpenseRows/validateExpenseErpAvailability/
+    getExpenseTransferLimit/saveExpensePlan/showExpenseErpAvailabilityModal/renderExpensePlanPanel를
+    budget-area-expense.js가 데코레이터/override로 덮어쓴다. 정본은 budget-area-expense.js.
+
+# ── 화면 상태 ──
+states:
+  - id: default
+    when: "expenseActualExpanded == false (기본)"
+    shows: [경비자원계획_그리드, "계정·이전계획·실적[+]·연도열·계획합계·가용잔액"]
+    result_area: 소계정별 연도 입력칸
+  - id: actual-expanded
+    when: "expenseActualExpanded == true (budget-area-expense.js:229)"
+    shows: [26년1~7월_월별실적열_펼침, "실적 헤더 라벨 '실적 합계' + 버튼 '－'"]
+    effect: "패널 루트에 .actual-expanded 클래스 부여(:340)"
+  - id: pool-over
+    when: "통(pool) 계획 합계 > 통 가용예산 (실시간)"
+    effect: "통 잔액 셀 음수·.danger, 통 소속 모든 행 .expense-over 강조(공동 잔액이므로 함께 갱신)"
+  - id: erp-modal-open
+    when: "가용예산조회 모달 열림"
+    shows: [통제중계정별_이전예산/현재계획/ERP가용예산/계획합계/잔액, "통 단위 rowspan 병합"]
+
+# ── 요소(버튼/입력) 인벤토리 ── ★ 버튼 단위 프론트/검증/결과
+elements:
+  - id: input-expense-year-plan
+    label: "연도별 계획 입력칸 (예: 26년(7월~12월), 27년(1월~4월))"
+    type: input
+    dom_id: "expense-plan-{row.id}-{year}"
+    area: 경비 자원계획 그리드 연도 열
+    event: oninput
+    front:
+      handler: "expenseRecalcRow('{row.id}')"
+      file: budget-area-expense.js:271
+      logic: >
+        1) expenseLiveTotalFinal(id) — 소계정 연도칸 합 → 계획합계 셀(expense-total-{id}) 갱신.
+        2) 비통제 소계정이면 종료(!row.controlled return).
+        3) 통제면 같은 통 소계정 화면 입력값을 liveTotals로 수집 → expensePoolBalanceFinal로 통 잔액 계산.
+        4) 통 잔액 셀(expense-bal-pool-{poolIndex}) 텍스트·.danger 갱신.
+        5) 통 소속 모든 행(expense-tr-{id})에 .expense-over 토글(공동 잔액이므로 함께 갱신).
+      init_value: "expenseYearPlan(row, idxs) — 해당 연도 월 인덱스 합(:77)"
+    validation: "parseBudgetAmount로 정규화(콤마 허용)"
+    backend: null
+    result: 계획합계·통 가용잔액 실시간 재계산, 공동예산 통은 같은 통 전 행 함께 갱신
+
+  - id: toggle-expense-actual-cols
+    label: "실적 월별 [+] 펼침 (＋/－)"
+    type: button(switch)
+    area: 그리드 실적 헤더
+    event: onclick
+    front:
+      handler: toggleExpenseActualCols()
+      file: budget-area-expense.js:254
+      logic: "expenseActualExpanded 반전 → renderBudgetPage() 재렌더"
+      state_writes: [expenseActualExpanded]
+    backend: null
+    result: >
+      펼침 시 EXPENSE_ACTUAL_MONTHS(2026-01~07) 각 월 열 추가, 소계정별 expenseMonthlyActual(row)로
+      목업 배분값 표시. 헤더 라벨 '실적'↔'실적 합계', 버튼 '＋'↔'－'.
+
+  - id: btn-expense-erp-availability
+    label: "가용예산조회 (모달)"
+    type: button
+    area: 그리드 헤더 액션(teal)
+    event: onclick
+    front:
+      handler: showExpenseErpAvailabilityModal()
+      file: budget-area-expense.js:181
+      logic: >
+        통제 중계정만 대상(getExpenseMiddleRowsFinal().filter(controlled)). 소계정/이전예산(A)/현재계획(B)/
+        통제여부/ERP가용예산/계획합계/잔액 표. ERP가용예산·계획합계·잔액은 통 단위 rowspan 병합.
+        잔액=group.erpAvailable-group.plan, 음수면 .danger. 공동 통은 '공동 N건' 태그.
+    backend:
+      source: "소계정 erpAvailable(정적 배열) → SRS: 매출귀속부서 ERP 가용예산 API 승격 대상"
+    result: 통제 중계정별 ERP 가용예산 대비 계획/잔액 모달 표시
+
+  - id: btn-expense-actual-lookup
+    label: "경비 실적조회"
+    type: button
+    area: 그리드 헤더 액션
+    event: onclick
+    front:
+      handler: showExpenseActualLookup()
+      file: "budget-status-*.js(공통)"
+      logic: 실적 상세 별도 조회
+    backend: { source: "row.actual → SRS: ERP/실적 수신" }
+    result: 경비 실적 조회 화면/모달
+
+  - id: btn-save-expense-plan
+    label: "계획 저장"
+    type: button
+    area: 그리드 헤더 액션(primary)
+    event: onclick
+    front:
+      handler: saveExpensePlan()
+      file: budget-area-expense.js:159
+      logic: >
+        years=expensePlanYearsFinal(). 각 row: next=row.monthly.slice();
+        연도별 입력칸 값 parseBudgetAmount → idxs.forEach((i,k)=> next[i]= k===0 ? amount : 0)
+        (연 합계를 연도 첫 월 슬롯에만, 나머지 월 0. 합계 보존). row.monthly=next.
+      state_writes: [EXPENSE_ACCOUNT_ROWS_FINAL.monthly]
+    validation:
+      rule: "저장 시 validateExpenseErpAvailability() 통 단위 한도 재검증(:171~176)"
+      logic: >
+        checked=[]; for row: if(!controlled || middleCode in checked) continue; checked.push(middleCode);
+        available=expensePoolAvailableFinal(통 소계정 erpAvailable 합);
+        plan=expensePoolPlanFinal(통 소계정 계획 합);
+        if plan>available: return {ok:false, message:'같은 예산을 쓰는 [이름들] 계획 합계 {plan}원이 ERP 가용예산 {available}원을 초과했습니다.'}
+      on_fail: "showToast(message) + renderBudgetPage() → 저장 중단"
+      key_points:
+        - "통 단위 합계로만 검증(소계정 개별 초과는 통 안에서 서로 메울 수 있음)"
+        - "비통제 통은 검증 제외"
+        - "통당 1회만 검증(checked 배열 중복 방지)"
+    result: "성공 시 '경비 연도별 계획이 저장되었습니다. 통제 중계정의 ERP 가용예산도 확인했습니다.' 토스트 + 재렌더"
+
+# ── 백엔드/외부 연동 (현재 목업, SRS 승격 후보) ──
+apis:
+  - name: ERP 가용예산
+    data: "소계정 erpAvailable"
+    direction: "ERP → 화면"
+    current: "정적 배열 값"
+    srs_target: "매출귀속부서 기준 통제 계정 ERP 가용예산 API. 통 단위 합계가 계획 상한. 비통제는 null."
+  - name: 매출귀속부서
+    current: "프로젝트 귀속 참조"
+    srs_target: 통제 계정 ERP 가용예산의 귀속 기준 부서
+  - name: 예산 이관(계정별)
+    handler: getExpenseTransferLimit(budget-area-expense.js:152)
+    logic: "Σ(통제 소계정 erpAvailable) + Σ(비통제 소계정 계획총합). 경비 조정배분 변경 시 동일 ERP 한도 재검증"
+  - name: 실적(경비)
+    data: "row.actual, showExpenseActualLookup()"
+    current: "expenseMonthlyActual 목업 배분(가중치 EXPENSE_ACTUAL_WEIGHTS, 마지막월 잔여보정)"
+    srs_target: "실 ERP 월별 실적으로 대체"
+
+# ── 데이터 모델 ──
+data:
+  state_vars:
+    - { name: expenseActualExpanded, shape: boolean, file: budget-area-expense.js:229, purpose: 실적 열 펼침 상태(기본 false) }
+  datasets:
+    - name: EXPENSE_MIDDLE_ACCOUNTS_FINAL
+      file: budget-area-expense.js:20
+      note: >
+        중계정(예산통) 9건. {code,name,control('통제'|'비통제')}. 통제7/비통제2.
+        비통제: C700000 일반비통제성, C701101 인건비.
+    - name: EXPENSE_ACCOUNT_ROWS_FINAL
+      file: budget-area-expense.js:32
+      note: >
+        소계정 11건. {id(exf-NN),middleCode,middleName,controlled,code,name,carried,actual,erpAvailable(비통제 null),monthly[10]}.
+        공동예산: C700100 소모품비=exf-05(사무용품비)+exf-06(전산소모품비); C700000 일반비통제성=exf-08+exf-09(비통제).
+    - { name: EXPENSE_PLAN_MONTHS, file: budget-status.js:2119, note: "계획 월 배열 2026-07~2027-04(10개월). 연도 구간·라벨 자동 도출. 인건비 OT와 공유" }
+    - { name: EXPENSE_ACTUAL_MONTHS, file: budget-area-expense.js:232, note: "실적 월 2026-01~07(7개월)" }
+    - { name: EXPENSE_ACTUAL_WEIGHTS, file: budget-area-expense.js:234, note: "실적 배분 가중치 [0.05,0.08,0.12,0.15,0.18,0.20,0.22](합 1.0, 후반월 가중)" }
+  derived_functions:
+    - { name: getExpenseMiddleRowsFinal, file: budget-area-expense.js:50, note: "중계정 집계 뷰(months/plan/actual/erpAvailable/controlled, plan·actual·소계정 0이면 제외)" }
+    - { name: expensePoolRowsFinal, file: budget-area-expense.js:97, note: "같은 통 소계정 목록" }
+    - { name: expensePoolAvailableFinal, file: budget-area-expense.js:102, note: "통 가용예산=통 소계정 erpAvailable 합" }
+    - { name: expensePoolPlanFinal, file: budget-area-expense.js:107, note: "통 계획 합계(liveTotals 우선)" }
+    - { name: expensePoolBalanceFinal, file: budget-area-expense.js:115, note: "통 잔액=available-plan" }
+    - { name: expensePlanYearsFinal, file: budget-area-expense.js:67, note: "연도 구간 자동 도출 [{year,idxs}]" }
+    - { name: expenseYearLabel, file: budget-area-expense.js:82, note: "연도 헤더 라벨(데이터에서 월범위 계산)" }
+    - { name: expenseLiveTotalFinal, file: budget-area-expense.js:260, note: "화면 입력 기준 소계정 합" }
+
+# ── 그리드 열 구성(좌→우) ──
+grid_columns:
+  - "계정 — 소계정명 + 통제/비통제 배지 + (공동예산 N건 태그)"
+  - "이전계획 — row.carried"
+  - "(펼침 시) 실적 월별 열 — EXPENSE_ACTUAL_MONTHS 각 월('26.1월 형식)"
+  - "실적[+] / 실적 합계[－] — row.actual + 토글 버튼"
+  - "연도 열 — 연도별 계획 입력칸(exp-year-input)"
+  - "계획 합계 — 소계정 계획 총합(expense-total-{id})"
+  - "가용잔액 — 통 단위 잔액(통 첫 행에 rowspan 병합, expense-bal-pool-{poolIndex})"
+
+# ── 대표 플로우 ──
+flows:
+  - name: 정상 연단위 계획 수립
+    steps:
+      - "#/budget-adjust/expense?pj=<프로젝트> 진입 → 경비 자원계획 그리드"
+      - "소계정별 연도 칸(26년(7월~12월), 27년(1월~4월))에 계획액 입력"
+      - "입력 즉시 expenseRecalcRow → 계획합계·통 가용잔액 실시간 갱신(공동예산이면 같은 통 행 모두)"
+      - "가용예산조회로 통제 통별 ERP 가용예산 대비 계획/잔액 확인(선택)"
+      - "계획 저장 → 연 합계를 각 연도 첫 월 슬롯에 통합 저장 → 통 단위 ERP 한도 검증 통과 → 저장 토스트"
+  - name: 한도 초과 시나리오(통 단위)
+    steps:
+      - "같은 통 소계정 계획 합계가 통 ERP 가용예산 초과"
+      - "실시간: 통 잔액 셀 음수·.danger, 통 소속 모든 행 .expense-over 강조"
+      - "계획 저장 → validateExpenseErpAvailability 통 단위 초과 감지"
+      - "토스트 '같은 예산을 쓰는 [사무용품비 · 전산소모품비] 계획 합계 X원이 ERP 가용예산 Y원을 초과했습니다.' → 저장 중단, 재렌더"
+      - "같은 통 안에서 소계정 배분 조정(한 계정 줄이고 다른 계정 늘림). 통 합계가 한도 이내면 개별 초과여도 저장 가능"
+  - name: 실적 확인
+    steps:
+      - "실적 헤더 ＋ 클릭 → toggleExpenseActualCols → 26년 1~7월 월별 실적 열 펼침(목업 배분)"
+      - "확인 후 － 접기. 상세는 '경비 실적조회'(showExpenseActualLookup) 별도"
+
+# ── 요구사항 후보(FR) — 경비.md §11 재사용 ──
+requirements:
+  - { id: FR-EXP-01, text: "경비 예산은 중계정(예산통) 단위로 관리하며, 사용자는 소계정 단위로 계획을 입력한다. 화면에는 중계정 코드·이름을 노출하지 않고 '공동예산 N건' 표시와 공유 가용잔액만 보여준다" }
+  - { id: FR-EXP-02, text: "중계정은 통제/비통제로 구분하며, 통제 중계정만 ERP 가용예산 한도 검증 대상이다. 비통제 중계정(일반비통제성, 인건비)은 한도 미적용(erpAvailable=null)" }
+  - { id: FR-EXP-03, text: "통제 중계정의 계획 상한은 매출귀속부서 ERP 가용예산이다. 같은 통 소계정 계획 합계가 통 가용예산(소계정 erpAvailable 합)을 초과하면 저장할 수 없다" }
+  - { id: FR-EXP-04, text: "한도 검증은 통 단위 합계로 하며, 통 안에서 소계정끼리 서로 메울 수 있다(개별 소계정 초과는 통 합계가 한도 이내면 허용). 통당 1회만 검증한다" }
+  - { id: FR-EXP-05, text: "경비 계획은 연단위(연도별)로 입력한다. 계획 기간(EXPENSE_PLAN_MONTHS)에서 연도 구간과 헤더 라벨을 자동 도출한다" }
+  - { id: FR-EXP-06, text: "저장 시 연 합계를 월별로 분배하지 않고 해당 연도 첫 월 슬롯에 통합 저장하되 계획 총합은 보존한다" }
+  - { id: FR-EXP-07, text: "저장은 반드시 ERP 가용예산 한도 검증을 통과해야 하며, 실패 시 초과 소계정명·금액을 안내하고 저장을 중단한다" }
+  - { id: FR-EXP-08, text: "계획 입력 시 계획 합계·통 가용잔액을 실시간 재계산한다. 공동예산 통은 한 소계정을 고치면 같은 통의 모든 행 잔액·강조 상태를 함께 갱신한다" }
+  - { id: FR-EXP-09, text: "실적 헤더의 ＋로 지난 26년(1~7월) 월별 실적 열을 펼쳐볼 수 있다(현재 목업 배분, 실 ERP 월별 실적으로 대체 예정)" }
+  - { id: FR-EXP-10, text: "가용예산조회 모달은 통제 중계정별 이전예산·현재계획·ERP 가용예산·계획합계·잔액을 통 단위로 병합 표시하고, 초과 통은 잔액을 위험색으로 강조한다" }
+  - { id: FR-EXP-11, text: "계정별 예산 이관에서 경비 조정배분을 변경할 때도 동일한 ERP 가용예산 한도를 체크한다" }
+  - { id: FR-EXP-12, text: "진입은 딥링크 #/budget-adjust/expense?pj=<프로젝트키>를 지원하며, pj 미지정 시 기본 프로젝트로 진입한다" }
