@@ -1,0 +1,350 @@
+# rawdata: 맞춤 레포트 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+
+screen:
+  id: s-custom-report
+  name: 맞춤 레포트 (필드 선택 조회·추출 + AI 도우미 채팅)
+  menu_path: 인사이트 > 맞춤 레포트
+  route: "#/custom-report"
+  entry: "showCustomReport() → renderCustomReport()"
+  source_files:
+    - public/js/custom-report.js      # 렌더·핸들러·상태·필드/프리셋 카탈로그·AI 챗
+    - public/js/app.js                # 라우트 등록(ROUTE_ACTIONS['custom-report']), showCustomReport, 챗 딥링크
+    - server.js                       # /api/report-assist (필드 설명·목적별 필드 추천)
+    - public/css/initiation-extra2.css # report-chat/rc-*, custom-report-* 스타일
+  purpose: >
+    레포트 유형(프로젝트 현황/실행예산 현황)을 고르고 그룹화된 필드 목록에서 원하는 필드를 체크해
+    표로 조회·엑셀 추출한다. 프로젝트번호(projectNo)는 조인 키로 항상 선택·고정. 데이터는 서버가 아닌
+    프론트 mock 배열(customReportRows/customBudgetReportRows)을 클라이언트에서 필터링한다.
+    AI 도우미 채팅으로 필드 의미 설명과 목적별 필드 자동 추천·자동 선택을 받는다.
+  note_vs_ai_report: >
+    AI 레포트(#/ai-report)와 동일 파일에 구현되나 목적이 구분됨 — AI 레포트는 자연어→LLM→SELECT SQL→
+    인메모리 SQLite 실제 실행, 맞춤 레포트는 프론트 mock 필터링(SQL 없음). AI 연동도 각각
+    /api/nl2sql vs /api/report-assist로 다름.
+
+# ── 화면 상태 ──
+states:
+  - id: default
+    when: "customReportType == 'project' (초기), customReportSelectedFields = 전체 필드"
+    shows: [AI도우미채팅, 툴바(유형/검색/조회), 프리셋바, 필드선택카드, 조회결과카드]
+    note: "초기 선택필드=customReportPresets.all, appliedFields=selected 복제"
+  - id: type-project
+    when: "customReportType == 'project'"
+    effect: "필드 카탈로그=customReportFields(23필드), 데이터셋=customReportRows(8행), 프리셋=customReportPresets"
+  - id: type-budget
+    when: "customReportType == 'budget'"
+    effect: "필드 카탈로그=customBudgetReportFields(33필드), 데이터셋=customBudgetReportRows(6행), 프리셋=customBudgetReportPresets"
+  - id: type-unimplemented
+    when: "customReportType == 'outsource' | 'labor'"
+    effect: "select 옵션만 존재. getCustomReportFields/Dataset가 project/budget 삼항의 else로 빠져 project로 폴백(데이터셋 미구현)"
+  - id: chat-empty
+    when: "crChatMsgs.length == 0"
+    shows: ["'필드가 뭘 의미하는지, 어떤 레포트가 필요한지 편하게 물어보세요' 안내 (rc-empty)"]
+  - id: chat-loading
+    when: "crChatLoading == true"
+    shows: ["'생각하는 중…' 스피너 말풍선 (rc-loading)"]
+  - id: chat-done-with-recommend
+    when: "AI 응답 fields.length > 0"
+    effect: "말풍선에 '추천 필드 N개를 자동으로 선택했어요 ✓' + 유효 추천키 자동 선택 반영(필드선택기·결과표 즉시 갱신)"
+  - id: result-empty-fallback
+    when: "조회 시 선택 필드 0개"
+    effect: "토스트 후 appliedFields = ['projectNo','projectName']로 폴백"
+  - id: search-filtered
+    when: "customReportQuery != ''"
+    effect: "getCustomReportRows: 행의 모든 값 join 후 부분일치 필터"
+
+# ── 요소(버튼/입력/select/체크박스/칩) 인벤토리 ── ★ 버튼 단위 프론트/백엔드 로직
+elements:
+  - id: select-report-type
+    label: 레포트 유형 선택
+    type: select
+    area: 툴바(custom-report-toolbar)
+    options: ["프로젝트 현황(project)", "실행예산 현황(budget)", "외주계약 현황(outsource·미구현)", "인건비 투입 현황(labor·미구현)"]
+    event: onchange
+    front:
+      handler: "setCustomReportType(this.value)"
+      file: custom-report.js
+      logic: >
+        customReportType=value; 해당 유형 presets.all로 selectedFields 정규화(키필드 선두);
+        appliedFields=selected 복제 → renderCustomReport()
+      state_writes: [customReportType, customReportSelectedFields, customReportAppliedFields]
+    backend: null
+    result: 유형 전환 시 필드 카탈로그·데이터셋·프리셋 전면 교체, 전체 필드 선택으로 리셋
+
+  - id: input-search-query
+    label: 검색어 입력
+    type: input
+    dom_id: (없음, oninput)
+    area: 툴바(custom-report-toolbar, .wide)
+    placeholder: "프로젝트번호, 프로젝트명, PM명 검색"
+    event: oninput
+    front:
+      handler: "updateCustomReportQuery(this.value)"
+      file: custom-report.js
+      logic: "customReportQuery=value → renderCustomReport() (행 전체 값 join 부분일치 필터)"
+      state_writes: [customReportQuery]
+    backend: null
+    result: 결과 테이블 행이 즉시 필터링 (클라이언트 필터, getCustomReportRows)
+
+  - id: btn-apply-search
+    label: 조회
+    type: button
+    area: 툴바(custom-report-toolbar)
+    event: onclick
+    front:
+      handler: applyCustomReportSearch()
+      file: custom-report.js
+      logic: >
+        선택 필드를 현재 유형 유효키로 필터해 appliedFields 확정(키필드 선두 보장);
+        비면 토스트 후 ['projectNo','projectName'] 폴백; 'N개 필드 기준으로 조회' 토스트 → renderCustomReport()
+      state_writes: [customReportAppliedFields]
+      validation: "선택 필드 0개면 토스트 후 최소 필드로 폴백"
+    backend: null
+    result: 선택 필드 순서대로 조회 결과 테이블 컬럼 확정
+
+  - id: checkbox-field
+    label: 필드 체크박스 (개별 필드)
+    type: checkbox
+    area: 필드 선택 카드(custom-report-field-list)
+    event: onchange
+    front:
+      handler: "toggleCustomReportField('<fieldKey>')"
+      file: custom-report.js
+      logic: >
+        key가 키필드(projectNo)면 즉시 return(해제 불가);
+        selectedFields에 있으면 제거, 없으면 배열 끝에 추가(=선택 순서 유지) → renderCustomReport()
+      state_writes: [customReportSelectedFields]
+    backend: null
+    result: 체크 순서가 조회·엑셀 컬럼 순서. 라벨 옆 순번(indexOf+1) 표시, 키필드는 잠금(disabled)+'키값' 배지
+
+  - id: checkbox-group
+    label: 그룹 전체선택/해제 (그룹 헤더)
+    type: checkbox
+    area: 필드 선택 카드(custom-report-group-head)
+    event: onchange
+    front:
+      handler: "toggleCustomReportGroup('<group>', this.checked)"
+      file: custom-report.js
+      logic: >
+        그룹 소속 필드키 산출; checked면 기존 선택+그룹키 정규화 추가,
+        해제면 (키필드 또는 그룹外)만 남김 → 항상 키필드 유지 → renderCustomReport()
+      state_writes: [customReportSelectedFields]
+    backend: null
+    result: 그룹 단위 일괄 선택/해제. 헤더에 '선택/전체' 카운트 표시
+
+  - id: btn-preset-all
+    label: 전체 선택
+    type: button
+    area: 프리셋 바(custom-report-presets)
+    event: onclick
+    front:
+      handler: "setCustomReportPreset('all')"
+      file: custom-report.js
+      logic: "presets.all로 selectedFields 정규화(키필드 선두); '전체 필드를 선택했습니다' 토스트 → renderCustomReport()"
+      state_writes: [customReportSelectedFields]
+    backend: null
+
+  - id: btn-preset-clear
+    label: 전체 해제
+    type: button
+    area: 프리셋 바(custom-report-presets)
+    event: onclick
+    front:
+      handler: "customReportSelectedFields=[CUSTOM_REPORT_KEY_FIELD];renderCustomReport()"
+      file: custom-report.js
+      logic: "인라인 — 선택 필드를 키필드(projectNo)만 남기고 초기화"
+      state_writes: [customReportSelectedFields]
+    backend: null
+    result: 키필드만 남고 전부 해제(키필드는 해제 불가)
+
+  - id: btn-preset-ai
+    label: "AI 추천 프리셋 (PM용 / 팀장 보고용 / 종료·정산용)"
+    type: button(x3)
+    area: 프리셋 바(custom-report-presets, .cr-preset-ai)
+    event: onclick
+    front:
+      handler: "setCustomReportPreset('pm'|'leader'|'close')"
+      file: custom-report.js
+      logic: "해당 프리셋 키배열로 selectedFields 정규화(키필드 선두); 'AI가 목적에 맞는 필드를 추천했습니다' 토스트 → renderCustomReport()"
+      state_writes: [customReportSelectedFields]
+    backend: null
+    result: 목적별 필드 세트를 즉시 적용(유형별 프리셋 정의 사용)
+
+  - id: btn-export-excel
+    label: 엑셀 다운로드
+    type: button
+    area: 조회 결과 카드(custom-report-result-head)
+    event: onclick
+    front:
+      handler: exportCustomReport()
+      file: custom-report.js
+      logic: "스텁 — '현재 조회된 필드 기준으로 엑셀 다운로드를 생성했습니다' 토스트만. 실제 파일 생성 없음(목업)"
+      state_writes: []
+    backend: null
+    result: 토스트 안내만(목업 스텁)
+
+  # ── AI 도우미 채팅 ──
+  - id: input-chat
+    label: AI 도우미 질문 입력
+    type: input
+    dom_id: rc-input
+    area: AI 도우미 채팅(report-chat, rc-inputrow)
+    placeholder: "필드나 레포트에 대해 물어보세요 (예: 원가 비교분석용 레포트 추천)"
+    event: "onkeydown(Enter)"
+    front:
+      handler: sendReportChat()
+      file: custom-report.js
+    validation: "빈 메시지 또는 crChatLoading 중이면 무시(return)"
+    backend: { calls: btn-chat-send.backend }
+
+  - id: btn-chat-send
+    label: 전송 (AI 도우미)
+    type: button
+    area: AI 도우미 채팅(report-chat, rc-inputrow)
+    event: onclick
+    front:
+      handler: sendReportChat(preset?)
+      file: custom-report.js
+      logic: >
+        msg = preset ?? input.value (trim); 빈값/로딩중이면 중단;
+        crChatMsgs에 user 메시지 push, crChatLoading=true, 입력창 비우고 렌더·스크롤 →
+        현재 유형 필드목록(key/label/group)+레포트유형명+메시지로 POST /api/report-assist →
+        응답 fields를 validKeys(현재 필드키)로 교차필터 → ai 말풍선 push →
+        추천 있으면 selectedFields=정규화([키필드,...추천]), appliedFields=복제(자동 선택) →
+        crChatLoading=false, 렌더·스크롤
+      state_writes: [crChatMsgs, crChatLoading, customReportSelectedFields, customReportAppliedFields]
+      helpers:
+        reportType 매핑: "customReportType=='budget' ? '실행예산 현황' : '프로젝트 현황'"
+        자동선택: "추천 필드 중 현재 유효 키만 필터, 키필드(projectNo) 선두 유지"
+    backend:
+      api: /api/report-assist
+      method: POST
+      request: { message: string, reportType: string, "fields": "[{key,label,group}]" }
+      response: { reply: string, fields: "string[] (추천 필드 key)", source: "ai|fallback" }
+      error_handling: "fetch 실패 시 '요청에 실패했어요…' ai 말풍선, fields:[]"
+    result: AI 설명 말풍선 표시 + 추천 필드 자동 선택으로 필드선택기·결과표 즉시 갱신
+
+  - id: chips-chat-examples
+    label: AI 도우미 예시 질문 칩 (3개)
+    type: button
+    area: AI 도우미 채팅(report-chat, rc-examples)
+    values: ["프로젝트 기본정보엔 뭐가 있어?", "매출귀속부서가 무슨 뜻이야?", "팀 귀속 프로젝트 원가 변동 비교분석 레포트 추천해줘"]
+    event: onclick
+    front:
+      handler: "sendReportChat(this.textContent)"
+      file: custom-report.js
+    backend: { calls: btn-chat-send.backend }
+    result: 해당 문구로 즉시 AI 도우미 질의 실행
+
+# ── 백엔드 API 상세 ──
+apis:
+  - path: /api/report-assist
+    method: POST
+    handler: "handleReportAssist (server.js:479-491)"
+    request: { message: string, reportType: string, "fields": "[{key,label,group}]" }
+    validation: "body 또는 body.message 없으면 400 {error:'Invalid payload'} (server.js:480)"
+    pipeline:
+      - "validKeys = 요청 fields[].key (추천 교차필터용)"
+      - "OPENAI_API_KEY 없음 → localAssist 폴백 {reply:안내문, fields:[]}, source=fallback (server.js:482-484)"
+      - "키 있음 → callLLM(buildAssistPrompt) [필드목록 key:이름(그룹)+유형+메시지, 순수 JSON 강제] (server.js:449-460,486)"
+      - "LLM 실패/빈응답 → localAssist 폴백, source=fallback (server.js:487)"
+      - "parseAssist(text, validKeys): 코드펜스 제거 → {…} 슬라이스 → JSON.parse, fields는 validKeys 교차필터. 파싱 실패 시 특수문자 제거 원문을 reply 폴백 (server.js:465-478)"
+    response: { reply: string, fields: "string[]", source: "ai|fallback" }
+    response_success_source: "ai (LLM 파싱 성공)"
+    response_fallback_source: "fallback (키 미설정 또는 LLM 실패)"
+    prompt_rules:
+      - "buildAssistPrompt: '맞춤 레포트 작성 돕는 어시스턴트', 필드 의미 쉽게 설명·목적별 필드 추천 (server.js:449-461)"
+      - "출력은 마크다운/코드펜스/설명 없이 순수 JSON 1개 {\"reply\":한국어 2~4문장, \"fields\":목록의 key만}"
+      - "시스템 프롬프트: '반드시 지정된 JSON 형식으로만 답한다' (server.js:490)"
+    security:
+      - "OPENAI_API_KEY는 process.env만 사용(코드/깃 미저장)"
+      - "추천 fields는 항상 요청 필드키(validKeys) 교차필터 — 임의 키 주입 차단"
+      - "폴백 시에도 HTTP 200 — 목업 항상 동작"
+
+# ── 데이터 모델 ──
+data:
+  state_vars:
+    - { name: customReportType,           shape: "'project'|'budget'|'outsource'|'labor'", file: custom-report.js, default: "'project'", purpose: 레포트 유형 (custom-report.js:291) }
+    - { name: customReportSelectedFields,  shape: "string[] (필드 key, 선택 순서=컬럼 순서)", file: custom-report.js, purpose: 현재 선택 필드 (custom-report.js:292) }
+    - { name: customReportAppliedFields,   shape: "string[]", file: custom-report.js, purpose: 조회 확정 필드(결과 테이블 컬럼) (custom-report.js:293) }
+    - { name: customReportQuery,           shape: string, file: custom-report.js, purpose: 검색어(클라이언트 필터) (custom-report.js:294) }
+    - { name: CUSTOM_REPORT_KEY_FIELD,     shape: "const 'projectNo'", file: custom-report.js, purpose: 조인 키필드 — 항상 포함·해제 불가 (custom-report.js:295) }
+    - { name: crChatMsgs,                  shape: "[{role:'user'|'ai', text, fields?}]", file: custom-report.js, purpose: AI 도우미 대화 로그 (custom-report.js:239) }
+    - { name: crChatLoading,               shape: boolean, file: custom-report.js, purpose: AI 도우미 응답 대기(입력 잠금) (custom-report.js:240) }
+  datasets:
+    - { name: customReportFields,        file: custom-report.js, note: "프로젝트 현황 필드 카탈로그 23종, 6그룹({key,label,group}) (custom-report.js:8-32)" }
+    - { name: customReportRows,          file: custom-report.js, note: "프로젝트 현황 mock 8행 (custom-report.js:34-43)" }
+    - { name: customBudgetReportFields,  file: custom-report.js, note: "실행예산 현황 필드 카탈로그 33종({key,label,group}) (custom-report.js:45-79)" }
+    - { name: customBudgetReportRows,    file: custom-report.js, note: "실행예산 현황 mock 6행 (custom-report.js:81-88)" }
+    - { name: customReportPresets,       file: custom-report.js, note: "프로젝트 현황 프리셋 all/pm/leader/close (custom-report.js:90-95)" }
+    - { name: customBudgetReportPresets, file: custom-report.js, note: "실행예산 현황 프리셋 all/pm/leader/close (custom-report.js:97-102)" }
+  field_catalog_project:   # customReportFields — 그룹별
+    프로젝트 기본정보: [projectNo(키), projectName, orderCompany(발주처), contractCompany(계약처), projectType(프로젝트유형)]
+    조직/PM: [salesDivision(매출귀속부문), salesHead(매출귀속본부), salesDept(매출귀속부서), pmNo(PM사번), pmName(PM명)]
+    기간/상태: [startDate(시작일), endDate(종료일), projectStatus(상태), erpEndDate(ERP종료일)]
+    계약/검수: [freeMaintenanceYn(무상하자보증여부), overseasPmYn(해외PM여부), relatedCompanyYn(관계사여부)]
+    예산/실적: [finalLaborCost(최종예산인건비), finalMaterialCost(최종예산재료비), finalAsCost(최종예산AS비)]
+    ERP/정산: [finalApprovedAt(최종예산승인일자), budgetVersion(실행예산버전), erpSendStatus(ERP전송상태)]
+  field_catalog_budget:    # customBudgetReportFields — 그룹별
+    프로젝트 기본정보: [projectNo(키), customer(고객사), projectName, ossReviewYn(오픈소스라이선스 검토대상여부), projectType, relatedCompanyYn]
+    버전/상태: [budgetVersionNo(예산버전), projectStatus, approvalRequestedAt(승인요청일), approvalCompletedAt(승인완료일)]
+    조직/PM: [salesDivision, salesHead, pmName(PM)]
+    전버전 금액: [previousTotalCost, previousLaborCost, previousOtCost, previousOutsourceCost, previousMaterialCost, previousExpenseCost, previousPjtReserve, previousAsCost, previousWlbCost, previousInternalMm]
+    현재 실행예산: [executionCost(수행비용), laborCost, otCost(OT비), outsourceCost, materialCost, expenseCost, pjtReserve(PJT손실예비비), asCost, wlbCost, internalMm(내부MM)]
+  presets:
+    project:
+      all:    "customReportFields 전체 key"
+      pm:     [projectNo, projectName, projectType, pmName, startDate, endDate, projectStatus, budgetVersion, finalApprovedAt]
+      leader: [projectNo, projectName, salesDept, pmName, projectStatus, finalLaborCost, finalMaterialCost, finalAsCost, erpSendStatus]
+      close:  [projectNo, projectName, endDate, projectStatus, erpEndDate, freeMaintenanceYn, finalApprovedAt, erpSendStatus]
+    budget:
+      all:    "customBudgetReportFields 전체 key"
+      pm:     [projectNo, projectName, projectType, pmName, projectStatus, budgetVersionNo, approvalCompletedAt, executionCost]
+      leader: [projectNo, projectName, salesDivision, salesHead, projectStatus, executionCost, laborCost, outsourceCost, materialCost, expenseCost]
+      close:  [projectNo, projectName, projectStatus, approvalRequestedAt, approvalCompletedAt, previousTotalCost, executionCost]
+  key_field: { name: projectNo, rule: "조인 키 — 항상 선택·선두 고정, 체크 해제/비활성(disabled) 불가, 프리셋·그룹토글·AI추천 모두 normalizeCustomReportFields로 선두 보장" }
+  render_helpers:
+    - { name: normalizeCustomReportFields, file: custom-report.js, note: "Set으로 [키필드,...입력] 중복 제거·키필드 선두 (297-299)" }
+    - { name: getCustomReportFields/Presets/Dataset, file: custom-report.js, note: "유형별 카탈로그·프리셋·데이터셋 삼항 선택 (301-311)" }
+    - { name: getReportFieldGroups, file: custom-report.js, note: "필드를 group으로 reduce 묶음 (313-319)" }
+    - { name: getCustomReportRows, file: custom-report.js, note: "검색어로 행 전체 값 join 부분일치 필터 (374-379)" }
+    - { name: renderCustomReportFieldSelector, file: custom-report.js, note: "그룹별 체크박스·전체선택 헤더·순번·키필드 잠금 (381-406)" }
+    - { name: renderCustomReportTable, file: custom-report.js, note: "appliedFields 순서로 헤더·행, 숫자 fmt·num 클래스, 건수·필드수 (408-440)" }
+    - { name: renderCustomReport, file: custom-report.js, note: "전체 화면 렌더(챗·툴바·프리셋·필드선택·결과표), 유효키 재정규화 (442-500)" }
+
+# ── 대표 플로우 ──
+flows:
+  - name: 수동 필드 선택 조회·추출
+    steps:
+      - "레포트 유형 select(setCustomReportType) — project/budget"
+      - "필드 체크박스·그룹 헤더로 필드 선택(순서=컬럼 순서, 키필드 고정)"
+      - "(선택) 검색어 입력(updateCustomReportQuery) → 행 부분일치 필터"
+      - "[조회](applyCustomReportSearch) → appliedFields 확정, 결과 테이블 렌더"
+      - "[엑셀 다운로드](exportCustomReport) — 목업 토스트만"
+  - name: AI 도우미 목적별 필드 자동 추천
+    steps:
+      - "AI 도우미에 목적/질문 입력 또는 예시 칩 클릭"
+      - "sendReportChat: 현재 필드목록·유형·메시지 → POST /api/report-assist"
+      - "server: 키 있으면 LLM {reply,fields} JSON(source=ai), 없으면 폴백(source=fallback)"
+      - "프론트: reply 말풍선 표시 + 추천 fields 유효키만 자동 선택(키필드 선두)"
+      - "필드 선택기·결과 테이블 즉시 갱신"
+  - name: AI 추천 프리셋 빠른 적용
+    steps:
+      - "프리셋 버튼(PM용/팀장 보고용/종료·정산용) 클릭(setCustomReportPreset)"
+      - "유형별 프리셋 키배열로 selectedFields 적용(키필드 선두) + 토스트"
+
+# ── 요구사항 후보(FR) ──
+requirements:
+  - { id: FR-CR-01, text: 사용자는 레포트 유형(프로젝트 현황/실행예산 현황)을 선택할 수 있고 유형별 필드 카탈로그·데이터셋·프리셋이 전환된다, ref: "custom-report.js:setCustomReportType" }
+  - { id: FR-CR-02, text: 사용자는 그룹화된 필드 목록에서 개별 필드·그룹 단위로 조회 필드를 선택/해제할 수 있다, ref: "custom-report.js:toggleCustomReportField/toggleCustomReportGroup" }
+  - { id: FR-CR-03, text: 프로젝트번호(projectNo)는 조인 키로 항상 선택·선두 고정되며 해제·비활성화할 수 없다, ref: "custom-report.js:CUSTOM_REPORT_KEY_FIELD, normalizeCustomReportFields, toggleCustomReportField 초기 return" }
+  - { id: FR-CR-04, text: 필드 체크 순서가 조회 결과·엑셀 컬럼 순서가 되며 라벨 옆에 순번이 표시된다, ref: "custom-report.js:renderCustomReportFieldSelector, renderCustomReportTable" }
+  - { id: FR-CR-05, text: 사용자는 검색어로 결과 행을 부분일치 필터할 수 있다(클라이언트), ref: "custom-report.js:updateCustomReportQuery/getCustomReportRows" }
+  - { id: FR-CR-06, text: 조회 시 선택 필드를 확정해 결과 테이블(건수·필드수)로 렌더하며 선택 필드가 없으면 최소 필드로 폴백한다, ref: "custom-report.js:applyCustomReportSearch" }
+  - { id: FR-CR-07, text: 엑셀 다운로드는 목업 스텁으로 토스트 안내만 제공한다, ref: "custom-report.js:exportCustomReport" }
+  - { id: FR-CR-08, text: AI 추천 프리셋(PM용/팀장 보고용/종료·정산용)으로 목적별 필드 세트를 즉시 적용할 수 있다, ref: "custom-report.js:setCustomReportPreset, customReportPresets/customBudgetReportPresets" }
+  - { id: FR-CR-09, text: 사용자는 AI 도우미 채팅으로 필드 의미 설명과 목적별 필드 추천을 자연어로 받을 수 있다, ref: "custom-report.js:sendReportChat, server.js:/api/report-assist" }
+  - { id: FR-CR-10, text: AI 도우미가 추천한 필드 중 현재 유효 키만 자동으로 선택 상태에 반영된다(키필드 선두 유지), ref: "custom-report.js:sendReportChat 277-283" }
+  - { id: FR-CR-11, text: AI 도우미 API는 순수 JSON {reply,fields}를 파싱하고 실패·키 미설정 시 안내문 폴백을 제공한다(항상 HTTP 200), ref: "server.js:handleReportAssist/parseAssist/localAssist" }
+  - { id: FR-CR-12, text: AI 추천 fields는 요청 필드키와 교차필터되어 목록 외 키 주입이 차단된다, ref: "server.js:parseAssist validKeys 필터, custom-report.js:sendReportChat validKeys 필터" }

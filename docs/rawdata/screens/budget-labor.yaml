@@ -1,0 +1,419 @@
+# rawdata: 원가조정 계정 - 인건비 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+# 근거: 최종 유효본(가장 나중에 재정의된 override)이 이긴다. budget-area-labor.js 는
+#       budget-status-*.js 전부 뒤에 로드되는 데코레이터 체인 소유자.
+
+screen:
+  id: s-budget-labor
+  name: 원가조정 · 인건비 (수행원가 CATS[0])
+  menu_path: 예산관리 > 원가조정 > 인건비
+  route: "#/budget-adjust/labor?pj=<프로젝트키>"      # pj 미지정 시 'budgetMock' (budget-area-routes.js:40-41)
+  entry: "ROUTE_ACTIONS['budget-adjust/labor'] → openCostArea('인건비', pj) → costMode='adjust' → openBudgetProjectScreen(pj) → openBudgetAccountEditor('인건비')"
+  source_files:
+    - public/js/budget-area-labor.js     # 최종 소유자: 예산내역 트리·상세탭·알림·이관/OT override·편집기 조립 데코레이터
+    - public/js/budget-status-4.js        # 활성 구현: 실투입 패널/SCM 팝업/등록, 이관·OT rows·저장, getMonthlyBudgetRows 분해
+    - public/js/budget-status-3.js        # 저장검증 saveSimpleAccountPlan(투입확정 하한), getMonthAccountValue
+    - public/js/budget-status.js          # 데이터 모델(budgetLaborAssignments), getLaborRows, CATS/상수, 영속화
+    - public/js/budget-area-routes.js     # 슬러그/라우트, openCostArea
+    - public/js/budget-area-outsource.js  # budgetAiExplainV1(AI 해설 공용, 먼저 로드)
+    - ai-proxy.js                         # POST /api/ai/explain 핸들러
+  purpose: >
+    원가조정(costMode='adjust') 단계에서 PM이 인건비 계정의 예산내역과 상세계정(실투입/이관/OT) 계획을 편집한다.
+    실투입인건비는 SCM I/F로 확정 수신된 인력만 등록·예산화하며, 계획 금액은 투입확정(q) 금액을 하한으로 검증한다.
+
+# ── 화면 상태 ──
+states:
+  - id: tree-collapsed
+    when: "laborBudgetTreeOpenFinal == false (기본, budget-area-labor.js:19)"
+    shows: ["인건비 합계 부모행 1줄만(상세 3계정 합계)"]
+  - id: tree-expanded
+    when: "laborBudgetTreeOpenFinal == true (toggleLaborBudgetTreeFinal)"
+    shows: ["부모행 + 실투입/이관/OT 3개 자식행"]
+  - id: kind-direct
+    when: "laborKindFinal == 'direct' (기본, budget-status-4.js:1728)"
+    shows: ["실투입인건비 패널(SCM 확정 인력 등록 목록·요약 4칸)"]
+  - id: kind-transfer
+    when: "laborKindFinal == 'transfer'"
+    shows: ["이관인건비 패널(요약 4칸·리스트·신규등록/수정 폼)"]
+  - id: kind-ot
+    when: "laborKindFinal == 'ot'"
+    shows: ["OT비 월별 계획 그리드(EXPENSE_PLAN_MONTHS 10개월)"]
+  - id: scm-popup-open
+    when: "openLaborScmCandidatePopupFinal 호출 후 (budget-status-4.js:984)"
+    shows: ["'투입가능 인력 리스트' 팝업(SCM 확정완료 풀, 이미 등록건 disabled)"]
+  - id: transfer-editor-open
+    when: "laborTransferEditorOpenFinal || editingLaborTransferIdFinal (budget-area-labor.js:250-251)"
+    shows: ["이관 등록/수정 폼(renderLaborTransferFormFinal)"]
+  - id: alerts-visible          # 직교 상태(계정 시그널)
+    when: "renderLaborAlertsFinal() 반환값 존재 (budget-area-labor.js:166)"
+    shows: ["SCM 확정 수신(info) / OT 실적 선발생(warn) / P레벨 단가 확정(danger) 알림"]
+  - id: ai-explain-open         # 직교(토글) 상태
+    when: "budget-ai-slot dataset.open == '1' (budget-area-outsource.js:258)"
+    effect: 알림 하단에 AI 해설(원인/영향/조치) 블록 노출, 재클릭 시 접힘
+
+# ── 요소(버튼/입력/탭) 인벤토리 ── ★ 버튼 단위 프론트/백엔드 로직
+elements:
+  - id: toggle-labor-budget-tree
+    label: "인건비 예산내역 접기/펼치기 (∨/∧)"
+    type: button(toggle)
+    area: 예산내역 표 부모행
+    event: onclick
+    front:
+      handler: toggleLaborBudgetTreeFinal()
+      file: budget-area-labor.js:29
+      logic: "laborBudgetTreeOpenFinal 반전 → renderBudgetPage(); 부모행 acct-name 클릭도 동일(td onclick, event.stopPropagation)"
+      validation: null
+      state_writes: [laborBudgetTreeOpenFinal]
+    backend: null
+    result: 상세 3계정(실투입/이관/OT) 자식행 노출/숨김
+
+  - id: btn-labor-excel
+    label: 엑셀
+    type: button
+    area: 예산내역 표 헤더 액션
+    event: onclick
+    front:
+      handler: "(목업, 미바인딩)"
+      file: budget-area-labor.js:82
+      logic: "정적 버튼 — 핸들러 없음(엑셀 내보내기 목업 자리)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 없음(목업)
+
+  - id: btn-labor-actual-detail
+    label: 인건비 실적조회
+    type: button
+    area: 예산내역 표 헤더 액션
+    event: onclick
+    front:
+      handler: "showActualDetailModal('인건비','2026-06','전체')"
+      file: budget-area-labor.js:83
+      logic: "실적 상세 모달 오픈(계정·기준월·필터 전달)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 인건비 실적 상세 모달
+
+  - id: tab-labor-kind
+    label: "상세계정 탭 3종 (실투입/이관/OT)"
+    type: button(tab, 3개)
+    area: 상세계정 구분 탭
+    event: onclick
+    front:
+      handler: "switchLaborKindFinal('direct'|'transfer'|'ot')"
+      file: "renderLaborKindTabsFinal budget-area-labor.js:112 / switchLaborKindFinal budget-status-4.js:1782"
+      logic: "laborKindFinal 세팅 → renderBudgetPage(); 패널 디스패치는 renderLaborDetailPlanPanelFinal(budget-status-4.js:1997)"
+      validation: null
+      state_writes: [laborKindFinal]
+    backend: null
+    result: 선택 상세계정 전용 패널로 전환(direct→실투입, transfer→이관, ot→OT)
+
+  - id: alert-scm-register
+    label: "확정 인력 등록 (SCM 인력 확정 수신 알림)"
+    type: button
+    area: 계정 시그널 알림(info)
+    event: onclick
+    front:
+      handler: laborOpenScmInboxFinal()
+      file: budget-area-labor.js:187,150
+      logic: "토스트 안내 후 switchLaborKindFinal('direct') — 등록 목록으로 유도"
+      validation: null
+      state_writes: [laborKindFinal]
+    backend: null
+    result: 실투입 탭 이동(등록 유도). 실제 등록 팝업은 btn-scm-register-confirmed
+
+  - id: alert-ot-open
+    label: "OT비 계획 열기 (OT 실적 선발생 경고)"
+    type: button
+    area: 계정 시그널 알림(warn)
+    event: onclick
+    front:
+      handler: "laborGoKindFinal('ot')"
+      file: budget-area-labor.js:206,146
+      logic: "switchLaborKindFinal('ot') — 계획 없이 실적 선발생한 OT 보정 유도"
+      validation: null
+      state_writes: [laborKindFinal]
+    backend: null
+    result: OT비 월별 계획 그리드로 전환
+
+  - id: btn-ai-explain
+    label: "AI 해설 (알림별)"
+    type: button(toggle)
+    area: 계정 시그널 알림(각 알림 우측)
+    event: onclick
+    front:
+      handler: "budgetAiExplainV1(slotId, payload)"
+      file: "laborAiBlockFinal budget-area-labor.js:157 → budgetAiExplainV1 budget-area-outsource.js:254"
+      logic: >
+        slot.dataset.open 토글; 열림 시 캐시(budgetAiCacheV1) 확인 후 없으면 POST /api/ai/explain,
+        {kind,title,summary,facts} 전송 → 원인/영향/조치 3줄 렌더. 재클릭 시 접힘.
+      validation: null
+      state_writes: [budgetAiCacheV1, "slot.dataset.open(DOM)"]
+    backend: { calls: api-ai-explain }
+    result: 알림 하단에 AI 해설 블록(source ai|fallback)
+
+  - id: btn-scm-register-confirmed
+    label: 확정 인력 등록
+    type: button
+    area: 실투입 패널 요약 설명칸 우측
+    event: onclick
+    front:
+      handler: openLaborScmCandidatePopupFinal()
+      file: "budget-area-labor.js:420(문구 교체 삽입) → budget-status-4.js:984"
+      logic: "'투입가능 인력 리스트' 팝업 오픈(SCM 확정완료 풀 laborScmConfirmedPoolFinal 표시)"
+      validation: null
+      state_writes: ["팝업 오픈 상태"]
+    backend: { note: "풀은 SCM I/F 수신값(목업 laborScmConfirmedPoolFinal, budget-status-4.js:962)" }
+    result: SCM 확정 인력 선택 팝업
+
+  - id: scm-popup-select-register
+    label: "SCM 인력 선택(radio) + 등록"
+    type: [radio, button]
+    area: SCM 확정 인력 팝업
+    event: onclick
+    front:
+      handler: "selectLaborScmCandidateFinal(id) → registerSelectedScmLaborFinal()"
+      file: "budget-status-4.js:995 / 1000 / 팝업 렌더 1099"
+      logic: >
+        선택 인력의 SCM 수신값(시작/종료일·총MM)으로 buildScmLaborMonthlyMmFinal(970)이 월별 MM 자동 배분·금액 산출 →
+        rows(budgetLaborAssignments) unshift → persistBudgetLaborState → syncLaborAssignmentsToBudget → 토스트.
+      validation: "scmNo 기준 이미 등록된 인력은 팝업에서 disabled+'등록완료'(1101,1118,1125) → 중복 등록 차단(1007-1012)"
+      state_writes: [budgetLaborAssignments, "month[laborCat].q(투입확정)", localStorage.budgetLaborState]
+    backend: null
+    result: 실투입인건비 계획 rows 등록 + 예산내역 투입확정(q) 갱신
+
+  - id: row-labor-assignment-select
+    label: 등록 인력 행 선택(월별 반영 내역 보기)
+    type: row(click)
+    area: 실투입 패널 등록 인력 목록
+    event: onclick
+    front:
+      handler: "selectLaborAssignmentSimpleFinal(id)"
+      file: budget-status-4.js:1092,1160-1162
+      logic: "선택 인력의 월별 MM×단가 금액 상세 표시"
+      validation: null
+      state_writes: ["선택 인력 id"]
+    backend: null
+    result: 선택 인력 월별 반영 내역 패널
+
+  - id: labor-transfer-new
+    label: 신규등록 (이관인건비)
+    type: button
+    area: 이관 패널
+    event: onclick
+    front:
+      handler: openLaborTransferNewFinal()
+      file: budget-status-4.js:1816
+      logic: "laborTransferEditorOpenFinal=true → renderLaborTransferFormFinal(폼: Project Type readonly=Receiver / 이관예정월 / 금액 / 사유)"
+      validation: null
+      state_writes: [laborTransferEditorOpenFinal]
+    backend: null
+    result: 이관 등록 폼 오픈(Receiver Project 고정)
+
+  - id: labor-transfer-edit
+    label: 수정 (이관 행)
+    type: button
+    area: 이관 리스트 행
+    event: onclick
+    front:
+      handler: "editLaborTransferFinal(rowId)"
+      file: budget-area-labor.js:265 → budget-status-4.js:1829
+      logic: "편집 대상 행 지정 후 폼 오픈"
+      validation: "Sender Project·actualized·집행완료 건은 잠금(locked) → 버튼 대신 '조회' 라벨(budget-area-labor.js:253,263-265; 진입 차단 1829)"
+      state_writes: [editingLaborTransferIdFinal]
+    backend: null
+    result: 해당 이관 건 수정 폼
+
+  - id: labor-transfer-save
+    label: 등록/수정 저장 (이관)
+    type: button
+    area: 이관 등록/수정 폼
+    event: onclick
+    front:
+      handler: saveLaborTransferFinal()
+      file: budget-status-4.js:1842
+      logic: "저장 시 transferType='Receiver Project' 고정, amount=Math.abs(금액) 양수화, actualized=false 정규화 후 rows 반영 → 요약(받은/보낸/순) 갱신"
+      validation: "Sender/actualized/집행완료 건 수정 불가(1845-1848); 금액 미입력 시 거부(1850-1853)"
+      state_writes: [laborTransferRowsByProjectFinal, "예산내역 이관인건비 행"]
+    backend: null
+    result: 이관 계획 저장, 순 이관금액 예산 반영
+
+  - id: labor-ot-month-input
+    label: "OT비 월별 계획 입력(월 10칸)"
+    type: input(numeric)
+    dom_id: "labor-ot-<rowId>-<idx>"
+    area: OT비 그리드
+    event: onchange
+    front:
+      handler: "(saveLaborOtPlanFinal 이 일괄 파싱)"
+      file: budget-area-labor.js:319
+      logic: "각 월 셀 값은 저장 시 parseBudgetAmount로 일괄 수집(개별 onchange 핸들러 없음, id 규칙으로 참조)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 저장 전 입력값(DOM)
+
+  - id: labor-ot-save
+    label: 계획 저장 (OT비)
+    type: button
+    area: OT비 패널
+    event: onclick
+    front:
+      handler: saveLaborOtPlanFinal()
+      file: budget-status-4.js:1940
+      logic: "EXPENSE_PLAN_MONTHS 각 월 input(labor-ot-*)을 parseBudgetAmount 파싱 → row.monthly 반영 → 토스트. 화면은 701301 한 줄만(701302 필터 제외, budget-area-labor.js:302-305)"
+      validation: null
+      state_writes: [laborOtRowsByProjectFinal, "예산내역 OT비 행"]
+    backend: null
+    result: OT비 월별 계획 저장·예산내역 반영
+
+  - id: labor-plan-save
+    label: 인건비 계획 저장 (실투입 계획 하한 검증)
+    type: button
+    area: 실투입/계획 저장 경로
+    event: onclick
+    front:
+      handler: "saveSimpleAccountPlan('인건비')"
+      file: budget-status-3.js:1683
+      logic: "plan 월별 입력값(next)을 저장; 변경분 없으면 '변경된 계획 금액이 없습니다' 토스트(1708)"
+      validation: "월 입력값 < 해당 월 투입확정(q) → 저장 거부: '<월> 인건비 계획은 투입확정 <금액>원보다 작을 수 없습니다.'(1695-1697; 동일 규칙 2784)"
+      state_writes: ["budget month[account].p(계획)"]
+    backend: null
+    result: 인건비 계획 저장(투입확정 하한 준수 시)
+
+# ── 비즈니스 로직 & 규칙 ──
+business:
+  - id: BL-LAB-derive
+    rule: "인건비 월별 예산을 상세 3계정으로 분해(getMonthlyBudgetRows override, budget-status-4.js:2003-2019)"
+    detail: "실투입 월액 = max(월예산 − 이관월액 − OT월액, 0). 이관월액=getLaborTransferAmountForMonthFinal, OT월액=getLaborOtAmountForMonthFinal. 실적도 이관/OT 실적 공제 후 잔여가 실투입 실적."
+  - id: BL-LAB-sync
+    rule: "SCM 확정완료 인력만 투입확정(q)로 반영(syncLaborAssignmentsToBudget, budget-status-4.js:1062-1090)"
+    detail: "laborStatusClass(status)==='done'('확정완료'/'승인완료')인 인력만 대상; rowAmount=round(mm×unitPrice)를 month[laborCat].q에 기록, details에 type:'투입확정',source:'laborAssignment' 추가."
+  - id: BL-LAB-mm-split
+    rule: "월별 MM 자동 배분(buildScmLaborMonthlyMmFinal, budget-status-4.js:970-982)"
+    detail: "총MM을 투입기간 월수로 균등분할(base=floor(total/months×100)/100), 마지막 달에 잔차 몰아넣기."
+  - id: BL-LAB-transfer-net
+    rule: "순 이관금액 = 이관받은(+) − 이관보낸(−) (getLaborTransferSummaryFinal, budget-area-labor.js:241-246)"
+    detail: "받은 금액은 인건비 실적 반영, 보낸 금액은 원가실적 차감. 순액이 예산내역 이관인건비 행에 반영."
+  - id: BL-LAB-ot-single
+    rule: "OT 계정은 701301 한 줄만 사용(getLaborOtRowsFinal override, budget-area-labor.js:301-305)"
+    detail: "공유 목업의 701302(월별 OT 계획) 행은 필터 제외."
+
+validation:
+  - id: VAL-LAB-plan-floor
+    where: "saveSimpleAccountPlan (budget-status-3.js:1695-1697, 2784)"
+    rule: "월별 계획 금액은 해당 월 투입확정(q)보다 작을 수 없음 → 위반 시 저장 거부·안내"
+  - id: VAL-LAB-scm-dup
+    where: "registerSelectedScmLaborFinal / 팝업 (budget-status-4.js:1007-1012, 1101)"
+    rule: "동일 scmNo 인력 중복 등록 차단(팝업 disabled+'등록완료')"
+  - id: VAL-LAB-scm-done-only
+    where: "syncLaborAssignmentsToBudget (budget-status-4.js:1066)"
+    rule: "SCM 확정완료(done) 상태 인력만 투입확정(q)로 반영"
+  - id: VAL-LAB-transfer-receiver
+    where: "saveLaborTransferFinal (budget-status-4.js:1845-1862)"
+    rule: "신규 이관은 Receiver Project만; 금액 양수화; Sender/actualized/집행완료 수정 불가; 금액 미입력 거부"
+
+# ── 백엔드 API / 외부 연동 상세 ──
+apis:
+  - id: api-ai-explain
+    path: /api/ai/explain
+    method: POST
+    handler: "ai-proxy.js (POST /api/ai/explain)"
+    request: { kind: string, title: string, summary: string, facts: object }
+    pipeline:
+      - "kind별 규칙 기반 기본 해설 매핑(labor-ot / labor-prate / labor-scm 등, ai-proxy.js:69-94)"
+      - "OPENAI_API_KEY 있으면 LLM 호출(cause/impact/action JSON), 없으면 로컬 폴백(source:'fallback')"
+    response: { ok: boolean, cause: string, impact: string, action: string, source: "ai|fallback", model?, cached? }
+    security:
+      - "API 키는 서버(.env)만 보유, 브라우저엔 숫자·상황만 전송(budget-area-outsource.js:215)"
+  - id: if-scm-inbound
+    kind: 외부연동(SCM I/F)
+    direction: inbound
+    detail: >
+      SCM(인력 공급/투입 관리)에서 투입계획이 확정(승인)된 인력이 I/F로 수신되어 확정완료 풀
+      laborScmConfirmedPoolFinal(budget-status-4.js:962) 및 알림용 laborSignalsFinal.scmInbox(budget-area-labor.js:140-143)에 적재.
+      수신만으로는 예산 미반영 — '확정 인력 등록' 후 투입확정(q) 집계됨. (목업; 실제 데이터는 SCM I/F 수신함)
+  - id: if-plevel-rate
+    kind: 외부연동(P레벨 단가 마스터)
+    detail: "P레벨 단가는 매년 5월경 확정 → 인력·MM 변동 없어도 계획(전년 단가) 대비 초과 가능. 위험 알림 pGradeRate(budget-area-labor.js:137-138,211-230)."
+  - id: if-ot-settlement
+    kind: 외부연동(OT 정산 실적)
+    detail: "계획 없이 OT 정산 실적이 먼저 발생하는 케이스 otUnplanned(budget-area-labor.js:135,193-209) → 경고 후 OT 계획 보정 유도."
+
+# ── 데이터 모델 (계정 rows) ──
+data:
+  account: 인건비 (CATS[0], budget-status.js:742)
+  state_vars:
+    - { name: laborBudgetTreeOpenFinal, shape: boolean, file: budget-area-labor.js:19, purpose: "예산내역 트리 펼침(기본 false)" }
+    - { name: laborKindFinal, shape: "'direct'|'transfer'|'ot'", file: budget-status-4.js:1728, purpose: "활성 상세계정 탭(기본 direct)" }
+    - { name: laborTransferEditorOpenFinal, shape: boolean, file: budget-status-4.js, purpose: "이관 폼 열림" }
+    - { name: editingLaborTransferIdFinal, shape: string, file: budget-status-4.js, purpose: "이관 편집 대상 id" }
+    - { name: budgetAiCacheV1, shape: "{slotId: 해설결과}", file: budget-area-outsource.js:220, purpose: "AI 해설 캐시" }
+  rows:
+    - name: budgetLaborAssignments[proj] (실투입 인력 배정)
+      file: budget-status.js:1257-1278, 접근자 getLaborRows budget-status.js:1497
+      fields: [id, personId, scmNo, name, org, role, pLevel, unitPrice, startDate, endDate, workType, totalMm, amount, status, requestedAt, approvedAt, scmDocNo, "monthly{월:MM}"]
+      derived: "amount=round(totalMm×unitPrice), 월별반영액=round(monthly[월]×unitPrice)"
+      status_values: ["SCM 확정완료", "SCM 승인완료", "MM 저장완료", "MM 입력중"]
+      persist: "localStorage['budgetLaborState'] (persistBudgetLaborState budget-status.js:1464)"
+    - name: laborScmConfirmedPoolFinal (SCM 확정 풀)
+      file: budget-status-4.js:962-968
+      fields: [id, scmNo, name, pLevel, role, org, startDate, endDate, totalMm, unitPrice]
+      note: "SCM I/F 수신 확정완료 인력(등록 대상)"
+    - name: laborTransferRowsByProjectFinal[proj] (이관 rows)
+      file: budget-status-4.js:1735-1744
+      fields: [id, "transferType('Receiver Project'|'Sender Project')", expectedMonth, "amount(Receiver +, Sender −)", description, "status('계획'|'집행완료')", "actualized(bool)"]
+      persist: "메모리 목업(영속화 대상 아님)"
+    - name: laborOtRowsByProjectFinal[proj] (OT rows)
+      file: budget-status-4.js:1746-1754
+      fields: [id, "accountCode('701301'|'701302')", accountName, carried, actual, "monthly[10]"]
+      note: "화면은 701302 필터 제외(701301만 사용)"
+  constants:
+    - { name: CATS, file: budget-status.js:742, note: "['인건비','외주비','재료비','경비','A/S Cost']" }
+    - { name: EXPENSE_PLAN_MONTHS, file: budget-status.js:2119, note: "10개월 2026-07~2027-04" }
+    - { name: laborSignalsFinal, file: budget-area-labor.js:134-144, note: "알림 목업(otUnplanned/pGradeRate/scmInbox)" }
+
+# ── 대표 플로우 ──
+flows:
+  - name: 실투입인건비 계획 수립(SCM 확정 인력 등록)
+    steps:
+      - "#/budget-adjust/labor?pj=budgetMock 진입 → 인건비 편집기"
+      - "알림 'SCM 인력 확정 수신' → [확정 인력 등록] → openLaborScmCandidatePopupFinal"
+      - "'투입가능 인력 리스트' 팝업 radio 선택 → [등록] → registerSelectedScmLaborFinal"
+      - "월별 MM 자동 배분·금액 산출 → rows unshift → persist → syncLaborAssignmentsToBudget"
+      - "예산내역 부모/실투입 자식행, 월별 투입확정(q) 갱신"
+  - name: 이관인건비 계획 등록(Receiver)
+    steps:
+      - "[이관인건비] 탭 → switchLaborKindFinal('transfer')"
+      - "[신규등록] → Receiver Project 폼(이관예정월·금액·사유) → [등록]"
+      - "saveLaborTransferFinal: 금액 양수화·Receiver 정규화 → 요약(받은/보낸/순) 갱신"
+  - name: OT비 계획 보정(미계획 실적 대응)
+    steps:
+      - "알림 'OT비 실적 발생' → [OT비 계획 열기] → laborGoKindFinal('ot')"
+      - "월별 그리드 계획금액 키인 → [계획 저장] → saveLaborOtPlanFinal → OT비 행 반영"
+  - name: 계획 조정 검증
+    steps:
+      - "계획 금액을 투입확정(q)보다 낮추려 하면 saveSimpleAccountPlan 저장 거부(하한 안내)"
+
+# ── 요구사항 후보(FR) ── (인건비.md §11 재사용·정리)
+requirements:
+  - { id: FR-LAB-01, text: "인건비 계정 편집기는 #/budget-adjust/labor?pj=<프로젝트키> 딥링크로 진입(pj 미지정 시 기본 프로젝트)" }
+  - { id: FR-LAB-02, text: "예산내역 표는 '인건비' 부모합계행 1줄을 기본 노출하고, 토글로 실투입/이관/OT 3개 상세계정 행을 펼치고 접을 수 있어야 한다" }
+  - { id: FR-LAB-03, text: "부모행 계획/실적/잔여/월별 값은 상세 3계정의 합계여야 한다" }
+  - { id: FR-LAB-04, text: "상세계정은 실투입·이관·OT 3탭으로 구분되고 탭 선택에 따라 전용 패널을 표시해야 한다" }
+  - { id: FR-LAB-05, text: "실투입인건비 계획은 SCM에서 확정완료된 인력만 선택·등록할 수 있어야 한다(자유 입력 불가)" }
+  - { id: FR-LAB-06, text: "SCM 확정 인력 등록 시 시작/종료일·총MM 수신값으로 월별 MM과 금액을 자동 배분해야 한다" }
+  - { id: FR-LAB-07, text: "동일 SCM 문서번호(scmNo) 인력은 중복 등록을 차단해야 한다" }
+  - { id: FR-LAB-08, text: "SCM 확정완료(done) 상태 인력만 월별 예산의 투입확정(q) 금액으로 반영해야 한다" }
+  - { id: FR-LAB-09, text: "인건비 계획 금액은 해당 월 투입확정 금액보다 작게 저장할 수 없어야 한다(저장 거부 + 안내)" }
+  - { id: FR-LAB-10, text: "이관인건비 신규 계획은 Receiver Project만 등록 가능하고 금액은 양수로 정규화되어야 한다" }
+  - { id: FR-LAB-11, text: "Sender Project/집행완료/actualized 이관 건은 조회 전용이며 수정할 수 없어야 한다" }
+  - { id: FR-LAB-12, text: "이관인건비 요약은 건수·받은(+)·보낸(−)·순 이관금액을 구분 표시하고, 순액을 예산내역 이관인건비 행에 반영해야 한다" }
+  - { id: FR-LAB-13, text: "OT비는 월별 계획금액을 직접 키인해 저장하고 예산내역 OT비 행에 반영해야 한다(계정 701301 단일 사용)" }
+  - { id: FR-LAB-14, text: "SCM I/F로 확정 수신된 미등록 인력이 있을 때 알림과 [확정 인력 등록] 진입을 제공해야 한다" }
+  - { id: FR-LAB-15, text: "계획 없이 OT 정산 실적이 선발생한 경우 경고 알림과 OT비 계획 보정 진입을 제공해야 한다" }
+  - { id: FR-LAB-16, text: "P레벨 단가 확정으로 인한 예산 초과 가능성을 위험 알림으로 안내해야 한다(인력·MM 변동 없어도 초과 가능)" }
+  - { id: FR-LAB-17, text: "등록된 인력 배정 상태는 localStorage에 영속화하고 재진입 시 복원해야 한다" }
+  - { id: FR-LAB-18, text: "각 알림에 대해 AI 해설(원인/영향/조치)을 요청·표시할 수 있어야 하며, API 키는 서버에만 보관해야 한다" }

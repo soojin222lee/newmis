@@ -1,0 +1,510 @@
+# rawdata: 원가조정 계정 - 외주비 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+# 근거: 최종 유효본(가장 나중에 재정의된 override)이 이긴다. budget-area-outsource.js 는
+#       budget-status-*.js 전부 뒤에 로드되는 데코레이터 체인 소유자(실투입 direct = osv3* 최종 소유).
+
+screen:
+  id: s-budget-outsource
+  name: 원가조정 · 외주비 (수행원가 CATS[1])
+  menu_path: 예산관리 > 원가조정 > 외주비
+  route: "#/budget-adjust/outsource?pj=<프로젝트키>"   # pj 미지정 시 'budgetMock' (budget-area-routes.js:37-44)
+  entry: "ROUTE_ACTIONS['budget-adjust/outsource'] → openCostArea('외주비', pj) → costMode='adjust' → openBudgetProjectScreen(pj) → openBudgetAccountEditor('외주비')"
+  source_files:
+    - public/js/budget-area-outsource.js  # 최종 소유자: 예산내역 트리, 실투입(osv3) 재설계 전부(업체보드/PO계획라인/검수계획/분기편중/견적팝업/업체폼), AI 해설 공용
+    - public/js/budget-status-2.js         # 외주비 공유코어: 6종 탭 정의(BPO_OUTSOURCE_KINDS_V2), 전문직·출장·공사MA·이관·기타 패널/폼, 검수조정 모달
+    - public/js/budget-area-routes.js      # 슬러그/라우트, openCostArea
+    - public/js/budget-status.js           # CATS(:742) 등 공통 기반
+    - ai-proxy.js                          # POST /api/ai/explain 핸들러
+  purpose: >
+    원가조정(costMode='adjust') 단계에서 PM이 외주비 계정의 예산내역과 6개 상세계정 계획을 편집한다.
+    실투입대상 외주비는 '업체별 전체기간 예산 1행 + 외주구매 계획 라인 N건 + PO별 월별 검수계획' 3계층으로 재설계되어 있고,
+    PM이 직접 입력하는 값은 계획 라인(기간·금액)과 월별 검수계획(금액·MM)뿐이며, PO번호·실적·집행예정은 구매계약 발생 시 채워진다.
+
+# ── 화면 상태 ──
+states:
+  - id: tree-collapsed
+    when: "outsourceBudgetTreeOpenV3 == false (기본, budget-area-outsource.js:290)"
+    shows: ["외주비 합계 부모행 1줄만(상세계정 6개 합계)"]
+  - id: tree-expanded
+    when: "outsourceBudgetTreeOpenV3 == true (toggleOutsourceBudgetTreeV3)"
+    shows: ["부모행 + 6개 자식행(실투입/전문직/출장/공사MA/이관/기타)"]
+  - id: kind-direct
+    when: "outsourceKind == 'direct' (기본)"
+    shows: ["헤드라인(분기편중 경고+요약) + 업체 보드(osv3RenderVendorBoardV3)"]
+  - id: kind-other
+    when: "outsourceKind in [professional, travel, construction, transfer, other]"
+    shows: ["해당 공유코어 패널(budget-status-2.js)"]
+  - id: vendor-po-open
+    when: "osv3OpenVendorV3 == vendor.id (osv3ToggleVendorV3)"
+    shows: ["업체 행 하위 외주구매 계획(PO) 블록(osv3RenderPoBlockV3)"]
+  - id: plan-panel-open
+    when: "osv3OpenPlanV3 == po.poNo && 계약된 PO (osv3RenderPoBlockV3:1048)"
+    shows: ["월별 검수계획 조정 패널(osv3RenderPlanPanelV3) — 견적대로 채우기(osv3ApplyQuoteV3) 실행 시 자동 오픈"]
+  - id: quote-modal-open
+    when: "osv3QuoteOpenV3 == po.poNo (osv3OpenQuoteV3)"
+    shows: ["구매시스템 견적 팝업(등급별 MM·단가·금액 + 월별 검수제안금액)"]
+  - id: vendor-form-open
+    when: "bpoFormOpenV2 == true (osv3EditVendorV3 / bpoOpenNewV2)"
+    shows: ["업체별 예산 편집폼(osv3RenderVendorFormV3): 업체명/업무명/전체기간/예산"]
+  - id: pace-alert           # 직교 상태(분기 편중)
+    when: "osv3ControlV3(vendor).level == 'warn' (paceRatio − timeRatio > 0.15)"
+    effect: 헤드라인에 '분기 편중 주의' 경고 배너 + [AI 해설] 노출
+  - id: ai-explain-open      # 직교(토글) 상태
+    when: "budget-ai-slot dataset.open == '1' (budget-area-outsource.js:258)"
+    effect: 경고 배너 하단 AI 해설(원인/영향/조치) 노출, 재클릭 시 접힘
+
+# ── 요소(버튼/입력/탭) 인벤토리 ── ★ 버튼 단위 프론트/백엔드 로직
+elements:
+  - id: toggle-outsource-budget-tree
+    label: "외주비 예산내역 접기/펼치기 (∨/∧)"
+    type: button(toggle)
+    area: 예산내역 표 부모행
+    event: onclick
+    front:
+      handler: toggleOutsourceBudgetTreeV3()
+      file: budget-area-outsource.js:302
+      logic: "outsourceBudgetTreeOpenV3 반전 → renderBudgetPage(); 부모행 acct-name 클릭도 동일(event.stopPropagation)"
+      validation: null
+      state_writes: [outsourceBudgetTreeOpenV3]
+    backend: null
+    result: 상세계정 6개 자식행 노출/숨김
+
+  - id: btn-outsource-excel
+    label: 엑셀
+    type: button
+    area: 예산내역 표 헤더 액션
+    event: onclick
+    front:
+      handler: "(목업, 미바인딩)"
+      file: budget-area-outsource.js:351
+      logic: "정적 버튼(엑셀 내보내기 목업 자리)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 없음(목업)
+
+  - id: btn-outsource-actual-detail
+    label: 외주비 실적조회
+    type: button
+    area: 예산내역 표 헤더 액션
+    event: onclick
+    front:
+      handler: "showActualDetailModal('외주비','2026-06','전체')"
+      file: budget-area-outsource.js:352
+      logic: "실적 상세 모달 오픈(계정·기준월·필터 전달)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 외주비 실적 상세 모달
+
+  - id: tab-outsource-kind
+    label: "상세계정 탭 6종(실투입/전문직/출장/공사MA/이관/기타)"
+    type: button(tab, 6개)
+    area: 상세계정 구분 탭
+    event: onclick
+    front:
+      handler: "switchBpoKindV2Final(item.id)"
+      file: "renderBpoOutsourcePanelFinal budget-area-outsource.js:1299-1305 / switchBpoKindV2Final budget-status-2.js:373"
+      logic: "outsourceKind 세팅 + 폼/편집상태 초기화 → 재렌더. direct는 osv3 헤드/보드, transfer는 등록기준 안내 조립, 나머지는 공유 패널 호출(:1273-1295)"
+      validation: null
+      state_writes: [outsourceKind, bpoFormOpenV2, bpoEditingIdV2]
+    backend: null
+    result: 선택 상세계정 패널로 전환
+
+  - id: btn-outsource-new
+    label: 신규등록
+    type: button
+    area: 헤드라인(모든 탭 공통)
+    event: onclick
+    front:
+      handler: "bpoOpenNewV2(outsourceKind)"
+      file: budget-area-outsource.js:1309 → budget-status-2.js:405
+      logic: "bpoFormOpenV2=true, bpoEditingIdV2=null → 신규 폼. direct면 업체 예산폼(osv3RenderVendorFormV3), 그 외 공유 계약/견적 폼"
+      validation: null
+      state_writes: [bpoFormOpenV2, bpoEditingIdV2]
+    backend: null
+    result: 선택 상세계정 신규 등록 폼 오픈
+
+  - id: btn-ai-explain-pace
+    label: "AI 해설 (분기 편중 경고)"
+    type: button(toggle)
+    area: 실투입 헤드라인 경고 배너
+    event: onclick
+    front:
+      handler: "budgetAiExplainV1(slotId, payload)"
+      file: "osv3RenderAlertV3 budget-area-outsource.js:978 → budgetAiExplainV1 :254"
+      logic: "payload {kind:'outsource-pace', title, summary, facts} 로 POST /api/ai/explain → 원인/영향/조치 렌더, 캐시(budgetAiCacheV1). 재클릭 접힘"
+      validation: null
+      state_writes: [budgetAiCacheV1, "slot.dataset.open(DOM)"]
+    backend: { calls: api-ai-explain }
+    result: 경고 배너 하단 AI 해설 블록
+
+  - id: vendor-toggle
+    label: "업체 행 외주구매 계획 펼치기/접기 (∨/∧)"
+    type: button(toggle)
+    area: 실투입 업체 보드 행
+    event: onclick
+    front:
+      handler: "osv3ToggleVendorV3(vendor.id)"
+      file: budget-area-outsource.js:1191,658
+      logic: "osv3OpenVendorV3 토글, osv3OpenPlanV3 초기화 → 재렌더 → PO 블록(osv3RenderPoBlockV3) 노출"
+      validation: null
+      state_writes: [osv3OpenVendorV3, osv3OpenPlanV3]
+    backend: null
+    result: 업체 하위 외주구매 계획(PO) 블록 노출/숨김
+
+  - id: vendor-edit
+    label: 업체별 예산 수정 (✎)
+    type: button
+    area: 업체 보드 행 관리
+    event: onclick
+    front:
+      handler: "osv3EditVendorV3(vendor.id)"
+      file: budget-area-outsource.js:1205,771
+      logic: "bpoFormOpenV2=true, bpoEditingIdV2=vendor.id → 업체 예산 수정 폼"
+      validation: null
+      state_writes: [bpoFormOpenV2, bpoEditingIdV2]
+    backend: null
+    result: 업체별 예산 수정 폼 오픈
+
+  - id: vendor-delete
+    label: 업체 삭제 (×)
+    type: button
+    area: 업체 보드 행 관리
+    event: onclick
+    front:
+      handler: "osv3DeleteVendorV3(vendor.id)"
+      file: budget-area-outsource.js:1206,776
+      logic: "삭제 처리(목업 토스트)"
+      validation: "실적 발생 업체(ctrl.actual > 0)는 삭제 불가 — PO·검수계획 먼저 정리 요구(:779-781)"
+      state_writes: [osv3VendorsV3]
+    backend: null
+    result: 업체별 예산 삭제(실적 없을 때)
+
+  - id: vendor-form-save
+    label: 등록/수정 (업체별 예산 폼)
+    type: button
+    area: 업체 예산 편집폼
+    event: onclick
+    front:
+      handler: osv3SaveVendorV3()
+      file: budget-area-outsource.js:949,871
+      logic: "폼값(업체명/업무명/전체기간/예산) 수집 → 검증 통과 시 신규 push(id=v-<ts36>, pos:[]) 또는 Object.assign 수정 → bpoCloseFormV2"
+      validation: "필수값 미입력(:879); end<start(:883); budget<=0(:887); 수정 시 budget<발행PO합계(:895) / 기간 밖 PO 존재(:899) 차단"
+      state_writes: [osv3VendorsV3, bpoFormOpenV2]
+    backend: null
+    result: 업체별 예산 등록/수정
+
+  - id: vendor-budget-input
+    label: 전체기간 예산 입력(콤마+한글금액)
+    type: input(numeric)
+    dom_id: osv3-f-budget
+    area: 업체 예산 편집폼
+    event: oninput
+    front:
+      handler: "osv3FormatBudgetInputV3(this)"
+      file: budget-area-outsource.js:941,863
+      logic: "숫자만 추출 → fmt 콤마 표기, 한글금액 힌트(osv3-f-budget-hangul) 갱신. 재렌더 없이 DOM만 갱신해 포커스 유지"
+      validation: null
+      state_writes: ["input.value(DOM), 한글힌트(DOM)"]
+    backend: null
+    result: 실시간 콤마/한글 금액 표시
+
+  - id: plan-line-add
+    label: ＋ 계획 라인 (외주구매 계획)
+    type: button
+    area: PO 블록 헤더
+    event: onclick
+    front:
+      handler: "osv3AddPlanLineV3(vendor.id)"
+      file: budget-area-outsource.js:1105,594
+      logic: "미계획 금액 있으면 이전 라인 종료 다음날~업체 종료로 계획 라인 push(poNo='', plan:{}) → 업체 펼침 → 토스트"
+      validation: "미계획 금액(osv3UnplannedV3) <= 0 이면 '예산 모두 편성' 토스트 후 중단(:598-601)"
+      state_writes: [osv3VendorsV3, osv3OpenVendorV3, osv3LineSeqV3]
+    backend: null
+    result: 신규 외주구매 계획 라인 추가(구매계약 전 초안)
+
+  - id: plan-line-field
+    label: "계획 라인 투입기간/금액 입력(초안 라인만)"
+    type: [input(date), input(numeric)]
+    area: PO 블록 계획 라인 행
+    event: onchange
+    front:
+      handler: "osv3SetLineFieldV3(lineId, 'start'|'end'|'amount', value)"
+      file: budget-area-outsource.js:1056,1059,1066,619
+      logic: "amount는 잔여예산 상한(vendor.budget − 타라인합계)으로 clamp; 기간은 업체 전체기간 내로 제한, end<start 보정"
+      validation: "구매계약(poNo) 발생 라인은 수정 불가(:623-627); 금액 상한 초과 시 최대치로 clamp+안내(:633); 기간 밖 값 거부(:635-639)"
+      state_writes: [osv3VendorsV3]
+    backend: null
+    result: 계획 라인 기간·금액 갱신(초안 상태에서만)
+
+  - id: plan-line-delete
+    label: 계획 라인 삭제 (×)
+    type: button
+    area: PO 블록 계획 라인 행 관리
+    event: onclick
+    front:
+      handler: "osv3DeletePlanLineV3(lineId)"
+      file: budget-area-outsource.js:1080,646
+      logic: "해당 라인 제거 → 토스트 → 재렌더"
+      validation: "구매계약(poNo) 발생 라인은 삭제 불가·disabled(:649-651, 1078-1079)"
+      state_writes: [osv3VendorsV3]
+    backend: null
+    result: 초안 계획 라인 삭제
+
+  - id: po-quote-open
+    label: ▦ 견적 (계약된 PO)
+    type: button
+    area: PO 블록 계약 라인 행
+    event: onclick
+    front:
+      handler: "osv3OpenQuoteV3(po.poNo)"
+      file: budget-area-outsource.js:1077,667
+      logic: "osv3QuoteOpenV3=poNo → 견적 팝업(osv3RenderQuoteModalV3) 오픈"
+      validation: null
+      state_writes: [osv3QuoteOpenV3]
+    backend: { note: "견적은 구매시스템 수신값(조회 전용, :358-359)" }
+    result: 구매시스템 견적 팝업
+
+  - id: plan-month-amount
+    label: 월별 검수계획 금액 입력
+    type: input(numeric)
+    area: 월별 검수계획 조정 패널
+    event: onchange
+    front:
+      handler: "osv3SetPlanAmountV3(po.poNo, month, value)"
+      file: budget-area-outsource.js:1016,675
+      logic: "plan[month].amount 갱신 → 재렌더 → 합계칩(PO금액 일치) 갱신"
+      validation: "과거 실적확정월(osv3LockedV3) 이면 무시(readonly, :677)"
+      state_writes: ["po.plan[month].amount"]
+    backend: null
+    result: 월별 검수(대금지급) 금액 갱신
+
+  - id: plan-month-mm
+    label: 월별 검수계획 MM 입력
+    type: input(numeric)
+    area: 월별 검수계획 조정 패널
+    event: onchange
+    front:
+      handler: "osv3SetPlanMmV3(po.poNo, month, value)"
+      file: budget-area-outsource.js:1018,681
+      logic: "plan[month].mm 갱신 → 재렌더"
+      validation: "과거 실적확정월(osv3LockedV3) 이면 무시(readonly, :683)"
+      state_writes: ["po.plan[month].mm"]
+    backend: null
+    result: 월별 투입 MM 갱신
+
+  - id: plan-reset-even
+    label: 균등분배로 재설정
+    type: button
+    area: 월별 검수계획 조정 패널 하단
+    event: onclick
+    front:
+      handler: "osv3ResetEvenV3(po.poNo)"
+      file: budget-area-outsource.js:1030,689
+      logic: "실적확정월 유지, 남은 금액/MM을 나머지(free)월에 균등 배분(1000원 단위, 마지막월 잔차 흡수)"
+      validation: "free월 없으면(전부 실적확정) 토스트 후 중단(:695-698); free 없으면 버튼 disabled(:1030)"
+      state_writes: ["po.plan"]
+    backend: null
+    result: 월별 검수계획 균등 재분배
+
+  - id: quote-apply
+    label: 이 견적대로 검수계획 채우기
+    type: button
+    area: 견적 팝업
+    event: onclick
+    front:
+      handler: "osv3ApplyQuoteV3(po.poNo)"
+      file: budget-area-outsource.js:1157,715
+      logic: "실적확정월 유지, 남은 금액을 견적 quote.monthly 비중대로 배분, MM은 등급별 mms 합 → 검수계획 패널 자동 오픈(osv3OpenPlanV3=poNo)"
+      validation: "견적 대상 월 전부 실적확정이면 변경 불가 토스트 후 팝업 닫힘(:720-725)"
+      state_writes: ["po.plan", osv3QuoteOpenV3, osv3OpenPlanV3]
+    backend: null
+    result: 견적 비중대로 월별 검수계획 채움
+
+  - id: quote-close
+    label: 닫기 (견적 팝업)
+    type: button
+    area: 견적 팝업
+    event: onclick
+    front:
+      handler: osv3CloseQuoteV3()
+      file: budget-area-outsource.js:1156,671
+      logic: "osv3QuoteOpenV3='' → 재렌더. 오버레이 배경 클릭도 닫힘(:1132)"
+      validation: null
+      state_writes: [osv3QuoteOpenV3]
+    backend: null
+    result: 견적 팝업 닫기
+
+  - id: shared-detail-panels
+    label: "전문직/출장/공사MA/이관/기타 패널(공유코어)"
+    type: [panel, form]
+    area: 상세계정 본문(direct 외 5종)
+    event: onclick
+    front:
+      handler: "renderBpoContractPanelV2('professional') / renderBpoTravelPanelV2 / renderBpoMaPanelV2 / renderBpoListTableV2('transfer',...)+renderBpoTransferFormV2 / renderBpoOtherPanelV2"
+      file: budget-area-outsource.js:1273-1295, budget-status-2.js
+      logic: "kind별 공유코어 패널 위임. 이관은 등록기준 안내(bpo-rule-note)만 헤드라인으로 올려 조립. 저장 목업 bpoSaveMockV2(:1258), 검수확정 bpoConfirmInspectionV2(월별원가 반영 플래그)"
+      validation: "이관은 Receiver만 신규등록·Sender/집행완료 조회전용(:509-511); 공사MA 검수완료 라인 검수집행월 수정불가(:1247-1251)"
+      state_writes: [bpoFormOpenV2, bpoMonthlyCostReadyV2, "각 kind rows"]
+    backend: { note: "PO 리스트 팝업 renderBpoPoPopupInlineV2, MA 견적 select 등 구매시스템 연동 목업" }
+    result: 상세계정별 계획 등록/수정
+
+# ── 비즈니스 로직 & 규칙 ──
+business:
+  - id: BL-OS-3tier
+    rule: "실투입대상 외주비 3계층(budget-area-outsource.js:377-464)"
+    detail: "업체(전체기간 예산 1행) → 외주구매 계획 라인 N건(구매계약 전 초안, PM 입력) → PO별 월별 검수계획. PO번호·실적·집행예정은 구매계약 발생 시 채워짐."
+  - id: BL-OS-pace-control
+    rule: "분기 편중 통제(osv3ControlV3, budget-area-outsource.js:579-590)"
+    detail: >
+      timeRatio=경과분기/전체분기(기준월 2026-06=Q2 기준), paceRatio=발행액/예산.
+      level = (paceRatio − timeRatio > 0.15) ? 'warn' : 'ok'. PO 발행이 예산 초과하는 상태는 계약 시점 상한으로 막혀 ok/warn 2단계.
+  - id: BL-OS-line-cap
+    rule: "계획 라인 금액 상한(osv3SetLineFieldV3, :628-633)"
+    detail: "라인 금액 = min(입력값, vendor.budget − 타 라인 합계). 잔여예산이 계약/계획 상한."
+  - id: BL-OS-unplanned-spread
+    rule: "미계획 금액 잔여기간 균등배분(osv3UnplannedV3/osv3UnplannedMonthV3, :542-566)"
+    detail: "전체기간 예산 − 계획 라인 합계 = 미계획 금액 → 기준월 다음달~종료월에 균등 배분 표시."
+  - id: BL-OS-budget-link
+    rule: "예산내역 실투입 행 실데이터 연동(getMonthlyBudgetRows override, :813-827)"
+    detail: "계획=Σ업체 전체기간 예산, 실적=ΣPO 실적, 월별=Σ계획라인 월별금액+미계획 균등배분(osv3MonthPlanTotalV3). 나머지 5종은 기존 비율 유지, 부모 합계행은 6종 직접 합산(:313-316)."
+  - id: BL-OS-inspection-lock
+    rule: "월별 검수계획 합계 시각 검증(osv3RenderPlanPanelV3:1007,1031-1036)"
+    detail: "diff=Σplan.amount − PO금액. diff=0이면 'PO금액과 일치' ok칩, 아니면 차액 bad칩(저장 막는 하드검증 아님, 시각 경고)."
+
+validation:
+  - id: VAL-OS-vendor-save
+    where: "osv3SaveVendorV3 (budget-area-outsource.js:879-903)"
+    rule: "필수값(업체명/업무명/기간) · end>=start · budget>0 · (수정)budget>=발행PO합계 · (수정)전체기간 밖 PO 없음"
+  - id: VAL-OS-past-lock
+    where: "osv3SetPlanAmountV3/osv3SetPlanMmV3 (:677,683) via osv3LockedV3 (:502)"
+    rule: "실적확정 과거월(month<'2026-07' 또는 isPastActualMonth)은 검수계획 금액/MM 수정 불가"
+  - id: VAL-OS-contracted-line
+    where: "osv3SetLineFieldV3 / osv3DeletePlanLineV3 (:623-627,649-651)"
+    rule: "구매계약(poNo) 발생 계획 라인은 기간·금액 수정 및 삭제 불가"
+  - id: VAL-OS-vendor-delete
+    where: "osv3DeleteVendorV3 (:779-781)"
+    rule: "실적 발생(ctrl.actual>0) 업체는 삭제 불가"
+  - id: VAL-OS-line-cap
+    where: "osv3SetLineFieldV3 amount (:628-633)"
+    rule: "계획 라인 금액은 잔여예산(예산−타라인합계)을 넘을 수 없음(초과 시 clamp+안내)"
+  - id: VAL-OS-transfer-receiver
+    where: "renderBpoListTableV2/renderBpoTransferPanelV2 (:509-511,1114-1121)"
+    rule: "이관외주비 신규등록은 Receiver Project만, Sender·집행완료는 조회 전용"
+  - id: VAL-OS-ma-inspected
+    where: "renderBpoMaFormV2 (:1247-1251)"
+    rule: "공사MA 검수완료(inspected) 라인은 검수집행월 수정 불가"
+
+# ── 백엔드 API / 외부 연동 상세 ──
+apis:
+  - id: api-ai-explain
+    path: /api/ai/explain
+    method: POST
+    handler: "ai-proxy.js (POST /api/ai/explain, GET /api/ai/health)"
+    request: { kind: string, title: string, summary: string, facts: object }
+    pipeline:
+      - "kind별 규칙 기반 기본 해설 매핑(outsource-pace 등, ai-proxy.js:84-86,92-94)"
+      - "OPENAI_API_KEY 있으면 LLM 호출(cause/impact/action JSON), 없으면 로컬 폴백(source:'fallback')"
+    response: { ok: boolean, cause: string, impact: string, action: string, source: "ai|fallback", model?, cached? }
+    security:
+      - "API 키는 서버(.env)만 보유, 브라우저엔 숫자·상황만 전송(budget-area-outsource.js:200-202,215)"
+    consumers: "분기 편중 warn 배너 [AI 해설] (budget-area-outsource.js:978)"
+  - id: if-purchase-system
+    kind: 외부연동(구매시스템 PO/견적)
+    detail: >
+      실투입 PO 금액·MM·견적은 구매시스템 수신값(조회 전용, budget-area-outsource.js:358-359,793). 계획 라인에
+      구매계약이 발생하면 poNo·fx·actual·planned가 채워지고 기간·금액이 확정(수정 잠금)된다. 견적 팝업
+      osv3RenderQuoteModalV3(:1122)이 등급·월별 비중 표시. 공유코어 폼도 견적번호 검색(⌕)·PO 리스트 팝업
+      renderBpoPoPopupInlineV2(budget-status-2.js:1192)·MA 견적 select를 통해 연동(목업).
+    note: >
+      참고: osv3ReceivePoV3(:750, 'PO 수신' 구매시스템 조회 시뮬레이션)는 정의되어 있으나 최종 렌더의 업체 보드
+      버튼에는 바인딩되어 있지 않다. 최종 유효본에서 PM의 진입점은 [＋ 계획 라인](osv3AddPlanLineV3)이며,
+      PO 수신 통제 로직(잔여예산·기간 종료)은 osv3ControlV3 지표로 대체·유지된다.
+  - id: if-monthly-cost
+    kind: 외부연동(월별 원가 반영)
+    detail: "검수계획 저장·확정(bpoConfirmInspectionV2, budget-status-2.js:1157-1165) 시 bpoMonthlyCostReadyV2 플래그 → '월별 외주비 원가 등록 대상 반영' 토스트."
+
+# ── 데이터 모델 (계정 rows) ──
+data:
+  account: 외주비 (CATS[1], budget-status.js:742)
+  state_vars:
+    - { name: outsourceBudgetTreeOpenV3, shape: boolean, file: budget-area-outsource.js:290, purpose: "예산내역 트리 펼침(기본 false)" }
+    - { name: outsourceKind, shape: "6종 id", file: budget-status-2.js, purpose: "현재 상세계정 탭(기본 direct)" }
+    - { name: osv3OpenVendorV3, shape: string, file: budget-area-outsource.js:470, purpose: "PO 블록 펼친 업체 id" }
+    - { name: osv3OpenPlanV3, shape: string, file: budget-area-outsource.js:471, purpose: "검수계획 펼친 PO번호" }
+    - { name: osv3QuoteOpenV3, shape: string, file: budget-area-outsource.js:472, purpose: "견적 팝업 PO번호" }
+    - { name: bpoFormOpenV2, shape: boolean, file: budget-status-2.js:280, purpose: "폼 열림" }
+    - { name: bpoEditingIdV2, shape: string, file: budget-status-2.js:281, purpose: "편집 대상 id(업체/계획)" }
+    - { name: bpoMonthlyCostReadyV2, shape: boolean, file: budget-status-2.js:287, purpose: "월별원가 반영 플래그" }
+    - { name: budgetAiCacheV1, shape: "{slotId: 해설결과}", file: budget-area-outsource.js:220, purpose: "AI 해설 캐시" }
+  rows:
+    - name: osv3VendorsV3 (실투입 업체)
+      file: budget-area-outsource.js:377-464
+      fields: [id, vendor, contract, budget, "start('YYYY-MM-DD')", end, "pos[](PO/계획라인)"]
+      po_fields: [lineId, poNo, "fx('USD 11,000')", start, end, amount, mm, actual, planned, "plan{'YYYY-MM':{amount,mm}}", "quote{grades[],monthly[]}"]
+      note: "PM 입력=계획라인 기간·금액 + 월별 검수계획(plan). PO번호/actual/planned/quote=구매계약 수신값. 목업 3개 업체(아크로/펜타/인젠트)"
+      persist: "메모리 목업(영속화 없음)"
+    - name: "bpoProfessionalPlansV2 / bpoProfessionalQuoteDetailsV2 (전문직)"
+      file: budget-status-2.js:322-324,311-315
+      note: "역할(role) 기반 견적(PMO/제안전략/품질검토, assignType Full/Part)"
+    - name: bpoTravelPlansV2 (외주출장비)
+      file: budget-status-2.js:326-329
+      fields: [requestNo, contractNo, buyer, person, detail, month, amount, air, hotel, traffic, day, etc, etcText, actualized]
+    - name: "bpoMaPlansV2 / bpoMaQuoteRowsV2 (공사MA)"
+      file: budget-status-2.js:348-351,341-346
+      fields: [quoteNo, standard, unit, qty, start, end, cycle, unitPrice, amount]
+    - name: bpoTransferPlansV2 (이관외주비)
+      file: budget-status-2.js:331-334
+      fields: [direction, month, amount, reason, status]
+      note: "direction=Receiver(+)/Sender(−)"
+    - name: bpoOtherPlansV2 (기타외주비)
+      file: budget-status-2.js:336-339
+      fields: [month, amount, description, status, actualized]
+  derived:
+    - { name: osv3VendorSumV3, file: budget-area-outsource.js:567, formula: "ΣPO issued/actual/planned/mm" }
+    - { name: osv3ControlV3, file: budget-area-outsource.js:579, formula: "remain/timeRatio/paceRatio/level 분기편중 지표" }
+    - { name: osv3PlanTotalV3, file: budget-area-outsource.js:510, formula: "Σplan[m].amount" }
+    - { name: osv3TotalsV3, file: budget-area-outsource.js:800, formula: "계정 총계 budget/issued/actual/planned" }
+  constants:
+    - { name: BPO_OUTSOURCE_KINDS_V2, file: budget-status-2.js:271-278, note: "6종 상세계정 탭 정의" }
+    - { name: OSV3_DETAIL_ICONS, file: budget-area-outsource.js:293-300, note: "상세계정 트리 아이콘" }
+
+# ── 대표 플로우 ──
+flows:
+  - name: 실투입대상 외주비(핵심)
+    steps:
+      - "#/budget-adjust/outsource?pj=budgetMock 진입 → 외주비 편집기(예산내역 표 + 상세계정 탭)"
+      - "'실투입대상 외주비' 탭(기본). 헤드라인 분기편중 경고 + 요약"
+      - "[신규등록] → 업체 예산폼(업체명/업무명/전체기간/예산) → [등록](osv3SaveVendorV3)"
+      - "업체 행 ∨ 펼침 → [＋ 계획 라인](osv3AddPlanLineV3)으로 구매견적 맞춰 기간·금액 입력"
+      - "구매계약 발생 시 PO번호·실적 채워짐(조회 전용). PO 행 [▦ 견적] → [이 견적대로 검수계획 채우기](osv3ApplyQuoteV3) 또는 [균등분배로 재설정](osv3ResetEvenV3)"
+      - "합계 칩으로 PO금액 일치 확인. 과거 실적확정월은 잠김"
+      - "분기 편중 warn 시 [AI 해설]로 원인/영향/조치 확인"
+  - name: 나머지 상세계정
+    steps:
+      - "전문직/공사MA: 탭 → [신규등록] → 견적 Y/N → 견적라인 선택/직접입력 → 검수집행월 → 저장"
+      - "외주출장비: [신규등록] → 계약번호 ⌕로 PO 선택 → 출장내역/집행월/금액 → 등록"
+      - "이관외주비: Receiver만 [신규등록](이관월/금액/사유), Sender는 조회 전용"
+      - "기타외주비: [신규등록] → 집행월/금액/설명 → 등록"
+
+# ── 요구사항 후보(RQ) ── (외주비.md §11 재사용·정리; 최종 유효본의 '계획 라인' 모델 반영)
+requirements:
+  - { id: RQ-OS-01, text: "외주비는 6개 상세계정(실투입/전문직/외주출장/공사MA/이관/기타)으로 분류하고 상세계정 단위로 계획을 등록·수정할 수 있어야 한다" }
+  - { id: RQ-OS-02, text: "실투입대상 외주비는 '업체별 전체기간 예산 1건 → 외주구매 계획 라인 N건 → PO별 월별 검수계획'의 3계층으로 편성되어야 한다" }
+  - { id: RQ-OS-03, text: "PO번호·금액·실적·집행예정·견적은 구매계약 발생 시 구매시스템 수신값으로 채워지며(조회 전용), PM은 계획 라인(기간·금액)과 월별 검수계획(금액·MM)만 입력할 수 있어야 한다" }
+  - { id: RQ-OS-04, text: "시스템은 기간 경과율 대비 예산 발행율이 15%p 초과 앞서면 '분기 편중' 경고를 표시해야 한다(warn/ok 2단계)" }
+  - { id: RQ-OS-05, text: "계획 라인 금액은 잔여예산(전체기간 예산 − 편성 합계)을 상한으로 하고, 예산 소진 시 신규 계획 라인 추가를 차단해야 한다" }
+  - { id: RQ-OS-06, text: "실적이 확정된 과거월(기준월 이전)의 월별 검수계획은 수정할 수 없어야 한다" }
+  - { id: RQ-OS-07, text: "월별 검수계획은 균등분배 재설정 및 견적 비중대로 자동 채우기를 제공하되, 실적확정월은 보존해야 한다" }
+  - { id: RQ-OS-08, text: "월별 검수계획 합계는 PO 금액과 일치 여부를 시각적으로 표시해야 한다" }
+  - { id: RQ-OS-09, text: "업체 예산 저장 시 필수값·기간 유효성·발행 PO 합계 미만 예산·기간 외 PO 여부를 검증해야 한다" }
+  - { id: RQ-OS-10, text: "실적이 발생한 업체는 삭제할 수 없어야 한다" }
+  - { id: RQ-OS-11, text: "이관외주비는 Receiver Project만 신규등록 가능하고, Sender Project(집행완료)는 조회 전용으로 처리해야 한다" }
+  - { id: RQ-OS-12, text: "공사MA는 구매 견적라인(표준품명·단위·주기·단가)을 선택해 검수집행월을 지정하되, 검수완료 라인은 검수집행월을 수정할 수 없어야 한다" }
+  - { id: RQ-OS-13, text: "외주출장비는 PO를 매핑하고 항공·숙박·교통·일당·기타로 구성된 출장금액과 집행예정월을 등록해야 한다" }
+  - { id: RQ-OS-14, text: "외주비 예산내역은 6개 상세계정 합계 부모행 + 접기/펼치기 자식행으로 표시하고, 실투입 행은 업체/PO/검수계획 실데이터로 산출해야 한다" }
+  - { id: RQ-OS-15, text: "분기 편중 경고에 대해 AI 해설(원인/영향/조치)을 요청할 수 있어야 하며, API 키는 서버에만 보관하고 브라우저로 노출하지 않아야 한다" }
+  - { id: RQ-OS-16, text: "외주비 편집기는 #/budget-adjust/outsource?pj=<프로젝트키> 딥링크로 직접 진입 가능해야 한다" }
+  - { id: RQ-OS-17, text: "검수계획 저장·확정 시 해당 월이 월별 외주비 원가 등록 대상에 반영되어야 한다" }

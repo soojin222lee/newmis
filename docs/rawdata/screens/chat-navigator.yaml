@@ -1,0 +1,370 @@
+# rawdata: 메인 채팅 AI 어시스턴트 & 화면 네비게이터 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+# 주의: app.js는 여러 차수 재정의됨(호이스팅). 본 문서는 "파일 마지막 = 최종 유효본" 기준.
+
+screen:
+  id: s-chat-navigator
+  name: 메인 채팅 AI 어시스턴트 & 화면 네비게이터 (오케스트레이터 + 4 Agent)
+  menu_path: 전역(홈 검색·퀵숏컷·네비게이터에서 진입, 단일 오버레이 대화창)
+  route: "오버레이 #ai-chat-overlay (해시 라우트 없음) — 이동 목적지는 각 화면 딥링크"
+  entry: "openAiChat(entry, initialQuery) (최종 app.js:2132)"
+  source_files:
+    - public/js/app.js                # 채팅 UI·인텐트 라우팅·네비게이터·문맥 조립(핵심)
+    - server.js                       # /api/chat, /api/navigate, callLLM, 폴백
+    - public/js/dashboard.js          # 홈 #ai-main-query, askFromHome, homeSelectedProject·HOME_FEED·homeFinOf 문맥 소스
+    - public/index.html               # #ai-chat-overlay(252), 퀵 숏컷 버튼(279~289)
+    - ai-proxy.js                     # /api/ai/explain·health (동일 키·폴백 규약 공유, 채팅과 직접연관 없음)
+  purpose: >
+    단일 대화창에서 오케스트레이터(AI 어시스턴트)가 자연어 질문의 유형을 판정하고
+    담당 Agent(navi/q/risk/todo)에게 배정한다. 답변형(q) 질문은 답변 + 관련 화면 자동이동(navToRelevant) + 우측 도킹(dockAiChat)이
+    함께 일어나고, 이동의도(navi)는 서버 /api/navigate로 화면을 골라 딥링크 이동 + 도킹한다.
+
+# ── 화면(대화창) 상태 ──
+states:
+  - id: overlay_open
+    when: "#ai-chat-overlay.open (docked 아님)"
+    shows: [헤더, 질문고정바, 대화본문, 입력창]
+    note: 전체 오버레이 모달. 바깥 클릭 시 closeAiChat()
+  - id: docked
+    when: "#ai-chat-overlay.open.docked && body.chat-docked"
+    shows: ["‹ 메인으로 버튼", "⚡ 자동 처리 N건 버튼", 우측 도킹된 대화]
+    effect: "화면 이동과 동시에 대화를 우측에 남긴다 (dockAiChat 최종 app.js:1561)"
+  - id: intro_roster
+    when: "openAiChat(entry) 에서 entry가 navi|q|risk|todo 가 아님(main 등)"
+    shows: ["무엇을 도와드릴까요?", 4 Agent 로스터, 예시 버튼]
+  - id: agent_intro
+    when: "entry ∈ {navi,q,risk,todo}"
+    shows: [해당 Agent 인트로(agentIntroHtml), "todo→chatOpenTodos / risk→chatOpenRisks / navi→naviCardHtml"]
+  - id: closed_fab
+    when: "docked에서 닫음 && 메인아님 && 대화있음"
+    shows: ["재열기 FAB #ai-chat-fab (💬)"]
+    effect: "대화를 지우지 않고 FAB으로 남긴다 (closeAiChat app.js:1583)"
+
+# ── 요소(입력/버튼/칩) 인벤토리 ── ★ 요소 단위 프론트/백엔드 로직
+elements:
+  - id: input-home-query
+    label: 홈 검색 입력 (채팅 진입)
+    type: input
+    dom_id: ai-main-query
+    area: 홈 대시보드
+    event: "Enter / 전송 버튼"
+    front:
+      handler: askFromHome()
+      file: app.js:429
+      logic: "input.value 트림 → openAiChat('main', q || undefined) → 값 있으면 즉시 sendAiChat()"
+    backend: { calls: "질의 유형에 따라 input-chat-query 참조" }
+    result: 대화창 열림 + 첫 질의 자동 전송
+
+  - id: btn-example
+    label: 홈 예시 질문 버튼
+    type: button
+    area: 홈
+    event: onclick
+    front:
+      handler: "askExample(text)"
+      file: app.js:435
+      logic: "openAiChat('main', text) → 즉시 전송"
+
+  - id: btn-quick-shortcut
+    label: 퀵 숏컷 버튼 (navi/q/pilot)
+    type: button
+    area: index.html:279~289
+    event: onclick
+    front:
+      handler: "openQuickShortcut(kind)"
+      file: app.js:428
+      logic: "openAiChat(kind) — 해당 Agent 인트로로 대화창 오픈"
+
+  - id: btn-open-navigator
+    label: 네비게이터 직접 진입
+    type: button
+    event: onclick
+    front:
+      handler: openNavigator()
+      file: app.js:1260
+      logic: "openAiChat('navi') → naviCardHtml() 화면 목록 카드 노출"
+
+  - id: input-chat-query
+    label: 대화 입력창 (질의 전송)
+    type: input
+    dom_id: ai-chat-query
+    area: 대화창 하단
+    event: "Enter / 전송 버튼"
+    front:
+      handler: sendAiChat()
+      file: app.js:2081
+      logic: >
+        text 트림(빈값 중단) → aiUserMsg(text)·입력창 비움 → setChatAskBar(text)(최초1회 고정)
+        → routeIntents(text) 담당목록 산출 → aiOrchestratorMsg 노출
+        → 각 담당 560+i*640ms 간격 타이핑 후 render()
+        → 담당에 q 있고 navi 없으면 navToRelevant(text) 추가 호출
+      state_writes: [chatAskText]
+    backend: { calls: "각 render()가 /api/chat 또는 /api/navigate 호출" }
+    result: 오케스트레이터 라인 + 담당 Agent 순차 답변 (+답변형이면 화면 자동이동·도킹)
+
+  - id: navi-chip
+    label: 네비게이터 화면 칩 (NAV_ROUTES 나열)
+    type: button
+    area: naviCardHtml 카드
+    event: onclick
+    front:
+      handler: "naviPick(key)"
+      file: app.js:1264
+      logic: "navGo(key) 로 딥링크 이동 → dockAiChat()으로 대화 우측 도킹"
+    values_source: "NAV_ROUTES 10종 (app.js:1216)"
+    result: 선택 화면으로 즉시 이동 + 대화 유지
+
+  - id: btn-navi-goto-now
+    label: "지금 이동 → (길안내 카드 액션)"
+    type: button
+    area: chatNavigate 렌더 카드
+    event: onclick
+    front:
+      handler: "navGo(route.key)"
+      file: app.js:1312
+      logic: "서버가 고른 route로 즉시 이동(카드는 850ms 후 자동 이동도 예약)"
+
+  - id: btn-chat-home
+    label: "‹ 메인으로 (도킹 시 주입)"
+    type: button
+    area: 대화 헤더(docked)
+    event: onclick
+    front:
+      handler: "showMain()"
+      file: app.js:1573 (dockAiChat 주입)
+
+  - id: btn-chat-auto
+    label: "⚡ 자동 처리 N건 (도킹 시 주입)"
+    type: button
+    area: 대화 헤더(docked)
+    front:
+      handler: ensureChatAutoBtn()
+      file: app.js:1528/1576
+
+  - id: btn-chat-close
+    label: 닫기
+    type: button
+    area: 대화 헤더
+    event: onclick
+    front:
+      handler: closeAiChat()
+      file: app.js:1583
+      logic: "오버레이 open 제거·undock. 도킹상태였고 메인아니고 대화있으면 showChatFab() (대화 보존)"
+
+  - id: fab-reopen
+    label: "재열기 FAB (💬)"
+    type: button
+    dom_id: ai-chat-fab
+    front:
+      handler: ensureChatFab()/showChatFab()
+      file: app.js:1543~1558
+
+# ── 인텐트 라우팅 규칙 (routeIntents 최종, app.js:2021) ──
+# 입력 텍스트 공백 전부 제거 후 판정. 아래 우선순위대로 단락 판정.
+intent_routing:
+  preprocess: "t = String(text).replace(/\\s/g,'')"
+  priority:
+    - step: 1
+      name: 메인복귀(단독)
+      when: "/(메인|홈|처음|첫화면|대시보드)/ AND /(가|이동|보여|복귀|돌아|줘)/"
+      result: "[navi] 단독 — 안내 후 450ms 뒤 showMain()"
+    - step: 2
+      name: 화면이동 네비게이터(단독)
+      when: >
+        이동동사 /(가고싶|가줘|데려가|이동하|이동해|이동시|열어줘|화면으로|화면 보여|보여줘|바로가|네비게|navigate)/
+        AND 주제어 /(화면|인사이트|레포트|보고서|원가|실적|계획|비교|소진|버전|예산|현황|조정|프로젝트|cost|SQL)/
+      result: "[navi] 단독 — chatNavigate(text) (서버 /api/navigate 실제 이동)"
+    - step: 3
+      name: "확인해야 할 것류(복합)"
+      when: "/(확인할것|확인사항|확인해야|확인필요|점검할|다보여|전부보여|모두보여)/"
+      result: "[risk, todo] 둘 다 추가 (chatOpenRisks + chatOpenTodos)"
+    - step: 4
+      name: 개별 판정기 순회(INTENT_RULES)
+      when: "걸리는 규칙 모두 수집, key로 중복제거, 최대 INTENT_MAX=3"
+      result: "매칭된 agent들 순차 응답"
+    - step: 5
+      name: 일반 이동의도 폴백
+      when: "위 미매칭 && /(찾아|어디|어떻게|화면|이동|바로가기|절차|방법|메뉴|열어|가줘|보여줘|이동해|가고싶|데려가)/"
+      result: "[navi] chatNavigate(text)"
+    - step: 6
+      name: 그 외
+      result: "[q] askLLMAnswer(text) (서버 /api/chat LLM)"
+  intent_rules:   # app.js:1982, key로 중복 제거
+    - { key: nav,       agent: navi, trigger: "찾아줘/어디서/바로가기/화면으로/열어줘/가줘/데려가/이동하/네비게 등", render: "chatNavigate(text)" }
+    - { key: risk,      agent: risk, trigger: "이상징후/이상/징후/리스크/위험/경고/급증/정합성/알림", render: "chatOpenRisks()" }
+    - { key: auto,      agent: todo, trigger: "자동반영/자동처리/AI가처리/알아서", render: "pilotAutoHtml()" }
+    - { key: trust,     agent: todo, trigger: "위임/자동조종/얼마나믿/신뢰도", render: "pilotTrustHtml()" }
+    - { key: todo,      agent: todo, trigger: "할일/해야할/처리할/투두/todo/오늘/브리핑", render: "chatOpenTodos()" }
+    - { key: whatif,    agent: q,    trigger: "하면/한다면/투입하면/늘리면/줄이면/시뮬/가정/만약", render: "pilotWhatIfHtml(text)" }
+    - { key: outsource, agent: q,    trigger: "외주비 AND (왜|늘|증가|많|올랐)", render: "qOutsourceHtml()" }
+    - { key: rate,      agent: q,    trigger: "원가율", render: "qCostRateHtml()" }
+    - { key: compare,   agent: q,    trigger: "계획대비", render: "qComparePlanHtml()" }
+
+# ── 백엔드 API 상세 ──
+apis:
+  - path: /api/chat
+    method: POST
+    handler: "handleChat (server.js:595)"
+    caller: "askLLMAnswer (app.js:1201) — q 인텐트/기타 질의"
+    request:
+      question: "문자열(필수, 비면 400)"
+      context: "chatPjtContext() (app.js:1141): { project, finance{cp,plan,act,left,rate,mgap,accounts[]}, todos[] }"
+    prompt_gist: >
+      buildChatPrompt (server.js:551): "아래는 실행예산 시스템의 현재 데이터다. 이 숫자만 근거로 답하고 없는 수치는 추측 금지."
+      + 문맥(대상PJT/계약·계획·실적·잔여/예상원가율 85%기준선/당월gap/계정별/확인필요항목) + '질문:'(500자 절단).
+      system: "비개발자 PM에게 간결한 한국어, 마크다운·불릿 금지".
+    response: "{ answer, source: 'ai'|'fallback', note?: 에러/empty 사유 }"
+    fallback: >
+      localChatAnswer (server.js:576): 키 없거나 LLM 오류/빈응답 시 문맥 숫자로 규칙기반 문장 생성
+      (계약/계획/실적/잔여/원가율, 85% 초과 시 '조기경보 대상', 여력 최저 계정, 확인필요 건수/목록).
+      finance 없으면 "프로젝트를 선택하면 더 구체적으로".
+    render: "llmAnswerHtml (app.js:1183) — source=ai면 'AI 답변', 아니면 '규칙 기반 답변'+키 미설정 노트, \\n→<br>"
+
+  - path: /api/navigate
+    method: POST
+    handler: "handleNavigate (server.js:522)"
+    caller: "navToRelevant(app.js:1284, 조용한 이동) / chatNavigate(app.js:1296, 길안내 카드)"
+    request:
+      message: "사용자 자연어(필수, 비면 400)"
+      routes: "NAV_ROUTES를 {key,label,desc}로 축약 전달 (app.js:1286/1299)"
+    prompt_gist: >
+      buildNavPrompt (server.js:511): "이동하고 싶어하는 화면을 목록에서 딱 하나 고른다" + 'key : label — desc' 목록
+      + 사용자 메시지 → JSON 한 개만 출력 {"key","reply(선택이유 1문장)"}.
+      system: "화면 네비게이터, 지정된 JSON으로만".
+    parse: "코드펜스/{...} 추출 후 JSON 파싱. key 없거나 유효 routes에 없으면 폴백"
+    response: "{ key, reply, source: 'ai'|'fallback' }"
+    fallback: >
+      localNavigate (server.js:494): 정규식 우선순위 — 기본 insights-overview;
+      버전|돌려|배분→insights-version; 소진|cost|원가+(실적|계획|비교)|비교→insights-progress;
+      종합|현황|kpi|트렌드+인사이트→insights-overview; 자연어|물어|질의|sql→ai-report;
+      레포트|보고서|조회→custom-report; 원가조정|조정|계정+예산→budget-adjust;
+      원가현황|수행원가→budget-status; 수주→si-project; 메인|홈→dashboard.
+      선택 키가 유효 routes에 없으면 첫 route로 대체.
+
+  - path: 공통 callLLM
+    handler: "callLLM (server.js:178)"
+    note: >
+      OpenAI Chat Completions 서버 경유 호출. 키는 process.env.OPENAI_API_KEY에서만 읽음(코드/깃 미저장),
+      모델 OPENAI_MODEL || 'gpt-4o-mini', 타임아웃 20초. 키 없으면 LLM 미호출 → 로컬 폴백(source:'fallback').
+
+  - path: (참고) 인접 엔드포인트
+    note: "동일 키·폴백 패턴 — /api/budget-summary, /api/report-summary, /api/insight, /api/progress-summary, /api/nl2sql, /api/report-assist, ai-proxy.js /api/ai/explain·health"
+
+# ── 데이터 모델 ──
+data:
+  nav_routes:   # app.js:1216 — 서버 LLM이 고르는 화면 목록
+    - { key: insights-overview, label: "인사이트 · 종합 현황", desc: "프로젝트 KPI, 월별 원가 트렌드, AI 인사이트 종합" }
+    - { key: insights-progress, label: "인사이트 · 원가 소진율", desc: "원가/계획/실적 비교, 소진율·진척, 계정별 원가 vs 계획 vs 실적, 합의 Cost 분해" }
+    - { key: insights-version,  label: "인사이트 · 버전별 예산", desc: "실행예산 버전별 계정 배분 변동(예산 돌려쓰기)" }
+    - { key: ai-report,         label: "AI 레포트",        desc: "자연어로 물어보면 SQL로 데이터를 조회" }
+    - { key: custom-report,     label: "맞춤 레포트",       desc: "필드를 골라 프로젝트/실행예산 데이터 조회" }
+    - { key: budget-status,     label: "수행원가 · 원가현황", desc: "프로젝트 수행원가 계획/실적 현황" }
+    - { key: budget-adjust,     label: "수행원가 · 원가조정", desc: "인건비/외주비/재료비/경비 계정별 예산 조정" }
+    - { key: budget-history,    label: "수행원가 · 변경이력", desc: "실행예산 버전 변경 이력" }
+    - { key: si-project,        label: "수주형 프로젝트",    desc: "수주형 프로젝트 목록/상세" }
+    - { key: dashboard,         label: "메인 / 홈",         desc: "내 업무 홈 화면" }
+  navGo_mapping:   # app.js:1240 — 키 → 실제 이동 방식
+    - { key: "insights-overview/progress/version", how: "location.hash = #/insights/<tab> (insId 있으면 ?pj=<insId> 부착)" }
+    - { key: "budget-status/adjust/history",       how: "location.hash = #/<base> (bKey 있으면 ?pj=<bKey> 부착)" }
+    - { key: ai-report,     how: "showAiReport()" }
+    - { key: custom-report, how: "showCustomReport()" }
+    - { key: si-project,    how: "showSIProject()" }
+    - { key: dashboard(기본), how: "showMain()" }
+  home_to_ins:     # app.js:1229 — 홈 프로젝트 id → 인사이트 프로젝트 id (없으면 null → 인사이트 기본)
+    fn: "homeSelInsightsId() (app.js:1230)"
+    map: { skon: pj7f3a9c, logi: pj2b8e14, migr: pj9c4d7a, erp: pj61e2d8 }
+  home_to_budget:  # app.js:1235 — 홈 프로젝트 id → 수행원가 프로젝트 key (없으면 null → 목록)
+    fn: "homeSelBudgetKey() (app.js:1236)"
+    map: { skon: cloud, logi: mobile, migr: erp, erp: erp, sec: sec, cloud: cloud, mob: mobile, dw: budgetMock, aidoc: budgetMock }
+  agents:          # 최종값 app.js:1774~1794 (Object.assign으로 확정)
+    - { key: navi, name: 화면 길잡이,   role: 화면·절차 안내,  css: ag-navi }
+    - { key: q,    name: 데이터 분석,   role: 숫자의 이유,     css: ag-q }
+    - { key: risk, name: 이상징후 감시, role: 위험 신호 경고,  css: ag-risk, cat: budget }
+    - { key: todo, name: 할 일 도우미,  role: 조치 업무 제시,  css: ag-todo, cat: work, note: "구 pilot 키 흡수(app.js:1791)" }
+    - { key: ORCH, name: AI 어시스턴트, role: 질의 유형 판정 (app.js:1797) }
+  state_vars:
+    - { name: chatAskText,        shape: string, file: app.js:2104, purpose: 고정된 첫 질의(최초1회) }
+    - { name: homeSelectedProject, shape: string, file: dashboard 계열, purpose: "현재 선택 프로젝트(미정의 시 'all')" }
+    - { name: INTENT_MAX,         shape: number(3), file: app.js:1979, purpose: 동시 응답 Agent 최대수 }
+  local_fallback_dict:
+    - { name: NAVI_SCREENS, file: app.js:1619, note: "로컬 정규식 화면 사전(서버 없이 길안내 폴백). naviMatch(1680)/naviGo(1670, window[go] 함수일 때만 이동)" }
+
+# ── 대표 플로우 ──
+flows:
+  - name: 통합동작 · 질문형(q) — 답변 + 화면이동 + 도킹
+    example: "SKON 외주비 왜 늘었어?"
+    steps:
+      - "홈 #ai-main-query 입력 → askFromHome() → openAiChat('main', q)"
+      - "sendAiChat(): aiUserMsg + setChatAskBar(첫질의 고정)"
+      - "routeIntents: outsource(q) 매칭 → 담당 [q]"
+      - "aiOrchestratorMsg '이 질문은 데이터 분석가 담당합니다' → 타이핑 후 qOutsourceHtml() 렌더"
+      - "담당에 q 있고 navi 없음 → navToRelevant(text) 호출 (조용한 이동)"
+      - "/api/navigate → LLM/폴백이 insights-progress 등 선택 → navGo 딥링크 이동 + dockAiChat 우측 도킹"
+      - "결과: 답변 카드 + 관련 분석 화면 동시 표시, 대화는 옆에 유지"
+
+  - name: 통합동작 · 이동형(navi) — 화면이동 + 도킹
+    example: "버전별 예산 화면으로 가줘"
+    steps:
+      - "sendAiChat() → routeIntents step2(이동동사+주제어) 매칭 → [navi] 단독, chatNavigate(text)"
+      - "/api/navigate → LLM이 insights-version 선택(폴백 시 버전|돌려|배분→동일)"
+      - "'인사이트·버전별 예산 화면으로 이동할게요' 길안내 카드(reply 이유) 렌더"
+      - "850ms 뒤 navGo('insights-version') → #/insights/version?pj=<insId> 이동 + dockAiChat"
+      - "q 인텐트 없으므로 navToRelevant 추가이동 실행 안 됨(중복이동 방지)"
+
+  - name: 복합 질의 — 다중 에이전트 동시응답
+    example: "이상징후랑 할 일 같이 알려줘"
+    steps:
+      - "routeIntents step3(확인류) 또는 risk+todo 규칙 → [risk, todo]"
+      - "오케스트레이터 '이상징후 감시 · 할 일 도우미가 함께 답합니다'"
+      - "risk→chatOpenRisks(), 이어 todo→chatOpenTodos() 순차(640ms 간격) 렌더"
+
+  - name: 이동의도 but 화면 특정 불가
+    steps:
+      - "일반 이동어만 있고 대상 불명 → chatNavigate(서버 판정) 또는 로컬 naviAskHtml 되묻기(추천 화면 버튼). 강제 이동 안 함"
+
+  - name: LLM 키 미설정
+    steps:
+      - "/api/chat·/api/navigate 모두 서버 폴백(source:'fallback')"
+      - "프론트는 '규칙 기반 답변/길안내' 태그로 표기하되 동작(화면이동·도킹) 동일 유지"
+
+# ── 비즈니스 규칙(통합 동작 핵심) ──
+business:
+  - id: BR-INT-01
+    rule: "답변형(q) 담당이 있고 navi가 없으면 답변과 동시에 navToRelevant(관련화면 이동)+dockAiChat(도킹)이 자동 실행된다."
+    basis: "sendAiChat app.js:2097-2099"
+  - id: BR-INT-02
+    rule: "이동의도(navi)는 chatNavigate가 이미 화면이동+도킹을 수행하므로 navToRelevant 중복 이동을 하지 않는다."
+    basis: "sendAiChat 조건 !routes.some(navi), app.js:2097"
+  - id: BR-INT-03
+    rule: "하나의 질문에 여러 인텐트가 걸리면 담당 Agent가 최대 3개까지 순차(560+i*640ms) 응답한다."
+    basis: "INTENT_MAX=3(app.js:1979), routeIntents(app.js:2063), sendAiChat 루프(app.js:2091)"
+  - id: BR-INT-04
+    rule: "메인 복귀·화면이동은 단독 인텐트로 처리하여 다른 인텐트와 섞지 않는다."
+    basis: "routeIntents step1/step2 (app.js:2025-2036)"
+  - id: BR-INT-05
+    rule: "네비게이터 이동 목적지는 홈 선택 프로젝트를 목적지 식별자로 매핑(HOME_TO_INS/HOME_TO_BUDGET)해 딥링크에 ?pj= 로 부착한다. 매핑 없으면 기본/목록 화면."
+    basis: "navGo(app.js:1240), homeSelInsightsId/homeSelBudgetKey(app.js:1230/1236)"
+  - id: BR-INT-06
+    rule: "OPENAI_API_KEY는 서버 process.env에서만 사용, 클라이언트 미노출. 키 없거나 오류 시 규칙기반 폴백으로 화면이 비지 않게 유지."
+    basis: "callLLM(server.js:178), handleChat/handleNavigate 폴백"
+  - id: BR-INT-07
+    rule: "첫 질의는 헤더 아래 질문 고정바에 최초 1회만 고정된다(대화가 길어져도 무엇을 물었는지 유지)."
+    basis: "setChatAskBar/chatAskText(app.js:2104-2129)"
+  - id: BR-INT-08
+    rule: "상세 화면에서 대화를 닫아도 도킹 상태였고 메인이 아니고 대화가 있으면 FAB으로 남겨 이어서 대화할 수 있다."
+    basis: "closeAiChat(app.js:1583)"
+
+# ── 요구사항 후보(FR) ──
+requirements:
+  - { id: FR-CHAT-01, text: 사용자는 단일 대화창에서 자연어로 질문하면 오케스트레이터가 유형을 판정해 담당 AI에게 배정한다 }
+  - { id: FR-CHAT-02, text: 하나의 질문에 여러 유형이 걸리면 담당 Agent(최대 3개)가 순차로 각각 답한다 }
+  - { id: FR-CHAT-03, text: 답변형(q) 질문은 답변과 동시에 관련 화면으로 자동 이동하고 대화를 우측에 도킹한다 }
+  - { id: FR-CHAT-04, text: 이동의도 질문은 서버가 화면을 선택해 딥링크로 이동하고 대화를 도킹한다(중복 이동 방지) }
+  - { id: FR-NAV-01,  text: 시스템은 자연어를 /api/navigate로 보내 NAV_ROUTES 중 하나의 화면 key를 고른다 }
+  - { id: FR-NAV-02,  text: 네비게이터는 홈 선택 프로젝트를 목적지 식별자로 매핑해 딥링크에 부착한다 }
+  - { id: FR-NAV-03,  text: 화면을 특정할 수 없으면 강제 이동하지 않고 되묻거나 화면 목록 칩을 제시한다 }
+  - { id: FR-CHAT-05, text: 답변형 LLM 응답은 선택 프로젝트의 재무 문맥(계약/계획/실적/잔여/원가율/계정별/확인항목)을 근거로 생성한다 }
+  - { id: FR-CHAT-06, text: LLM 키 미설정/오류 시 규칙 기반 폴백으로 답변·길안내를 제공하며 태그로 구분 표기한다 }
+  - { id: FR-CHAT-07, text: OPENAI_API_KEY는 서버에서만 사용되어 클라이언트로 노출되지 않는다 }
+  - { id: FR-CHAT-08, text: 대화창은 전체 오버레이/우측 도킹으로 전환되고, 닫아도 대화를 FAB으로 보존해 이어갈 수 있다 }

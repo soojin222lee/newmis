@@ -1,0 +1,221 @@
+# rawdata: 수행원가 > 원가조정 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+# 주의: 렌더러는 budget-status.js + budget-status-2~5.js 5분할이며 동일 함수를 여러 번 override.
+#       계정별 상세 편집기는 budget-area-*.js(데코레이터 체인)가 최종 소유자 — 여기선 공통 흐름 위주.
+
+screen:
+  id: s-budget            # 수행원가 3개 소메뉴 공유 화면(공유 렌더러 renderBudgetPage)
+  name: 수행원가 > 원가조정 (실행예산 편집·수립·이관)
+  menu_path: 수행원가 > 원가조정
+  route: "#/budget-adjust"
+  cost_mode: adjust
+  entry: "showCostAdjust() → costMode='adjust'; showBudget()  /  openCostAdjust(k) → openBudgetProjectScreen(k)"
+  source_files:
+    - public/js/budget-cost-adjust.js  # 원가조정 진입점 + 라우트 등록
+    - public/js/budget-area-routes.js  # 계정 슬러그 매핑/라우트, openCostArea
+    - public/js/budget-status.js       # 이관 상태·검증(saveBudgetTransfer 등)·budgetTransferHistory·getBudgetAdjusted
+    - public/js/budget-status-3.js     # renderAccountTransferTable·renderAcctTile·openBudgetAccountEditor·renderTotalBudgetBar·최종 renderBudgetPage
+    - public/js/budget-status-4.js     # 스테퍼/스테이지·버전 스냅샷·결재(requestExecBudgetApprovalFinal·renderExecBudgetApprovalSummaryFinal)
+    - public/js/budget-status-5.js     # openBudgetProjectScreen override(adjust → budgetSetupStage='edit')
+    - public/js/budget-area-labor|outsource|material|expense|as.js  # 계정별 편집기 최종 구현(별도 문서)
+    - public/js/app.js                 # SCREEN_ROUTES['s-budget'](계정 슬러그 한 뎁스 더)
+  purpose: >
+    프로젝트 실행예산을 편집·수립·이관한다. 두 축: (1) 5대 계정 타일에서 계정 선택 → 계정별 편집기,
+    (2) 예산 이관(계정 간 금액 이동, 총액 불변·하한 검증). 이력→계정별 작성→결재 3단계 스테퍼.
+
+# ── 진입/딥링크(양방향) ──
+routing:
+  cost_mode: adjust
+  list_entry:    "showCostAdjust() (budget-cost-adjust.js:8)"
+  project_entry: "openCostAdjust(k) → openBudgetProjectScreen(k) (budget-cost-adjust.js:10)"
+  route_action:  "ROUTE_ACTIONS['budget-adjust'] (budget-cost-adjust.js:14~18)"
+  deeplink_project: "#/budget-adjust?pj=<프로젝트키>"
+  deeplink_account: "#/budget-adjust/<slug>?pj=<프로젝트키>"
+  account_slugs: "BUDGET_AREA_SLUGS(budget-area-routes.js:13): 인건비=labor·외주비=outsource·재료비=material·경비=expense·'A/S Cost'=as (역매핑 BUDGET_AREA_BY_SLUG)"
+  url_to_screen: >
+    ?pj= 있으면 costMode='adjust' 후 openBudgetProjectScreen(pj)로 edit 진입, 없으면 목록(budget-cost-adjust.js:15~17).
+    계정 슬러그 라우트는 budget-area-routes.js:37~44가 openCostArea(계정,pj) 등록 → openBudgetProjectScreen 후
+    openBudgetAccountEditor(account)(budget-area-routes.js:30~34).
+  screen_to_url: >
+    SCREEN_ROUTES['s-budget'](app.js:49~62): costMode==='adjust'이면 base='budget-adjust',
+    budgetSetupEditAccount 선택 시 BUDGET_AREA_SLUGS[acc]를 한 뎁스 더 붙여 'budget-adjust/<slug>',
+    상세면 '?pj='+currentBudgetProj 부착. → URL↔화면 양방향 일치.
+
+# ── 화면 상태 ── costMode(adjust) × budgetScreenView × budgetSetupStage
+states:
+  - id: list
+    when: "costMode=='adjust' && budgetScreenView=='list'"
+    renderer: "renderBudgetListView (budget-status-3.js:1791)"
+    shows: [EXEC_BUDGET_PROJECTS 목록 + 필터]
+    url: "#/budget-adjust"
+  - id: edit_stage      # 원가조정 고유 진입 기본
+    when: "budgetScreenView=='detail' && budgetSetupStage=='edit'"
+    renderer: "renderBudgetSetupOverview (budget-status-4.js:1634~)"
+    shows: [총액 KPI 바, 3단계 스테퍼, 5대 계정 타일, 선택 계정 확장 편집기, 임시저장·결재 상신]
+    url: "#/budget-adjust?pj=<key> (계정 선택 시 /<slug> 추가)"
+    note: "openBudgetProjectScreen에서 costMode==='adjust'이면 budgetSetupStage='edit'(budget-status-5.js:76). 요약 그리드로 넘어가지 않음"
+  - id: history_stage
+    when: "budgetSetupStage=='history'"
+    renderer: "renderBudgetSetupOverview history 분기 (budget-status-4.js:1650~)"
+    shows: [실행예산 버전 목록 V1/V2/V3, 선택 버전 상세, ＋ 신규 버전 생성]
+    note: "상세는 변경이력 문서(budget-history.yaml) 참조"
+  - id: approval_stage
+    when: "budgetSetupStage=='approval'"
+    renderer: "renderBudgetSetupOverview approval 분기 (budget-status-4.js:1679~)"
+    shows: [결재라인(기안 이봄 → 팀장 김도윤), 버전 diff 써머리(renderExecBudgetApprovalSummaryFinal :1489), 결재요청]
+  - id: transfer_table
+    when: "budgetDetailStep=='overview' (계정별 이관 테이블 영역)"
+    renderer: "renderAccountTransferTable (최종 유효본 budget-status-3.js:2160)"
+    shows: [계정별 초기배분/이관/조정배분/실집행/투입확정/투입미정, 예산 이관 수정 버튼]
+  - id: transfer_edit
+    when: "budgetTransferEditMode==true"
+    effect: "조정배분 셀이 입력 필드(actr-adjust-<idx>)로 전환(budget-status-3.js:2177~2179)"
+
+# ── 요소(버튼/타일/입력) 인벤토리 ── ★ 프론트/백엔드 로직
+elements:
+  - id: row-project-open
+    label: 프로젝트 목록 행 클릭
+    type: row(clickable)
+    area: 프로젝트 목록
+    event: onclick
+    front:
+      handler: "openBudgetProjectScreen('${p.key}')"
+      file: "budget-status-3.js:1815 / budget-status-5.js:71~92"
+      logic: "costMode==='adjust'이므로 budgetSetupStage='edit'로 진입(budget-status-5.js:76)"
+      state_writes: [currentBudgetProj, budgetScreenView, budgetSetupStage]
+    backend: null
+    result: 선택 프로젝트 계정별 작성(edit) 스테퍼 진입 + URL ?pj= 갱신
+  - id: tile-account-select
+    label: 계정 타일 선택 (인건비·외주비·재료비·경비·A/S비)
+    type: button(tile)
+    area: 계정별 작성 스테이지
+    event: onclick
+    front:
+      handler: "openBudgetAccountEditor(key)"
+      file: "budget-status-3.js:1549 (타일 renderAcctTile :1563)"
+      logic: "budgetSetupEditAccount=key 세팅 → 선택 계정 아래 renderBudgetAccountEditor(viewData, account) 확장 노출"
+      state_writes: [budgetSetupEditAccount]
+    backend: null
+    result: "계정별 상세 편집기(원가조정 5대계정 편집기) 진입. URL에 /<slug> 한 뎁스 추가. 상세 로직은 budget-area-*.js 소관"
+  - id: stepper-goto-stage
+    label: 3단계 스테퍼 (1 이력 · 2 계정별 작성 · 3 결재)
+    type: button(stepper)
+    area: 상세 상단
+    event: onclick
+    front:
+      handler: "goBudgetSetupStage(stage)"
+      file: "budget-status-4.js:1537 (스테퍼 renderBudgetFlowStepperFinal :1559)"
+      state_writes: [budgetSetupStage]
+    result: history/edit/approval 스테이지 전환
+  - id: btn-transfer-edit
+    label: 예산 이관 수정
+    type: button(toggle)
+    area: 예산 집행 현황(이관) 테이블
+    event: onclick
+    front:
+      handler: "startBudgetTransferEdit() / cancelBudgetTransferEdit()"
+      file: "budget-status.js:1328 / :1333"
+      logic: "budgetTransferEditMode 전환 → 조정배분 셀을 입력 필드로 렌더"
+      state_writes: [budgetTransferEditMode]
+    result: 이관 편집 모드 진입/취소
+  - id: btn-transfer-save
+    label: 예산 이관 저장
+    type: button
+    area: 예산 집행 현황(이관) 테이블 (편집 모드)
+    event: onclick
+    front:
+      handler: "saveBudgetTransfer()"
+      file: "budget-status.js:2296 (최종 유효 override) · 초기 정의 :1338"
+      logic: >
+        각 계정 입력값(actr-adjust-<idx>)을 parseBudgetAmount로 읽어 nextAdjusted 산출 →
+        검증 통과 시 data.transfer[acct]=newAdjusted−plan[acct] 반영 →
+        budgetTransferHistory[proj] 새 버전 unshift(version=기존+1, changedAt=현재시각, changedBy=PM, changes[]) →
+        budgetHistorySelectedVersion 최신 갱신 → persistBudgetTransferState() → 토스트 → renderBudgetPage()
+      validation:
+        - "총액 불변: Σ nextAdjusted === Σ plan(총액) 아니면 거부 — '조정배분 합계는 총액 …원과 같아야 합니다.'(budget-status.js:2312~2315)"
+        - "하한(한도): 각 계정 nextAdjusted ≥ actual+quasi(실집행+투입확정) 아니면 거부 — '… 조정배분은 실적+투입확정 금액보다 작게 설정할 수 없습니다.'(:2317~2321)"
+        - "경비 한도(최종본 추가): nextAdjusted['경비'] ≤ getExpenseTransferLimit() (ERP 가용 한도 초과 시 거부, :2323~2327)"
+        - "경비 ERP 가용성(최종본 추가): validateExpenseErpAvailability().ok 아니면 거부(:2329~2333)"
+        - "변경 없음: changes.length==0이면 '변경된 예산 이관 내역이 없습니다.'(:2347~2350)"
+      state_writes: [data.transfer, budgetTransferHistory, budgetHistorySelectedVersion, budgetTransferEditMode]
+    backend: "없음(목업). 영속화 localStorage['budgetTransferState'] (persistBudgetTransferState budget-status.js:1407)"
+    result: 이관 반영 + 변경 이력 버전 적재 + '예산 이관 내역이 저장되었습니다.' 토스트
+  - id: btn-temp-save
+    label: 임시저장 / 결재 상신 →
+    type: button
+    area: 계정별 작성 스테이지 상단
+    event: onclick
+    front:
+      handler: "임시저장 / goBudgetSetupStage('approval')"
+      file: budget-status-4.js
+    result: 작성 임시저장 또는 결재 스테이지 이동
+  - id: btn-approval-request
+    label: 결재요청
+    type: button
+    area: 결재 스테이지
+    event: onclick
+    front:
+      handler: "requestExecBudgetApprovalFinal"
+      file: "budget-status-4.js:1443~1451"
+      validation: "'작성중' 상태 버전만 결재요청 가능 → 상신 시 상태 '승인요청'/'결재중' 전환"
+    result: 결재 상신
+  - id: btn-cost-guide
+    label: AI PMO Cost 재산정 안내
+    type: button
+    area: 이관 테이블
+    event: onclick
+    front: { handler: "showBudgetCostGuide", file: "budget-status-3.js:2275" }
+    result: "총액 자체 변경은 이 화면 불가 — Cost 재산정으로 안내(이관은 총액 내에서만)"
+
+# ── 비즈니스 로직 & 규칙 ──
+rules:
+  transfer_total_invariant: "이관 저장은 총액 불변 — 조정배분 합계 = 총액(plan 합)"
+  transfer_lower_bound: "각 계정 조정배분 ≥ 실집행(actual)+투입확정(quasi)"
+  adjusted_formula: "조정배분 = 초기배분(plan) + transfer (getBudgetAdjusted budget-status.js:1319)"
+  transfer_apply: "data.transfer[acct] = newAdjusted − plan[acct] (budget-status.js:2343/2353)"
+  version_on_save: "이관 저장 성공 시에만 budgetTransferHistory에 새 버전 unshift(변경 이력은 이관 저장의 부산물)"
+  approval_rule: "작성중 버전만 결재요청 가능(requestExecBudgetApprovalFinal budget-status-4.js:1443)"
+  version_snapshot: "버전 스냅샷은 plan 대비 비율로 월별 재분배(applyExecBudgetVersionSnapshotFinal budget-status-4.js:1407)"
+  persistence: "이관 상태는 localStorage['budgetTransferState']에 저장/복원(persist/restoreBudgetTransferState budget-status.js:1407/1415)"
+
+# ── 데이터 모델 ──
+data:
+  state_vars:
+    - { name: costMode, shape: "'adjust'", file: "budget-status-5.js:69", purpose: 진입 모드 }
+    - { name: budgetSetupStage, shape: "'history'|'edit'|'approval'", file: "budget-status-4.js:1535", purpose: 3단계 스테퍼 스테이지 }
+    - { name: budgetSetupEditAccount, shape: "계정명|null", file: budget-status.js, purpose: 선택된 계정(단일) }
+    - { name: budgetTransferEditMode, shape: boolean, file: budget-status.js, purpose: 이관 편집 토글 }
+    - { name: budgetHistorySelectedVersion, shape: number, file: budget-status.js, purpose: 이관 이력 선택 버전 }
+    - { name: selectedExecBudgetVersionFinal, shape: "'v1|v2|v3'", file: "budget-status-4.js:1344", purpose: 실행예산 버전 선택(기본 v3) }
+  datasets:
+    - { name: EXEC_BUDGET_PROJECTS, file: "budget-status.js:1200", note: "실행예산 프로젝트 목록 16건" }
+    - { name: "BUDGET_SOURCE[projKey].plan{계정:금액}", file: budget-status.js, note: "초기배분(Cost). .transfer{계정:±}=이관액. 조정배분=plan+transfer" }
+    - { name: BUDGET_ACCT_LABELS, file: "budget-status.js:1243", note: "이관 대상 4계정 ['인건비','외주비','재료비','경비'] (A/S는 타일 5번째로 표시)" }
+    - { name: "budgetTransferHistory[projKey][]", file: "budget-status.js:1279~1311", note: "{version,changedAt,changedBy,changes:[{acct,oldAdjusted,newAdjusted,diff,transfer}]}" }
+    - { name: "실행예산 버전 스냅샷", file: "budget-status-4.js:1351 (getExecBudgetVersionSnapshotsFinal)", note: "V1/V2/V3 {key,label,date,status,owner,memo,budgets{계정:금액}}" }
+    - { name: "execBudgetApprovalStateFinal", file: "budget-status-4.js:1345", note: "버전별 결재 상태(작성중/승인요청/승인완료)" }
+    - { name: "계정별 편집 데이터", file: "budget-status.js:1257 (budgetLaborAssignments) 등", note: "인건비·감가상각 등 계정별 별도 관리(budget-area-*.js)" }
+
+# ── 대표 플로우 ──
+flows:
+  - name: 계정 편집 + 예산 이관 + 결재
+    steps:
+      - "'원가조정' 메뉴 → #/budget-adjust → 목록 (딥링크 ?pj= 또는 /labor 등 계정 슬러그 바로 진입 가능)"
+      - "프로젝트 선택 → openBudgetProjectScreen(k) → 계정별 작성(edit) 스테퍼 진입"
+      - "계정 타일 클릭 → 계정별 편집기에서 상세 계획 수정 → 임시저장"
+      - "예산 집행 현황 테이블 '예산 이관 수정' → 조정배분 입력 → 저장 → (총액 일치·하한·경비한도·ERP가용성 통과 시) 새 버전 적재"
+      - "스테퍼 '결재' → 버전 diff 확인 → 결재요청(작성중 버전만) → 상태 승인요청/결재중"
+      - "총액 변경 필요 시 AI PMO Cost 재산정 안내로 이탈"
+
+# ── 요구사항 후보(FR) ──
+requirements:
+  - { id: FR-BAD-01, text: 원가조정은 #/budget-adjust(및 계정별 /labor·/outsource·/material·/expense·/as, ?pj=) 딥링크로 진입할 수 있어야 한다 }
+  - { id: FR-BAD-02, text: 진입 시 계정별 작성 스테퍼(이력 → 계정별 작성 → 결재)로 열려야 한다 }
+  - { id: FR-BAD-03, text: 사용자는 5대 계정 타일에서 계정을 선택해 계정별 상세 계획을 편집할 수 있어야 한다 }
+  - { id: FR-BAD-04, text: PM은 계정 간 예산을 이관할 수 있으며, 저장 시 총액은 불변이어야 한다(조정배분 합계 = 총액) }
+  - { id: FR-BAD-05, text: 각 계정의 조정배분은 실집행+투입확정 금액 미만으로 설정할 수 없어야 한다 }
+  - { id: FR-BAD-06, text: 경비 계정 조정배분은 ERP 가용 한도를 초과하거나 가용성 검증에 실패하면 저장을 거부해야 한다 }
+  - { id: FR-BAD-07, text: 예산 이관 저장 시 변경 내역(계정별 변경 전/후/증감)을 버전으로 기록하고 로컬 영속화해야 한다 }
+  - { id: FR-BAD-08, text: 총 Cost 변경은 이 화면에서 불가하며 AI PMO Cost 재산정으로 안내해야 한다 }
+  - { id: FR-BAD-09, text: 작성중 버전만 결재요청이 가능하며, 결재라인(기안자→팀장)과 버전 diff 써머리를 제공해야 한다 }

@@ -1,0 +1,186 @@
+# rawdata: AI 레포트 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+
+screen:
+  id: s-ai-report
+  name: AI 레포트 (자연어 데이터 질의 · LLM→SQL)
+  menu_path: 인사이트 > AI 레포트
+  route: "#/ai-report"
+  entry: "showAiReport() → renderAiReport()"
+  source_files:
+    - public/js/custom-report.js      # 렌더·핸들러·상태
+    - public/js/app.js                # 라우트 등록(ROUTE_ACTIONS['ai-report']), showAiReport
+    - server.js                       # /api/nl2sql, node:sqlite 시딩
+    - public/css/initiation-extra2.css # cr-ai-* 스타일
+  purpose: 사용자가 자연어로 질의하면 LLM이 SELECT SQL로 변환해 실제 인메모리 SQLite에서 실행, 결과를 표로 제공.
+
+# ── 화면 상태 ──
+states:
+  - id: initial
+    when: "crNlResult == null"
+    shows: [조건칩, 입력창, 예시칩, 운영자토글]
+    result_area: 비어있음
+  - id: loading
+    when: "crNlResult.state == 'loading'"
+    shows: [스피너 "AI가 SQL을 생성하고 실행 중"]
+  - id: done
+    when: "crNlResult.state == 'done' && columns.length > 0"
+    shows: [결과테이블, 건수, "(운영자면) 생성SQL"]
+  - id: empty
+    when: "state == 'done' && columns.length == 0"
+    shows: ["조건에 맞는 결과가 없습니다"]
+  - id: error
+    when: "crNlResult.state == 'error'"
+    shows: [에러메시지, "(운영자면) 생성SQL"]
+  - id: operator_sql_visible   # 직교(토글) 상태
+    when: "crShowSql == true"
+    effect: 결과 위 생성 SQL 블록 노출 (기본 숨김)
+
+# ── 요소(버튼/입력/칩) 인벤토리 ── ★ 버튼 단위 프론트/백엔드 로직
+elements:
+  - id: toggle-operator-sql
+    label: "운영자 보기 · SQL 표시/숨김"
+    type: button(switch)
+    area: 운영자 바
+    event: onclick
+    front:
+      handler: crToggleSql()
+      file: custom-report.js
+      logic: "crSyncInput() 후 crShowSql 반전 → renderAiReport()"
+      state_writes: [crShowSql]
+    backend: null
+    result: 결과의 생성 SQL 블록 표시/숨김
+    default: OFF(일반 사용자에게 SQL 비노출)
+
+  - id: chip-condition-projectType
+    label: 조건 칩 - 프로젝트 유형
+    type: button(multi-toggle)
+    area: 조건 선택 패널
+    event: onclick
+    front:
+      handler: "crToggleCond('projectType', this.dataset.v)"
+      file: custom-report.js
+      logic: "crConditions.projectType 배열에 값 토글 → renderAiReport()"
+      state_writes: [crConditions.projectType]
+    values_source: "CR_PROJECT_TYPES (22종, 목업 예시 상수)"
+    backend: null
+    result: 선택 조건이 다음 질의의 WHERE로 결합
+
+  - id: chip-condition-salesDivision
+    label: 조건 칩 - 매출귀속부문
+    type: button(multi-toggle)
+    area: 조건 선택 패널
+    event: onclick
+    front:
+      handler: "crToggleCond('salesDivision', this.dataset.v)"
+      file: custom-report.js
+      state_writes: [crConditions.salesDivision]
+    values_source: "crDistinct('salesDivision') (customReportRows distinct)"
+
+  - id: chip-condition-projectStatus
+    label: 조건 칩 - 프로젝트 상태
+    type: button(multi-toggle)
+    area: 조건 선택 패널
+    event: onclick
+    front:
+      handler: "crToggleCond('projectStatus', this.dataset.v)"
+      file: custom-report.js
+      state_writes: [crConditions.projectStatus]
+    values_source: "crDistinct('projectStatus')"
+
+  - id: input-question
+    label: 질문 입력창
+    type: input
+    dom_id: cr-ai-input
+    area: 입력행
+    event: "onkeydown(Enter)"
+    front:
+      handler: runNl2Sql()
+      file: custom-report.js
+    validation: "질문 또는 조건 중 최소 1개(없으면 토스트)"
+    backend: { calls: btn-run-query.backend }
+
+  - id: btn-run-query
+    label: 질의 실행
+    type: button
+    area: 입력행
+    event: onclick
+    front:
+      handler: runNl2Sql(preset?)
+      file: custom-report.js
+      logic: >
+        userQ = preset ?? input.value;
+        question = (userQ or '조건에 해당하는 프로젝트를 조회해줘') + crConditionText();
+        crNlResult='loading' 렌더 → fetch(POST /api/nl2sql,{question}) → 결과 상태 세팅 → 렌더
+      validation: "userQ와 crConditionText() 모두 비면 토스트 후 중단"
+      state_writes: [crNlQuery, crNlResult]
+      helpers:
+        crConditionText: "선택 조건을 \"projects.<컬럼>가 다음 값과 정확히 일치: '값'\" WHERE 힌트로 결합(하이픈 분해 방지·projects 명시)"
+    backend:
+      api: /api/nl2sql
+      method: POST
+      request: { question: string }
+      response_success: { sql: string, columns: string[], rows: object[], source: "ai|fallback" }
+      response_error: { sql: string, error: string, source: string }
+    result: 결과 테이블(+건수) 렌더, 상태 done/empty/error
+
+  - id: chips-examples
+    label: 예시 질의 칩 (4개)
+    type: button
+    area: 예시
+    event: onclick
+    front:
+      handler: "runNl2Sql(this.textContent)"
+      file: custom-report.js
+    backend: { calls: btn-run-query.backend }
+    result: 해당 문구로 즉시 질의 실행
+
+# ── 백엔드 API 상세 ──
+apis:
+  - path: /api/nl2sql
+    method: POST
+    handler: "handleNl2Sql (server.js)"
+    request: { question: string }
+    pipeline:
+      - "getReportDB(): node:sqlite 인메모리 DB (최초 1회 projects/budget 시딩: PROJECT_ROWS/BUDGET_ROWS)"
+      - "키 없음 → 폴백 SQL 'SELECT projectNo,projectName,pmName,projectStatus,finalLaborCost FROM projects LIMIT 20', source=fallback"
+      - "키 있음 → callLLM(buildNl2SqlPrompt(question)) [스키마+few-shot+금액단위 규칙] → extractSql()"
+      - "isSafeSelect(sql): 다중문(;) 차단 · ^select만 허용 · insert/update/delete/drop/alter/create/replace/attach/detach/pragma/vacuum/reindex/truncate 차단 → 위반 시 미실행"
+      - "db.prepare(sql).all() 실행"
+    response: { sql, columns, rows, source }
+    security:
+      - "OPENAI_API_KEY는 process.env만 사용(코드/깃 미저장)"
+      - "SELECT 전용, 인메모리 DB라 파괴 불가"
+
+# ── 데이터 모델 ──
+data:
+  state_vars:
+    - { name: crNlQuery,   shape: string, file: custom-report.js, purpose: 마지막 질문 }
+    - { name: crShowSql,   shape: boolean, file: custom-report.js, purpose: 운영자 SQL 노출(기본 false) }
+    - { name: crConditions, shape: "{projectType:[], salesDivision:[], projectStatus:[]}", file: custom-report.js, purpose: 선택 조건 }
+    - { name: crNlResult,  shape: "{state, sql?, columns?, rows?, error?, source?}", file: custom-report.js, purpose: 결과 상태 }
+  datasets:
+    - { name: CR_PROJECT_TYPES, file: custom-report.js, note: "프로젝트유형 칩 값 22종(목업 예시)" }
+    - { name: "SQLite projects", file: server.js, note: "18컬럼, PROJECT_ROWS 시드" }
+    - { name: "SQLite budget", file: server.js, note: "19컬럼, BUDGET_ROWS 시드, projectNo 조인" }
+
+# ── 대표 플로우 ──
+flows:
+  - name: 조건+자연어 질의
+    steps:
+      - "조건 칩 선택(crToggleCond)"
+      - "질문 입력 후 Enter 또는 [질의 실행]"
+      - "runNl2Sql: 질문+조건 결합 → POST /api/nl2sql"
+      - "server: LLM SQL 생성 → isSafeSelect → SQLite 실행"
+      - "결과 테이블 렌더 (운영자면 SQL 함께)"
+
+# ── 요구사항 후보(FR) ──
+requirements:
+  - { id: FR-AIR-01, text: 사용자는 자연어로 프로젝트/실행예산 데이터를 질의할 수 있다 }
+  - { id: FR-AIR-02, text: 시스템은 질의를 SELECT SQL로 변환해 실제 DB에서 실행하고 결과를 표로 제공한다 }
+  - { id: FR-AIR-03, text: 생성 SQL은 일반 사용자에게 비노출되며 운영자 토글로만 표시된다 }
+  - { id: FR-AIR-04, text: 시스템은 SELECT 외 구문(쓰기/DDL/다중문)을 실행 전 차단한다 }
+  - { id: FR-AIR-05, text: 사용자는 프로젝트유형·매출귀속부문·상태 조건을 복수 선택해 질의에 결합할 수 있다 }
+  - { id: FR-AIR-06, text: 예시 질의 칩으로 즉시 질의를 실행할 수 있다 }
+  - { id: FR-AIR-07, text: LLM 미설정/오류 시 규칙 기반 폴백 결과를 제공한다 }

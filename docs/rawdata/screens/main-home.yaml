@@ -1,0 +1,327 @@
+# rawdata: 메인 홈 (My Work) 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+# ⚠ override 규칙: dashboard.js는 동일 함수(initDashboard/renderPmDashboard/homePjtStripHtml/
+#   homePjtModalHtml/openImpactDrawer/feedReflectApply/rerenderHomeFeed 등)를 여러 번 재정의한다.
+#   "뒤에 정의된 코드가 앞을 override" → 파일에서 가장 마지막 정의가 실제 동작(=본 문서 기준).
+#   app.js openAiChat/sendAiChat/routeIntents도 동일(최종: openAiChat 2132, sendAiChat 2081, routeIntents 2021).
+
+screen:
+  id: s-main-home
+  name: 메인 홈 (My Work · AI 업무 시작 화면)
+  menu_path: 홈 (상단 로고 .tb-brand 클릭 시 복귀)
+  route: "해시 라우팅 없음 · showMain()으로 진입(채팅 네비는 #/... 사용)"
+  entry: "showMain() → setScreen('s-main') → initDashboard() → dashboardRole==='lead' ? renderLeadDashboard() : renderPmDashboard()"
+  container: "#s-main (initDashboard가 innerHTML 렌더)"
+  source_files:
+    - public/js/dashboard.js        # 홈 렌더/상태/데이터 본체(최종 유효본 기준)
+    - public/js/app.js              # showMain(167)·askFromHome(429)·openAiChat(2132)·sendAiChat(2081)·routeIntents(2021)·chatPjtContext(1141)·askLLMAnswer(1201)
+    - server.js                     # /api/chat(handleChat 595)·/api/navigate
+    - public/css/home.css           # 캐러셀/칩/배지/팝업/드로어/선택문맥/GNB 토글 스타일
+  purpose: >
+    SI 프로젝트 원가관리 담당자(PM/팀장)의 첫 화면. 담당 프로젝트에서 "확인이 필요한 것"을 모아 보여주고,
+    AI 채팅으로 원인 분석·화면 이동·업무 실행까지 연결한다. 부문장 지시로 "구글 첫 화면처럼" 단순화되어
+    최종 메인에는 인사말 + PJT 캐러셀 + AI 검색창만 남았다(재무요약·Headroom·Runway·월마감 사이클·Work Feed 목록은
+    화면에서 제거되고 PJT 팝업/상세·LLM 컨텍스트에서 함수만 재사용).
+
+# ── 화면 상태 ──
+states:
+  - id: pm_home
+    when: "dashboardRole === 'pm' (기본값)"
+    render: "renderPmDashboard() (최종 dashboard.js:1962)"
+    shows: [인사말 "좋은 아침이에요, 봄님", "#home-under(PJT 캐러셀+요약+선택문맥)", "AI 검색창(#ai-main-query)"]
+    note: "히어로 브리핑 문구는 최종본에서 제거됨. 역할 전환 버튼은 PM 화면에 미노출."
+  - id: lead_home
+    when: "dashboardRole === 'lead'"
+    render: "renderLeadDashboard() (dashboard.js:1218)"
+    shows: [인사말, 요약그리드(관리4/주의3/승인지연2), 채팅창, "AI 판단 카드 3개", "AI 추천 조치", 바로가기, 역할전환(renderRoleSwitch)]
+  - id: pjt_selected
+    when: "homeSelectedProject !== 'all'"
+    effect: "선택 칩에 picked(✓), 선택 문맥 줄(hm-ctx)에 '선택된 프로젝트: <명>' 표시. 이후 AI 답변/LLM 컨텍스트의 기준이 됨."
+  - id: pjt_modal_open
+    when: "homePjtModalProj != null (openHomePjtModal 후 #home-pjt-modal.open)"
+    shows: ["해당 PJT 미처리 HOME_FEED 항목(homePjtSlimCard)", "하단 이동 버튼(닫기/원가현황/원가조정)"]
+  - id: chat_overlay_open
+    when: "#ai-chat-overlay.open (askFromHome→openAiChat)"
+    shows: ["담당 AI(navi/q/risk/todo) 순차 답변", "질문 고정 바(ai-chat-ask)"]
+  - id: impact_drawer_open
+    when: "#home-impact-drawer.open (openAutoDrawer/openEvidenceDrawer/openImpactDrawer)"
+    shows: ["자동 처리 내역 · 근거 원장 · 영향 미리보기 드로어"]
+    note: "최종 메인 마크업에 오버레이는 있으나, 자동처리/드로어 진입 버튼은 최종 캐러셀(homePjtStripHtml 1923)에서 제거됨."
+
+# ── 요소(버튼/입력/칩) 인벤토리 ── ★ 버튼 단위 프론트/백엔드 로직
+elements:
+  - id: chip-pjt-name
+    label: 프로젝트 칩 - 이름(본체)
+    type: button(toggle-select)
+    area: PJT 캐러셀(#hm-ptabs-track)
+    event: onclick
+    front:
+      handler: "selectHomePjt(id)"
+      file: "dashboard.js:1766"
+      logic: >
+        homeSelectedProject = (homeSelectedProject === id) ? 'all' : id;
+        같은 id 재클릭이면 토글 해제('all'), 아니면 선택.
+        document.getElementById('home-under')만 homePjtStripHtml()로 부분 재렌더(전체 화면 미갱신).
+        선택 결과는 이후 AI 답변/LLM 문맥(chatPjtContext)의 기준.
+      validation: null
+      state_writes: [homeSelectedProject]
+    backend: null
+    result: "칩에 picked(✓) 부여, 선택 문맥 줄(hm-ctx) 갱신. 미선택 시 hm-ctx off."
+
+  - id: badge-pjt-count
+    label: 프로젝트 칩 - 빨간 숫자공 배지(확인 필요 건수)
+    type: button(sub-control)
+    area: PJT 칩 우측 배지(.hm-ptab-badge.clickable)
+    event: "onclick(+ onkeydown Enter/Space)"
+    front:
+      handler: "event.stopPropagation(); openHomePjtModal(id)"
+      file: "dashboard.js:1540 (배지 마크업 dashboard.js:1937)"
+      logic: >
+        배지에 event.stopPropagation()이 걸려 이름 클릭(selectHomePjt)과 숫자 클릭(팝업 열기)이 분리됨.
+        openHomePjtModal(id): homePjtModalProj=id → #home-pjt-modal.innerHTML=homePjtModalHtml(id) → .open.
+        배지 값 n = homeOpenCountOf(id) (미처리 건수). n===0이면 배지 clickable 미부여(role/onclick 없음).
+      validation: "n>0 인 배지만 클릭 가능(role=button tabindex=0 부여, 접근성 Enter/Space 핸들러 포함)"
+      state_writes: [homePjtModalProj]
+    backend: null
+    result: "PJT 확인항목 팝업 오픈. 칩 정렬은 To-Do 많은 순→이름순(homePjtStripHtml)."
+
+  - id: chip-clear-context
+    label: 선택 프로젝트 해제(✕)
+    type: button
+    area: 선택 문맥 줄(.hm-ctx)
+    event: onclick
+    front:
+      handler: "clearHomePjt()"
+      file: "dashboard.js:1771"
+      logic: "selectHomePjt(homeSelectedProject) 재호출 → 같은 id 토글 규칙으로 'all' 복귀"
+      state_writes: [homeSelectedProject]
+    backend: null
+    result: "선택 해제, hm-ctx off 상태로 복귀"
+
+  - id: btn-carousel-arrow
+    label: 캐러셀 좌/우 화살표(‹ ›)
+    type: button
+    area: 캐러셀(.hm-ptabs-carousel)
+    event: onclick
+    front:
+      handler: "scrollHomeTabs(-1 | 1)"
+      file: "dashboard.js:559"
+      logic: "track(#hm-ptabs-track).scrollLeft ±260(clamp 0~max). 담당 전체를 좌우로 훑음."
+      state_writes: []
+    backend: null
+    result: "캐러셀 가로 스크롤"
+
+  - id: filter-category
+    label: 카테고리 필터(전체/예산 점검/업무 반영)
+    type: button(multi-toggle)
+    area: "확인이 필요한 것 블록(hm-catfilter)"
+    event: onclick
+    front:
+      handler: "selectHomeCat('all'|'budget'|'work')"
+      file: "dashboard.js:552 (렌더 renderHomeInsightBlock:680)"
+      logic: "homeCat 세팅 → rerenderHomeFeed(). budget=예산 점검(MIS 내부 시그널), work=업무 반영(외부 이벤트→원가영향→액션)."
+      state_writes: [homeCat]
+    backend: null
+    result: "HOME_FEED를 cat 기준으로 필터"
+    status: >
+      ⚠ 비활성(최종 메인 미렌더). homeCat 상태·selectHomeCat 함수는 존재하나, 카테고리 필터 UI는
+      중간 버전 renderHomeInsightBlock(663)에만 있고 최종 renderPmDashboard(1962)에는 없음.
+      PJT 팝업(homePjtModalHtml 1818)은 예산/업무를 섹션으로만 구분 렌더(인터랙티브 필터 아님).
+
+  - id: input-home-search
+    label: AI 홈 검색/채팅 입력창
+    type: input
+    dom_id: ai-main-query
+    area: "AI 검색창(.home2-search)"
+    event: "onkeydown(Enter)"
+    front:
+      handler: "askFromHome()"
+      file: "app.js:429"
+      logic: "#ai-main-query 값 read+trim → 입력창 비움 → openAiChat('main', q || undefined)"
+      validation: "빈 값이면 initialQuery 없이 채팅만 오픈(별도 토스트 없음)"
+      state_writes: []
+    backend: { calls: btn-home-search-send.backend }
+    result: "AI 채팅 오버레이 오픈, 값 있으면 자동 sendAiChat"
+
+  - id: btn-home-search-send
+    label: 검색/질문 전송(↑)
+    type: button
+    area: "AI 검색창(.home2-search-send)"
+    event: onclick
+    front:
+      handler: "askFromHome()"
+      file: "app.js:429"
+      logic: >
+        openAiChat('main', q)(app.js:2132) → 오버레이 오픈, initialQuery 있으면 input에 넣고 sendAiChat() 자동 실행.
+        sendAiChat(app.js:2081): routeIntents(text)로 담당 Agent 목록 산출 → 각 Agent 순차 렌더.
+        routes에 q(LLM) 있고 navi 없으면 navToRelevant(text)로 관련 화면 이동.
+      validation: null
+      state_writes: [chatAskText]
+      helpers:
+        routeIntents: "app.js:2021 — 메인복귀/네비게이션/확인사항(risk+todo)/INTENT_RULES 매칭, 최대 INTENT_MAX(3)건. 미매칭 이동의도→navi, 그 외→q(LLM)."
+        chatPjtContext: "app.js:1141 — 선택 PJT명 + homeFinOf(id) 파생 재무(cp/plan/act/left/rate/mgap/계정별) + 미처리 todos를 LLM 컨텍스트로 전달."
+    backend:
+      api: /api/chat
+      method: POST
+      request: { question: string, context: "chatPjtContext() = {project, finance{cp,plan,act,left,rate,mgap,accounts[]}, todos[]}" }
+      response_success: { answer: string, source: "ai" }
+      response_fallback: { answer: string, source: "fallback", note?: string }
+      note: "q(LLM) 인텐트일 때만 askLLMAnswer(app.js:1201)가 호출. navi/risk/todo 인텐트는 서버 미경유(로컬 렌더)."
+    result: "채팅 답변 렌더(+ q면 관련 화면 우측 도킹 이동)"
+
+  - id: btn-modal-close
+    label: PJT 팝업 닫기(✕ / 닫기)
+    type: button
+    area: "PJT 팝업(hm-pm-head ✕, hm-pm-foot 닫기)"
+    event: onclick
+    front:
+      handler: "closeHomePjtModal()"
+      file: "dashboard.js:1547"
+      logic: "homePjtModalProj=null → #home-pjt-modal.classList.remove('open'). 오버레이 배경 클릭도 동일(renderPmDashboard:1993 onclick)."
+      state_writes: [homePjtModalProj]
+    backend: null
+    result: "팝업 닫힘"
+
+  - id: btn-modal-goto-status
+    label: "원가 현황으로 이동 →"
+    type: button
+    area: "PJT 팝업 하단(hm-pm-foot)"
+    event: onclick
+    front:
+      handler: "closeHomePjtModal(); openCostStatus('budgetMock')"
+      file: "dashboard.js:1838"
+      logic: "팝업 닫고 수행원가 원가현황 화면으로 딥링크 이동"
+      state_writes: [homePjtModalProj]
+    backend: null
+    result: "원가현황 화면 전환"
+
+  - id: btn-modal-goto-adjust
+    label: "원가 조정으로 이동 →"
+    type: button
+    area: "PJT 팝업 하단(hm-pm-foot)"
+    event: onclick
+    front:
+      handler: "closeHomePjtModal(); openCostAdjust('budgetMock')"
+      file: "dashboard.js:1839"
+      logic: "팝업 닫고 수행원가 원가조정 화면으로 이동(인건비/외주비/재료비/경비 계정 조정)"
+      state_writes: [homePjtModalProj]
+    backend: null
+    result: "원가조정 화면 전환"
+
+  - id: btn-role-switch
+    label: 역할 전환(PM / 팀장)
+    type: button(segmented)
+    area: "팀장 화면 상단(role-switch) — 팀장 화면에만 노출"
+    event: onclick
+    front:
+      handler: "switchDashboardRole('pm' | 'lead')"
+      file: "dashboard.js:440 (렌더 renderRoleSwitch:445)"
+      logic: "dashboardRole = role → initDashboard() 재렌더(dashboardRole==='lead'?renderLeadDashboard():renderPmDashboard())"
+      state_writes: [dashboardRole]
+    backend: null
+    result: "PM ↔ 팀장 화면 전환"
+    default: "dashboardRole = 'pm' (dashboard.js:438)"
+
+  - id: btn-menu-toggle
+    label: 상단 메뉴 토글(☰)
+    type: button(switch)
+    area: "상단바 .tb-right (JS 주입, #tb-menu-toggle)"
+    event: onclick
+    front:
+      handler: "homeMenuToggle()"
+      file: "dashboard.js:1886 (주입 applyMenuPref:1894)"
+      logic: "body.menu-shown 토글 → menuPrefSet(on) localStorage 'newmis.menuShown' 저장 → syncMenuToggleBtn(). GNB 메뉴 기본 숨김(home.css:577)."
+      state_writes: ["localStorage newmis.menuShown", "body.classList menu-shown"]
+    backend: null
+    result: "상단 GNB 메뉴 표시/숨김(선택 새로고침·재접속 후 유지)"
+    default: "숨김(기본은 단순한 첫 화면)"
+
+  - id: btn-auto-drawer
+    label: "자동 처리 내역 N건 보기"
+    type: button
+    area: "캐러셀 요약 바(hm-under-auto) — 중간 버전"
+    event: onclick
+    front:
+      handler: "openAutoDrawer()"
+      file: "dashboard.js:1121"
+      logic: "#home-impact-drawer에 HOME_AUTO_LOG·후행 전송 상태·절감시간(saved=HOME_AUTO_COUNT*HOME_AUTO_MIN_PER=12×8=96분) 표시"
+      state_writes: []
+    backend: null
+    result: "자동 처리 내역 드로어 오픈"
+    status: >
+      ⚠ 최종 캐러셀(homePjtStripHtml 1923)에서 이 버튼은 제거됨(6차/7차 버전 hm-under-bar에만 존재).
+      함수 openAutoDrawer 및 오버레이 마크업은 유지되어 재사용 가능.
+
+# ── 백엔드 API 상세 ──
+apis:
+  - path: /api/chat
+    method: POST
+    handler: "handleChat (server.js:595)"
+    request: { question: string, context: "{project, finance{cp,plan,act,left,rate,mgap,accounts[]}, todos[]}" }
+    pipeline:
+      - "question 비면 400 Invalid payload"
+      - "fallback = localChatAnswer(body) (server.js:576, 규칙 기반 요약)"
+      - "OPENAI_API_KEY 없음 → fallback 반환 {source:'fallback'}"
+      - "키 있음 → callLLM(buildChatPrompt(body)) (server.js:551, '이 숫자만 근거로 답하라' 프롬프트) → 성공 시 {answer,source:'ai'}, 실패 시 fallback"
+    response: { answer, source, note? }
+    security:
+      - "OPENAI_API_KEY는 process.env만 사용(코드/깃 미저장), 브라우저는 서버 경유 → 키 미노출"
+  - path: /api/navigate
+    method: POST
+    handler: "handleNavigate (server.js) · 프론트 chatNavigate/NAV_ROUTES(app.js:1216)"
+    request: { question: string, ... }
+    response: "자연어 → 화면 route 딥링크 후보 선택(NAV_ROUTES 10종)"
+    note: "채팅 navi 인텐트에서 사용(홈 검색이 이동 의도일 때)"
+
+# ── 데이터 모델 ──
+data:
+  state_vars:
+    - { name: dashboardRole, shape: "'pm'|'lead'", file: "dashboard.js:438", purpose: "역할(기본 pm), switchDashboardRole로 변경" }
+    - { name: homeSelectedProject, shape: "string(HOME_PROJECTS id | 'all')", file: "dashboard.js:538", purpose: "선택 PJT(대화 문맥). 초기 'all'. 최종 renderPmDashboard는 화면 재진입 시 초기화 안 함" }
+    - { name: homeCat, shape: "'all'|'budget'|'work'", file: "dashboard.js:539", purpose: "카테고리 필터(최종 메인 UI 없음, 팝업은 섹션 구분만)" }
+    - { name: homeFeedState, shape: "{ feedKey → 'reflected'|'done' }", file: "dashboard.js:540", purpose: "카드 처리 상태. feedKey(it)=proj+'|'+title(545)" }
+    - { name: homePjtModalProj, shape: "string|null", file: "dashboard.js:1538", purpose: "열린 PJT 팝업의 프로젝트 id" }
+    - { name: homeSort, shape: "'base'|'risk'|'impact'|'due'", file: "dashboard.js:795", purpose: "Work Feed 정렬(팝업/중간버전)" }
+    - { name: "localStorage newmis.menuShown", shape: "'0'|'1'", file: "dashboard.js:1868", purpose: "상단 GNB 메뉴 토글 상태 기억" }
+  derived:
+    - { name: "homeOpenCountOf(id)", file: "dashboard.js:1500", purpose: "HOME_FEED 중 proj===id && 미처리 수 → 칩 빨간 배지" }
+    - { name: "homeOpenCount()", file: "dashboard.js:1085", purpose: "전체 미처리 건수 → 상단 요약" }
+    - { name: "homeFinOf(id)", file: "dashboard.js:1337", purpose: "PJT별 파생 재무(cp/plan/act/left/rate/exec/계정별 여력·등급). 팝업 헤더·chatPjtContext 재사용" }
+  datasets:
+    - { name: HOME_PROJECTS, file: "dashboard.js:460", note: "담당 프로젝트 9개 {id,no,name}" }
+    - { name: HOME_FEED, file: "dashboard.js:475", note: "확인이 필요한 것 6건. cat(budget/work)·proj·sub·sev·title + change/dual/flow/preview/primary/secondaries" }
+    - { name: HOME_AI, file: "dashboard.js:711", note: "feedKey별 AI 추천/근거 {grade(D/R/P),impact,impactWon,dueDays,plan[],guard[],evidence[]}" }
+    - { name: HOME_FIN, file: "dashboard.js:1304", note: "PJT별 재무(억원) {cp,mgap,acc:[[계정,계획,실적]]}. 잔여·여력%·원가율은 파생" }
+    - { name: "자동처리 상수", file: "dashboard.js:1061~1064", note: "HOME_EVENT_TOTAL=18, HOME_AUTO_COUNT=12, HOME_AUTO_MIN_PER=8, HOME_AUTO_WEEK=47" }
+    - { name: NAV_ROUTES, file: "app.js:1216", note: "채팅 네비게이터 이동 가능 화면 10종" }
+    - { name: AGENTS, file: "app.js:419", note: "채팅 Agent 로스터 navi/q/pilot(+ risk/todo)" }
+
+# ── 대표 플로우 ──
+flows:
+  - name: 프로젝트 선택 후 AI 문맥 질문
+    steps:
+      - "showMain→initDashboard→renderPmDashboard. 캐러셀에 담당 9개(To-Do 많은 순) 표시"
+      - "칩 이름 클릭 → selectHomePjt('skon') → picked(✓), 문맥 줄에 '선택된 프로젝트: SKON...'"
+      - "검색창 '외주비 왜 늘었어?' + Enter → askFromHome → openAiChat('main', text) → sendAiChat"
+      - "routeIntents 매칭(outsource 등) → 담당 Agent 렌더. q(LLM) 경유 시 chatPjtContext에 선택 PJT 재무 포함 → POST /api/chat"
+  - name: 확인 항목 팝업 확인·이동
+    steps:
+      - "칩의 빨간 숫자공 클릭 → event.stopPropagation()로 선택과 분리 → openHomePjtModal('skon')"
+      - "팝업(homePjtModalHtml 1818)에 미처리 항목을 homePjtSlimCard(태그·제목·임팩트·D-day)로 나열"
+      - "'원가 조정으로 이동' → closeHomePjtModal() + openCostAdjust('budgetMock')"
+  - name: 역할 전환(PM ↔ 팀장)
+    steps:
+      - "팀장 화면 renderRoleSwitch 버튼 → switchDashboardRole('lead'/'pm') → initDashboard() 재렌더"
+
+# ── 요구사항 후보(FR) ──
+requirements:
+  - { id: FR-HOME-01, text: "담당자는 첫 화면에서 담당 프로젝트 목록을 확인 필요 건수(To-Do) 많은 순으로 볼 수 있다" }
+  - { id: FR-HOME-02, text: "프로젝트 칩 이름을 클릭하면 해당 프로젝트를 대화 문맥으로 선택/해제할 수 있다" }
+  - { id: FR-HOME-03, text: "칩의 빨간 숫자공(확인 필요 건수)을 클릭하면 이름 선택과 분리되어 확인항목 팝업이 열린다" }
+  - { id: FR-HOME-04, text: "확인항목 팝업은 미처리 항목을 예산 점검/업무 반영으로 구분해 보여주고 원가현황·원가조정 화면으로 이동시킨다" }
+  - { id: FR-HOME-05, text: "홈 검색창에 자연어를 입력하면 AI 채팅이 열리고 인텐트에 따라 담당 AI(네비/질문/이상징후/할일)가 답한다" }
+  - { id: FR-HOME-06, text: "LLM 질문 시 선택된 프로젝트의 재무·확인항목이 컨텍스트로 전달되어 그 프로젝트 기준으로 답한다" }
+  - { id: FR-HOME-07, text: "LLM 키 미설정/오류 시 규칙 기반 폴백 답변을 제공한다" }
+  - { id: FR-HOME-08, text: "팀장은 역할 전환(PM/팀장)으로 관점별 홈 화면을 전환할 수 있다" }
+  - { id: FR-HOME-09, text: "상단 GNB 메뉴는 기본 숨김이며 ☰ 토글로 표시할 수 있고 그 선택은 브라우저에 유지된다" }
