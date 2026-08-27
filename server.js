@@ -540,7 +540,7 @@ function handleNavigate(body, res) {
 }
 
 server.listen(PORT, () => {
-  console.log(`\n✅ PM 대시보드가 실행 중입니다.`);
+  console.log(`\n✅ 예산관리 시스템이 실행 중입니다.`);
   console.log(`   http://localhost:${PORT}\n`);
 });
 
