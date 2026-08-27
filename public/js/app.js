@@ -40,6 +40,41 @@ function setNav(id) {
   if (el) el.classList.add('active');
 }
 
+// ── 개발 에이전트 그리드 (구글 앱 런처 스타일) ──
+// 에이전트 추가 시 아래 배열에 한 줄만 추가하면 됩니다.
+const AGENT_APPS = [
+  { name: '요구사항 Agent', sub: '10.250.98.122:8502', icon: '📑', url: 'http://10.250.98.122:8502' },
+  { name: 'PROMIS 참고',    sub: '10.250.98.122:8501', icon: '🗂️', url: 'http://10.250.98.122:8501' },
+  // { name: '세번째 Agent', sub: '...:8503', icon: '🧭', url: 'http://10.250.98.122:8503' },
+];
+function toggleAgentGrid(btn) {
+  let pop = document.getElementById('agent-grid-pop');
+  if (pop && pop.classList.contains('open')) { pop.classList.remove('open'); return; }
+  if (!pop) {
+    pop = document.createElement('div');
+    pop.id = 'agent-grid-pop';
+    pop.className = 'agent-grid-pop';
+    document.body.appendChild(pop);
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('#agent-grid-pop') && !e.target.closest('.tb-agents')) pop.classList.remove('open');
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') pop.classList.remove('open'); });
+  }
+  const tiles = AGENT_APPS.map(function (a) {
+    return `<button class="agent-tile" onclick="window.open('${a.url}','_blank','noopener')" title="${a.name} · ${a.url}">
+        <span class="agent-tile-ic">${a.icon}</span>
+        <span class="agent-tile-name">${a.name}</span>
+        <span class="agent-tile-sub">${a.sub || ''}</span>
+      </button>`;
+  }).join('');
+  pop.innerHTML = `<div class="agent-grid-head">AI개발 Agent</div><div class="agent-grid">${tiles}</div>`;
+  const b = btn || document.querySelector('.tb-agents');
+  const r = b.getBoundingClientRect();
+  pop.style.top = (r.bottom + 8) + 'px';
+  pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+  pop.classList.add('open');
+}
+
 // ── URL 라우팅 (해시 = 소스파일명) ──
 const SCREEN_ROUTES = {
   's-main': 'dashboard',
