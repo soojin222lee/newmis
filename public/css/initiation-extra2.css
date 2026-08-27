@@ -9365,3 +9365,144 @@ tbody td,
 .setup-overview.compact > .setup-version-note {
   clear: both;               /* 버튼 묶음이 아래 내용까지 밀고 들어오지 않게 끊습니다 */
 }
+
+/* ── CP총액(선행 승인 한도) 참고 버튼 · 한도 바 · 팝업 ────────────────── */
+.setup-version-note .cp-ref-btn {
+  margin-left: auto;                     /* 작성자/상태(em) 바로 왼쪽에 붙습니다 */
+  border: 1px solid #c7d2fe; border-radius: 999px; background: #eef2ff;
+  color: #3730a3; font-size: 13px; font-weight: 800; padding: 5px 12px;
+  cursor: pointer; white-space: nowrap;
+}
+.setup-version-note .cp-ref-btn:hover { border-color: #6366f1; background: #e0e7ff; }
+.setup-version-note .cp-ref-btn.over { border-color: #fca5a5; background: #fef2f2; color: #b91c1c; }
+.setup-version-note .cp-ref-btn ~ em { margin-left: 12px; }
+
+.cp-limit { margin-top: 12px; padding: 11px 14px; border: 1px solid #dbe4ea; border-radius: 12px; background: #f8fafc; }
+.cp-limit.over { border-color: #fca5a5; background: #fef2f2; }
+.cp-limit-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: #475569; }
+.cp-limit-head b { color: #1e293b; font-weight: 800; }
+.cp-limit.over .cp-limit-head b { color: #b91c1c; }
+.cp-limit-head em { margin-left: auto; font-style: normal; font-weight: 800; }
+.cp-limit-head em.ok { color: #15803d; }
+.cp-limit-head em.bad { color: #b91c1c; }
+.cp-limit-bar { height: 6px; margin: 8px 0 0; border-radius: 3px; background: #e2e8f0; overflow: hidden; }
+.cp-limit-bar > i { display: block; height: 100%; border-radius: 3px; background: #6366f1; }
+.cp-limit.over .cp-limit-bar > i { background: #ef4444; }
+.cp-limit-note { margin-top: 7px; font-size: 12px; color: #64748b; line-height: 1.6; }
+
+.cp-pop-dim { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center;
+  background: rgba(15, 23, 42, .38); padding: 20px; }
+.cp-pop { width: min(720px, 100%); max-height: 82vh; overflow: auto; background: #fff;
+  border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 24px 60px -28px rgba(15, 23, 42, .5); }
+.cp-pop-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #eef2f7; }
+.cp-pop-head strong { display: block; font-size: 16px; color: #0f172a; }
+.cp-pop-head span { display: block; margin-top: 4px; font-size: 13px; color: #64748b; line-height: 1.6; }
+.cp-pop-head button { margin-left: auto; flex: 0 0 auto; }
+.cp-pop-table { width: 100%; border-collapse: collapse; }
+.cp-pop-table th, .cp-pop-table td { padding: 11px 18px; font-size: 14px; text-align: left; border-bottom: 1px solid #eef2f7; white-space: nowrap; }
+.cp-pop-table th { background: #f8fafc; font-size: 13px; color: #64748b; font-weight: 800; }
+.cp-pop-table td.num, .cp-pop-table th.num { text-align: right; font-weight: 800; }
+.cp-pop-table tr.over > td { background: #fffbeb; }
+.cp-pop-table td.ok { color: #15803d; }
+.cp-pop-table td.bad { color: #b91c1c; }
+.cp-pop-table tfoot td { background: #f8fafc; font-weight: 900; color: #0f172a; border-bottom: 0; }
+
+/* 경비 자원계획은 원가조정 화면 안에 들어가 있으므로, 수주형 상세(.sifr)의
+   max-width:1180px 중앙정렬을 풀고 편집 영역 폭을 그대로 채우게 합니다. */
+.setup-editor .expense-plan-sifr,
+.setup-expanded-detail .expense-plan-sifr {
+  max-width: none;
+  margin: 0;
+}
+/* 표 하단 합계 행 */
+.expense-plan-sifr tfoot .exp-total-row > td {
+  background: #F7FAF9;
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+  font-weight: 800;
+  color: var(--ink);
+}
+.expense-plan-sifr tfoot .exp-total-row > td.exp-in-col { background: #EDF7F3; }
+.expense-plan-sifr tfoot .exp-total-row .exp-acct-sub { font-weight: 600; }
+
+/* CP총액 버튼을 한도 막대 오른쪽에 나란히 */
+.cp-limit-row { display: flex; align-items: center; gap: 12px; margin: 8px 0 0; }
+.cp-limit-row .cp-limit-bar { flex: 1 1 auto; margin: 0; }
+.cp-limit-row .cp-ref-btn {
+  flex: 0 0 auto;
+  border: 1px solid #c7d2fe; border-radius: 999px; background: #eef2ff;
+  color: #3730a3; font-size: 13px; font-weight: 800; padding: 5px 12px;
+  cursor: pointer; white-space: nowrap;
+}
+.cp-limit-row .cp-ref-btn:hover { border-color: #6366f1; background: #e0e7ff; }
+.cp-limit-row .cp-ref-btn.over { border-color: #fca5a5; background: #fef2f2; color: #b91c1c; }
+
+/* [프로젝트 총 실행 비용] 탭 — 계정별 합계표 */
+.total-cost-table { border: 1px solid #dbe4ea; border-radius: 14px; background: #fff; overflow: hidden; }
+.tct-head { padding: 13px 16px; border-bottom: 1px solid #eef2f7; }
+.tct-head strong { font-size: 15px; color: #0f172a; }
+.tct-head span { display: block; margin-top: 4px; font-size: 12.5px; color: #64748b; line-height: 1.6; }
+.tct-scroll { overflow-x: auto; }
+.tct-table { width: 100%; border-collapse: collapse; }
+.tct-table th, .tct-table td {
+  padding: 10px 14px; font-size: 14px; text-align: left;
+  border-bottom: 1px solid #eef2f7; white-space: nowrap;
+}
+.tct-table th { background: #f8fafc; font-size: 13px; color: #64748b; font-weight: 800; }
+.tct-table th.num, .tct-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tct-table td.tct-acct { font-weight: 800; color: #0f172a; }
+.tct-table td.tct-acct em {
+  margin-left: 6px; font-style: normal; font-size: 11px; font-weight: 700;
+  color: #0B6E55; background: #E7F5F0; border-radius: 5px; padding: 2px 7px;
+}
+.tct-table td.tct-done { color: #15803d; font-weight: 700; }
+.tct-table td.tct-open { color: #2f6bed; font-weight: 700; }
+/* 연도 묶음 셀은 여러 달을 colspan으로 덮으므로, 우측정렬이면 값이 화면 밖으로 밀립니다 → 가운데 */
+.tct-table td.tct-year { background: #f6fbf9; font-weight: 800; text-align: center; }
+.tct-table td.tct-year + td.tct-year { border-left: 1px solid #e2ece8; }
+.tct-table tfoot td { background: #f8fafc; font-weight: 900; color: #0f172a; border-bottom: 0; }
+.tct-note { margin: 0; padding: 10px 16px; border-top: 1px solid #eef2f7; font-size: 12px; color: #64748b; }
+/* 합계 행: 월별 합계가 경비를 제외한다는 표시 */
+.tct-table tfoot td.tct-acct em.tct-foot-hint {
+  margin-left: 8px; font-style: normal; font-size: 11px; font-weight: 700;
+  color: #64748b; background: #eef2f7; border-radius: 5px; padding: 2px 7px;
+}
+
+/* ── 실행예산 상단 프로젝트 기본정보 (탭 줄 위) ────────────────────────── */
+/* 코드 · 프로젝트명 · 상태 · 기간 · PM · 유형을 가로 한 줄로 나열 */
+.budget-proj-info {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 14px;
+  padding: 11px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fbfcfe 0%, #ffffff 70%);
+  overflow-x: auto;                      /* 좁은 화면에서도 줄이 접히지 않고 가로 스크롤 */
+}
+.bpi-code {
+  flex: 0 0 auto;
+  font-size: 13px; font-weight: 800; color: #3730a3;
+  background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 7px; padding: 3px 9px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.bpi-name {
+  flex: 0 1 auto; min-width: 0;
+  font-size: 16px; font-weight: 800; color: #0f172a; letter-spacing: -0.2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.budget-proj-info em {
+  flex: 0 0 auto;
+  font-style: normal; font-size: 12px; font-weight: 800;
+  border-radius: 999px; padding: 3px 10px; white-space: nowrap;
+}
+.bpi-status { color: #15803d; background: #eefaf5; border: 1px solid #bfe8d8; }
+.bpi-dplus { color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; }
+.bpi-item {
+  flex: 0 0 auto;
+  display: flex; align-items: baseline; gap: 6px;
+  padding-left: 16px; margin-left: 6px;
+  border-left: 1px solid #e5e7eb;        /* 항목 구분선 */
+}
+.bpi-item:first-of-type { margin-left: auto; }   /* 기간부터는 오른쪽으로 밀어 붙입니다 */
+.bpi-item span { font-size: 12.5px; font-weight: 700; color: #94a3b8; white-space: nowrap; }
+.bpi-item b { font-size: 13.5px; font-weight: 700; color: #334155; white-space: nowrap; }

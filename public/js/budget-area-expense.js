@@ -331,6 +331,27 @@ renderExpensePlanPanel = function(data) {
       </tr>`;
   }).join('');
 
+  // 표 하단 합계 — 실적 합계(예: 656,952원)가 화면에서 바로 보이도록 한 줄 더합니다.
+  const sum = (fn) => rows.reduce((acc, r) => acc + (Number(fn(r)) || 0), 0);
+  const footActualMonths = expenseActualExpanded
+    ? EXPENSE_ACTUAL_MONTHS.map((m, i) => {
+        const v = rows.reduce((acc, r) => acc + (Number((expenseMonthlyActual(r) || [])[i]) || 0), 0);
+        return `<td class="num exp-am-col">${v ? fmt(v) : '-'}</td>`;
+      }).join('')
+    : '';
+  const footYears = years.map(({ idxs }) =>
+    `<td class="num exp-in-col">${fmt(rows.reduce((acc, r) => acc + (Number(expenseYearPlan(r, idxs)) || 0), 0))}</td>`).join('');
+  const footRow = `
+    <tr class="exp-total-row">
+      <td class="exp-acct"><strong>합계</strong><span class="exp-acct-sub">소계정 ${totalRows}건</span></td>
+      <td class="num">${fmt(sum(r => r.carried))}</td>
+      ${footActualMonths}
+      <td class="num exp-actual-sum">${fmt(sum(r => r.actual))}</td>
+      ${footYears}
+      <td class="num exp-total">${fmt(rows.reduce((acc, r) => acc + expensePlanTotalFinal(r), 0))}</td>
+      <td class="num">-</td>
+    </tr>`;
+
   const actualToggleBtn = `<button class="exp-actual-toggle ${expenseActualExpanded ? 'open' : ''}" title="${expenseActualExpanded ? '월별 실적 접기' : '지난 26년 월별 실적 펼치기'}" onclick="toggleExpenseActualCols()">${expenseActualExpanded ? '－' : '＋'}</button>`;
   const actualMonthHeads = expenseActualExpanded
     ? EXPENSE_ACTUAL_MONTHS.map(m => `<th class="num exp-am-col">${expenseActualMonthLabel(m)}</th>`).join('')
@@ -356,13 +377,14 @@ renderExpensePlanPanel = function(data) {
               <th>계정</th>
               <th class="num">이전계획</th>
               ${actualMonthHeads}
-              <th class="num exp-actual-sumhead">실적${expenseActualExpanded ? ' 합계' : ''} ${actualToggleBtn}</th>
+              <th class="num exp-actual-sumhead">실적(확정)${expenseActualExpanded ? ' 합계' : ''} ${actualToggleBtn}</th>
               ${years.map(({ year, idxs }) => `<th class="num exp-in-col">${expenseYearLabel(year, idxs)}</th>`).join('')}
-              <th class="num">계획 합계</th>
+              <th class="num">계획(전체)</th>
               <th class="num">가용잔액</th>
             </tr>
           </thead>
           <tbody>${body}</tbody>
+          <tfoot>${footRow}</tfoot>
         </table>
       </div>
       <div class="exp-comment">공동예산 묶음의 계획 합계는 매출귀속부서 기준 ERP 가용예산을 초과할 수 없습니다. 묶음 안에서는 소계정끼리 서로 메울 수 있어, 한 계정이 한도를 넘어도 묶음 합계가 한도 이내면 저장됩니다. 계정별 예산 이관에서 경비 조정배분을 변경할 때도 동일한 한도를 체크합니다.</div>

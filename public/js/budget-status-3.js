@@ -1560,21 +1560,27 @@ function closeBudgetAccountEditor() {
 // ── 계정 요약 타일(신선 디자인) ──
 // 계정별 컬러 액센트 + 좌측정렬 금액 + 총액 대비 비중 바. 총액은 다크(잉크) 타일.
 const ACCT_TILE_COLOR = { '인건비':'a-blue', '외주비':'a-red', '재료비':'a-yellow', '경비':'a-green', 'A/S비':'a-sky' };
-function renderAcctTile({ label, value, total, maxVal, active, onclick, isTotal }) {
+function renderAcctTile({ label, value, total, maxVal, active, onclick, isTotal, rate, rateTip, foot }) {
   if (isTotal) {
     return `
       <button class="acct-tile acct-tile-total ${active ? 'active' : ''}" onclick="${onclick}">
         <div class="acct-tile-top"><span class="acct-tile-name">${label}</span><span class="acct-tile-arrow">→</span></div>
         <strong class="acct-tile-val">${fmt(value)}<em>원</em></strong>
-        <div class="acct-tile-foot">전체 합계 · 100%</div>
+        <div class="acct-tile-foot">${foot || '전체 합계 · 100%'}</div>
       </button>`;
   }
-  const share = total > 0 ? Math.round((value / total) * 1000) / 10 : 0;
-  const barW = maxVal > 0 ? Math.round((value / maxVal) * 100) : 0;
+  // rate가 넘어오면 "집행률"(실적 ÷ 수립예산)을 보여주고, 없으면 예전처럼 전체 대비 비중을 씁니다.
+  const pct = (rate === undefined || rate === null)
+    ? (total > 0 ? Math.round((value / total) * 1000) / 10 : 0)
+    : Math.round(rate * 10) / 10;
+  const barW = (rate === undefined || rate === null)
+    ? (maxVal > 0 ? Math.round((value / maxVal) * 100) : 0)
+    : Math.min(pct, 100);
   const cls = ACCT_TILE_COLOR[label] || 'a-blue';
+  const tip = rateTip ? ` title="${rateTip}"` : '';
   return `
-    <button class="acct-tile ${cls} ${active ? 'active' : ''}" onclick="${onclick}">
-      <div class="acct-tile-top"><span class="acct-tile-dot"></span><span class="acct-tile-name">${label}</span><span class="acct-tile-share">${share}%</span></div>
+    <button class="acct-tile ${cls} ${active ? 'active' : ''}" onclick="${onclick}"${tip}>
+      <div class="acct-tile-top"><span class="acct-tile-dot"></span><span class="acct-tile-name">${label}</span><span class="acct-tile-share">${pct}%</span></div>
       <strong class="acct-tile-val">${fmt(value)}<em>원</em></strong>
       <div class="acct-tile-bar"><i style="width:${barW}%"></i></div>
     </button>`;
@@ -1972,10 +1978,8 @@ function renderBudgetPage() {
   const remain   = CATS.reduce((o,c)=>({...o,[c]:calcRemain(data,c)}),{});
   const planTot  = CATS.reduce((o,c)=>({...o,[c]:calcPlanTotal(data,c)}),{});
   const planQ    = CATS.reduce((o,c)=>({...o,[c]:calcPlanQuasi(data,c)}),{});
-  const totBudget= CATS.reduce((s,c)=>s+(data.plan[c]||0),0);
-  const totActual= CATS.reduce((s,c)=>s+actual[c],0);
-  const totQuasi = CATS.reduce((s,c)=>s+quasi[c],0);
-  const totRemain= totBudget - totActual - totQuasi;
+  const bnr0 = budgetBannerTotalsFinal(data, actual, quasi);
+  const totBudget = bnr0.budget, totActual = bnr0.actual, totQuasi = bnr0.quasi, totRemain = bnr0.remain;
 
   const projOpts = Object.entries(BUDGET_SOURCE).map(([k,v])=>
     `<option value="${k}" ${k===currentBudgetProj?'selected':''}>${v.projName}</option>`
@@ -1997,7 +2001,7 @@ function renderBudgetPage() {
   document.getElementById('budget-body').innerHTML = `
     <button class="mc-back-btn" onclick="budgetScreenView='list';budgetDetailStep='overview';renderBudgetPage()">← 목록으로</button>
 
-    ${renderTotalBudgetBar(totBudget, totActual, totQuasi, totRemain, data.projName, data.dplus, data.stage)}
+    ${SHOW_TOTAL_BUDGET_BAR_FINAL ? renderTotalBudgetBar(totBudget, totActual, totQuasi, totRemain, data.projName, data.dplus, data.stage) : ''}
 
     ${budgetDetailStep === 'overview'
       ? `
@@ -2015,6 +2019,33 @@ function renderBudgetPage() {
 }
 
 // ── 총합 예산 배너 (컴팩트 가로형) ──
+// 상단 배너 4개 카드의 값 — CP총액을 세 조각으로 나눠 보여줍니다(합계 = CP총액).
+//   계획예산 = PM이 수립한 예산 (하단 [프로젝트 총 실행 비용]과 동일)
+//   실집행   = 실적/확정이 발생한 금액 (하단 계정별 "실적/확정" 합계)
+//   투입확정 = 계획예산 - 실집행       (계획은 섰지만 아직 실적이 없는 금액)
+//   투입미정 = CP총액   - 계획예산     (원가총액 안에서 계획조차 세우지 않은 금액)
+// budgetRollupFinal(budget-status-4.js)이 아직 안 실렸으면 예전 계산으로 물러납니다.
+// CP 대비 정보는 [CP총액 한도] 막대로 대체되어 상단 배너를 숨긴 상태입니다.
+// 되돌리려면 이 값을 true로 바꾸면 배너가 그대로 다시 나옵니다(계산 로직은 그대로 보존).
+var SHOW_TOTAL_BUDGET_BAR_FINAL = false;
+
+function budgetBannerTotalsFinal(data, actual, quasi) {
+  if (typeof budgetRollupFinal === 'function' && typeof getSelectedExecBudgetVersionFinal === 'function') {
+    const viewData = applyExecBudgetVersionSnapshotFinal(data, getSelectedExecBudgetVersionFinal(data));
+    const roll = budgetRollupFinal(viewData, data);
+    return {
+      budget: roll.plan,
+      actual: roll.done,
+      quasi:  roll.plan - roll.done,
+      remain: roll.cp - roll.plan,
+    };
+  }
+  const budget = CATS.reduce((s, c) => s + (data.plan[c] || 0), 0);
+  const a = CATS.reduce((s, c) => s + actual[c], 0);
+  const q = CATS.reduce((s, c) => s + quasi[c], 0);
+  return { budget, actual: a, quasi: q, remain: budget - a - q };
+}
+
 function renderTotalBudgetBar(budget, actual, quasi, remain, projName='', dplus=0, stage='') {
   const rate     = budget > 0 ? (actual / budget * 100).toFixed(1) : 0;
   const quaRate  = budget > 0 ? (quasi  / budget * 100).toFixed(1) : 0;
@@ -3305,16 +3336,16 @@ function renderBudgetPage() {
   const actual   = CATS.reduce((o,c)=>({...o,[c]:calcActual(data,c)}),{});
   const quasi    = CATS.reduce((o,c)=>({...o,[c]:calcQuasi(data,c)}),{});
   const remain   = CATS.reduce((o,c)=>({...o,[c]:calcRemain(data,c)}),{});
-  const totBudget= CATS.reduce((s,c)=>s+(data.plan[c]||0),0);
-  const totActual= CATS.reduce((s,c)=>s+actual[c],0);
-  const totQuasi = CATS.reduce((s,c)=>s+quasi[c],0);
-  const totRemain= totBudget - totActual - totQuasi;
+  // 상단 배너는 하단 계정별 예산내역 표의 합계를 그대로 씁니다(같은 화면에서 숫자가 갈리지 않게).
+  //   계획예산 = Σ 계정 계획, 실집행+투입확정 = Σ "실적/확정", 투입미정 = Σ 잔여예산
+  const bnr = budgetBannerTotalsFinal(data, actual, quasi);
+  const totBudget = bnr.budget, totActual = bnr.actual, totQuasi = bnr.quasi, totRemain = bnr.remain;
 
   const setupBody = renderBudgetSetupOverview(data, actual, quasi);
 
   document.getElementById('budget-body').innerHTML = `
     <button class="mc-back-btn" onclick="budgetScreenView='list';budgetDetailStep='overview';renderBudgetPage()">← 목록으로</button>
-    ${renderTotalBudgetBar(totBudget, totActual, totQuasi, totRemain, data.projName, data.dplus, data.stage)}
+    ${SHOW_TOTAL_BUDGET_BAR_FINAL ? renderTotalBudgetBar(totBudget, totActual, totQuasi, totRemain, data.projName, data.dplus, data.stage) : ''}
     ${budgetDetailStep === 'overview'
       ? `
         ${renderAccountTransferTable(data, actual, quasi, remain)}
@@ -3428,7 +3459,7 @@ function renderAccountMonthlyBudgetTable(data, account) {
         <table class="account-monthly-table">
           <thead>
             <tr>
-              <th>구분</th><th>계획</th><th>실적/확정</th><th>잔여예산</th>${headMonths}
+              <th>구분</th><th>계획(전체)</th><th>실적(확정)</th><th>계획(미집행)</th>${headMonths}
             </tr>
           </thead>
           <tbody>
@@ -3443,7 +3474,7 @@ function renderAccountMonthlyBudgetTable(data, account) {
           </tbody>
         </table>
       </div>
-      <p class="account-monthly-note">※ 7월 이전은 실적/확정 기준, 이후는 현재 수립된 계획 기준으로 표시됩니다.</p>
+      <p class="account-monthly-note">※ 7월 이전은 실적(확정) 기준, 이후는 현재 수립된 계획 기준으로 표시됩니다.</p>
     </div>`;
 }
 

@@ -86,7 +86,7 @@ renderAccountMonthlyBudgetTable = function(data, account) {
       <div class="account-monthly-scroll" style="border-top:0 !important;border-radius:0 !important">
         <table class="account-monthly-table" style="background:#fff">
           <thead>
-            <tr><th>구분</th><th>계획</th><th>실적/확정</th><th>잔여예산</th>${headMonths}</tr>
+            <tr><th>구분</th><th>계획(전체)</th><th>실적(확정)</th><th>계획(미집행)</th>${headMonths}</tr>
           </thead>
           <tbody>
             ${parentRow}

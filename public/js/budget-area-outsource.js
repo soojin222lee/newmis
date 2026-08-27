@@ -355,7 +355,7 @@ renderAccountMonthlyBudgetTable = function(data, account) {
       <div class="account-monthly-scroll">
         <table class="account-monthly-table">
           <thead>
-            <tr><th>구분</th><th>계획</th><th>실적/확정</th><th>잔여예산</th>${headMonths}</tr>
+            <tr><th>구분</th><th>계획(전체)</th><th>실적(확정)</th><th>계획(미집행)</th>${headMonths}</tr>
           </thead>
           <tbody>
             ${parentRow}
@@ -787,7 +787,7 @@ function osv3DeleteVendorV3(vendorId) {
    "외주비 예산내역" 표의 [실투입대상 외주비] 행을 비율 추정값이 아니라 아래에서 편집 중인
    업체별 예산 / PO / 월별 검수계획 실데이터로 대체합니다. 나머지 5개 상세계정은 기존 비율 로직을 그대로 씁니다.
    - 계획      = Σ 업체별 전체기간 예산
-   - 실적/확정 = Σ 계약 라인 실적
+   - 실적(확정) = Σ 계약 라인 실적
    - 월별      = Σ 계획 라인의 월별 금액 + Σ 미계획 금액을 잔여 기간에 균등 배분한 금액
                  (계획 라인은 월별 검수계획이 있으면 그 값, 없으면 투입기간 균등 배분) */
 function osv3MonthPlanTotalV3(month) {
