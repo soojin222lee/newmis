@@ -1997,3 +1997,1582 @@ function renderPmDashboard() {
 function rerenderHomeFeed() {
   const un = document.getElementById('home-under'); if (un) un.innerHTML = homePjtStripHtml();
 }
+
+// ============================================================
+//  13차 — 메인화면을 "해야 할 일 / 이상징후"로 재구성 · 사용자 전환
+//
+//  부문장님 지시: 첫 화면에서 PM이 하는 일은 ① 새로운 일의 편성 ② 기존 일의 조정.
+//  → 프롬프트로 물어봐야 알 수 있는 게 아니라, 들어오면 바로 보이게 한다.
+//
+//  데이터 기준: 해야 할 일은 원가조정 화면의 승인 대기 제안(AGENT_PROPOSALS_FINAL)을
+//  그대로 쓴다. 메인에서 본 건을 클릭하면 상세 화면에 같은 건이 있어 흐름이 끊기지 않는다.
+// ============================================================
+
+const HOME_USERS = {
+  pm: { key:'pm', name:'이봄', role:'PM', greet:'봄님', desc:'편성하고 조정할 일' },
+};
+let homeUser = 'pm';
+
+function homeUserNow() { return HOME_USERS[homeUser] || HOME_USERS.pm; }
+
+function switchHomeUser(key) {
+  if (!HOME_USERS[key]) return;
+  homeUser = key;
+  dashboardRole = (key === 'lead') ? 'lead' : 'pm';
+  syncTopUser();
+  closeUserMenu();
+  if (typeof showMain === 'function') showMain();
+  // showMain()은 화면 전환만 하고 대시보드를 다시 그리지 않으므로 직접 재렌더한다
+  if (typeof initDashboard === 'function') initDashboard();
+  if (typeof showToast === 'function') showToast(HOME_USERS[key].name + ' ' + HOME_USERS[key].role + ' 화면으로 전환했어요.');
+}
+
+// 상단 사용자 영역 — 클릭하면 전환 메뉴 (index.html은 공유 파일이라 JS로 붙인다)
+function syncTopUser() {
+  const u = homeUserNow();
+  const n = document.querySelector('.tb-user .tb-user-name');
+  const r = document.querySelector('.tb-user .tb-user-role');
+  if (n) n.textContent = u.name + ' 님';
+  if (r) r.textContent = u.role;
+}
+function toggleUserMenu(e) {
+  if (e) e.stopPropagation();
+  const m = document.getElementById('tb-user-menu');
+  if (m) m.classList.toggle('open');
+}
+function closeUserMenu() {
+  const m = document.getElementById('tb-user-menu');
+  if (m) m.classList.remove('open');
+}
+(function injectUserSwitch() {
+  function bind() {
+    const box = document.querySelector('.topbar .tb-user');
+    if (!box) { setTimeout(bind, 300); return; }
+    if (document.getElementById('tb-user-menu')) return;
+    // 전환할 사용자가 하나뿐이면 드롭다운을 만들지 않는다
+    if (Object.keys(HOME_USERS).length < 2) { syncTopUser(); return; }
+    box.classList.add('switchable');
+    box.setAttribute('role', 'button');
+    box.setAttribute('tabindex', '0');
+    box.setAttribute('title', '사용자 전환');
+    box.onclick = toggleUserMenu;
+    const m = document.createElement('div');
+    m.id = 'tb-user-menu';
+    m.className = 'tb-user-menu';
+    m.innerHTML = Object.keys(HOME_USERS).map(function (k) {
+      const u = HOME_USERS[k];
+      return `<button class="tb-user-opt" onclick="switchHomeUser('${k}')">
+          <b>${u.name} 님</b><span>${u.role}</span><em>${u.desc}</em>
+        </button>`;
+    }).join('');
+    box.appendChild(m);
+    document.addEventListener('click', function (ev) {
+      if (!box.contains(ev.target)) closeUserMenu();
+    });
+    syncTopUser();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+// ── 금액 표기 (원 단위) ──
+function homeWon(v) {
+  const n = Number(v) || 0;
+  if (Math.abs(n) >= 100000000) return (n / 100000000).toFixed(2) + '억';
+  if (Math.abs(n) >= 10000) return Math.round(n / 10000).toLocaleString() + '만원';
+  return n.toLocaleString() + '원';
+}
+function homeWonDelta(from, to) {
+  const d = (Number(to) || 0) - (Number(from) || 0);
+  return (d > 0 ? '+' : d < 0 ? '-' : '') + homeWon(Math.abs(d));
+}
+
+// ── PM의 해야 할 일 = 원가조정 승인 대기 제안 (같은 데이터) ──
+function homeTodoPm() {
+  if (typeof AGENT_PROPOSALS_FINAL === 'undefined') return [];
+  return AGENT_PROPOSALS_FINAL.filter(function (p) { return p.status === 'pending'; });
+}
+
+// ── 팀장의 해야 할 일 = PM이 상신한 결재 대기 ──
+const HOME_LEAD_APPROVALS = [
+  { id:'la-01', acct:'외주비', by:'이봄 PM', at:'2026-08-27 14:20',
+    title:'외주비 4분기 계획 증액 결재 요청',
+    why:'구매견적 24,500,000원이 계획을 4,500,000원 넘어 PO 발행이 막혀 있습니다.',
+    from:865250000, to:869750000, ctrl:'직책자 승인' },
+  { id:'la-02', acct:'인건비', by:'이봄 PM', at:'2026-08-27 11:05',
+    title:'SCM 확정 인력 2명 추가 편성 결재 요청',
+    why:'SCM에서 확정된 인력 2명(10.5MM)을 인건비에 편성하지 않으면 투입 시점에 집행할 예산이 없습니다.',
+    from:650499999, to:716749999, ctrl:'직책자 승인' },
+];
+function homeTodoLead() { return HOME_LEAD_APPROVALS; }
+
+function homeTodoItems() { return homeUser === 'lead' ? homeTodoLead() : homeTodoPm(); }
+
+// ── 이상징후 = MIS 데이터에서 발견한 위험 신호 ──
+function homeRiskItems() {
+  return HOME_FEED.filter(function (i) {
+    return i.cat === 'budget' && !homeFeedState[feedKey(i)]
+      && (homeSelectedProject === 'all' || i.proj === homeSelectedProject);
+  });
+}
+
+// ── 해야 할 일 카드 ──
+function homeTodoCardHtml(it) {
+  const lead = homeUser === 'lead';
+  const delta = homeWonDelta(it.from, it.to);
+  const up = /^\+/.test(delta);
+  return `
+    <button class="hm-task" onclick="homeTodoGo('${escAttr(it.acct)}')">
+      <span class="hm-task-top">
+        <span class="hm-task-acct ${homeAcctCls(it.acct)}">${escHtml(it.acct)}</span>
+        ${lead ? `<span class="hm-task-by">${escHtml(it.by)}</span>` : `<span class="hm-task-trig">${escHtml(it.trigger || '')}</span>`}
+        <span class="hm-task-delta ${up ? 'up' : 'down'}">${escHtml(delta)}</span>
+      </span>
+      <span class="hm-task-t">${escHtml(it.title)}</span>
+      <span class="hm-task-w">${escHtml(it.why || '')}</span>
+      <span class="hm-task-go">${lead ? '결재하러 가기' : '처리하러 가기'} ›</span>
+    </button>`;
+}
+function homeAcctCls(a) {
+  return a === '인건비' ? 'labor' : a === '외주비' ? 'outsource'
+    : a === '재료비' ? 'material' : a === '경비' ? 'expense' : '';
+}
+// 해당 계정의 원가조정 편집기로 바로 진입 (상세에 같은 건이 있다)
+function homeTodoGo(acct) {
+  if (typeof openCostArea === 'function') openCostArea(acct, 'budgetMock');
+  else if (typeof openCostAdjust === 'function') openCostAdjust('budgetMock');
+}
+
+// ── 이상징후 카드 ──
+function homeRiskCardHtml(it) {
+  const ai = (typeof homeAiOf === 'function') ? homeAiOf(it) : null;
+  const sev = it.sev === 'danger' ? 'danger' : 'warning';
+  let line = '';
+  if (it.change) line = `${it.change.from} → ${it.change.to} <b class="up">${it.change.delta}</b>`;
+  else if (it.dual) line = `${it.dual.left} → ${it.dual.right} <b class="up">${it.dual.delta}</b>`;
+  return `
+    <button class="hm-sig ${sev}" onclick="homeRiskGo('${escAttr(feedKey(it))}')">
+      <span class="hm-task-top">
+        <span class="hm-sig-tag ${sev}">${escHtml(it.sub)}</span>
+        ${ai ? `<span class="hm-chip due ${ai.dueDays <= 3 ? 'near' : ''}">D-${ai.dueDays}</span>` : ''}
+        ${ai ? `<span class="hm-task-delta up">임팩트 ${escHtml(ai.impact)}</span>` : ''}
+      </span>
+      <span class="hm-task-t">${escHtml(it.title)}</span>
+      <span class="hm-task-w">${escHtml(homeProjName(it.proj))}${line ? ' · ' : ''}${line}</span>
+      <span class="hm-task-go">원인 확인하기 ›</span>
+    </button>`;
+}
+function homeRiskGo(key) {
+  const it = HOME_FEED.find(function (i) { return feedKey(i) === key; });
+  if (!it) return;
+  if (typeof openAiChat === 'function') {
+    openAiChat('main', (it.primary && it.primary.q) ? it.primary.q : (it.title + ' 원인 알려줘'));
+  }
+}
+
+// ── 해야 할 일 / 이상징후 2단 구성 ──
+function homeWorkBoardHtml() {
+  const u = homeUserNow();
+  const todos = homeTodoItems();
+  const risks = homeRiskItems();
+  const todoBody = todos.length
+    ? todos.map(homeTodoCardHtml).join('')
+    : `<div class="hm-board-empty">지금 ${homeUser === 'lead' ? '결재할' : '처리할'} 일이 없어요.</div>`;
+  const riskBody = risks.length
+    ? risks.map(homeRiskCardHtml).join('')
+    : `<div class="hm-board-empty">발견된 이상징후가 없어요. 정상 범위입니다.</div>`;
+  return `
+    <div class="hm-board">
+      <section class="hm-col todo">
+        <div class="hm-col-h">
+          <span class="hm-col-ic">✓</span>
+          <b>${homeUser === 'lead' ? '결재해야 할 일' : '해야 할 일'}</b>
+          <em>${todos.length}건</em>
+          <span class="hm-col-d">${homeUser === 'lead' ? 'PM이 상신한 건' : '편성·조정이 필요한 건'}</span>
+        </div>
+        <div class="hm-col-b">${todoBody}</div>
+      </section>
+      <section class="hm-col risk">
+        <div class="hm-col-h">
+          <span class="hm-col-ic warn">!</span>
+          <b>이상징후</b>
+          <em>${risks.length}건</em>
+          <span class="hm-col-d">데이터에서 발견한 신호</span>
+        </div>
+        <div class="hm-col-b">${riskBody}</div>
+      </section>
+    </div>`;
+}
+
+// ── 13차 — 메인화면 조립 (캐러셀은 필터로 유지, 아래에 해야 할 일/이상징후) ──
+function renderPmDashboard() {
+  homeCat = 'all';
+  const u = homeUserNow();
+  return `
+    <div class="ai-workspace home2 home-simple">
+      <section class="home2-main centered">
+        <div class="home2-hero center">
+          <h1>좋은 아침이에요, ${escHtml(u.greet)}</h1>
+        </div>
+
+        <div id="home-under">${homePjtStripHtml()}</div>
+
+        <div class="home2-search">
+          <span class="home2-orb" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
+              <path d="M12 4.4V8"/>
+              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
+              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <path d="M2 13v3M22 13v3"/>
+            </svg>
+          </span>
+          <input id="ai-main-query" type="text" placeholder="원하는 업무를 입력하세요 — 화면을 찾거나, 숫자의 이유를 묻거나, 다음 업무를 요청해보세요"
+            onkeydown="if(event.key==='Enter') askFromHome()">
+          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+        </div>
+
+        <div id="home-board">${homeWorkBoardHtml()}</div>
+      </section>
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
+    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}
+
+// 팀장도 같은 화면 구조를 쓴다 (목록 내용만 달라짐)
+function initDashboard() {
+  document.getElementById('s-main').innerHTML = renderPmDashboard();
+  syncTopUser();
+  if (typeof updateKpiMain === 'function') updateKpiMain();
+}
+
+// 캐러셀 필터·카드 처리 시 보드도 함께 갱신
+function rerenderHomeFeed() {
+  const un = document.getElementById('home-under'); if (un) un.innerHTML = homePjtStripHtml();
+  const bd = document.getElementById('home-board'); if (bd) bd.innerHTML = homeWorkBoardHtml();
+}
+function selectHomePjt(id) {
+  homeSelectedProject = (homeSelectedProject === id) ? 'all' : id;
+  rerenderHomeFeed();
+}
+
+// ============================================================
+//  14차 — 시나리오 PJT(30130020-D001) 일원화 · 월마감 단계별 원가조정
+//
+//  [메인 ↔ 상세 불일치 해결 방식]
+//  기존 목업 프로젝트(key: budgetMock)는 이름만 '예산관리시스템 목업용'인 자리표시자였고,
+//  월별 계획/실적·버전이력·인력배치 등 완전한 데이터를 이미 갖고 있다.
+//  새 프로젝트를 만들어 데이터를 새로 채우면 이관 이력·인력 저장소가 비어 상세 화면이 깨진다.
+//  → 같은 key(budgetMock)를 유지한 채 "표기만" 시나리오 PJT로 맞춘다.
+//    이렇게 하면 메인에서 클릭 → 원가조정으로 갈 때 같은 프로젝트·같은 데이터가 그대로 이어진다.
+//    (공유 파일을 편집하지 않고 런타임 값만 바꾼다)
+// ============================================================
+
+const SCEN_PJT = {
+  key:'credit', no:'30130020-D001', name:'차세대 여신심사 시스템 구축',
+  client:'KB국민은행', org:'금융·데이터사업본부', pm:'이봄', type:'SI-AD', stage:'본프로젝트',
+};
+// 팀원이 쓰는 기존 목업 프로젝트 (표기·데이터를 그대로 둔다)
+const MOCK_PJT = { key:'budgetMock', no:'30131234-D001', name:'예산관리시스템 목업용' };
+
+// (기존 목업 프로젝트의 표기를 바꾸지 않는다 — 신규 PJT는 아래에서 별도로 생성한다)
+
+// 메인 캐러셀에도 시나리오 PJT를 맨 앞에 놓고 기본 선택으로 둔다
+(function registerScenarioInHome() {
+  if (typeof HOME_PROJECTS === 'undefined') return;
+  if (HOME_PROJECTS.some(function (p) { return p.id === SCEN_PJT.key; })) return;
+  HOME_PROJECTS.unshift({ id: SCEN_PJT.key, no: SCEN_PJT.no, name: SCEN_PJT.name });
+  if (typeof HOME_FIN !== 'undefined' && !HOME_FIN[SCEN_PJT.key]) {
+    // 계약 18.5억 · 수행원가 계획 15.86억 (계정별 계획/실적, 단위 억)
+    HOME_FIN[SCEN_PJT.key] = { cp:18.5, mgap:0.152, acc:[
+      ['인건비', 6.50, 4.62], ['외주비', 8.65, 6.90],
+      ['재료비', 0.46, 0.21], ['경비', 0.25, 0.18], ['A/S Cost', 0, 0],
+    ] };
+  }
+  homeSelectedProject = SCEN_PJT.key;
+})();
+
+// ── 월마감 사이클 단계 ─────────────────────────────────────
+// budget-ax처럼 "시점마다 무슨 일이 벌어지는가"를 강제로 만들어 두고,
+// 단계를 눌러가며 4대계정 원가조정 작업을 확인한다.
+// 한 달 안에서 사람이 해야 할 일의 시간 축.
+// 날짜와 완료 표시는 박아두지 않고 "현재 월"과 "실제 남은 일"에서 계산한다.
+const CLOSE_STAGES = [
+  { id:'plan',    n:'계획 확정',     own:'PM' },
+  { id:'input',   n:'투입원가 입력', own:'PM' },
+  { id:'inspect', n:'검수·확정',     own:'PM' },
+  { id:'recon',   n:'월마감 대사',   own:'시스템' },
+  { id:'auto',    n:'자동 현행화',   own:'AI' },
+  { id:'approve', n:'팀장 승인',     own:'팀장' },
+];
+
+// 현재 월 기준 단계 일자 — 마감을 넘기면 자동으로 다음 달 날짜가 된다
+function stageDateOf(id) {
+  const parts = (typeof scenMonth === 'function' ? scenMonth() : '2026-08').split('-');
+  const y = Number(parts[0]), m = Number(parts[1]);
+  const last = new Date(y, m, 0).getDate();
+  const nm = (m === 12) ? 1 : m + 1;
+  switch (id) {
+    case 'plan':    return m + '/10';
+    case 'input':   return '~' + m + '/' + (last - 7);
+    case 'inspect': return m + '/' + (last - 6);
+    case 'recon':   return m + '/' + last;
+    case 'auto':    return nm + '/1';
+    case 'approve': return nm + '/3';
+    default:        return '';
+  }
+}
+
+// 단계 상태 — 남은 일이 있는 첫 단계가 '진행 중', 그 앞은 '완료', 뒤는 '대기'
+function stageStateOf(id) {
+  const order = CLOSE_STAGES.map(function (x) { return x.id; });
+  const active = (typeof firstStageWithWork === 'function') ? firstStageWithWork() : 'input';
+  const ai = order.indexOf(active), i = order.indexOf(id);
+  if (i === ai) return 'active';
+  return i < ai ? 'done' : 'wait';
+}
+let closeStage = 'plan';
+function closeStageOf(id) { return CLOSE_STAGES.find(function (s) { return s.id === id; }) || CLOSE_STAGES[1]; }
+function selectCloseStage(id) { closeStage = id; rerenderHomeFeed(); }
+
+// 단계별 4대계정 작업 — 현재 단계(input)는 원가조정 Agent 콘솔의 실제 승인 대기와 동일하다.
+// 지난 단계는 완료 기록, 다음 단계는 예정 작업으로 보여준다(상세에 아직 없는 건을 처리 대상처럼 보이지 않게).
+const CLOSE_WORK = {
+  plan: [
+    { acct:'인건비', title:'8월 인건비 계획 확정',   note:'투입계획 기준 6.50억 확정', st:'done' },
+    { acct:'외주비', title:'8월 외주비 계획 확정',   note:'외주구매 계획 라인 8.65억 확정', st:'done' },
+    { acct:'재료비', title:'8월 재료비 계획 확정',   note:'0.46억 확정', st:'done' },
+    { acct:'경비',   title:'8월 경비 계획 확정',     note:'0.25억 확정', st:'done' },
+  ],
+  inspect: [
+    { acct:'외주비', title:'외주 검수 대상 3건 확정 필요', note:'검수 완료분만 실적으로 인식됩니다', st:'next' },
+    { acct:'재료비', title:'구매 검수 지연 1건',           note:'검수가 밀리면 월마감 실적에 잡히지 않습니다', st:'next' },
+  ],
+  recon: [
+    { acct:'전 계정', title:'계획 대비 실적 gap 보전',  note:'당월 gap +1,520만원 · 계정 간 이동으로 맞춥니다', st:'next' },
+  ],
+  auto: [
+    { acct:'전 계정', title:'월마감 D+1 자동 현행화',  note:'AI가 확정 실적을 자동 반영합니다 (사람 개입 없음)', st:'next' },
+  ],
+  approve: [
+    { acct:'외주비', title:'외주비 증액 결재',        note:'PM 상신 건을 팀장이 승인합니다', st:'next' },
+    { acct:'인건비', title:'인건비 추가 편성 결재',   note:'PM 상신 건을 팀장이 승인합니다', st:'next' },
+  ],
+};
+
+// ── 강제 이상징후 — budget-ax 시나리오를 이 PJT에서 재현 ──
+const SCEN_RISKS = [
+  { id:'sr-01', acct:'외주비', sev:'danger', scen:'예산 초과 (Overrun)',
+    title:'외주비 누계 조정액이 승인 예산의 20%를 넘었습니다',
+    why:'자가전결 한도를 벗어나 직책자 승인이 필요합니다. 승인 전까지 조정안은 Draft로 유지됩니다.',
+    impact:'+1.85억', from:865250000, to:1050250000, stage:'input' },
+  { id:'sr-02', acct:'인건비', sev:'warning', scen:'외주인력 투입 지연',
+    title:'설계 인력 2명 투입이 1개월 지연됐습니다',
+    why:'SCM 투입계획이 밀리면서 9월 인건비 계획이 집행되지 않습니다. 잔여 기간 재배치가 필요합니다.',
+    impact:'-1,200만원', from:650499999, to:638499999, stage:'input' },
+  { id:'sr-03', acct:'경비', sev:'warning', scen:'AI 예비비 감액 (RM 협조)',
+    title:'의욕관리비 공동예산 잔액이 0원이 되었습니다',
+    why:'같은 예산통을 쓰는 소계정 집행이 늘어 가용잔액이 소진됐습니다. RM 협조 승인이 필요합니다.',
+    impact:'-150만원', from:24997578, to:23497578, stage:'input' },
+  { id:'sr-04', acct:'재료비', sev:'danger', scen:'구매 검수 지연 · 종료 보류',
+    title:'구매 검수가 지연돼 프로젝트 종료가 보류될 수 있습니다',
+    why:'검수 미완료분이 월마감 실적에 잡히지 않아 종료 판정에서 미결 항목으로 남습니다.',
+    impact:'종료 보류', from:46000000, to:46000000, stage:'inspect' },
+];
+
+// ── 14차 — 월마감 단계 레일 + 단계별 보드 ─────────────────
+
+function homeStageRailHtml() {
+  const cur = closeStage;
+  const steps = CLOSE_STAGES.map(function (s, i) {
+    const on = s.id === cur;
+    const ic = s.st === 'done' ? '✓' : (i + 1);
+    return `<button class="hm-st ${s.st} ${on ? 'on' : ''}" onclick="selectCloseStage('${s.id}')" aria-pressed="${on}">
+        <span class="hm-st-ic">${ic}</span>
+        <span class="hm-st-b"><b>${escHtml(s.n)}</b><em>${escHtml(s.d)} · ${escHtml(s.own)}</em></span>
+      </button>`;
+  }).join('');
+  return `
+    <div class="hm-stage">
+      <div class="hm-stage-h">
+        <span class="hm-stage-t">월마감 사이클 · 8월</span>
+        <span class="hm-stage-pjt">${escHtml(SCEN_PJT.no)} · ${escHtml(SCEN_PJT.name)}</span>
+      </div>
+      <div class="hm-stage-track">${steps}</div>
+    </div>`;
+}
+
+// 현재 단계(투입원가 입력)의 작업 = 원가조정 승인 대기와 동일한 건
+function homeStageTodo() {
+  if (closeStage === 'input') {
+    return homeTodoPm().map(function (p) {
+      return { acct:p.acct, title:p.title, note:p.why, trigger:p.trigger,
+               from:p.from, to:p.to, st:'now' };
+    });
+  }
+  return (CLOSE_WORK[closeStage] || []).slice();
+}
+
+function homeStageRisks() {
+  return SCEN_RISKS.filter(function (r) { return r.stage === closeStage; });
+}
+
+function homeStageCardHtml(it) {
+  const now = it.st === 'now';
+  const delta = (it.from != null) ? homeWonDelta(it.from, it.to) : '';
+  const up = /^\+/.test(delta);
+  const cls = it.st === 'done' ? 'done' : it.st === 'next' ? 'next' : '';
+  return `
+    <button class="hm-task ${cls}" ${now ? `onclick="homeTodoGo('${escAttr(it.acct)}')"` : 'disabled'}>
+      <span class="hm-task-top">
+        <span class="hm-task-acct ${homeAcctCls(it.acct)}">${escHtml(it.acct)}</span>
+        ${it.trigger ? `<span class="hm-task-trig">${escHtml(it.trigger)}</span>` : ''}
+        ${it.st === 'done' ? '<span class="hm-task-st done">완료</span>' : ''}
+        ${it.st === 'next' ? '<span class="hm-task-st next">예정</span>' : ''}
+        ${delta ? `<span class="hm-task-delta ${up ? 'up' : 'down'}">${escHtml(delta)}</span>` : ''}
+      </span>
+      <span class="hm-task-t">${escHtml(it.title)}</span>
+      <span class="hm-task-w">${escHtml(it.note || '')}</span>
+      ${it.guide ? `<span class="hm-guide">
+          <span class="hm-guide-r"><i>어디서</i>${escHtml(it.guide.where)}</span>
+          <span class="hm-guide-r"><i>무엇을</i>${escHtml(it.guide.do)}</span>
+          <span class="hm-guide-r"><i>확정 기준</i>${escHtml(it.guide.decide)}</span>
+        </span>` : ''}
+      ${now ? '<span class="hm-task-go">처리하러 가기 ›</span>' : ''}
+    </button>`;
+}
+
+function homeScenRiskCardHtml(r) {
+  const delta = (r.from !== r.to) ? homeWonDelta(r.from, r.to) : r.impact;
+  return `
+    <button class="hm-sig ${r.sev}" onclick="homeTodoGo('${escAttr(r.acct)}')">
+      <span class="hm-task-top">
+        <span class="hm-sig-tag ${r.sev}">${escHtml(r.scen)}</span>
+        <span class="hm-task-acct ${homeAcctCls(r.acct)}">${escHtml(r.acct)}</span>
+        <span class="hm-task-delta up">${escHtml(delta)}</span>
+      </span>
+      <span class="hm-task-t">${escHtml(r.title)}</span>
+      <span class="hm-task-w">${escHtml(r.why)}</span>
+      <span class="hm-task-go">원가조정에서 확인 ›</span>
+    </button>`;
+}
+
+// ── 보드 — 단계 레일 + 해야 할 일 / 이상징후 ──
+function homeWorkBoardHtml() {
+  const lead = homeUser === 'lead';
+  const todos = lead ? homeTodoLead() : homeStageTodo();
+  const risks = homeStageRisks();
+  const st = closeStageOf(closeStage);
+
+  const todoBody = todos.length
+    ? (lead ? todos.map(homeTodoCardHtml).join('') : todos.map(homeStageCardHtml).join(''))
+    : `<div class="hm-board-empty">이 단계에서 ${lead ? '결재할' : '처리할'} 일이 없어요.</div>`;
+  const riskBody = risks.length
+    ? risks.map(homeScenRiskCardHtml).join('')
+    : `<div class="hm-board-empty">이 단계에서 발견된 이상징후가 없어요.</div>`;
+
+  return `
+    ${lead ? '' : homeStageRailHtml()}
+    <div class="hm-board">
+      <section class="hm-col todo">
+        <div class="hm-col-h">
+          <span class="hm-col-ic">✓</span>
+          <b>${lead ? '결재해야 할 일' : '해야 할 일'}</b>
+          <em>${todos.length}건</em>
+          <span class="hm-col-d">${lead ? 'PM이 상신한 건' : escHtml(st.n) + ' 단계 · 4대계정'}</span>
+        </div>
+        <div class="hm-col-b">${todoBody}</div>
+      </section>
+      <section class="hm-col risk">
+        <div class="hm-col-h">
+          <span class="hm-col-ic warn">!</span>
+          <b>이상징후</b>
+          <em>${risks.length}건</em>
+          <span class="hm-col-d">시나리오로 발생시킨 신호</span>
+        </div>
+        <div class="hm-col-b">${riskBody}</div>
+      </section>
+    </div>`;
+}
+
+// 시나리오 PJT를 항상 대상으로 삼는다 (메인에서 클릭 → 같은 프로젝트 상세)
+function homeTodoGo(acct) {
+  const a = (acct === '전 계정') ? '인건비' : acct;
+  if (typeof openCostArea === 'function') openCostArea(a, SCEN_PJT.key);
+  else if (typeof openCostAdjust === 'function') openCostAdjust(SCEN_PJT.key);
+}
+
+// ── 14차 — 캐러셀: 시나리오 PJT를 맨 앞에 고정 ──
+// 시나리오 PJT는 HOME_FEED가 아니라 월마감 단계 데이터로 건수를 센다.
+function homeOpenCountOf(id) {
+  if (id === SCEN_PJT.key) {
+    return (homeUser === 'lead' ? homeTodoLead().length : homeStageTodo().filter(function (t) { return t.st === 'now'; }).length)
+      + homeStageRisks().length;
+  }
+  return HOME_FEED.filter(function (i) { return i.proj === id && !homeFeedState[feedKey(i)]; }).length;
+}
+
+function homePjtStripHtml() {
+  const rest = HOME_PROJECTS.filter(function (p) { return p.id !== SCEN_PJT.key; })
+    .sort(function (a, b) {
+      const d = homeOpenCountOf(b.id) - homeOpenCountOf(a.id);
+      return d !== 0 ? d : a.name.localeCompare(b.name);
+    });
+  const scen = HOME_PROJECTS.find(function (p) { return p.id === SCEN_PJT.key; });
+  const list = scen ? [scen].concat(rest) : rest;
+
+  const chips = list.map(function (p) {
+    const n = homeOpenCountOf(p.id);
+    const on = homeSelectedProject === p.id;
+    const isScen = p.id === SCEN_PJT.key;
+    return `
+        <button class="hm-ptab hm-pjt-chip ${on ? 'picked' : ''} ${n ? '' : 'calm'} ${isScen ? 'scen' : ''}"
+          onclick="selectHomePjt('${p.id}')" aria-pressed="${on}"
+          title="${escHtml(p.name)} · 확인 필요 ${n}건">
+          ${on ? '<span class="hm-pjt-check">✓</span>' : ''}
+          ${isScen ? '<span class="hm-pjt-star" title="시나리오 프로젝트">★</span>' : ''}
+          <span class="hm-ptab-name">${escHtml(p.name)}</span>
+          <span class="hm-ptab-badge ${n ? 'on' : ''}">${n}</span>
+        </button>`;
+  }).join('');
+
+  const picked = homePjtLabel();
+  const ctx = picked
+    ? `<div class="hm-ctx"><span class="hm-ctx-l">선택된 프로젝트</span><b>${escHtml(picked)}</b>
+         <span class="hm-ctx-d">이 프로젝트를 기준으로 답변해요</span>
+         <button class="hm-ctx-x" onclick="clearHomePjt()" aria-label="선택 해제">✕</button></div>`
+    : `<div class="hm-ctx off"><span class="hm-ctx-d">프로젝트를 선택하면 그 프로젝트를 기준으로 답변해요</span></div>`;
+
+  return `
+    <div class="hm-under">
+      <div class="hm-under-head">
+        <span class="hm-under-t">담당 프로젝트 <b>${HOME_PROJECTS.length}</b></span>
+        <span class="hm-under-sum">확인 필요 <b>${homeOpenCountOf(homeSelectedProject === 'all' ? SCEN_PJT.key : homeSelectedProject)}건</b></span>
+      </div>
+      <div class="hm-ptabs-carousel">
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(-1)" aria-label="이전 프로젝트">‹</button>
+        <div class="hm-ptabs-track" id="hm-ptabs-track">${chips}</div>
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(1)" aria-label="다음 프로젝트">›</button>
+      </div>
+      ${ctx}
+    </div>`;
+}
+
+// 시나리오 PJT가 아닌 프로젝트를 고르면 기존 HOME_FEED 기반 보드로 돌아간다
+function homeStageTodo() {
+  if (homeSelectedProject !== SCEN_PJT.key) {
+    return HOME_FEED.filter(function (i) {
+      return i.proj === homeSelectedProject && i.cat === 'work' && !homeFeedState[feedKey(i)];
+    }).map(function (i) {
+      return { acct: i.sub, title: i.title, note: (i.flow ? i.flow.aSub + ' ' + i.flow.aVal : ''), st: 'now' };
+    });
+  }
+  if (closeStage === 'input') {
+    return homeTodoPm().map(function (p) {
+      return { acct:p.acct, title:p.title, note:p.why, trigger:p.trigger, from:p.from, to:p.to, st:'now' };
+    });
+  }
+  return (CLOSE_WORK[closeStage] || []).slice();
+}
+
+function homeStageRisks() {
+  if (homeSelectedProject !== SCEN_PJT.key) {
+    return HOME_FEED.filter(function (i) {
+      return i.proj === homeSelectedProject && i.cat === 'budget' && !homeFeedState[feedKey(i)];
+    }).map(function (i) {
+      const ai = (typeof homeAiOf === 'function') ? homeAiOf(i) : null;
+      return { id:feedKey(i), acct:i.sub, sev:(i.sev === 'danger' ? 'danger' : 'warning'), scen:i.sub,
+               title:i.title, why:(i.note || ''), impact:(ai ? ai.impact : ''), from:0, to:0, stage:closeStage };
+    });
+  }
+  return SCEN_RISKS.filter(function (r) { return r.stage === closeStage; });
+}
+
+// ============================================================
+//  15차 — 신규 시나리오 PJT 생성 (30130020-D001 차세대 여신심사 시스템 구축)
+//
+//  · 기존 '예산관리시스템 목업용'(budgetMock)은 팀원 작업이므로 그대로 둔다.
+//  · CRM/PMO에서 넘어와 자동 생성된 직후 상태(실행예산 편성 대기)부터 시작해,
+//    편성 → 조정 → 이상징후 → 승인 → 월마감 → 종료까지 전 case를 담는다.
+//  · 수행원가 상세 화면이 정상 동작하도록 프로젝트별 저장소를 모두 채운다.
+//    (EXEC_BUDGET_PROJECTS · BUDGET_SOURCE · budgetTransferHistory)
+// ============================================================
+
+(function createScenarioProject() {
+  function bind() {
+    try {
+      if (typeof EXEC_BUDGET_PROJECTS === 'undefined' || typeof BUDGET_SOURCE === 'undefined'
+          || typeof budgetMockMonth !== 'function') { setTimeout(bind, 300); return; }
+      if (BUDGET_SOURCE[SCEN_PJT.key]) return;   // 이미 생성됨
+
+      // ① 프로젝트 목록 (수행원가 화면의 프로젝트 선택에 나타난다)
+      if (!EXEC_BUDGET_PROJECTS.some(function (x) { return x.key === SCEN_PJT.key; })) {
+        EXEC_BUDGET_PROJECTS.unshift({
+          key: SCEN_PJT.key, no: SCEN_PJT.no, name: SCEN_PJT.name, type: SCEN_PJT.type,
+          status: '수행', pm: SCEN_PJT.pm, salesOrg: SCEN_PJT.org,
+          customer: SCEN_PJT.client, period: '2026-08-01 ~ 2026-12-31',
+        });
+      }
+
+      // ② 예산 데이터 — 계약 18.5억, 착수 2026-08, 현재 2026-08 (편성 직후)
+      //    8월만 실적이 있고 9월 이후는 계획. 신규 PJT라 실적 누계가 적다.
+      // CRM/PMO/SCM에서 IF로 넘어온 직후 상태 — 계약원가만 수신됐고 실적은 아직 없다.
+      // PM이 실행예산을 편성하고 승인받은 뒤, 월마감을 돌리며 실적이 쌓인다.
+      BUDGET_SOURCE[SCEN_PJT.key] = {
+        projName: SCEN_PJT.name, stage: '편성', dplus: 0,
+        start: '2026-08', end: '2026-12', current: '2026-08',
+        plan: { 인건비: 650000000, 외주비: 865000000, 재료비: 46000000, 경비: 25000000, 'A/S Cost': 0 },
+        transfer: { 인건비: 0, 외주비: 0, 재료비: 0, 경비: 0, 'A/S Cost': 0 },
+        months: [
+          budgetMockMonth('2026-08', 'plan', { labor: 130000000, outsource: 173000000, material: 9200000, expense: 5000000 }),
+          budgetMockMonth('2026-09', 'plan', { labor: 130000000, outsource: 173000000, material: 9200000, expense: 5000000 }),
+          budgetMockMonth('2026-10', 'plan', { labor: 130000000, outsource: 173000000, material: 9200000, expense: 5000000 }),
+          budgetMockMonth('2026-11', 'plan', { labor: 130000000, outsource: 173000000, material: 9200000, expense: 5000000 }),
+          budgetMockMonth('2026-12', 'plan', { labor: 130000000, outsource: 173000000, material: 9200000, expense: 5000000 }),
+        ],
+      };
+
+      // ③ 버전 이력 — 신규 PJT라 최초 편성(v1) 한 건만 있다
+      if (typeof budgetTransferHistory !== 'undefined' && !budgetTransferHistory[SCEN_PJT.key]) {
+        // 최초 생성 직후라 승인된 버전이 아직 없다 (PM이 편성·상신하면 v1이 생긴다)
+        budgetTransferHistory[SCEN_PJT.key] = [];
+      }
+      console.log('[시나리오] ' + SCEN_PJT.no + ' 생성 완료');
+    } catch (e) { setTimeout(bind, 400); }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+// ── 메인 캐러셀: 시나리오 PJT + 기존 목업 PJT를 함께 노출 ──
+(function registerHomeProjects() {
+  if (typeof HOME_PROJECTS === 'undefined') return;
+  if (!HOME_PROJECTS.some(function (p) { return p.id === MOCK_PJT.key; })) {
+    HOME_PROJECTS.unshift({ id: MOCK_PJT.key, no: MOCK_PJT.no, name: MOCK_PJT.name });
+  }
+  if (!HOME_PROJECTS.some(function (p) { return p.id === SCEN_PJT.key; })) {
+    HOME_PROJECTS.unshift({ id: SCEN_PJT.key, no: SCEN_PJT.no, name: SCEN_PJT.name });
+  }
+  if (typeof HOME_FIN !== 'undefined') {
+    if (!HOME_FIN[SCEN_PJT.key]) {
+      HOME_FIN[SCEN_PJT.key] = { cp:18.5, mgap:0.152, acc:[
+        ['인건비', 6.50, 0.46], ['외주비', 8.65, 0.69],
+        ['재료비', 0.46, 0.02], ['경비', 0.25, 0.02], ['A/S Cost', 0, 0] ] };
+    }
+    if (!HOME_FIN[MOCK_PJT.key]) {
+      HOME_FIN[MOCK_PJT.key] = { cp:23.0, mgap:0.088, acc:[
+        ['인건비', 7.60, 5.20], ['외주비', 11.60, 8.65],
+        ['재료비', 1.50, 0.68], ['경비', 0.90, 0.52], ['A/S Cost', 0, 0] ] };
+    }
+  }
+  homeSelectedProject = SCEN_PJT.key;
+})();
+
+// ============================================================
+//  15차 — 프로젝트별 To-Do / 이상징후 (상세 화면과 동일 데이터)
+//
+//  · budgetMock  : 원가조정 Agent 콘솔의 기존 승인 대기 4건 (팀원 데이터 그대로)
+//  · credit(신규): CRM/PMO 자동 생성 직후부터의 전 case
+//  · 상세 화면(Agent 콘솔)도 현재 프로젝트 것만 보이도록 필터를 건다.
+// ============================================================
+
+// 기존 제안 4건은 목업 PJT 소유임을 표시 (필드만 추가 — 내용은 건드리지 않는다)
+(function tagExistingProposals() {
+  function bind() {
+    if (typeof AGENT_PROPOSALS_FINAL === 'undefined') { setTimeout(bind, 300); return; }
+    AGENT_PROPOSALS_FINAL.forEach(function (p) { if (!p.pjt) p.pjt = MOCK_PJT.key; });
+    // 시나리오 PJT 제안을 같은 배열에 합쳐 상세 화면이 그대로 렌더하게 한다
+    if (!AGENT_PROPOSALS_FINAL.some(function (p) { return p.pjt === SCEN_PJT.key; })) {
+      SCEN_PROPOSALS.forEach(function (p) { AGENT_PROPOSALS_FINAL.push(p); });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+// ── 시나리오 PJT의 단계별 제안 (상세 화면과 메인이 공유) ──
+// stage: 월마감 사이클 단계 · CRM/PMO 자동 생성 직후(plan)부터 종료(close)까지
+const SCEN_PROPOSALS = [
+  // ① 계획 확정 — CRM 계약원가 수신 직후 최초 편성
+  { id:'sp-01', pjt:'credit', stage:'plan', acct:'인건비', status:'pending', confidence:0.95,
+    detectedAt:'2026-08-04 09:05', trigger:'CRM 계약원가 수신 · PJT 자동 생성',
+    title:'CRM 계약원가를 인건비 실행예산으로 초안 편성해야 합니다',
+    why:'CRM에서 계약 원가 1,850,000,000원이 수신되어 프로젝트가 자동 생성됐습니다. 계정별 실행예산을 편성해야 집행이 시작됩니다.',
+    from:0, to:650000000,
+    impact:'CP총액 1,850,000,000원 한도 내. 인건비 CP한도 이내입니다.' },
+  { id:'sp-02', pjt:'credit', stage:'plan', acct:'외주비', status:'pending', confidence:0.92,
+    detectedAt:'2026-08-04 09:05', trigger:'CRM 계약원가 수신 · PJT 자동 생성',
+    title:'외주구매 계획 라인을 편성해야 합니다',
+    why:'외주 배분액 865,000,000원에 대한 업체별 계획 라인이 아직 없습니다. 계획 라인이 없으면 PO를 발행할 수 없습니다.',
+    from:0, to:865000000,
+    impact:'외주비 CP한도 이내. 편성 후 구매시스템에서 PO 발행이 가능해집니다.' },
+
+  // ② 투입원가 입력 — 선투입 승계 · SCM 인력 확정
+  { id:'sp-03', pjt:'credit', stage:'input', acct:'인건비', status:'pending', confidence:0.94,
+    detectedAt:'2026-08-19 10:22', trigger:'선투입 PJT 집행분 I/F 수신',
+    title:'선투입 집행분 42,000,000원을 본 프로젝트로 승계해야 합니다',
+    why:'착수 전 선투입 프로젝트에서 집행된 인건비가 본 PJT로 넘어와야 실적이 이어집니다. 승계하지 않으면 실적 누락으로 원가율이 낮게 보입니다.',
+    from:650000000, to:650000000,
+    impact:'계획 총액은 변하지 않고 실적 42,000,000원이 승계됩니다. 추적 링크가 유지됩니다.' },
+  { id:'sp-04', pjt:'credit', stage:'input', acct:'외주비', status:'pending', confidence:0.90,
+    detectedAt:'2026-08-21 14:40', trigger:'SCM 외주인력 투입 지연 통보',
+    title:'외주 인력 3명 투입이 9월로 지연됩니다',
+    why:'SCM에서 투입 개시가 8월 → 9월로 변경 수신되었습니다. 8월 외주비 계획 34,000,000원이 집행되지 않아 잔여 기간 재배치가 필요합니다.',
+    from:865000000, to:865000000,
+    impact:'계정 총액은 불변, 월별 배치만 8월 → 9~10월로 이동합니다.' },
+
+  // ③ 검수·확정 — 구매 검수
+  { id:'sp-05', pjt:'credit', stage:'inspect', acct:'재료비', status:'pending', confidence:0.88,
+    detectedAt:'2026-08-25 09:00', trigger:'구매 검수 지연',
+    title:'장비 검수 2건이 지연돼 8월 실적에 반영되지 않습니다',
+    why:'검수 완료분만 실적으로 인식됩니다. 검수가 밀리면 월마감 실적에서 빠지고 프로젝트 종료 판정에서도 미결로 남습니다.',
+    from:46000000, to:46000000,
+    impact:'금액 변동은 없으나 8월 실적 인식이 9월로 이월됩니다.' },
+
+  // ④ 월마감 대사 — 예비비 전환
+  { id:'sp-06', pjt:'credit', stage:'recon', acct:'경비', status:'pending', confidence:0.86,
+    detectedAt:'2026-08-31 18:00', trigger:'월마감 대사 · 계획-실적 gap',
+    title:'미집행 경비를 AI 예비비로 전환할 수 있습니다',
+    why:'8월 경비 계획 대비 실적이 3,200,000원 미달했습니다. 정산 진입 전에는 예비비로 전환해 두면 잔여 기간에 활용할 수 있습니다.',
+    from:25000000, to:21800000,
+    impact:'경비 21,800,000원 · AI 예비비 3,200,000원. 계정 총액은 불변입니다.' },
+];
+
+// ── 시나리오 PJT의 강제 이상징후 (budget-ax case 이식) ──
+const SCEN_RISKS_BY_PJT = {
+  credit: [
+    { id:'cr-01', stage:'plan', acct:'외주비', sev:'danger', scen:'CP 총액 초과 위험',
+      title:'계정별 편성 합계가 CP 총액에 근접했습니다',
+      why:'인건비·외주비·재료비·경비 합계 1,586,000,000원으로 CP 총액 1,850,000,000원의 85.7%입니다. 추가 편성 여력이 264,000,000원 남았습니다.',
+      impact:'여력 2.64억' },
+    { id:'cr-02', stage:'input', acct:'인건비', sev:'warning', scen:'선투입 승계 미처리',
+      title:'선투입 집행분이 아직 본 프로젝트에 반영되지 않았습니다',
+      why:'승계하지 않으면 실적이 누락돼 원가율이 실제보다 낮게 보입니다. 월마감 전에 처리해야 합니다.',
+      impact:'실적 +4,200만원' },
+    { id:'cr-03', stage:'inspect', acct:'재료비', sev:'danger', scen:'구매 검수 지연 · 종료 보류',
+      title:'검수 지연 2건이 종료 판정에서 미결로 남습니다',
+      why:'검수 미완료분은 월마감 실적에 잡히지 않아, 프로젝트 종료 시 미결 항목으로 분류됩니다.',
+      impact:'종료 보류' },
+    { id:'cr-04', stage:'recon', acct:'전 계정', sev:'warning', scen:'계획-실적 gap',
+      title:'8월 계획 대비 실적이 1,520만원 미달했습니다',
+      why:'투입 지연과 검수 이월이 겹쳐 실적이 계획에 못 미쳤습니다. 잔여 기간 계획 재배치가 필요합니다.',
+      impact:'-1,520만원' },
+    { id:'cr-05', stage:'approve', acct:'외주비', sev:'danger', scen:'예산 초과 (Overrun)',
+      title:'외주비 조정액이 자가전결 한도를 넘었습니다',
+      why:'승인 예산의 20%를 초과해 직책자 승인이 필요합니다. 승인 전까지 조정안은 Draft로 유지됩니다.',
+      impact:'직책자 승인 필요' },
+  ],
+  budgetMock: [
+    { id:'mr-01', stage:'input', acct:'외주비', sev:'danger', scen:'예산 초과 (Overrun)',
+      title:'외주비 누계 조정액이 승인 예산의 20%를 넘었습니다',
+      why:'자가전결 한도를 벗어나 직책자 승인이 필요합니다.',
+      impact:'+1.85억' },
+    { id:'mr-02', stage:'input', acct:'경비', sev:'warning', scen:'AI 예비비 감액 (RM 협조)',
+      title:'의욕관리비 공동예산 잔액이 0원이 되었습니다',
+      why:'같은 예산통을 쓰는 소계정 집행이 늘어 가용잔액이 소진됐습니다.',
+      impact:'-150만원' },
+  ],
+};
+
+// ── 상세 화면(Agent 콘솔)도 현재 프로젝트 것만 보이게 한다 ──
+// dashboard.js가 budget-agent-console.js보다 먼저 로드되므로, 함수 선언으로 덮으면
+// 콘솔 쪽 정의가 나중에 다시 이긴다. 스크립트가 모두 올라온 뒤 런타임에 할당한다.
+(function overrideAgentProposals() {
+  function bind() {
+    if (typeof agentProposalsFinal !== 'function' || typeof agentByAcctFinal !== 'function') {
+      setTimeout(bind, 300); return;
+    }
+    window.agentProposalsFinal = function (status) {
+      const pj = (typeof currentBudgetProj !== 'undefined' && currentBudgetProj) ? currentBudgetProj : MOCK_PJT.key;
+      let list = AGENT_PROPOSALS_FINAL.filter(function (p) { return (p.pjt || MOCK_PJT.key) === pj; });
+      if (status) list = list.filter(function (p) { return p.status === status; });
+      return agentByAcctFinal(list);
+    };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+// ============================================================
+//  15차 — 메인 보드를 프로젝트별로 분기
+//  선택된 PJT의 To-Do / 이상징후 = 그 PJT 상세 화면이 보여주는 것과 동일
+// ============================================================
+
+// 현재 선택 PJT (전체 선택 시 시나리오 PJT를 기본으로 본다)
+function homeBoardPjt() {
+  return (homeSelectedProject && homeSelectedProject !== 'all') ? homeSelectedProject : SCEN_PJT.key;
+}
+function homeIsScenPjt() { return homeBoardPjt() === SCEN_PJT.key; }
+function homeIsMockPjt() { return homeBoardPjt() === MOCK_PJT.key; }
+function homeHasDetail() { return homeIsScenPjt() || homeIsMockPjt(); }
+
+// 상세 화면과 같은 제안 목록 (프로젝트 + 단계 기준)
+function homeProposalsOf(pj, stage) {
+  if (typeof AGENT_PROPOSALS_FINAL === 'undefined') return [];
+  return AGENT_PROPOSALS_FINAL.filter(function (p) {
+    if ((p.pjt || MOCK_PJT.key) !== pj) return false;
+    if (p.status !== 'pending') return false;
+    // 목업 PJT의 기존 제안은 단계 구분이 없으므로 투입원가 입력 단계에 놓는다
+    const st = p.stage || 'input';
+    return !stage || st === stage;
+  });
+}
+
+function homeStageTodo() {
+  const pj = homeBoardPjt();
+  if (!homeHasDetail()) {
+    // 상세 화면이 없는 프로젝트는 기존 메인 데이터로 보여준다
+    return HOME_FEED.filter(function (i) {
+      return i.proj === pj && i.cat === 'work' && !homeFeedState[feedKey(i)];
+    }).map(function (i) {
+      return { acct:i.sub, title:i.title, note:(i.flow ? i.flow.aSub + ' ' + i.flow.aVal : ''), st:'now' };
+    });
+  }
+  const now = homeProposalsOf(pj, closeStage).map(function (p) {
+    return { acct:p.acct, title:p.title, note:p.why, trigger:p.trigger, guide:p.guide,
+             from:p.from, to:p.to, st:'now' };
+  });
+  if (now.length) return now;
+  // 이 단계에 제안이 없으면 단계별 안내 작업을 보여준다
+  return (CLOSE_WORK[closeStage] || []).slice();
+}
+
+function homeStageRisks() {
+  const pj = homeBoardPjt();
+  if (!homeHasDetail()) {
+    return HOME_FEED.filter(function (i) {
+      return i.proj === pj && i.cat === 'budget' && !homeFeedState[feedKey(i)];
+    }).map(function (i) {
+      const ai = (typeof homeAiOf === 'function') ? homeAiOf(i) : null;
+      return { id:feedKey(i), acct:i.sub, sev:(i.sev === 'danger' ? 'danger' : 'warning'), scen:i.sub,
+               title:i.title, why:(i.note || ''), impact:(ai ? ai.impact : '') };
+    });
+  }
+  const list = (SCEN_RISKS_BY_PJT[pj] || []);
+  return list.filter(function (r) { return (r.stage || 'input') === closeStage; });
+}
+
+// 건수 — 캐러셀 뱃지
+function homeOpenCountOf(id) {
+  if (id === SCEN_PJT.key || id === MOCK_PJT.key) {
+    if (homeUser === 'lead') return homeTodoLead().length;
+    const props = homeProposalsOf(id, null).length;
+    const risks = (SCEN_RISKS_BY_PJT[id] || []).length;
+    return props + risks;
+  }
+  return HOME_FEED.filter(function (i) { return i.proj === id && !homeFeedState[feedKey(i)]; }).length;
+}
+
+// 캐러셀 — 시나리오 PJT, 목업 PJT를 앞에 고정
+function homePjtStripHtml() {
+  const pinned = [SCEN_PJT.key, MOCK_PJT.key];
+  const head = pinned.map(function (k) { return HOME_PROJECTS.find(function (p) { return p.id === k; }); }).filter(Boolean);
+  const rest = HOME_PROJECTS.filter(function (p) { return pinned.indexOf(p.id) < 0; })
+    .sort(function (a, b) {
+      const d = homeOpenCountOf(b.id) - homeOpenCountOf(a.id);
+      return d !== 0 ? d : a.name.localeCompare(b.name);
+    });
+  const chips = head.concat(rest).map(function (p) {
+    const n = homeOpenCountOf(p.id);
+    const on = homeSelectedProject === p.id;
+    const isScen = p.id === SCEN_PJT.key;
+    return `
+        <button class="hm-ptab hm-pjt-chip ${on ? 'picked' : ''} ${n ? '' : 'calm'} ${isScen ? 'scen' : ''}"
+          onclick="selectHomePjt('${p.id}')" aria-pressed="${on}"
+          title="${escHtml(p.name)} · 확인 필요 ${n}건">
+          ${on ? '<span class="hm-pjt-check">✓</span>' : ''}
+          ${isScen ? '<span class="hm-pjt-star" title="시나리오 프로젝트">★</span>' : ''}
+          <span class="hm-ptab-name">${escHtml(p.name)}</span>
+          <span class="hm-ptab-badge ${n ? 'on' : ''}">${n}</span>
+        </button>`;
+  }).join('');
+  const picked = homePjtLabel();
+  const ctx = picked
+    ? `<div class="hm-ctx"><span class="hm-ctx-l">선택된 프로젝트</span><b>${escHtml(picked)}</b>
+         <span class="hm-ctx-d">이 프로젝트를 기준으로 답변해요</span>
+         <button class="hm-ctx-x" onclick="clearHomePjt()" aria-label="선택 해제">✕</button></div>`
+    : `<div class="hm-ctx off"><span class="hm-ctx-d">프로젝트를 선택하면 그 프로젝트를 기준으로 답변해요</span></div>`;
+  return `
+    <div class="hm-under">
+      <div class="hm-under-head">
+        <span class="hm-under-t">담당 프로젝트 <b>${HOME_PROJECTS.length}</b></span>
+        <span class="hm-under-sum">확인 필요 <b>${homeOpenCountOf(homeBoardPjt())}건</b></span>
+      </div>
+      <div class="hm-ptabs-carousel">
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(-1)" aria-label="이전 프로젝트">‹</button>
+        <div class="hm-ptabs-track" id="hm-ptabs-track">${chips}</div>
+        <button class="hm-ptabs-arrow" onclick="scrollHomeTabs(1)" aria-label="다음 프로젝트">›</button>
+      </div>
+      ${ctx}
+    </div>`;
+}
+
+// 단계 레일 — 선택된 PJT 이름과 단계별 건수를 함께 보여준다
+function homeStageRailHtml() {
+  const pj = homeBoardPjt();
+  const p = HOME_PROJECTS.find(function (x) { return x.id === pj; });
+  const steps = CLOSE_STAGES.map(function (s, i) {
+    const on = s.id === closeStage;
+    const cnt = homeProposalsOf(pj, s.id).length + (SCEN_RISKS_BY_PJT[pj] || []).filter(function (r) { return (r.stage || 'input') === s.id; }).length;
+    const st = stageStateOf(s.id);
+    const ic = st === 'done' ? '✓' : (i + 1);
+    return `<button class="hm-st ${st} ${on ? 'on' : ''}" onclick="selectCloseStage('${s.id}')" aria-pressed="${on}"
+        title="${escHtml(s.n)} · ${escHtml(stageDateOf(s.id))} · ${st === 'done' ? '완료' : st === 'active' ? '진행 중' : '대기'}">
+        <span class="hm-st-ic">${ic}</span>
+        <span class="hm-st-b"><b>${escHtml(s.n)}</b><em>${escHtml(stageDateOf(s.id))} · ${escHtml(s.own)}</em></span>
+        ${cnt ? `<span class="hm-st-n">${cnt}</span>` : ''}
+      </button>`;
+  }).join('');
+  return `
+    <div class="hm-stage">
+      <div class="hm-stage-track">${steps}</div>
+    </div>`;
+}
+
+// 상세 화면으로 이동 — 항상 현재 선택된 프로젝트로
+function homeTodoGo(acct) {
+  const a = (acct === '전 계정') ? '인건비' : acct;
+  const pj = homeBoardPjt();
+  if (typeof openCostArea === 'function') openCostArea(a, pj);
+  else if (typeof openCostAdjust === 'function') openCostAdjust(pj);
+}
+
+// 상세 화면이 없는 프로젝트에서는 단계 레일을 숨긴다
+function homeWorkBoardHtml() {
+  const lead = homeUser === 'lead';
+  const todos = lead ? homeTodoLead() : homeStageTodo();
+  const risks = homeStageRisks();
+  const st = closeStageOf(closeStage);
+  const showRail = !lead && homeHasDetail();
+
+  const todoBody = todos.length
+    ? (lead ? todos.map(homeTodoCardHtml).join('') : todos.map(homeStageCardHtml).join(''))
+    : `<div class="hm-board-empty">이 단계에서 ${lead ? '결재할' : '처리할'} 일이 없어요.</div>`;
+  const fresh = homeIsScenPjt() && (typeof BUDGET_SOURCE !== 'undefined')
+    && BUDGET_SOURCE[SCEN_PJT.key] && !BUDGET_SOURCE[SCEN_PJT.key].months.some(function (x) { return x.type === 'actual'; });
+  const riskBody = risks.length
+    ? risks.map(homeScenRiskCardHtml).join('')
+    : `<div class="hm-board-empty">${fresh
+        ? '방금 생성된 프로젝트라 아직 실적이 없습니다. 월 마감을 돌려 실적이 쌓이면 이상징후를 감지합니다.'
+        : '이 단계에서 발견된 이상징후가 없어요.'}</div>`;
+
+  return `
+    ${showRail ? homeStageRailHtml() : ''}
+    <div class="hm-board">
+      <section class="hm-col todo">
+        <div class="hm-col-h">
+          <span class="hm-col-ic">✓</span>
+          <b>${lead ? '결재해야 할 일' : '해야 할 일'}</b>
+          <em>${todos.length}건</em>
+          <span class="hm-col-d">${lead ? 'PM이 상신한 건'
+            : (showRail
+                ? (closeStage === 'plan' && homeIsScenPjt()
+                    ? 'CP 총액 ' + homeWon(SCEN_CP) + ' 이내로 편성'
+                    : escHtml(st.n) + ' 단계 · 4대계정')
+                : '조치가 필요한 건')}</span>
+        </div>
+        <div class="hm-col-b">${todoBody}</div>
+      </section>
+      <section class="hm-col risk">
+        <div class="hm-col-h">
+          <span class="hm-col-ic warn">!</span>
+          <b>이상징후</b>
+          <em>${risks.length}건</em>
+          <span class="hm-col-d">AI가 감지한 신호</span>
+        </div>
+        <div class="hm-col-b">${riskBody}</div>
+      </section>
+    </div>`;
+}
+
+// ============================================================
+//  16차 — 월 마감 실행 (budget-ax 월마감 프로세스 참고)
+//
+//  budget-ax의 월마감 컨셉만 가져온다:
+//   ① 월마감 익일 자동 트리거 → ② 실적 수신(계정별 구분) → ③ 실적 IF 방향
+//   → ④ 추정 Rawdata 제공(BIX) → ⑤ 현행화 조정안 자동 확정 (팀장 승인 불요)
+//  원가 계획/반영 처리 방식은 budget-cowork(현 목업) 기준을 따른다.
+//
+//  월마감을 돌리면 그 달 계획이 실적으로 확정되고, 다음 달 이벤트로 넘어간다.
+//  → 최초 생성(편성 전)부터 종료까지 한 프로젝트로 전 과정을 돌려볼 수 있다.
+// ============================================================
+
+const SCEN_MONTHS = ['2026-08', '2026-09', '2026-10', '2026-11', '2026-12'];
+let scenMonthIdx = 0;
+function scenMonth() { return SCEN_MONTHS[scenMonthIdx] || SCEN_MONTHS[SCEN_MONTHS.length - 1]; }
+function scenMonthLabel(m) { return (m || scenMonth()).split('-')[1].replace(/^0/, '') + '월'; }
+
+// budget-ax 월마감 5단계
+const CLOSE_RUN_STEPS = [
+  { t:'월마감 익일 자동 트리거', d:'익일 06:00 현행화 배치 실행' },
+  { t:'실적 수신 (계정별 구분)', d:'인건비 SCM Teaming · 외주비 실투입/검수 · 재료비·경비 구분 수신' },
+  { t:'실적 I/F 방향 확인',      d:'외주비·재료비 ERP 수신 / 인건비·경비 ERP 전송 · 변경 PO 재수신' },
+  { t:'추정 Rawdata 제공',       d:'계획+실적 Rawdata를 추정 시스템·BIX로 이관' },
+  { t:'현행화 조정안 자동 확정', d:'실적 반영 조정 · 팀장 승인 없이 자동 확정 (Process MAP)' },
+];
+
+const SCEN_CP = 1850000000;          // PMO에서 넘어온 CP 총액 (이 금액 이하로 편성해야 한다)
+const SCEN_CP_BY_ACCT = { 인건비: 770000000, 외주비: 1195000000, 재료비: 60000000, 경비: 40000000 };
+
+// ── 월별 이벤트 — 최초 생성(8월)부터 종료(12월)까지 ──
+// guide: 사용자가 실제로 무엇을 눌러 무엇을 확정하고 어떤 판단을 해야 하는지
+//        (where 어디서 · do 무엇을 · decide 무엇을 보고 확정)
+// 신규 생성 직후에는 실적이 없으므로 이상징후가 나올 수 없다 → 8월은 To-Do만 둔다.
+const SCEN_BY_MONTH = {
+  '2026-08': {
+    note:'CRM/PMO/SCM에서 IF 수신 · 실행예산 편성 전',
+    todos:[
+      { stage:'plan', acct:'인건비', trigger:'PMO 계약원가(CP) 수신 · PJT 자동 생성',
+        title:'인건비 실행예산을 편성해야 합니다',
+        why:'CP 총액 1,850,000,000원 중 인건비 한도는 770,000,000원입니다. 편성하지 않으면 인력을 투입해도 집행할 예산이 없습니다.',
+        from:0, to:650000000,
+        guide:{ where:'수행원가 › 원가조정 › 인건비',
+          do:'[인력 추가]로 SCM 확정 인력을 불러오고 월별 M/M·단가를 입력합니다',
+          decide:'합계가 인건비 CP한도 770,000,000원 이내인지 확인하고 [저장]을 누릅니다' } },
+      { stage:'plan', acct:'외주비', trigger:'PMO 계약원가(CP) 수신 · PJT 자동 생성',
+        title:'외주비 실행예산을 편성해야 합니다',
+        why:'외주비 CP 한도는 1,195,000,000원입니다. 업체별 계획 라인이 없으면 구매시스템에서 PO를 발행할 수 없습니다.',
+        from:0, to:865000000,
+        guide:{ where:'수행원가 › 원가조정 › 외주비',
+          do:'[외주구매 계획 추가]로 업체·수행기간·금액 라인을 등록합니다',
+          decide:'계획 라인 합계가 1,195,000,000원 이내인지 확인합니다. PO는 이 계획 범위 안에서만 발행됩니다' } },
+      { stage:'plan', acct:'재료비', trigger:'PMO 산출물 계획 수신',
+        title:'재료비 실행예산을 편성해야 합니다',
+        why:'장비·라이선스 구매분입니다. 재료비 CP 한도는 60,000,000원입니다.',
+        from:0, to:46000000,
+        guide:{ where:'수행원가 › 원가조정 › 재료비',
+          do:'구매 예정 품목과 검수 예정월을 등록합니다',
+          decide:'검수 예정월에 맞춰 월별로 나눠 편성했는지 확인 후 [저장]합니다' } },
+      { stage:'plan', acct:'경비', trigger:'PMO 산출물 계획 수신',
+        title:'경비 실행예산을 편성해야 합니다',
+        why:'여비·회의비 등 운영 경비입니다. 경비 CP 한도는 40,000,000원입니다.',
+        from:0, to:25000000,
+        guide:{ where:'수행원가 › 원가조정 › 경비',
+          do:'소계정(여비교통비·회의비·잡비)별로 월 배분액을 입력합니다',
+          decide:'공동예산을 쓰는 소계정은 가용잔액을 함께 확인합니다' } },
+      { stage:'input', acct:'인건비', trigger:'SCM 인력 확정 I/F 수신',
+        title:'SCM 확정 인력 8명을 인건비 계획에 반영해야 합니다',
+        why:'SCM에서 투입계획이 확정된 인력 8명이 수신되었습니다. 등록하지 않으면 실제 투입 시점에 집행할 예산이 없습니다.',
+        from:650000000, to:650000000,
+        guide:{ where:'수행원가 › 원가조정 › 인건비',
+          do:'[SCM 확정 인력 불러오기]에서 8명을 선택해 계획에 반영합니다',
+          decide:'등급·단가가 SCM 확정값과 같은지 대조한 뒤 확정합니다' } },
+      { stage:'approve', acct:'전 계정', trigger:'4대계정 편성 완료',
+        title:'실행예산 최초 편성안을 팀장에게 상신해야 합니다',
+        why:'승인을 받아야 Baseline이 확정되고 ERP로 전송됩니다. 승인 전에는 Draft 상태로만 남습니다.',
+        from:0, to:1586000000,
+        guide:{ where:'수행원가 › 원가조정',
+          do:'4대계정 합계를 확인하고 [승인 요청]을 누릅니다',
+          decide:'합계 1,586,000,000원이 CP 총액 1,850,000,000원 이내인지(여력 264,000,000원) 확인합니다' } },
+    ],
+    risks:[],   // 신규 생성 직후 — 실적이 없어 감지할 이상징후가 없다
+  },
+
+  '2026-09': {
+    note:'편성 승인 완료 · 첫 실적 발생',
+    todos:[
+      { stage:'input', acct:'인건비', trigger:'선투입 PJT 집행분 I/F 수신',
+        title:'선투입 집행분 42,000,000원을 본 프로젝트로 승계해야 합니다',
+        why:'착수 전 선투입에서 집행된 인건비 42,000,000원이 승계되어야 실적이 이어집니다. 누락하면 원가율이 실제보다 낮게 보입니다.',
+        from:650000000, to:650000000,
+        guide:{ where:'수행원가 › 원가조정 › 인건비',
+          do:'[선투입 승계] 목록에서 해당 건을 선택해 본 PJT 실적으로 옮깁니다',
+          decide:'계획 총액은 변하지 않고 실적만 42,000,000원 늘어납니다. 추적 링크가 유지되는지 확인합니다' } },
+      { stage:'input', acct:'외주비', trigger:'SCM 외주인력 투입 지연 통보',
+        title:'외주 인력 3명 투입 지연분 34,000,000원을 재배치해야 합니다',
+        why:'투입 개시가 9월 → 10월로 변경 수신되었습니다. 9월 외주비 계획 34,000,000원이 집행되지 않습니다.',
+        from:865000000, to:865000000,
+        guide:{ where:'수행원가 › 원가조정 › 외주비',
+          do:'9월 계획 라인의 34,000,000원을 10~11월로 나눠 옮깁니다',
+          decide:'계정 총액 865,000,000원은 그대로 두고 월별 배치만 바꿉니다 (총액 불변 시 자가전결)' } },
+    ],
+    risks:[
+      { stage:'input', acct:'인건비', sev:'warning', scen:'선투입 승계 미처리',
+        title:'선투입 집행분 42,000,000원이 아직 반영되지 않았습니다',
+        why:'월마감 전에 승계하지 않으면 9월 실적에서 누락되어 원가율이 낮게 보입니다.', impact:'실적 +4,200만원' },
+    ],
+  },
+
+  '2026-10': {
+    note:'구매 검수 · 계획 조정',
+    todos:[
+      { stage:'input', acct:'외주비', trigger:'구매견적 수신 (PO 발행 전)',
+        title:'외주비 계획을 4,500,000원 증액해야 PO를 발행할 수 있습니다',
+        why:'아크로디자인랩 4분기 견적 24,500,000원이 계획 라인 20,000,000원을 초과합니다. 계획을 먼저 올려야 계약이 가능합니다.',
+        from:865000000, to:869500000,
+        guide:{ where:'수행원가 › 원가조정 › 외주비',
+          do:'해당 업체 계획 라인 금액을 20,000,000 → 24,500,000원으로 수정합니다',
+          decide:'증액 후에도 외주비 CP한도 1,195,000,000원 이내인지 확인합니다. 자가전결 범위면 바로 저장됩니다' } },
+      { stage:'inspect', acct:'재료비', trigger:'구매 검수 지연',
+        title:'장비 검수 2건(9,200,000원)이 10월 실적에서 빠집니다',
+        why:'검수 완료분만 실적으로 인식됩니다. 검수가 밀리면 월마감 실적에 잡히지 않습니다.',
+        from:46000000, to:46000000,
+        guide:{ where:'수행원가 › 원가조정 › 재료비',
+          do:'검수 예정 목록에서 지연 2건의 검수 예정월을 10월 → 11월로 조정합니다',
+          decide:'금액은 그대로 두고 인식 시점만 옮깁니다. 종료 전까지 검수가 끝나는지 확인합니다' } },
+    ],
+    risks:[
+      { stage:'inspect', acct:'재료비', sev:'danger', scen:'구매 검수 지연',
+        title:'검수 지연 2건이 실적 인식에서 빠집니다',
+        why:'검수 미완료분은 월마감 실적에 잡히지 않아 원가율이 실제보다 낮게 보입니다.', impact:'인식 이월' },
+    ],
+  },
+
+  '2026-11': {
+    note:'예산 초과 · 직책자 결재',
+    todos:[
+      { stage:'approve', acct:'외주비', trigger:'누계 조정액 한도 초과',
+        title:'외주비 증액 180,500,000원을 직책자에게 상신해야 합니다',
+        why:'누계 조정액이 승인 예산의 20%를 넘어 자가전결 한도를 벗어났습니다. 직책자 승인 전까지 Draft로 유지됩니다.',
+        from:869500000, to:1050000000,
+        guide:{ where:'수행원가 › 원가조정 › 외주비',
+          do:'증액 사유를 입력하고 [승인 요청]을 눌러 직책자에게 올립니다',
+          decide:'증액 후 1,050,000,000원이 외주비 CP한도 1,195,000,000원 이내인지 확인합니다' } },
+      { stage:'recon', acct:'경비', trigger:'월마감 대사 · 미집행 발생',
+        title:'미집행 경비 3,200,000원을 AI 예비비로 전환할 수 있습니다',
+        why:'정산 단계에 들어가면 계정 간 이동이 제한됩니다. 그 전에 전환해 두면 잔여 기간에 쓸 수 있습니다.',
+        from:25000000, to:21800000,
+        guide:{ where:'수행원가 › 원가조정 › 경비',
+          do:'미집행 3,200,000원을 선택해 [AI 예비비로 전환]합니다',
+          decide:'계정 총액은 변하지 않습니다(경비 21,800,000 + 예비비 3,200,000). 자가전결로 처리됩니다' } },
+    ],
+    risks:[
+      { stage:'approve', acct:'외주비', sev:'danger', scen:'예산 초과 (Overrun)',
+        title:'외주비 조정액이 자가전결 한도를 넘었습니다',
+        why:'승인 예산의 20%를 초과해 직책자 승인이 필요합니다. 승인 전까지는 계획이 확정되지 않습니다.', impact:'직책자 승인' },
+      { stage:'recon', acct:'전 계정', sev:'warning', scen:'계획-실적 gap',
+        title:'11월 계획 대비 실적이 15,200,000원 미달했습니다',
+        why:'투입 지연과 검수 이월이 겹쳐 실적이 계획에 못 미쳤습니다. 잔여 기간 계획을 재배치해야 합니다.', impact:'-1,520만원' },
+    ],
+  },
+
+  '2026-12': {
+    note:'종료 판정 · 정산',
+    todos:[
+      { stage:'inspect', acct:'재료비', trigger:'종료 판정 사전 점검',
+        title:'미검수 1건(4,600,000원)을 정리해야 종료할 수 있습니다',
+        why:'검수 미완료분이 남으면 종료 판정에서 미결 항목으로 분류돼 종료가 보류됩니다.',
+        from:46000000, to:46000000,
+        guide:{ where:'수행원가 › 원가조정 › 재료비',
+          do:'미검수 1건의 검수를 완료 처리하거나 계획에서 제외합니다',
+          decide:'12월 내 검수가 불가하면 계획에서 빼야 종료 판정을 통과합니다' } },
+      { stage:'recon', acct:'전 계정', trigger:'정산 진입 전 점검',
+        title:'정산 진입 전 계정 간 이동을 마무리해야 합니다',
+        why:'정산 단계에 들어가면 계정 간 이동이 제한됩니다. 남은 미집행분을 지금 정리해야 합니다.',
+        from:1586000000, to:1586000000,
+        guide:{ where:'수행원가 › 원가조정',
+          do:'계정별 잔여를 확인하고 필요한 이동을 처리합니다',
+          decide:'이동 후에도 각 계정이 CP 한도 이내인지 확인합니다' } },
+      { stage:'approve', acct:'전 계정', trigger:'프로젝트 종료',
+        title:'종료 보고와 최종 원가를 확정해야 합니다',
+        why:'최종 실적을 확정하고 BIX로 손익 데이터를 이관하면 프로젝트가 종료됩니다.',
+        from:1586000000, to:1586000000,
+        guide:{ where:'프로젝트 › 프로젝트 종료',
+          do:'미결 항목이 없는지 확인하고 [종료 보고]를 상신합니다',
+          decide:'미검수·미승인 건이 하나라도 남아 있으면 종료가 보류됩니다' } },
+    ],
+    risks:[
+      { stage:'inspect', acct:'재료비', sev:'danger', scen:'종료 보류',
+        title:'미검수 1건으로 종료가 보류될 수 있습니다',
+        why:'검수 미완료분은 종료 판정에서 미결로 남습니다.', impact:'종료 보류' },
+    ],
+  },
+};
+
+// 현재 월의 이벤트를 상세 화면(Agent 콘솔)에 반영 — 메인과 상세가 항상 같은 내용
+function syncScenProposals() {
+  if (typeof AGENT_PROPOSALS_FINAL === 'undefined') return;
+  for (let i = AGENT_PROPOSALS_FINAL.length - 1; i >= 0; i--) {
+    if (AGENT_PROPOSALS_FINAL[i].pjt === SCEN_PJT.key) AGENT_PROPOSALS_FINAL.splice(i, 1);
+  }
+  const m = scenMonth();
+  const ev = SCEN_BY_MONTH[m] || { todos: [] };
+  ev.todos.forEach(function (t, i) {
+    AGENT_PROPOSALS_FINAL.push({
+      id: 'sc-' + m + '-' + i, pjt: SCEN_PJT.key, stage: t.stage, acct: t.acct,
+      status: 'pending', confidence: 0.92, detectedAt: m + '-01 09:00',
+      trigger: t.trigger, title: t.title, why: t.why, guide: t.guide,
+      from: t.from, to: t.to,
+      impact: '월마감 ' + scenMonthLabel(m) + ' 기준 · 계정별 CP 한도 이내입니다.',
+    });
+  });
+}
+function scenRisks() {
+  const ev = SCEN_BY_MONTH[scenMonth()];
+  return ev ? ev.risks.slice() : [];
+}
+
+// 시나리오 PJT의 이상징후는 월별 이벤트에서 가져온다
+(function overrideScenRisks() {
+  SCEN_RISKS_BY_PJT[SCEN_PJT.key] = [];
+  function refresh() { SCEN_RISKS_BY_PJT[SCEN_PJT.key] = scenRisks(); }
+  window.__scenRefresh = function () { syncScenProposals(); refresh(); };
+  function bind() {
+    if (typeof AGENT_PROPOSALS_FINAL === 'undefined') { setTimeout(bind, 300); return; }
+    window.__scenRefresh();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+// ── 16차 — 월 마감 버튼 · 실행 패널 ─────────────────────────
+
+function closeRunOpen() {
+  const ov = document.getElementById('close-run-overlay');
+  if (!ov) return;
+  ov.innerHTML = closeRunHtml();
+  ov.classList.add('open');
+}
+function closeRunClose() {
+  const ov = document.getElementById('close-run-overlay');
+  if (ov) ov.classList.remove('open');
+}
+
+function closeRunHtml() {
+  const m = scenMonth();
+  const ev = SCEN_BY_MONTH[m] || { note: '', todos: [], risks: [] };
+  const last = scenMonthIdx >= SCEN_MONTHS.length - 1;
+  const openTodo = homeProposalsOf(SCEN_PJT.key, null).length;
+  const steps = CLOSE_RUN_STEPS.map(function (s, i) {
+    return `<div class="cr-step"><span class="cr-n">${i + 1}</span>
+        <div><b>${escHtml(s.t)}</b><em>${escHtml(s.d)}</em></div></div>`;
+  }).join('');
+  const months = SCEN_MONTHS.map(function (x, i) {
+    const cls = i < scenMonthIdx ? 'done' : i === scenMonthIdx ? 'now' : '';
+    return `<span class="cr-m ${cls}">${scenMonthLabel(x)}</span>`;
+  }).join('<i>›</i>');
+  return `
+    <div class="cr-panel" onclick="event.stopPropagation()">
+      <div class="cr-head">
+        <div>
+          <div class="cr-eyebrow">월 마감</div>
+          <strong>${escHtml(scenMonthLabel(m))} 마감 실행</strong>
+          <div class="cr-meta">${escHtml(SCEN_PJT.no)} · ${escHtml(SCEN_PJT.name)} — ${escHtml(ev.note)}</div>
+        </div>
+        <button class="hm-drawer-x" onclick="closeRunClose()" aria-label="닫기">✕</button>
+      </div>
+      <div class="cr-body">
+        <div class="cr-months">${months}</div>
+        ${openTodo ? `<div class="cr-warn">아직 처리하지 않은 항목이 <b>${openTodo}건</b> 있습니다. 마감하면 이 달 계획이 실적으로 확정되고 다음 달로 넘어갑니다.</div>` : ''}
+        <div class="cr-sec">마감 처리 순서</div>
+        ${steps}
+        <div class="cr-note">현행화 조정안은 Process MAP상 <b>팀장 승인 없이 자동 확정</b>됩니다.
+          원가 계획·반영 규칙은 현재 목업(수행원가 &gt; 원가조정) 기준을 따릅니다.</div>
+      </div>
+      <div class="cr-foot">
+        <button class="hm-btn" onclick="closeRunClose()">닫기</button>
+        ${last
+          ? `<button class="hm-btn pri" onclick="runMonthlyClose()">12월 마감 · 프로젝트 종료 →</button>`
+          : `<button class="hm-btn pri" onclick="runMonthlyClose()">${escHtml(scenMonthLabel(m))} 마감 실행 →</button>`}
+      </div>
+    </div>`;
+}
+
+// 마감 실행 — 그 달 계획을 실적으로 확정하고 다음 달 이벤트로 넘어간다
+function runMonthlyClose() {
+  const m = scenMonth();
+  try {
+    const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[SCEN_PJT.key] : null;
+    if (src && Array.isArray(src.months) && typeof budgetMockMonth === 'function') {
+      const i = src.months.findIndex(function (x) { return x.m === m; });
+      if (i >= 0 && src.months[i].type !== 'actual') {
+        const r0 = src.months[i];
+        const pick = function (k) { return (r0[k] && r0[k].p) ? r0[k].p : 0; };
+        // 실적은 계획과 조금 다르게 확정된다 (월마감 대사에서 gap이 생기는 이유)
+        src.months[i] = budgetMockMonth(m, 'actual', {
+          labor: Math.round(pick('인건비') * 0.97),
+          outsource: Math.round(pick('외주비') * 1.02),
+          material: Math.round(pick('재료비') * 0.90),
+          expense: Math.round(pick('경비') * 0.95),
+        });
+      }
+      const next = SCEN_MONTHS[scenMonthIdx + 1];
+      if (next) src.current = next;
+      if (src.stage === '편성') src.stage = '수행';
+    }
+  } catch (e) { /* 데이터 구조가 달라도 화면 흐름은 유지 */ }
+
+  const last = scenMonthIdx >= SCEN_MONTHS.length - 1;
+  if (!last) scenMonthIdx += 1;
+  if (typeof window.__scenRefresh === 'function') window.__scenRefresh();
+  closeStage = firstStageWithWork();
+  closeRunClose();
+  if (typeof rerenderHomeFeed === 'function') rerenderHomeFeed();
+  if (typeof showToast === 'function') {
+    showToast(last
+      ? '12월 마감 완료 · 최종 원가를 확정하고 BIX로 이관했습니다.'
+      : scenMonthLabel(m) + ' 마감 완료 · ' + scenMonthLabel(scenMonth()) + ' 업무로 넘어갑니다.');
+  }
+}
+
+// 이 달에 할 일이 있는 첫 단계를 찾는다 (빈 단계가 먼저 열리지 않게)
+function firstStageWithWork() {
+  const pj = SCEN_PJT.key;
+  const risks = SCEN_RISKS_BY_PJT[pj] || [];
+  const hit = CLOSE_STAGES.find(function (s) {
+    return homeProposalsOf(pj, s.id).length > 0
+      || risks.some(function (r) { return (r.stage || 'input') === s.id; });
+  });
+  return hit ? hit.id : 'input';
+}
+
+// 우측 하단 작은 월 마감 버튼 (대화 FAB 위에 배치)
+(function injectCloseFab() {
+  function bind() {
+    if (document.getElementById('close-run-fab')) return;
+    const b = document.createElement('button');
+    b.id = 'close-run-fab';
+    b.className = 'close-run-fab';
+    b.type = 'button';
+    b.innerHTML = '<span class="crf-ic">📅</span><span class="crf-t">월 마감</span>';
+    b.title = '월 마감 실행';
+    b.onclick = closeRunOpen;
+    document.body.appendChild(b);
+    const ov = document.createElement('div');
+    ov.id = 'close-run-overlay';
+    ov.className = 'cr-overlay';
+    ov.onclick = function (e) { if (e.target === ov) closeRunClose(); };
+    document.body.appendChild(ov);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+// ============================================================
+//  18차 — 메인화면을 PJT 카드 그리드로 재구성
+//  · 캐러셀 · 월마감 단계 레일 · 월 마감 버튼 · 인사말 → 화면에서 제거
+//  · PJT 단위 카드에 해야 할 일 / 이상징후를 함께 요약
+//  · 카드의 항목을 누르면 수행원가 › 원가조정의 해당 PJT·계정 화면으로 이동
+//
+//  ※ 제거한 기능의 코드는 지우지 않고 호출만 끊었다. 되살릴 때 다시 붙이면 된다.
+// ============================================================
+
+// 카드로 보여줄 PJT 2건 추가 (상세 화면이 열리도록 예산 데이터까지 만든다)
+const EXTRA_PJTS = [
+  { key:'smart', no:'30140055-D001', name:'스마트팩토리 MES 고도화',
+    client:'SK실트론', org:'제조AX사업본부', pm:'이봄', period:'2026-03-01 ~ 2026-12-31',
+    plan:{ 인건비: 420000000, 외주비: 510000000, 재료비: 88000000, 경비: 32000000, 'A/S Cost': 0 },
+    months:[
+      ['2026-03','actual',{ labor:38000000, outsource:44000000, material:8000000, expense:2800000 }],
+      ['2026-04','actual',{ labor:41000000, outsource:47000000, material:8400000, expense:3000000 }],
+      ['2026-05','actual',{ labor:43000000, outsource:51000000, material:8800000, expense:3200000 }],
+      ['2026-06','actual',{ labor:44000000, outsource:53000000, material:9000000, expense:3300000 }],
+      ['2026-07','actual',{ labor:45000000, outsource:55000000, material:9200000, expense:3400000 }],
+      ['2026-08','plan',  { labor:46000000, laborQ:46000000, outsource:57000000, outsourceQ:30000000, material:9400000, expense:3400000 }],
+      ['2026-09','plan',  { labor:46000000, outsource:57000000, material:9400000, expense:3400000 }],
+      ['2026-10','plan',  { labor:46000000, outsource:57000000, material:9400000, expense:3400000 }],
+      ['2026-11','plan',  { labor:36000000, outsource:47000000, material:8200000, expense:3200000 }],
+      ['2026-12','plan',  { labor:35000000, outsource:42000000, material:8200000, expense:2900000 }],
+    ],
+    todos:[
+      { acct:'외주비', title:'외주 검수 지연 2건을 확정해야 합니다',
+        why:'검수 완료분만 실적으로 인식됩니다. 8월 마감 전에 확정하지 않으면 실적이 9월로 밀립니다.',
+        from:510000000, to:510000000,
+        guide:{ where:'수행원가 › 원가조정 › 외주비', do:'검수 대기 2건의 검수 완료를 처리합니다',
+                decide:'금액 변동 없이 인식 시점만 바뀝니다' } },
+      { acct:'재료비', title:'설비 자재 계획을 9,000,000원 증액해야 합니다',
+        why:'구매 견적이 계획을 초과해 PO를 발행할 수 없습니다.',
+        from:88000000, to:97000000,
+        guide:{ where:'수행원가 › 원가조정 › 재료비', do:'해당 품목 계획 금액을 수정합니다',
+                decide:'증액 후 CP 한도 이내인지 확인합니다' } },
+    ],
+    risks:[
+      { acct:'인건비', sev:'warning', scen:'투입 초과', title:'인건비 집행이 계획보다 4.2% 빠릅니다',
+        why:'현재 소진 속도가 유지되면 11월에 계정 한도에 도달합니다.', impact:'+1,760만원' },
+    ] },
+
+  { key:'aidoc2', no:'30150210-D001', name:'AI 문서심사 자동화',
+    client:'신한카드', org:'금융·데이터사업본부', pm:'이봄', period:'2026-05-01 ~ 2027-02-28',
+    plan:{ 인건비: 310000000, 외주비: 240000000, 재료비: 26000000, 경비: 18000000, 'A/S Cost': 0 },
+    months:[
+      ['2026-05','actual',{ labor:28000000, outsource:20000000, material:2400000, expense:1600000 }],
+      ['2026-06','actual',{ labor:30000000, outsource:22000000, material:2500000, expense:1700000 }],
+      ['2026-07','actual',{ labor:31000000, outsource:24000000, material:2600000, expense:1800000 }],
+      ['2026-08','plan',  { labor:32000000, laborQ:32000000, outsource:25000000, material:2600000, expense:1800000 }],
+      ['2026-09','plan',  { labor:32000000, outsource:25000000, material:2600000, expense:1800000 }],
+      ['2026-10','plan',  { labor:32000000, outsource:25000000, material:2600000, expense:1800000 }],
+      ['2026-11','plan',  { labor:32000000, outsource:25000000, material:2600000, expense:1800000 }],
+      ['2026-12','plan',  { labor:31000000, outsource:24000000, material:2500000, expense:1800000 }],
+      ['2027-01','plan',  { labor:31000000, outsource:25000000, material:2600000, expense:1800000 }],
+      ['2027-02','plan',  { labor:31000000, outsource:25000000, material:2600000, expense:1900000 }],
+    ],
+    todos:[
+      { acct:'인건비', title:'SCM 확정 인력 1명을 인건비에 반영해야 합니다',
+        why:'9월 합류 인력 1명(3.0MM)이 확정 수신되었습니다. 등록하지 않으면 집행할 예산이 없습니다.',
+        from:310000000, to:325000000,
+        guide:{ where:'수행원가 › 원가조정 › 인건비', do:'[인력 추가]로 확정 인력을 반영합니다',
+                decide:'등급·단가가 SCM 확정값과 같은지 대조합니다' } },
+    ],
+    risks:[] },
+];
+
+(function createExtraProjects() {
+  function bind() {
+    if (typeof EXEC_BUDGET_PROJECTS === 'undefined' || typeof BUDGET_SOURCE === 'undefined'
+        || typeof budgetMockMonth !== 'function') { setTimeout(bind, 300); return; }
+    EXTRA_PJTS.forEach(function (x) {
+      if (BUDGET_SOURCE[x.key]) return;
+      if (!EXEC_BUDGET_PROJECTS.some(function (e) { return e.key === x.key; })) {
+        EXEC_BUDGET_PROJECTS.push({ key:x.key, no:x.no, name:x.name, type:'SI-AD', status:'수행',
+          pm:x.pm, salesOrg:x.org, customer:x.client, period:x.period });
+      }
+      BUDGET_SOURCE[x.key] = {
+        projName: x.name, stage: '수행', dplus: 120,
+        start: x.months[0][0], end: x.months[x.months.length - 1][0], current: '2026-08',
+        plan: x.plan, transfer: { 인건비:0, 외주비:0, 재료비:0, 경비:0, 'A/S Cost':0 },
+        months: x.months.map(function (m) { return budgetMockMonth(m[0], m[1], m[2]); }),
+      };
+      if (typeof budgetTransferHistory !== 'undefined' && !budgetTransferHistory[x.key]) budgetTransferHistory[x.key] = [];
+      // 상세 화면(Agent 콘솔)에도 같은 건이 보이도록 제안으로 등록
+      if (typeof AGENT_PROPOSALS_FINAL !== 'undefined') {
+        x.todos.forEach(function (t, i) {
+          AGENT_PROPOSALS_FINAL.push({ id:'ex-' + x.key + '-' + i, pjt:x.key, stage:'input', acct:t.acct,
+            status:'pending', confidence:0.9, detectedAt:'2026-08-20 09:00', trigger:'I/F 수신',
+            title:t.title, why:t.why, guide:t.guide, from:t.from, to:t.to, impact:'CP 한도 이내입니다.' });
+        });
+      }
+      if (typeof SCEN_RISKS_BY_PJT !== 'undefined') SCEN_RISKS_BY_PJT[x.key] = x.risks.slice();
+      if (typeof HOME_PROJECTS !== 'undefined' && !HOME_PROJECTS.some(function (p) { return p.id === x.key; })) {
+        HOME_PROJECTS.push({ id:x.key, no:x.no, name:x.name });
+      }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+// ── 18차 — PJT 카드 그리드 ────────────────────────────────
+
+// 카드에 올릴 PJT 순서 (앞 4개가 기본 노출)
+function homeCardPjts() {
+  const order = [SCEN_PJT.key, MOCK_PJT.key, 'smart', 'aidoc2'];
+  const list = order.map(function (k) { return HOME_PROJECTS.find(function (p) { return p.id === k; }); }).filter(Boolean);
+  // 그 외 프로젝트는 상세 데이터가 있고, 실제로 볼 것(할 일·이상징후)이 있을 때만 카드로 띄운다.
+  // 팀원이 수행원가에 프로젝트를 추가하면 여기로 자동 편입된다.
+  HOME_PROJECTS.forEach(function (p) {
+    if (order.indexOf(p.id) >= 0) return;
+    if (typeof BUDGET_SOURCE === 'undefined' || !BUDGET_SOURCE[p.id]) return;
+    if (pjtTodosOf(p.id).length + pjtRisksOf(p.id).length === 0) return;
+    list.push(p);
+  });
+  return list;
+}
+
+// PJT 단위 해야 할 일 / 이상징후 (단계 구분 없이 전부)
+function pjtTodosOf(pj) {
+  return homeProposalsOf(pj, null).map(function (p) {
+    return { acct:p.acct, title:p.title, from:p.from, to:p.to };
+  });
+}
+function pjtRisksOf(pj) {
+  return (SCEN_RISKS_BY_PJT[pj] || []).map(function (r) {
+    return { acct:r.acct, title:r.title, sev:r.sev, scen:r.scen, impact:r.impact };
+  });
+}
+
+function pjtCardHtml(p) {
+  const todos = pjtTodosOf(p.id);
+  const risks = pjtRisksOf(p.id);
+  const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[p.id] : null;
+  const stage = src ? src.stage : '';
+  const line = function (acct, title, cls) {
+    return `<button class="pc-row ${cls || ''}" onclick="event.stopPropagation();homePjtGo('${escAttr(p.id)}','${escAttr(acct)}')">
+        <span class="pc-acct ${homeAcctCls(acct)}">${escHtml(acct)}</span>
+        <span class="pc-t">${escHtml(title)}</span>
+      </button>`;
+  };
+  const todoRows = todos.slice(0, 3).map(function (t) { return line(t.acct, t.title); }).join('');
+  const riskRows = risks.slice(0, 2).map(function (r) { return line(r.acct, r.title, 'risk'); }).join('');
+  const moreT = todos.length > 3 ? `<span class="pc-more">+${todos.length - 3}건 더</span>` : '';
+  const moreR = risks.length > 2 ? `<span class="pc-more">+${risks.length - 2}건 더</span>` : '';
+
+  return `
+    <article class="pc" onclick="homePjtGo('${escAttr(p.id)}')">
+      <div class="pc-head">
+        <div class="pc-no">${escHtml(p.no || '')}${stage ? ` · <em>${escHtml(stage)}</em>` : ''}</div>
+        <h3 class="pc-name">${escHtml(p.name)}</h3>
+      </div>
+      <div class="pc-kpi">
+        <span class="pc-k todo"><i>✓</i>해야 할 일 <b>${todos.length}</b></span>
+        <span class="pc-k risk"><i>!</i>이상징후 <b>${risks.length}</b></span>
+      </div>
+      <div class="pc-body">
+        ${todos.length ? `<div class="pc-sec">해야 할 일</div>${todoRows}${moreT}` : '<div class="pc-empty">해야 할 일이 없습니다.</div>'}
+        ${risks.length ? `<div class="pc-sec risk">이상징후</div>${riskRows}${moreR}` : ''}
+      </div>
+    </article>`;
+}
+
+// 카드/항목 클릭 → 수행원가 › 원가조정의 그 PJT(·계정) 화면
+function homePjtGo(pj, acct) {
+  const a = (!acct || acct === '전 계정') ? '인건비' : acct;
+  if (typeof openCostArea === 'function') openCostArea(a, pj);
+  else if (typeof openCostAdjust === 'function') openCostAdjust(pj);
+}
+
+// 6개까지는 2×3 그리드, 7개부터는 6개씩 페이지를 넘긴다
+let pjtPage = 0;
+function pjtPageCount() { return Math.max(1, Math.ceil(homeCardPjts().length / 6)); }
+function movePjtPage(d) {
+  const n = pjtPageCount();
+  pjtPage = (pjtPage + d + n) % n;
+  const el = document.getElementById('home-board');
+  if (el) el.innerHTML = homeWorkBoardHtml();
+}
+
+function homeWorkBoardHtml() {
+  const all = homeCardPjts();
+  const n = pjtPageCount();
+  if (pjtPage >= n) pjtPage = 0;
+  const page = all.slice(pjtPage * 6, pjtPage * 6 + 6);
+  const cards = page.map(pjtCardHtml).join('');
+  const pager = n > 1
+    ? `<div class="pc-pager">
+         <button class="pc-arrow" onclick="movePjtPage(-1)" aria-label="이전">‹</button>
+         <span class="pc-page">${pjtPage + 1} / ${n}</span>
+         <button class="pc-arrow" onclick="movePjtPage(1)" aria-label="다음">›</button>
+       </div>`
+    : '';
+  return `
+    <div class="pc-head-row">
+      <span class="pc-h-t">담당 프로젝트 <b>${all.length}</b></span>
+      <span class="pc-h-d">해야 할 일과 이상징후를 프로젝트별로 봅니다 · 항목을 누르면 해당 계정 화면으로 이동합니다</span>
+      ${pager}
+    </div>
+    <div class="pc-grid">${cards}</div>`;
+}
+
+// ── 메인화면 — 입력창 + PJT 카드 그리드 ──
+function renderPmDashboard() {
+  return `
+    <div class="ai-workspace home2 home-simple home-cards">
+      <section class="home2-main centered">
+        <div class="home2-title">실행예산 에이전트</div>
+
+        <div class="home2-search">
+          <span class="home2-orb" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
+              <path d="M12 4.4V8"/>
+              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
+              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <path d="M2 13v3M22 13v3"/>
+            </svg>
+          </span>
+          <input id="ai-main-query" type="text" placeholder="질문을 남겨주세요"
+            onkeydown="if(event.key==='Enter') askFromHome()">
+          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+        </div>
+
+        <div id="home-board">${homeWorkBoardHtml()}</div>
+      </section>
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
+    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}
+
+function rerenderHomeFeed() {
+  const bd = document.getElementById('home-board'); if (bd) bd.innerHTML = homeWorkBoardHtml();
+}

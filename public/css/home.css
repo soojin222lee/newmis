@@ -795,3 +795,326 @@ body.menu-shown .topbar .topnav { display: flex !important; }
 .hm-ptab-badge.clickable { cursor: pointer; transition: transform .12s, box-shadow .12s; }
 .hm-ptab-badge.clickable:hover { transform: scale(1.18); box-shadow: 0 0 0 3px rgba(234,0,44,.18); }
 .hm-ptab-badge.clickable:focus-visible { outline: 2px solid #ea002c; outline-offset: 1px; }
+
+/* ==========================================================================
+   13차 — 해야 할 일 / 이상징후 2단 보드 · 사용자 전환
+   ========================================================================== */
+
+/* 보드는 본문 폭(920px) 전체를 쓴다 — 입력창(720px)보다 넓게 */
+.hm-board { display: flex; gap: 14px; align-items: flex-start; margin: 6px 0 40px; }
+.hm-col {
+  flex: 1; min-width: 0; background: #fff;
+  border: 1px solid var(--sk-border); border-radius: 14px; overflow: hidden;
+}
+.hm-col-h {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  padding: 12px 16px; border-bottom: 1px solid var(--sk-border); background: #fafbfc;
+}
+.hm-col-ic {
+  width: 20px; height: 20px; flex: none; border-radius: 6px;
+  display: grid; place-items: center; font-size: 11px; font-weight: 900;
+  background: #6c5ce7; color: #fff;
+}
+.hm-col-ic.warn { background: var(--sk-red); }
+.hm-col-h b { font-size: 14px; font-weight: 900; color: var(--sk-ink); }
+.hm-col-h em {
+  font-style: normal; font-size: 11.5px; font-weight: 900; color: #fff;
+  background: #6c5ce7; border-radius: 999px; padding: 1px 8px;
+}
+.hm-col.risk .hm-col-h em { background: var(--sk-red); }
+.hm-col-d { margin-left: auto; font-size: 11px; color: #aab2c0; font-weight: 700; }
+.hm-col-b { padding: 12px 14px; display: flex; flex-direction: column; gap: 9px; }
+.hm-board-empty { font-size: 12.5px; color: #98a2b3; text-align: center; padding: 22px 0; }
+
+/* 카드 공통 */
+.hm-task, .hm-sig {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: #fff; border: 1px solid var(--sk-border); border-left: 3px solid #c3cad4;
+  border-radius: 10px; padding: 11px 13px;
+}
+.hm-task:hover, .hm-sig:hover { border-color: var(--sk-border-strong); box-shadow: 0 6px 18px -14px rgba(11,18,32,.5); }
+.hm-task { border-left-color: #6c5ce7; }
+.hm-sig.danger  { border-left-color: var(--sk-red); }
+.hm-sig.warning { border-left-color: #e39a2a; }
+
+.hm-task-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.hm-task-acct { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; background: #eef0f4; color: #55606f; }
+.hm-task-acct.labor     { background: #e8f1fd; color: #1f5fbf; }
+.hm-task-acct.outsource { background: #fde8ec; color: #b8283f; }
+.hm-task-acct.material  { background: #e8f6f0; color: #0b7a52; }
+.hm-task-acct.expense   { background: #fdf3e0; color: #9a6206; }
+.hm-sig-tag { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
+.hm-sig-tag.danger  { background: #fde8ec; color: #b8283f; }
+.hm-sig-tag.warning { background: #fdf3e0; color: #9a6206; }
+.hm-task-trig, .hm-task-by { font-size: 10.5px; color: #98a2b3; font-weight: 700; }
+.hm-task-delta { margin-left: auto; font-size: 11px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.hm-task-delta.up { color: var(--sk-red); } .hm-task-delta.down { color: var(--sk-blue); }
+
+.hm-task-t { display: block; font-size: 13.5px; font-weight: 800; color: var(--sk-ink); line-height: 1.45; }
+.hm-task-w {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: 11.5px; color: #6a7382; margin-top: 4px; line-height: 1.6;
+}
+.hm-task-w b.up { color: var(--sk-red); font-weight: 900; }
+.hm-task-go { display: block; font-size: 11px; font-weight: 800; color: #5546c9; margin-top: 6px; }
+.hm-sig .hm-task-go { color: var(--sk-red); }
+
+/* 상단 사용자 전환 */
+.tb-user.switchable { position: relative; cursor: pointer; border-radius: 9px; padding: 4px 8px; }
+.tb-user.switchable:hover { background: var(--sk-blue-soft); }
+.tb-user.switchable::after {
+  content: '▾'; position: absolute; right: -2px; top: 50%; transform: translateY(-50%);
+  font-size: 9px; color: #aab2c0;
+}
+.tb-user-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 60;
+  min-width: 210px; background: #fff; border: 1px solid var(--sk-border);
+  border-radius: 12px; padding: 6px; display: none;
+  box-shadow: 0 16px 34px -18px rgba(11,18,32,.5);
+}
+.tb-user-menu.open { display: block; }
+.tb-user-opt {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  border: 0; background: transparent; border-radius: 9px; padding: 9px 11px;
+}
+.tb-user-opt:hover { background: #f5f6f8; }
+.tb-user-opt b { display: inline-block; font-size: 13px; font-weight: 900; color: var(--sk-ink); }
+.tb-user-opt span {
+  font-size: 10.5px; font-weight: 800; color: #55606f;
+  background: #eef0f4; border-radius: 999px; padding: 1px 7px; margin-left: 6px;
+}
+.tb-user-opt em { display: block; font-style: normal; font-size: 11px; color: #8a94a6; margin-top: 3px; }
+
+@media (max-width: 860px) {
+  .hm-board { flex-direction: column; }
+  .hm-col-d { margin-left: 0; width: 100%; }
+}
+
+/* ==========================================================================
+   14차 — 월마감 단계 레일 · 단계별 카드 상태
+   ========================================================================== */
+
+.hm-stage {
+  border: 1px solid var(--sk-border); border-radius: 14px; background: #fff;
+  margin: 6px 0 12px; overflow: hidden;
+}
+.hm-stage-h {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  padding: 11px 16px; border-bottom: 1px solid var(--sk-border); background: #fafbfc;
+}
+.hm-stage-t { font-size: 12.5px; font-weight: 900; color: var(--sk-ink); }
+.hm-stage-pjt { margin-left: auto; font-size: 11.5px; font-weight: 700; color: #6a7382; }
+.hm-stage-track { display: flex; gap: 6px; padding: 12px 12px 14px; overflow-x: auto; }
+
+.hm-st {
+  flex: 1; min-width: 128px; cursor: pointer; text-align: left;
+  display: flex; align-items: center; gap: 8px;
+  background: #fff; border: 1px solid var(--sk-border); border-radius: 10px; padding: 9px 11px;
+}
+.hm-st:hover { border-color: var(--sk-border-strong); }
+.hm-st.on { border-color: var(--sk-ink); box-shadow: 0 0 0 2px rgba(22,21,31,.07); }
+.hm-st-ic {
+  width: 22px; height: 22px; flex: none; border-radius: 50%;
+  display: grid; place-items: center; font-size: 11px; font-weight: 900;
+  background: #fff; border: 2px solid #e3e7ec; color: #aab2c0;
+}
+.hm-st.done .hm-st-ic   { background: #12a46b; border-color: #12a46b; color: #fff; }
+.hm-st.active .hm-st-ic { background: var(--sk-ink); border-color: var(--sk-ink); color: #fff; }
+.hm-st-b { min-width: 0; }
+.hm-st-b b { display: block; font-size: 12.5px; font-weight: 900; color: #6a7382; white-space: nowrap; }
+.hm-st.on .hm-st-b b, .hm-st.active .hm-st-b b { color: var(--sk-ink); }
+.hm-st-b em { display: block; font-style: normal; font-size: 10.5px; color: #aab2c0; font-weight: 700; margin-top: 1px; }
+
+/* 카드 상태 — 완료/예정은 클릭 대상이 아니다 */
+.hm-task:disabled { cursor: default; opacity: .78; }
+.hm-task:disabled:hover { border-color: var(--sk-border); box-shadow: none; }
+.hm-task.done { border-left-color: #12a46b; }
+.hm-task.next { border-left-color: #c3cad4; }
+.hm-task-st { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
+.hm-task-st.done { background: #e8f6f0; color: #0b7a52; }
+.hm-task-st.next { background: #f2f4f7; color: #6a7382; }
+
+@media (max-width: 860px) {
+  .hm-stage-pjt { margin-left: 0; width: 100%; }
+}
+
+/* 시나리오 프로젝트 칩 강조 */
+.hm-pjt-chip.scen { border-color: #6c5ce7; }
+.hm-pjt-chip.scen.picked { background: #4b3fb5; border-color: #4b3fb5; }
+.hm-pjt-star { color: #6c5ce7; font-size: 10px; margin-right: 4px; }
+.hm-pjt-chip.picked .hm-pjt-star { color: #fff; }
+
+/* 단계별 건수 뱃지 */
+.hm-st-n { margin-left:auto; flex:none; font-size:10.5px; font-weight:900; color:#fff; background:var(--sk-red); border-radius:999px; padding:1px 7px; }
+.hm-st.done .hm-st-n { background:#12a46b; }
+
+/* ==========================================================================
+   16차 — 월 마감 버튼 · 실행 패널
+   ========================================================================== */
+
+.close-run-fab {
+  position: fixed; right: 22px; bottom: 86px; z-index: 74;
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  background: #fff; border: 1px solid var(--sk-border-strong); border-radius: 999px;
+  padding: 7px 13px; font-size: 11.5px; font-weight: 800; color: #55606f;
+  box-shadow: 0 8px 20px -14px rgba(11, 18, 32, .5);
+}
+.close-run-fab:hover { border-color: var(--sk-blue); color: var(--sk-blue-deep); background: var(--sk-blue-soft); }
+.crf-ic { font-size: 12px; }
+
+.cr-overlay {
+  position: fixed; inset: 0; z-index: 78; background: rgba(20, 22, 30, .42);
+  display: none; align-items: center; justify-content: center; padding: 24px;
+}
+.cr-overlay.open { display: flex; }
+.cr-panel {
+  width: min(560px, 100%); max-height: 86vh; display: flex; flex-direction: column;
+  background: #fff; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 24px 60px -24px rgba(11, 18, 32, .5);
+}
+.cr-head { display: flex; align-items: flex-start; gap: 10px; padding: 18px 20px; border-bottom: 1px solid var(--sk-border); }
+.cr-eyebrow { font-size: 11.5px; font-weight: 800; color: #98a2b3; }
+.cr-head strong { display: block; font-size: 18px; font-weight: 900; color: var(--sk-ink); margin-top: 2px; }
+.cr-meta { font-size: 11.5px; color: #8a94a6; margin-top: 4px; }
+.cr-head .hm-drawer-x { margin-left: auto; }
+.cr-body { flex: 1; overflow-y: auto; padding: 16px 20px; background: #fafbfc; }
+
+.cr-months { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.cr-m {
+  font-size: 11.5px; font-weight: 800; color: #aab2c0;
+  background: #fff; border: 1px solid var(--sk-border); border-radius: 999px; padding: 3px 11px;
+}
+.cr-m.done { background: #e8f6f0; border-color: #cdebdf; color: #0b7a52; }
+.cr-m.now { background: var(--sk-ink); border-color: var(--sk-ink); color: #fff; }
+.cr-months i { font-style: normal; color: #c3cad4; font-size: 10px; }
+
+.cr-warn {
+  font-size: 12px; font-weight: 700; color: #9a6206;
+  background: #fdf3e0; border: 1px solid #f6e2bf; border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 14px; line-height: 1.6;
+}
+.cr-warn b { font-weight: 900; }
+.cr-sec { font-size: 12px; font-weight: 900; color: var(--sk-ink); margin: 0 0 8px; }
+.cr-step { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid #f1f0ea; }
+.cr-step:last-of-type { border-bottom: none; }
+.cr-n {
+  width: 20px; height: 20px; flex: none; border-radius: 50%;
+  background: #eef0f4; color: #55606f; font-size: 10.5px; font-weight: 900;
+  display: grid; place-items: center;
+}
+.cr-step b { display: block; font-size: 12.5px; font-weight: 800; color: var(--sk-ink); }
+.cr-step em { display: block; font-style: normal; font-size: 11.5px; color: #8a94a6; margin-top: 2px; line-height: 1.6; }
+.cr-note {
+  font-size: 11.5px; color: #6a7382; line-height: 1.7;
+  background: #f1eefd; border-radius: 10px; padding: 10px 12px; margin-top: 14px;
+}
+.cr-note b { color: #4b3fb5; font-weight: 900; }
+.cr-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--sk-border); }
+
+@media (max-width: 720px) {
+  .cr-overlay { padding: 0; }
+  .cr-panel { width: 100%; max-height: 100vh; border-radius: 0; }
+  .close-run-fab { bottom: 82px; }
+}
+
+/* ==========================================================================
+   17차 — 업무 가이드 (어디서 · 무엇을 · 확정 기준)
+   ========================================================================== */
+.hm-guide {
+  display: block; margin-top: 8px; padding: 9px 11px;
+  background: #f7f8fb; border-radius: 9px; border-left: 2px solid #c9d3e8;
+}
+.hm-guide-r { display: flex; gap: 7px; font-size: 11.5px; color: #55606f; line-height: 1.6; }
+.hm-guide-r + .hm-guide-r { margin-top: 4px; }
+.hm-guide-r i {
+  flex: none; width: 52px; font-style: normal; font-size: 10.5px; font-weight: 800;
+  color: #98a2b3; padding-top: 1px;
+}
+.hm-task:disabled .hm-guide { opacity: .85; }
+
+/* ==========================================================================
+   18차 — PJT 카드 그리드 (2×3 · 7개부터 페이지 넘김)
+   제거한 요소는 마크업을 남기고 숨김만 한다 (되살릴 수 있게)
+   ========================================================================== */
+
+/* 월 마감 버튼 숨김 — 코드는 유지 */
+#close-run-fab { display: none !important; }
+
+.home-cards .home2-search { margin: 46px auto 26px; }
+
+.pc-head-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0 2px 12px; }
+.pc-h-t { font-size: 13px; font-weight: 900; color: var(--sk-ink); }
+.pc-h-t b { color: var(--sk-blue-deep); }
+.pc-h-d { font-size: 11.5px; color: #98a2b3; font-weight: 700; }
+.pc-pager { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.pc-arrow {
+  width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+  border: 1px solid var(--sk-border); background: #fff; color: #6a7382; font-size: 13px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.pc-arrow:hover { border-color: var(--sk-blue); color: var(--sk-blue); }
+.pc-page { font-size: 11.5px; font-weight: 800; color: #8a94a6; }
+
+/* 2열 × 3행 */
+.pc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 44px; }
+
+.pc {
+  display: flex; flex-direction: column; cursor: pointer;
+  background: #fff; border: 1px solid var(--sk-border); border-radius: 14px; overflow: hidden;
+}
+.pc:hover { border-color: var(--sk-border-strong); box-shadow: 0 10px 26px -18px rgba(11, 18, 32, .5); }
+.pc-head { padding: 13px 16px 0; }
+.pc-no { font-size: 11px; font-weight: 800; color: #98a2b3; font-variant-numeric: tabular-nums; }
+.pc-no em { font-style: normal; color: #5546c9; }
+.pc-name { font-size: 15px; font-weight: 900; color: var(--sk-ink); margin: 3px 0 0; letter-spacing: -0.2px; }
+
+.pc-kpi { display: flex; gap: 7px; padding: 10px 16px 12px; border-bottom: 1px solid var(--sk-border); }
+.pc-k {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 700; color: #6a7382;
+  background: #f5f6f8; border-radius: 999px; padding: 3px 10px;
+}
+.pc-k i { font-style: normal; width: 14px; height: 14px; border-radius: 4px; display: grid; place-items: center; font-size: 9px; font-weight: 900; color: #fff; }
+.pc-k.todo i { background: #6c5ce7; }
+.pc-k.risk i { background: var(--sk-red); }
+.pc-k b { font-weight: 900; color: var(--sk-ink); }
+
+.pc-body { flex: 1; padding: 11px 14px 6px; }
+.pc-sec { font-size: 10.5px; font-weight: 900; color: #98a2b3; margin: 0 0 6px; }
+.pc-sec.risk { margin-top: 10px; color: #b8283f; }
+.pc-row {
+  display: flex; align-items: flex-start; gap: 7px; width: 100%; text-align: left; cursor: pointer;
+  background: transparent; border: 0; border-radius: 8px; padding: 6px 7px; margin-bottom: 2px;
+}
+.pc-row:hover { background: #f5f6f8; }
+.pc-acct { flex: none; font-size: 10px; font-weight: 800; border-radius: 999px; padding: 2px 7px; background: #eef0f4; color: #55606f; }
+.pc-acct.labor { background: #e8f1fd; color: #1f5fbf; }
+.pc-acct.outsource { background: #fde8ec; color: #b8283f; }
+.pc-acct.material { background: #e8f6f0; color: #0b7a52; }
+.pc-acct.expense { background: #fdf3e0; color: #9a6206; }
+.pc-t {
+  font-size: 12px; color: #3f4855; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+}
+.pc-row.risk .pc-t { color: #8a3040; font-weight: 700; }
+.pc-more { display: block; font-size: 11px; color: #aab2c0; font-weight: 700; padding: 2px 7px 0; }
+.pc-empty { font-size: 12px; color: #aab2c0; padding: 10px 4px; }
+.pc-foot {
+  padding: 10px 16px; border-top: 1px solid var(--sk-border); background: #fafbfc;
+  font-size: 11.5px; font-weight: 800; color: #5546c9;
+}
+
+@media (max-width: 860px) {
+  .pc-grid { grid-template-columns: minmax(0, 1fr); }
+  .pc-pager { margin-left: 0; }
+  .pc-h-d { width: 100%; }
+}
+
+/* 19차 — 메인 타이틀 (인사말 자리) */
+.home2-title {
+  text-align: center; margin: 52px 0 22px;
+  font-size: 30px; font-weight: 900; letter-spacing: -0.6px; color: var(--sk-ink);
+}
+/* 전환 대상이 하나뿐일 때 사용자 영역의 화살표 표시를 없앤다 */
+.tb-user:not(.switchable)::after { content: none; }
+@media (max-width: 720px) { .home2-title { font-size: 24px; margin: 32px 0 18px; } }
