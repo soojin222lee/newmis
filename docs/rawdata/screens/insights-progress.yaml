@@ -1,0 +1,311 @@
+# rawdata: 인사이트 > 원가 소진율 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+
+screen:
+  id: s-insights-progress
+  name: 인사이트 · 원가 소진율 (계획율 vs 소진율 · 합의 Cost 분해 · 계정별 비교)
+  menu_path: 인사이트 > 원가 소진율
+  route: "#/insights/progress?pj=<불투명프로젝트ID>"
+  entry: "showInsights('progress') → renderInsights() → insightsHtml() → insProgressHtml(p)"
+  source_files:
+    - public/js/insights.js            # 렌더·핸들러·상태·파생계산
+    - public/js/app.js                 # 라우트(DYNAMIC_ROUTES, insHash('progress'), SCREEN_ROUTES['s-insights'])
+    - server.js                        # /api/progress-summary(LLM), buildProgressPrompt, localProgressSummary, callLLM, localNavigate
+    - public/css/insights.css          # ins-* 스타일 (참고)
+  purpose: >
+    프로젝트 전체 기간(12개월)에서 계획율 대비 소진율(실적)을 비교하고, 합의 Cost(=실행예산)를
+    실적·집행예정·잔여·손실예비비로 분해하여 원가 소진 속도와 최종 착지를 진단한다. 인사이트 두 번째 탭.
+  key_facts:
+    - "insTab='progress' (showInsights insights.js:278-283). 탭 라벨 '원가 소진율' (insights.js:307)."
+    - "핵심 개념: 소진율 분모는 합의 Cost(=실행예산 budget), 예상원가 forecast가 아님."
+    - "메인 챗 네비게이터 연계: localNavigate(server.js:499) '소진/cost/원가 실적·계획·비교' 키워드 → insights-progress."
+    - "AI 분석 모달(openInsAiModal)은 버전별 예산 탭과 공유(문구만 opts로 다름)."
+
+# ── URL / 라우팅 ──
+routing:
+  hash: "#/insights/progress?pj=<프로젝트ID>"
+  notes:
+    - "동적 딥링크: DYNAMIC_ROUTES /^insights(?:\\/([^/?]+))?$/ → gotoInsights(pj,'progress') (app.js:129-131)."
+    - "진입: showInsights('progress') (insights.js:278) 또는 탭바 클릭 / gotoInsights(pj,'progress') (insights.js:285)."
+    - "pj: 불투명 ID → insProjectIndexById (insights.js:276)로 인덱스 변환."
+    - "URL 역생성: SCREEN_ROUTES['s-insights'] (app.js:64-68). 홈 바로가기 insHash('progress') (app.js:1247)."
+    - "routeQueryParam('pj') (app.js:121-126)."
+
+# ── 화면 상태 ──
+states:
+  - id: rendered
+    when: "insTab=='progress'"
+    shows: [탭인트로, 기간스트립, 원가·계획·실적 3카드, KPI4종, S커브, 합의Cost분해, 계정별가로막대]
+  - id: ai_modal_loading
+    when: "insProgressAiSummary() 호출 직후"
+    shows: ["AI 분석 모달 스피너('원가 소진율을 분석하고 있어요…')"]
+    effect: "openInsAiModal('loading',...,opts) (insights.js:158)"
+  - id: ai_modal_done
+    when: "/api/progress-summary 응답 성공"
+    shows: ["4~5문장 분석 + source 라벨(✦ AI 생성 분석 / 로컬 분석(샘플))"]
+  - id: ai_modal_error
+    when: "fetch 실패(catch)"
+    shows: ["'분석을 불러오지 못했어요' 재시도 안내 (insights.js:135, 163)"]
+  - id: kpi_tooltip
+    when: "KPI ⓘ 아이콘 hover/focus"
+    effect: "각 지표 수식 툴팁 표시 (tip 헬퍼 insights.js:605)"
+
+# ── 요소(버튼/토글/차트) 인벤토리 ── ★ 버튼 단위 프론트/백엔드 로직
+elements:
+  # 공통 상단 프레임(insightsHtml insights.js:306-341) — overview와 동일: 데이터 내보내기 / AI 보고서 생성 / 캐러셀 / 탭바
+  - id: btn-generate-report
+    label: AI 보고서 생성
+    type: button
+    area: ins-topbar
+    event: onclick
+    front: { handler: insGenerateReport(), file: insights.js, logic: "3개 탭 종합 → POST /api/report-summary → 보고서 팝업" }
+    backend: { api: /api/report-summary, method: POST }
+
+  - id: carousel-project-tab
+    label: 프로젝트 캐러셀 탭
+    type: button
+    area: hm-ptabs-carousel
+    event: onclick
+    front: { handler: "selectInsProject(i)", file: insights.js, logic: "재계산·재렌더 + URL pj 갱신 (insights.js:289-293)", state_writes: [insProject] }
+    backend: null
+
+  - id: tabbar-tab
+    label: "탭바 [종합 현황][원가 소진율][버전별 예산]"
+    type: button
+    area: ins-tabs
+    event: onclick
+    front: { handler: "showInsights('progress')", file: insights.js, state_writes: [insTab] }
+    backend: null
+
+  # 원가 소진율 본문 전용
+  - id: btn-progress-ai
+    label: "✦ AI 분석 (기간 스트립)"
+    type: button
+    area: ins-period
+    event: onclick
+    front:
+      handler: insProgressAiSummary()
+      file: insights.js
+      logic: >
+        p=INS_PROJECTS[insProject], g=projProgress(p), m=projMoney(p,insProject).
+        accounts 재구성(cats 인건비/외주비/재료비←구매/경비, 비중 sh 안분, insights.js:149-151) →
+        payload(project/period/planRate/actualRate/dev/fcEnd/cost/actual/committed/remaining/reserve/accounts) →
+        openInsAiModal('loading',...,opts) → POST /api/progress-summary → openInsAiModal('done', d.summary, d.source, opts).
+        catch 시 'error'. (insights.js:146-164)
+    backend:
+      api: /api/progress-summary
+      method: POST
+    result: 공통 AI 모달에 4~5문장 진단 표시
+
+  - id: kpi-tooltip-info
+    label: KPI ⓘ 툴팁 (계획율/소진율/진척편차/예상최종)
+    type: tooltip
+    area: ins-prog-kpis
+    event: "hover / focus"
+    front:
+      source: "tip(t) (insights.js:605)"
+      file: insights.js
+      logic: >
+        ⓘ 아이콘 + hover 말풍선. <br>/<b> 제거한 title 병행.
+        수식: 계획율=누적계획÷총계획×100 / 소진율=누적실적÷합의Cost×100 /
+        진척편차=소진율−계획율(+조기소진주의) / 예상최종=예상원가÷합의Cost×100(100%초과 오버런). (insights.js:635-638)
+    backend: null
+
+  - id: chart-s-curve
+    label: 전체 기간 원가 소진율 S커브
+    type: chart(SVG)
+    area: ins-two 좌
+    event: none
+    front:
+      source: "insProgressSvg(p, g) (insights.js:663-681)"
+      file: insights.js
+      logic: >
+        12포인트 3라인: 계획율(#9aa6b6 실선)/예상(#f5a623 점선 idxNow부터)/소진율(#1f2937 굵은선 0~idxNow) +
+        현재월 세로선 + 현재점 마커. Y그리드 0/25/50/75/100.
+    backend: null
+
+  - id: money-breakdown
+    label: 합의 Cost 분해 (4분할)
+    type: chart+list(SVG/HTML)
+    area: ins-two 우
+    event: none
+    front:
+      source: "insMoneyBreakdown(p, m) (insights.js:683-705)"
+      file: insights.js
+      logic: >
+        4세그: 실적(#1f2937)/집행예정(#f5a623)/잔여가용 remainFree(#cdd5df)/손실예비비 reserve(#22b07d).
+        폭=v/cost*100%. 총 Cost 표기 + 스택바 + 집행/잔여 bracket + 행 리스트(라벨/설명/금액/%) + footer(언더런 안내).
+    backend: null
+
+  - id: chart-grouped-bar
+    label: 계정별 원가 vs 계획 vs 실적 (가로막대)
+    type: chart(SVG)
+    area: ins-panel 하단
+    event: none
+    front:
+      source: "insGroupedBarSvg(p) (insights.js:720-751)"
+      file: insights.js
+      logic: >
+        4대계정(인건비/외주비/재료비←구매/경비, 기타 제외). 계정별 sh=cost[key]/fcSum로 base/plan/actual 안분.
+        각 행 3막대: 원가(#b7c0cc)/계획(#2f6bed)/실적(#17161f). X축=금액(억) 0/½/max.
+    backend: null
+
+  - id: btn-ai-modal-close
+    label: AI 모달 닫기
+    type: button
+    area: ins-ai-modal
+    event: "onclick / 오버레이 바깥 클릭"
+    front: { handler: closeInsAiModal(), file: "insights.js:165", logic: "모달 open 클래스 제거" }
+    backend: null
+
+# ── 백엔드 API 상세 ──
+apis:
+  - path: /api/progress-summary
+    method: POST
+    handler: "handleProgressSummary (server.js:335-345), 라우트 등록 server.js:131"
+    called_by: "insProgressAiSummary() (insights.js:146-164)"
+    request_schema:
+      project: string
+      period: "{total, current}  (프롬프트/폴백은 period.total/current 사용)"
+      planRate: number(계획율 %)
+      actualRate: number(소진율 %)
+      dev: number(진척 편차 %p)
+      fcEnd: number(예상 최종 소진율 %)
+      cost: number(합의 Cost 억)
+      actual: number
+      committed: number
+      remaining: number
+      reserve: number
+      accounts: "[{name,base,plan,actual}]  (인건비/외주비/재료비/경비)"
+    request_example: |
+      {
+        "project":"SKON 통합관제","period":{"total":12,"current":8},
+        "planRate":67,"actualRate":68,"dev":1,"fcEnd":103,
+        "cost":27.2,"actual":18.4,"committed":3.7,"remaining":5.1,"reserve":2.0,
+        "accounts":[{"name":"인건비","base":11.2,"plan":11.5,"actual":7.8}]
+      }
+    response_success: "{ summary: '<한국어 4~5문장>', source: 'ai' }"
+    response_fallback: "{ summary: '<localProgressSummary>', source: 'fallback', note?: '<에러메시지>' }"
+    validation: "body.project 없으면 400 (server.js:336)"
+    branch: >
+      OPENAI_API_KEY 없으면 localProgressSummary 폴백(server.js:338-339).
+      있으면 callLLM(buildProgressPrompt) → 실패/빈응답 시 폴백+note.
+    prompt:
+      builder: "buildProgressPrompt(d) (server.js:323-334)"
+      instruction: >
+        원가 소진율 분석을 비개발자 PM이 이해하기 쉽게 4~5문장. 진행 속도(계획율 vs 소진율)+편차 해석 →
+        합의 Cost 분해 → 예상 최종 착지+다음 행동 제언 순서. 마크다운·불릿 금지.
+      note: "d.period.total/current 사용, 계정별(원가·계획·실적) 삽입"
+    fallback_rule:
+      builder: "localProgressSummary(d) (server.js:311-322)"
+      logic: >
+        계획율/소진율 서술 → 편차 해석(dev>2 조기소진 / dev<-2 계획 내 / 그외 정상) →
+        합의 Cost·실적·집행예정·잔여·손실예비비 → fcEnd>100 이면 'Cost 초과, 재검토' / 아니면 'Cost 내 착지'.
+    llm_common:
+      fn: "callLLM (server.js:178-215)"
+      model: "OPENAI_MODEL || gpt-4o-mini"
+      key: "process.env.OPENAI_API_KEY (env only)"
+      params: "max_tokens 600, timeout 20s"
+      security: "브라우저는 서버 경유만 → API 키 클라이언트 미노출"
+
+# ── 데이터 모델 ──
+data:
+  state_vars:
+    - { name: insTab,     shape: string, file: insights.js:7, purpose: "현재 탭(progress)" }
+    - { name: insProject, shape: number, file: insights.js:8, purpose: 현재 프로젝트 인덱스 }
+  derived_fns:
+    - name: projMoney
+      file: insights.js:566-576
+      note: >
+        합의 Cost 분해. cost=budget, actual=p.actual, rest=cost-actual,
+        cRatio=[0.42,0.34,0.46,0.30,0.33][i]||0.35(집행예정 비중), committed=rest*cRatio,
+        remaining=rest-committed, reserve=remaining*0.4(손실예비비), remainFree=remaining-reserve.
+        불변식: cost = actual+committed+remainFree+reserve, remaining=remainFree+reserve.
+    - name: projProgress
+      file: insights.js:579-594
+      note: >
+        누적 진척. cum=MW 누적, planPct[i]=cum[i]/total*100, idxNow=INS_CUR-1(7),
+        actualNow=actual/cost*100, actualPct[i](0..idxNow)=cum[i]/cumNow*actualNow,
+        fcEnd=forecast/cost*100, fcPct[i](idxNow..11)=actualNow+f*(fcEnd-actualNow).
+        반환 {planPct[12],actualPct[8],fcPct[5],planNow,actualNow,fcEnd,idxNow}.
+    - { name: insProgressSvg,    file: insights.js:663-681, note: "S커브 3라인+현재월선" }
+    - { name: insMoneyBreakdown, file: insights.js:683-705, note: "합의 Cost 4분할 스택바+리스트" }
+    - { name: insGroupedBarSvg,  file: insights.js:720-751, note: "4대계정 가로막대(구매→재료비, 기타 제외)" }
+    - { name: openInsAiModal,    file: insights.js:123-143, note: "공통 AI 모달(버전탭과 공유, opts.title/loadingText로 문구 구분)" }
+    - { name: insProgressAiSummary, file: insights.js:146-164, note: "AI 분석 payload 구성·모달 호출" }
+  datasets:
+    - name: INS_PROJECTS
+      file: insights.js:23-34
+      count: 5
+      used_fields: "base(원가), budget(합의 Cost/계획), actual(실적), forecast(예상원가), cost{}(계정배분), cause"
+    - name: cRatio 상수 배열
+      file: insights.js:570
+      note: "[0.42,0.34,0.46,0.30,0.33] 프로젝트 인덱스별 집행예정 비중(없으면 0.35)"
+  constants:
+    - { name: INS_CUR, value: 8, file: insights.js:15, note: 현재월 }
+    - { name: MW, file: insights.js:16, note: "12개월 가중치(TM=MW.length=12)" }
+  objects:
+    - { name: "g = projProgress(p)", shape: "{planPct[12],actualPct[8],fcPct[5],planNow,actualNow,fcEnd,idxNow}" }
+    - { name: "m = projMoney(p,i)",  shape: "{cost,actual,committed,remaining,reserve,remainFree} 억. 불변식 cost=actual+committed+remainFree+reserve" }
+
+# ── KPI 4종 수식 ──
+kpis:
+  - { name: 계획율, value: "g.planNow%", formula: "누적 계획금액 ÷ 총 계획 × 100(현재 8/12개월)", color: 기본 }
+  - { name: 소진율(실적), value: "g.actualNow%", formula: "누적 실적(전표) ÷ 합의 Cost × 100", color: act 강조 }
+  - { name: 진척 편차, value: "dev=actualNow-planNow %p", formula: "소진율 − 계획율(+조기소진주의/−계획내)", color: "dev≥0 up(빨강)/<0 down" }
+  - { name: 예상 최종, value: "g.fcEnd%", formula: "예상원가 ÷ 합의 Cost × 100(100% 초과=오버런)", color: "fcEnd>100 up/else down" }
+
+# ── 대표 플로우 ──
+flows:
+  - name: 원가 소진율 진단 + AI 분석
+    steps:
+      - "인사이트 진입 후 '원가 소진율' 탭 클릭 → #/insights/progress"
+      - "기간 스트립(경과율), 원가/계획/실적 3카드, KPI 4종 확인"
+      - "KPI ⓘ hover → 수식 툴팁"
+      - "S커브에서 계획율 vs 소진율 vs 예상선 비교, footer 편차 해석"
+      - "합의 Cost 분해로 실적/집행예정/잔여(가용)/손실예비비 금액·비중 확인"
+      - "계정별 가로막대로 4대계정 원가·계획·실적 비교"
+      - "[✦ AI 분석] → 모달 스피너 → /api/progress-summary 응답을 문단으로 표시(AI/샘플 라벨)"
+
+# ── 요구사항 후보(FR) ──
+requirements:
+  - { id: FR-INS-PG-01, text: 소진율은 실행예산(합의 Cost)을 분모로 계산하며 예상원가가 아닌 계획 기준임을 명확히 한다 }
+  - { id: FR-INS-PG-02, text: 전체 기간 대비 경과 개월/경과율을 기간 스트립으로 표시한다 }
+  - { id: FR-INS-PG-03, text: KPI 4종(계획율/소진율/진척 편차/예상 최종)을 제공하고 각 지표에 수식 툴팁을 붙인다 }
+  - { id: FR-INS-PG-04, text: 진척 편차는 부호(+조기소진/−계획내)에 따라 색상으로 경고를 구분한다 }
+  - { id: FR-INS-PG-05, text: 예상 최종 소진율이 100%를 초과하면 오버런으로 강조하고 실행예산 재검토를 유도한다 }
+  - { id: FR-INS-PG-06, text: 소진율 S커브는 계획율(전체)·소진율(현재월까지 실적)·예측(잔여 구간)을 한 차트에 현재월 경계와 함께 표시한다 }
+  - { id: FR-INS-PG-07, text: 합의 Cost는 실적·집행예정·잔여(가용)·손실예비비 4구성으로 분해하고 각 금액·비중을 보이며 불변식(합=Cost)을 만족한다 }
+  - { id: FR-INS-PG-08, text: 손실예비비는 잔여의 40%로 산정하고 언더런(절감) 잠재 금액임을 안내한다 }
+  - { id: FR-INS-PG-09, text: 계정별 원가·계획·실적 비교는 4대계정(인건비/외주비/재료비/경비) 기준이며 '구매'를 재료비로 매핑하고 기타는 제외한다 }
+  - { id: FR-INS-PG-10, text: AI 분석 버튼은 현재 소진 데이터를 근거로 4~5문장 진단을 생성하고 LLM 실패/미설정 시 규칙 기반 폴백을 제공한다 }
+  - { id: FR-INS-PG-11, text: AI 분석 모달은 생성 출처(AI/샘플)를 표시하며 버전별 예산 탭과 동일 모달을 재사용한다 }
+  - { id: FR-INS-PG-12, text: 메인 챗 네비게이터는 소진/cost/원가 비교 키워드를 insights-progress 라우트로 안내한다 }
+
+# ── 관련 소스 파일 ──
+source_index:
+  insights_js:
+    - insProgressHtml:596
+    - projMoney:566
+    - projProgress:579
+    - insProgressSvg:663
+    - insMoneyBreakdown:683
+    - insGroupedBarSvg:720
+    - insProgressAiSummary:146
+    - openInsAiModal:123
+    - closeInsAiModal:165
+    - insTabIntro:753
+  server_js:
+    - handleProgressSummary:335
+    - buildProgressPrompt:323
+    - localProgressSummary:311
+    - callLLM:178
+    - "localNavigate(progress 키워드):499"
+  app_js:
+    - "insHash('progress'):1247"
+    - DYNAMIC_ROUTES:129
+    - "SCREEN_ROUTES['s-insights']:64"
+  docs:
+    - docs/인사이트/원가소진율.md
+    - docs/03-인사이트.md

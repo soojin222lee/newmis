@@ -2303,7 +2303,7 @@ function showBudgetSummaryGrid() {
 
   document.getElementById('budget-body').innerHTML = `
     <button class="mc-back-btn" onclick="budgetScreenView='list';budgetDetailStep='setup';renderBudgetPage()">← 목록으로</button>
-    ${renderTotalBudgetBar(totBudget, totActual, totQuasi, totRemain, data.projName, data.dplus, data.stage)}
+    ${(typeof SHOW_TOTAL_BUDGET_BAR_FINAL === 'undefined' || SHOW_TOTAL_BUDGET_BAR_FINAL) ? renderTotalBudgetBar(totBudget, totActual, totQuasi, totRemain, data.projName, data.dplus, data.stage) : ''}
     <div class="budget-process-head">
       <button class="budget-process-back" onclick="budgetDetailStep='setup';budgetSetupEditAccount=null;renderBudgetPage()">← 상세 예산 수립</button>
       <div>
@@ -2352,7 +2352,7 @@ function renderBudgetPage() {
 
   document.getElementById('budget-body').innerHTML = `
     <button class="mc-back-btn" onclick="budgetScreenView='list';budgetDetailStep='setup';renderBudgetPage()">← 목록으로</button>
-    ${renderTotalBudgetBar(totBudget, totActual, totQuasi, totRemain, data.projName, data.dplus, data.stage)}
+    ${(typeof SHOW_TOTAL_BUDGET_BAR_FINAL === 'undefined' || SHOW_TOTAL_BUDGET_BAR_FINAL) ? renderTotalBudgetBar(totBudget, totActual, totQuasi, totRemain, data.projName, data.dplus, data.stage) : ''}
     ${budgetDetailStep === 'overview'
       ? `
         ${renderAccountTransferTable(data, actual, quasi, remain)}
@@ -2429,7 +2429,7 @@ function renderBudgetPage() {
 
   document.getElementById('budget-body').innerHTML = `
     <button class="mc-back-btn" onclick="budgetScreenView='list';budgetDetailStep='setup';renderBudgetPage()">← 목록으로</button>
-    ${renderTotalBudgetBar(totBudget, totActual, totQuasi, totRemain, data.projName, data.dplus, data.stage)}
+    ${(typeof SHOW_TOTAL_BUDGET_BAR_FINAL === 'undefined' || SHOW_TOTAL_BUDGET_BAR_FINAL) ? renderTotalBudgetBar(totBudget, totActual, totQuasi, totRemain, data.projName, data.dplus, data.stage) : ''}
     ${budgetDetailStep === 'overview'
       ? `
         ${renderAccountTransferTable(data, actual, quasi, remain)}

@@ -9,7 +9,11 @@ function showCostStatus() { costMode = 'status'; showBudget(); }
 // 특정 프로젝트의 원가현황으로 바로 이동(홈 Work Feed 등에서 사용)
 function openCostStatus(k) { costMode = 'status'; openBudgetProjectScreen(k || 'budgetMock'); }
 
-// 라우트 등록 (#/budget-status)
+// 라우트 등록 (#/budget-status[?pj=<프로젝트키>])
 if (typeof ROUTE_ACTIONS !== 'undefined') {
-  ROUTE_ACTIONS['budget-status'] = () => showCostStatus();
+  ROUTE_ACTIONS['budget-status'] = () => {
+    const pj = (typeof routeQueryParam === 'function') ? routeQueryParam('pj') : null;
+    if (pj) { costMode = 'status'; openBudgetProjectScreen(pj); }   // 딥링크: 그 프로젝트 원가현황 바로 진입
+    else showCostStatus();                                          // 파라미터 없으면 목록
+  };
 }

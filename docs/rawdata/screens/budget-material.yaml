@@ -1,0 +1,387 @@
+# rawdata: 원가조정 > 재료비 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+# 근거: 최종 유효본(런타임 활성 정의) 기준. 상세는 docs/수행원가/계정/재료비.md 참조.
+
+screen:
+  id: s-budget-material
+  name: 원가조정 - 재료비 (CATS[2], 상품/감가상각/이관 3서브탭 계획)
+  menu_path: 수행원가 > 원가조정 > 재료비
+  route: "#/budget-adjust/material?pj=<프로젝트키>"
+  entry: "openCostArea('재료비', pj||'budgetMock') → renderBudgetAccountEditor(data,'재료비')"
+  source_files:
+    - public/js/budget-area-material.js   # ★재료비 진입점: 편집기 데코레이터 + 서브탭 분기(renderMaterialPlanPanel)
+    - public/js/budget-area-routes.js     # 라우트 등록(#/budget-adjust/material), slug 매핑, openCostArea
+    - public/js/budget-status-5.js        # ★활성 상세 패널/저장 로직(상품·감가상각·이관 Final)
+    - public/js/budget-status-4.js        # 활성 탭 렌더, getAccountDetailRows/getMonthlyBudgetRows, 견적선택기, 이관 월반영
+    - public/js/budget-status.js          # 견적 그룹 데이터(materialPurchaseQuoteGroupsFinal), 배분/월범위 유틸, 목업주입, CATS(:742)
+    - public/js/budget-status-3.js        # renderMaterialShell(활성), 감가 목업, materialDepreciationPlans
+    - public/js/budget-status-2.js        # 저장소/게터(getMaterialRows/getOtherMaterialRows), switchMaterialKind, materialKind 초기값
+    - public/index.html                   # 스크립트 로드 순서(:302-316, 활성 정의 결정)
+  purpose: >
+    프로젝트 실행예산의 재료비 계정을 상품재료비/감가상각비/이관재료비 3개 상세구분으로 나누어
+    월별 계획을 수립·수정한다. 상품재료비는 구매시스템 견적 그룹을 불러와 검수계획으로 배분하고,
+    실적 발생 건은 수정 불가. 감가·이관액은 계정 월별 예산내역 테이블에 동적 반영된다.
+  load_order_note: >
+    재료비 함수는 여러 파일에 중복 정의(레거시)되어 있고 index.html 로드 순서상 마지막 정의가 실행된다.
+    본 문서는 활성(=실제 동작) 정의만 인용: budget-area-material.js(진입/서브탭분기),
+    budget-status-5.js(상세 Final 패널/저장), budget-status-4.js(탭/월예산통합).
+
+# ── 화면 상태 ──
+states:
+  - id: subtab-item
+    when: "materialKind == 'item' (기본값, budget-status-2.js:2853)"
+    shows: [상단_월별예산내역, 상품재료비탭_활성, 상품계획목록그리드, 선택상세, "(편집모드시)견적선택기+입력폼"]
+  - id: subtab-depreciation
+    when: "materialKind == 'depreciation'"
+    shows: [상단_월별예산내역, 감가상각비탭_활성, 기등록계획리스트, "(편집모드시)감가입력폼+월배분미리보기"]
+  - id: subtab-other
+    when: "materialKind == 'other'"
+    shows: [상단_월별예산내역, 이관재료비탭_활성, 이관리스트, "(신규/수정시)이관입력폼"]
+  - id: item-editor-new
+    when: "materialItemEditorModeFinal == 'new'"
+    shows: [견적선정유무_YN, "Y:견적그룹목록", "N:직접입력폼", 입력폼]
+  - id: item-editor-edit
+    when: "materialItemEditorModeFinal == 'edit' && !row.actualized"
+    shows: [수정폼]
+  - id: item-actualized-lock
+    when: "row.actualized == true"
+    effect: 목록 수정버튼 disabled('수정불가'), editMaterialItem 진입 차단
+  - id: inspection-popup
+    when: "검수 계획 등록 팝업 열림(상품재료비 Y 모드)"
+    shows: [수량만큼_검수행, 검수예정월_입력]
+  - id: depreciation-adjust-popup
+    when: "월별 금액 보정 팝업 열림(감가상각)"
+    shows: [월별_상각액_수기보정]
+  - id: other-locked
+    when: "transferType=='Sender Project' || actualized || status=='집행완료'"
+    effect: 이관 행 '조회' 텍스트만(수정 차단)
+
+# ── 요소(버튼/입력/탭) 인벤토리 ── ★ 버튼 단위 프론트/검증/결과
+elements:
+  # ===== 서브탭 =====
+  - id: tab-material-kind
+    label: "상세구분 탭 (상품재료비 / 감가상각비 / 이관재료비)"
+    type: button(tab x3)
+    area: 재료비 셸 헤드
+    event: onclick
+    front:
+      handler: "switchMaterialKind(kind)  # kind: 'item'|'depreciation'|'other'"
+      file: budget-status-2.js:3045
+      logic: "materialKind 변경 + 편집중 ID 초기화(editingMaterialItemId, editingOtherMaterialId) → 재렌더"
+      state_writes: [materialKind, editingMaterialItemId, editingOtherMaterialId]
+    validation: null
+    backend: null
+    result: "renderMaterialPlanPanel(budget-area-material.js:37) 분기 → 해당 상세 패널 렌더"
+
+  # ===== 상품재료비(item) =====
+  - id: btn-material-item-new
+    label: "상품재료비 신규 등록"
+    type: button
+    area: 상품재료비 패널
+    event: onclick
+    front:
+      handler: openMaterialItemNewFinal()
+      file: budget-status-5.js:611
+      logic: "materialItemEditorModeFinal='new' → 견적선정유무(Y/N) 선택기 노출"
+      state_writes: [materialItemEditorModeFinal]
+    result: 견적선택기(renderMaterialQuoteSelectorFinal) + 입력폼 표시
+
+  - id: toggle-material-quote-yn
+    label: "견적선정유무 Y/N 전환"
+    type: button(switch)
+    area: 상품재료비 신규 폼
+    event: onclick
+    front:
+      handler: "switchMaterialQuoteSelectedYn(yn)"
+      file: budget-status-4.js:774
+      logic: "Y=견적그룹 목록 노출 / N=직접입력폼(품목·기간·금액)"
+      state_writes: [materialDirectInputOpenFinal]
+    result: "Y: 견적 그룹 선택 UI / N: 직접입력 배분 UI"
+
+  - id: select-material-quote
+    label: "구매 견적 그룹 선택 (Y 모드)"
+    type: button(list-item)
+    area: 견적 그룹 목록
+    event: onclick
+    front:
+      handler: "selectMaterialQuoteLine(quoteNo)"
+      file: budget-status-5.js:622
+      logic: "materialSelectedQuoteNoFinal 설정 → 물품정보 자동채움(readonly), materialItemEditorModeFinal='new'(Y)"
+      state_writes: [materialSelectedQuoteNoFinal]
+    values_source: "materialPurchaseQuoteGroupsFinal (budget-status.js:3053, 구매건 단위 목업 3건)"
+    backend: { note: "실제 조회 API 없음 → SRS 승격: 구매시스템 견적 수신 인터페이스" }
+    result: "견적 물품정보(구매건명/업체/품목/수량/단위/금액) readonly 표시. 물품정보 불변(budget-status-5.js:862)"
+
+  - id: btn-material-quote-refresh
+    label: "견적 실시간 조회"
+    type: button
+    area: 견적 선택기
+    event: onclick
+    front:
+      handler: "(목업) showToast('구매시스템 상품재료비 견적 데이터를 새로 조회했습니다.')"
+      file: budget-status-4.js:884
+    backend: { note: "목업 토스트만 → SRS 승격 대상(구매시스템 실시간 재조회 API)" }
+    result: 토스트만 표시(실제 데이터 갱신 없음)
+
+  - id: btn-material-inspection-popup
+    label: "검수 계획 등록 (팝업 열기)"
+    type: button
+    area: 상품재료비 Y 모드 폼
+    event: onclick
+    front:
+      handler: openMaterialInspectionPlanPopupFinal()
+      file: budget-status-5.js:728
+      logic: "buildMaterialInspectionRowsFinal(lines, baseMonth)(:701) — 각 라인 수량만큼 행 생성, 라인금액 수량 균등분할(마지막 잔액보정), 검수월 baseMonth부터 순차"
+      state_writes: [materialInspectionPlanRowsFinal]
+    result: 검수 계획 팝업(renderMaterialInspectionPlanPopupFinal:769) 표시
+
+  - id: btn-save-inspection-plan
+    label: "검수 계획 저장 (팝업)"
+    type: button
+    area: 검수 계획 팝업
+    event: onclick
+    front:
+      handler: saveMaterialInspectionPlanFinal()
+      file: budget-status-5.js:752
+      state_writes: [materialInspectionPlanRowsFinal, "hidden#material-inspection-due(최소 검수월)"]
+    validation: "모든 행의 검수월 필수"
+    result: 검수월별 금액이 월별 계획 배분 근거로 반영
+
+  - id: btn-material-direct-input
+    label: "직접 입력 시작 (N 모드)"
+    type: button
+    area: 견적 선택기
+    event: onclick
+    front:
+      handler: startMaterialDirectInput()
+      file: budget-status-5.js:637
+      logic: "N 모드 폼(품목정보 직접입력 + 예산 시작월~종료월 + 금액)"
+    result: "저장 시 buildMaterialAllocations(start,end,amount)(budget-status.js:1666)로 월 균등배분(마지막월 잔액)"
+
+  - id: btn-material-item-select
+    label: "상품계획 행 선택"
+    type: button(row)
+    area: 상품계획 목록 그리드
+    event: onclick
+    front:
+      handler: "selectMaterialPlanFinal(id)"
+      file: budget-status-4.js:733
+      state_writes: [materialSelectedPlanIdFinal]
+    result: 하단 상세(renderMaterialQuoteDetailFinal 항번별 물품 + 검수계획 미니그리드) 표시
+
+  - id: btn-material-item-edit
+    label: "상품계획 수정"
+    type: button
+    area: 상품계획 목록 행
+    event: onclick
+    front:
+      handler: "editMaterialItem(id)"
+      file: budget-status-5.js:651
+      logic: "row.actualized===true → showToast('이미 실적이 발생한 상품재료비는 수정할 수 없습니다.') 후 중단"
+      state_writes: [editingMaterialItemId, materialItemEditorModeFinal]
+    validation: "actualized 미발생(계획 상태)만 수정 가능. 목록에서도 actualized면 버튼 disabled('수정불가', budget-status-5.js:990)"
+    result: 편집 폼 진입 또는 차단 토스트
+
+  - id: btn-save-material-item
+    label: "상품재료비 등록/수정 저장"
+    type: button
+    area: 상품재료비 입력폼
+    event: onclick
+    front:
+      handler: saveMaterialItem()
+      file: budget-status-5.js:867
+      logic: >
+        검증 통과 시 editing 있으면 Object.assign(수정), 없으면 rows.unshift(신규). 상태 '계획'.
+        Y 모드는 검수월별 금액 합산 → monthlyAllocations 생성(월 그룹핑, :897-903).
+      state_writes: [budgetMaterialItems]
+    validation:
+      - "Y이면서 견적 그룹 미선택 → '등록할 구매 견적 1건을 먼저 선택해 주세요.'"
+      - "금액 없음 → '견적/예산 금액을 입력해 주세요.'"
+      - "Y이면서 검수계획 행 없음 → '검수 계획 등록 팝업에서 검수 예정월을 먼저 저장해 주세요.'"
+      - "Y이면서 검수월 누락 → '검수 예정월을 모두 입력해 주세요.'"
+      - "N이면서 시작월/종료월 오류(공란 or 시작>종료) → '예산 시작월과 종료월을 확인해 주세요.'"
+      - "품목 필수값(itemCode/categoryName/standardName/manufacturer/model) 누락 → '품목 정보를 입력해 주세요.'"
+    result: 상품계획 목록에 추가/갱신(상태 '계획'), 재렌더
+
+  # ===== 감가상각비(depreciation) =====
+  - id: btn-depreciation-new
+    label: "감가상각비 신규등록"
+    type: button
+    area: 감가상각비 패널
+    event: onclick
+    front:
+      handler: openDepreciationNewFinal()
+      file: budget-status-5.js:155
+      state_writes: [depreciationEditorModeFinal]
+    result: 감가상각 입력폼(renderDepreciationFormFinal:523) 표시
+
+  - id: btn-depreciation-edit
+    label: "감가상각 계획 수정"
+    type: button
+    area: 감가 계획 리스트 행
+    event: onclick
+    front:
+      handler: "editDepreciationPlan(id)"
+      file: budget-status-5.js:169
+      state_writes: [editingDepreciationPlanId, depreciationEditorModeFinal]
+    result: 감가 폼 편집 모드 진입
+
+  - id: input-depreciation-form
+    label: "감가상각 폼 (계정/시작월/개월수/상각총액/자산명)"
+    type: input(select+text)
+    area: 감가상각 입력폼
+    event: oninput
+    front:
+      handler: "buildDepreciationMonthlyRowsFinal(start, months, total)로 미리보기 재계산"
+      file: budget-status-5.js:125
+      logic: "개월수만큼 floor(total/count) 균등, 마지막 월 잔액 보정 → renderDepreciationMonthlyPreviewFinal(:251)"
+    values_source: "materialDepreciationAccountsFinal(budget-status-5.js:108): 713801 IT자산(장비)/713802 IT자산(Tool)/713803 공기구비품/713806 시설물"
+    result: 월별 상각액 배분 미리보기 갱신
+
+  - id: btn-depreciation-adjust-popup
+    label: "월별 금액 보정 (팝업)"
+    type: button
+    area: 감가상각 폼
+    event: onclick
+    front:
+      handler: "openDepreciationAdjustPopupFinal() → saveDepreciationAdjustPopupFinal()(:208)"
+      file: budget-status-5.js:186
+      logic: "월별 상각액 수기 조정 후 저장(renderDepreciationAdjustPopupFinal:218)"
+      state_writes: [depreciationMonthlyRowsFinal]
+    result: 수기 보정된 월배분 반영
+
+  - id: btn-save-depreciation
+    label: "감가상각비 등록/저장"
+    type: button
+    area: 감가상각 폼
+    event: onclick
+    front:
+      handler: saveDepreciationPlan()
+      file: budget-status-5.js:551
+      logic: "id 매칭 시 교체, 없으면 unshift. row 생성 budget-status-5.js:569"
+      state_writes: [materialDepreciationPlans]
+    validation: "상각총액 0 → '상각총액을 입력해 주세요.'"
+    result: 감가상각 계획 리스트 갱신, 재료비 계정 월예산 '감가상각비' 행 반영
+
+  # ===== 이관재료비(other) =====
+  - id: btn-other-material-new
+    label: "이관재료비 신규등록 (Receiver 고정)"
+    type: button
+    area: 이관재료비 패널
+    event: onclick
+    front:
+      handler: openMaterialTransferNewFinal()
+      file: budget-status-5.js:396
+      logic: "Project Type=Receiver Project(readonly) 폼(renderMaterialTransferFormFinal:468)"
+      state_writes: [materialTransferEditorOpenFinal]
+    result: 이관 입력폼(이관예정월/금액/사유) 표시
+
+  - id: btn-other-material-edit
+    label: "이관재료비 수정/조회"
+    type: button
+    area: 이관 리스트 행
+    event: onclick
+    front:
+      handler: "editOtherMaterialExpense(id)"
+      file: budget-status-5.js:408
+      logic: "locked(Sender Project | actualized | 집행완료)면 조회만(수정 차단 토스트)"
+      state_writes: [editingOtherMaterialId]
+    validation: "transferType=='Sender Project' || actualized || status=='집행완료' → 수정 차단"
+    result: 수정 폼 진입 또는 '조회' 전용
+
+  - id: btn-save-other-material
+    label: "이관재료비 등록/저장"
+    type: button
+    area: 이관 입력폼
+    event: onclick
+    front:
+      handler: saveOtherMaterialExpense()
+      file: budget-status-5.js:494
+      logic: "항상 transferType:'Receiver Project', amount:Math.abs(amount)(플러스)로 저장"
+      state_writes: [budgetOtherMaterialExpenses]
+    validation:
+      - "잠금 검사(Sender/집행완료/actualized) → 'Sender Project 또는 집행완료 건은 수정할 수 없습니다'"
+      - "금액 0 → '이관재료비 금액을 입력해 주세요.'"
+    result: 이관 리스트 갱신, 계정 월예산 '이관재료비' 행 반영
+
+# ── 백엔드/외부 연동 (현재 목업, SRS 승격 후보) ──
+apis:
+  - name: 구매시스템 견적
+    current: "materialPurchaseQuoteGroupsFinal 하드코딩(budget-status.js:3053), '견적 실시간 조회'는 toast만(budget-status-4.js:884)"
+    srs_target: 견적 그룹/라인 수신 API + 실시간 재조회
+  - name: PO(구매오더)
+    current: "row.poNo 문자열, 견적 그룹에 poNo 존재"
+    srs_target: PO 매핑/검증
+  - name: 검수 실적
+    current: "row.actualized 플래그(목업)"
+    srs_target: 검수 실적 수신 → 수정 잠금 트리거
+  - name: 자산/감가상각
+    current: "materialDepreciationAccountsFinal 4계정 + 수기입력"
+    srs_target: 자산관리/감가상각 원장 연동
+  - name: 이관(타 프로젝트)
+    current: "Sender 목업 1건 수신(mt-sender-actual-001, -2,800,000)"
+    srs_target: 프로젝트 간 비용 이관 인터페이스(Sender 집행완료 수신)
+
+# ── 데이터 모델 ──
+data:
+  state_vars:
+    - { name: materialKind, shape: "'item'|'depreciation'|'other'", file: budget-status-2.js:2853, purpose: 활성 서브탭(기본 item) }
+    - { name: materialSelectedPlanIdFinal, shape: string, file: budget-status-5.js, purpose: 선택된 상품계획 id }
+    - { name: editingMaterialItemId, shape: string, file: budget-status-5.js, purpose: 수정 중 상품계획 id }
+    - { name: materialItemEditorModeFinal, shape: "'new'|'edit'|null", file: budget-status-5.js, purpose: 상품 폼 모드 }
+    - { name: materialSelectedQuoteNoFinal, shape: string, file: budget-status-5.js, purpose: 선택된 견적 그룹 quoteNo }
+    - { name: materialDirectInputOpenFinal, shape: boolean, file: budget-status-5.js, purpose: 직접입력(N) 여부 }
+    - { name: materialInspectionPlanRowsFinal, shape: "행[]", file: budget-status-5.js:670, purpose: 검수 계획 임시 상태 }
+    - { name: editingDepreciationPlanId, shape: string, file: budget-status-3.js:3339, purpose: 수정 중 감가 id }
+    - { name: depreciationEditorModeFinal, shape: "'new'|'edit'|null", file: budget-status-5.js:114, purpose: 감가 폼 모드 }
+    - { name: depreciationMonthlyRowsFinal, shape: "{month,amount}[]", file: budget-status-5.js:116, purpose: 감가 월배분 임시 }
+    - { name: editingOtherMaterialId, shape: string, file: budget-status-5.js, purpose: 수정 중 이관 id }
+    - { name: materialTransferEditorOpenFinal, shape: boolean, file: budget-status-5.js:375, purpose: 이관 폼 열림 }
+  datasets:
+    - { name: "budgetMaterialItems[proj]", file: budget-status-2.js:2943, note: "상품재료비 계획 배열(getMaterialRows:3025). row: id,quoteSelectedYn,quoteNo,purchaseName,vendor,poNo,itemCode,categoryName,quantity,amount,inspectionPlanRows,monthlyAllocations[{month,amount}],status('계획'),actualized" }
+    - { name: "budgetOtherMaterialExpenses[proj]", file: budget-status-2.js, note: "이관재료비 배열(getOtherMaterialRows:3030). row: id,transferType('Receiver'|'Sender'),expectedMonth,amount(Receiver+/Sender-),description,status,actualized" }
+    - { name: materialDepreciationPlans, file: budget-status-3.js:3335, note: "감가상각 계획(전역 단일 배열). row: id,accountCode,accountName,asset,start,end,months,totalAmount,monthly,monthlyAllocations[{month,amount}],status,note. 목업 dep-001/dep-002" }
+    - { name: materialPurchaseQuoteGroupsFinal, file: budget-status.js:3053, note: "견적 그룹(목업 3건). {quoteNo,purchaseName,vendor,receivedAt,poNo,inspectionDueMonth,lines[{itemNo,itemCode,categoryName,standardName,manufacturer,model,quantity,unit,amount}]}" }
+    - { name: materialDepreciationAccountsFinal, file: budget-status-5.js:108, note: "감가상각 계정 4종(713801/713802/713803/713806)" }
+
+# ── 대표 플로우 ──
+flows:
+  - name: 상품재료비(견적 Y)
+    steps:
+      - "#/budget-adjust/material 진입 → 상품재료비 탭(materialKind='item')"
+      - "신규 등록 → 견적선정유무 Y → 견적 그룹 1건 클릭(selectMaterialQuoteLine)"
+      - "물품정보 자동채움(readonly) → 검수 계획 등록 팝업 → 수량만큼 생성 행의 검수 예정월 조정 → 저장"
+      - "등록(saveMaterialItem) → 검증 통과 → 상품계획 목록 추가(상태 '계획')"
+      - "실적 발생 전 '수정' 가능 / actualized 후 '수정불가'"
+  - name: 상품재료비(직접입력 N)
+    steps:
+      - "신규 등록 → N → 품목정보 + 예산 시작월~종료월 + 금액 → 월별 배분 미리보기 → 등록(buildMaterialAllocations 균등배분)"
+  - name: 감가상각비
+    steps:
+      - "감가상각비 탭 → 신규등록 → 감가상각 계정 선택 + 시작월/개월수/상각총액 → 미리보기 → (선택)월별 보정 → 저장(saveDepreciationPlan)"
+  - name: 이관재료비
+    steps:
+      - "이관재료비 탭 → 신규등록(Receiver 고정) → 이관예정월/금액/사유 → 등록(saveOtherMaterialExpense)"
+      - "Sender·집행완료 건은 '조회'만 노출"
+  - name: 계정 월예산 통합
+    steps:
+      - "getAccountDetailRows(CATS[2])=[상품재료비,감가상각비,이관재료비](budget-status-4.js:1217)"
+      - "getMonthlyBudgetRows(:1243): 감가상각비 월값=getDepreciationAmountForMonth, 이관재료비=getMaterialTransferAmountForMonthFinal, 상품재료비=max(base-감가-이관,0)"
+
+# ── 요구사항 후보(FR) — 재료비.md §11 재사용 ──
+requirements:
+  - { id: FR-MAT-01, text: "재료비 계정은 #/budget-adjust/material?pj=<프로젝트> 딥링크로 직접 진입할 수 있어야 한다" }
+  - { id: FR-MAT-02, text: "재료비는 상품재료비/감가상각비/이관재료비 3개 상세구분 탭을 제공하고, 탭 전환 시 편집 상태를 초기화해야 한다" }
+  - { id: FR-MAT-03, text: "상품재료비는 구매시스템 견적(구매건/PO 그룹)을 조회·선택해 등록하며, 선택된 견적의 물품정보는 편집할 수 없어야 한다(읽기전용)" }
+  - { id: FR-MAT-04, text: "견적 사용 시 물품 수량만큼 검수 예정월 행을 생성하고, 사용자가 조정한 검수월별 금액을 월별 계획으로 배분해야 한다" }
+  - { id: FR-MAT-05, text: "견적 미확정 시 예산 시작월~종료월과 금액으로 월별 균등 배분(잔액 마지막 월)해야 한다" }
+  - { id: FR-MAT-06, text: "실적이 발생한(actualized) 상품재료비 계획은 수정할 수 없어야 하며, UI에서 수정 버튼을 비활성('수정불가')해야 한다" }
+  - { id: FR-MAT-07, text: "상품재료비 저장 시 견적 선택/금액/검수월(또는 직접입력 기간)/품목 필수값을 검증해야 한다" }
+  - { id: FR-MAT-08, text: "감가상각비는 4개 감가상각 계정(713801/713802/713803/713806) 중 선택하도록 한다" }
+  - { id: FR-MAT-09, text: "감가상각비는 시작월/개월수/상각총액으로 월별 상각액을 자동 균등배분(잔액 보정)하고, 수기 보정 팝업을 제공해야 한다" }
+  - { id: FR-MAT-10, text: "감가상각 월배분액은 재료비 계정 월별 예산내역의 '감가상각비' 행으로 반영되어야 한다" }
+  - { id: FR-MAT-11, text: "이관재료비 신규 등록은 Receiver Project(수취, 플러스 금액)만 허용하고, Sender Project/집행완료 건은 조회 전용이어야 한다" }
+  - { id: FR-MAT-12, text: "이관금액은 월별 예산내역의 '이관재료비' 행(및 실적)으로 반영되어야 한다" }
+  - { id: FR-MAT-13, text: "재료비 계정 월예산은 상품재료비/감가상각비/이관재료비 3행으로 분해되며, 상품재료비=계정 월계획-감가상각-이관(음수 방지)으로 산출한다(상품재료비 상세 계획의 월예산 직접 반영 여부는 정책 확정 필요)" }
+  - { id: FR-MAT-14, text: "목업으로 처리된 견적/검수 실적/감가상각 원장/이관 인터페이스는 실제 외부 시스템 연동으로 정의해야 한다" }

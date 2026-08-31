@@ -81,6 +81,22 @@
   .osv3-alert.ok    { background:#eefaf5; border-color:#bfe8d8; color:#146c50; }
   .osv3-alert.warn  { background:#fff8e8; border-color:#f3ddad; color:#8a5b06; }
 
+  /* AI 예산 알림 해설 (원가조정 계정 공용) */
+  .budget-ai-btn {
+    flex:0 0 auto; border:1px solid currentColor; border-radius:8px; background:#fff;
+    padding:6px 12px; font-size:13px; font-weight:800; color:inherit; cursor:pointer; white-space:nowrap;
+  }
+  .budget-ai-btn:hover { background:currentColor; color:#fff; }
+  .budget-ai-slot { display:block; }
+  .budget-ai-slot:empty { display:none; }
+  .budget-ai-loading { display:block; margin-top:8px; font-size:13px; font-weight:600; opacity:.75; }
+  .budget-ai-error { display:block; margin-top:8px; font-size:13px; font-weight:600; color:var(--sk-red-deep); }
+  .budget-ai-result { margin:9px 0 0; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,.75); border:1px solid rgba(0,0,0,.06); }
+  .budget-ai-result > div { display:flex; gap:8px; margin-bottom:5px; }
+  .budget-ai-result dt { flex:0 0 34px; font-size:12px; font-weight:800; opacity:.7; }
+  .budget-ai-result dd { margin:0; font-size:13px; font-weight:600; line-height:1.5; }
+  .budget-ai-meta { margin:7px 0 0; font-size:11px; font-weight:600; opacity:.6; }
+
   .osv3-hint { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; margin-left:6px; flex:0 0 auto;
     border-radius:50%; border:1px solid var(--sk-border-strong); background:#fff; color:var(--sk-muted);
     font-size:11px; font-weight:700; cursor:help; vertical-align:middle; }
@@ -119,7 +135,7 @@
   .osv3-mini.active { background:var(--sk-yellow); border-color:var(--sk-yellow); color:#fff; font-weight:700; }
   .osv3-actions { display:flex; gap:5px; justify-content:flex-end; align-items:center; }
 
-  /* PO 블록 */
+  /* 외주구매 계획 블록 */
   .osv3-po-wrap > td { background:#fbfcfe !important; padding:0 !important; border-bottom:2px solid var(--sk-border-strong) !important; }
   .osv3-po-head { display:flex; align-items:center; gap:8px; padding:7px 12px; border-bottom:1px solid var(--sk-border); }
   .osv3-badge { background:var(--sk-blue-soft); color:var(--sk-blue-deep); border-radius:5px; padding:3px 9px; font-size:13px; font-weight:800; white-space:nowrap; }
@@ -130,6 +146,21 @@
   .osv3-po-table td.num, .osv3-po-table th.num { text-align:right; white-space:nowrap; font-weight:800; }
   .osv3-po-no b { color:var(--sk-text); }
   .osv3-po-no small { display:block; color:var(--sk-muted); font-size:12px; font-weight:500; }
+  /* 계획 라인: 계약 전(초안)은 입력 가능, 계약 후(확정)는 조회 전용 */
+  .osv3-po-table tr.osv3-line-fixed > td { background:#fbfcfe; }
+  .osv3-inline-range { display:flex; align-items:center; gap:6px; }
+  .osv3-inline-range input { border:1px solid var(--sk-yellow); border-radius:6px; padding:5px 7px;
+    font-size:13px; font-weight:700; background:#fff; color:var(--sk-text); font-family:inherit; }
+  .osv3-inline-range em { flex:0 0 auto; font-style:normal; color:var(--sk-muted); font-weight:700; }
+  .osv3-line-amt { width:132px !important; max-width:132px; box-sizing:border-box; border:1px solid var(--sk-yellow); border-radius:6px;
+    padding:6px 9px; font-size:14px; font-weight:800; text-align:right; background:#fff; color:var(--sk-text); }
+  .osv3-wait { color:var(--sk-muted); font-size:13px; font-weight:700; }
+  .osv3-empty { color:#c3cad6; }
+  .osv3-po-table tr.osv3-line-open > td { background:#fff9ec; border-top:1px dashed #e5c98a;
+    color:#8a6a1f; font-size:13px; font-weight:700; }
+  .osv3-po-table tr.osv3-line-open > td b { color:#7a5a12; }
+  .osv3-line-none { color:var(--sk-muted); font-size:13px; font-weight:700; text-align:center !important; }
+
   .osv3-q { background:#eef2f7; border-radius:5px; padding:3px 9px; font-size:13px; font-weight:800; color:#55617a; white-space:nowrap; }
 
   /* 월별 검수계획 조정 */
@@ -176,6 +207,80 @@
   `;
   document.head.appendChild(style);
 })();
+
+/* ==========================================================================
+   0-2. AI 예산 알림 해설 클라이언트 (원가조정 계정 파일 공용)
+   ==========================================================================
+   서버의 /api/ai/explain 을 불러 "원인 / 영향 / 조치" 3줄을 받아옵니다.
+   API 키는 서버(.env)에만 있고 브라우저로 내려오지 않습니다 — 여기서는 숫자·상황만 보냅니다.
+   budget-area-outsource.js 가 budget-area-labor.js 보다 먼저 로드되므로, 인건비 알림도 이 함수를
+   그대로 씁니다(같은 담당자 파일). 다른 계정에서 쓰려면 로드 순서만 확인하면 됩니다. */
+
+// 알림 요소별 결과 캐시 — 같은 알림을 다시 펼칠 때 서버를 또 부르지 않습니다.
+var budgetAiCacheV1 = {};
+
+function budgetAiEscapeV1(text) {
+  return String(text == null ? '' : text).replace(/[&<>"']/g, c => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;',
+  }[c]));
+}
+
+function budgetAiRenderV1(slotId, state, data) {
+  const slot = document.getElementById(slotId);
+  if (!slot) return;
+  if (state === 'loading') {
+    slot.innerHTML = '<span class="budget-ai-loading">AI가 이 알림을 해설하고 있습니다…</span>';
+    return;
+  }
+  if (state === 'error') {
+    slot.innerHTML = `<span class="budget-ai-error">${budgetAiEscapeV1(data)}</span>`;
+    return;
+  }
+  // source: 'ai' = LLM 생성 / 'fallback' = 키 없음·호출 실패 시 서버의 규칙 기반 기본 해설
+  const isAi = data.source === 'ai';
+  const origin = isAi
+    ? `${budgetAiEscapeV1(data.model || 'AI')} 생성${data.cached ? ' · 캐시' : ''}`
+    : '기본 해설(AI 미연결)';
+  slot.innerHTML = `
+    <dl class="budget-ai-result">
+      <div><dt>원인</dt><dd>${budgetAiEscapeV1(data.cause)}</dd></div>
+      <div><dt>영향</dt><dd>${budgetAiEscapeV1(data.impact)}</dd></div>
+      <div><dt>조치</dt><dd>${budgetAiEscapeV1(data.action)}</dd></div>
+      <p class="budget-ai-meta">${origin} · 참고용이며 수치는 화면 값을 확인하세요${data.note ? ` · ${budgetAiEscapeV1(data.note)}` : ''}</p>
+    </dl>`;
+}
+
+// payload: { kind, title, summary, facts:{라벨:값} }
+function budgetAiExplainV1(slotId, payload) {
+  const slot = document.getElementById(slotId);
+  if (!slot) return;
+  // 이미 펼쳐져 있으면 접기(토글)
+  if (slot.dataset.open === '1') {
+    slot.dataset.open = '0';
+    slot.innerHTML = '';
+    return;
+  }
+  slot.dataset.open = '1';
+  const cached = budgetAiCacheV1[slotId];
+  if (cached) { budgetAiRenderV1(slotId, 'ok', cached); return; }
+
+  budgetAiRenderV1(slotId, 'loading');
+  fetch('/api/ai/explain', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+    .then(res => res.json())
+    .then(json => {
+      if (!json || json.ok !== true) {
+        budgetAiRenderV1(slotId, 'error', (json && json.message) || 'AI 해설을 가져오지 못했습니다.');
+        return;
+      }
+      budgetAiCacheV1[slotId] = json;
+      budgetAiRenderV1(slotId, 'ok', json);
+    })
+    .catch(() => budgetAiRenderV1(slotId, 'error', '서버에 연결할 수 없습니다. npm start 로 서버가 실행 중인지 확인하세요.'));
+}
 
 /* ==========================================================================
    1. 외주비 예산내역 — "외주비" 합계 부모행 + 접기/펼치기
@@ -250,7 +355,7 @@ renderAccountMonthlyBudgetTable = function(data, account) {
       <div class="account-monthly-scroll">
         <table class="account-monthly-table">
           <thead>
-            <tr><th>구분</th><th>계획</th><th>실적/확정</th><th>잔여예산</th>${headMonths}</tr>
+            <tr><th>구분</th><th>계획(전체)</th><th>실적(확정)</th><th>계획(미집행)</th>${headMonths}</tr>
           </thead>
           <tbody>
             ${parentRow}
@@ -262,11 +367,13 @@ renderAccountMonthlyBudgetTable = function(data, account) {
 };
 
 /* ==========================================================================
-   2. 실투입대상 외주비 — 업체별 예산 1행 + PO N건 + 월별 검수계획 + 예산 통제
+   2. 실투입대상 외주비 — 업체별 예산 1행 + 외주구매 계획 N라인 + 예산 통제
    ========================================================================== */
 
-// 업체별로 프로젝트 전체기간 예산을 1줄로 편성하고, 그 안에서 PO(구매계약)가 분기별로 N건 발생합니다.
-// PO의 금액·MM·견적은 구매시스템 수신값(조회 전용)이고, PM이 세우는 것은 "월별 검수계획"뿐입니다.
+// 업체별로 프로젝트 전체기간 예산을 1줄로 편성하고, PM은 그 안에서 "외주구매 계획" 라인을
+// 실제 구매견적에 맞춰 직접 수립합니다(투입 기간 + 금액). 구매계약 전에 계획 라인이 먼저 있어야 합니다.
+// PO번호·실적(검수)·집행예정(미검수)은 그 라인에 구매계약이 발생한 뒤 구매시스템에서 채워집니다.
+// 전체기간 예산 - 계획 금액 합계 = 아직 계획이 수립되지 않은 금액이며, 잔여 기간에 균등 배분해 보여줍니다.
 var osv3VendorsV3 = [
   {
     id:'v-acro', vendor:'아크로디자인랩', contract:'UI/UX 디자인',
@@ -301,6 +408,9 @@ var osv3VendorsV3 = [
             { month:'2026-09', mms:[0.25, 0.50], amount:4375000 },
           ],
         } },
+      // 구매계약 전 단계 — PM이 구매견적에 맞춰 먼저 세운 계획 라인입니다(PO번호 이후 값은 계약 시 채워집니다).
+      { poNo:'', fx:'', start:'2026-10-01', end:'2026-12-31',
+        amount:12000000, mm:2.4, actual:0, planned:0, plan:{}, quote:null },
     ],
   },
   {
@@ -353,7 +463,11 @@ var osv3VendorsV3 = [
   },
 ];
 
-var osv3OpenVendorV3 = '';         // PO 목록이 펼쳐진 업체 (기본값 = 전부 접힘)
+// 계획 라인 키 — PO번호는 구매계약이 발생한 뒤에 채워지므로 라인 식별자로 쓸 수 없습니다.
+var osv3LineSeqV3 = 0;
+osv3VendorsV3.forEach(v => v.pos.forEach(line => { line.lineId = `pl-${++osv3LineSeqV3}`; }));
+
+var osv3OpenVendorV3 = '';         // 외주구매 계획이 펼쳐진 업체 (기본값 = 전부 접힘)
 var osv3OpenPlanV3 = '';           // 월별 검수계획이 펼쳐진 PO번호
 var osv3QuoteOpenV3 = '';          // 견적 팝업이 열린 PO번호
 
@@ -366,6 +480,13 @@ function osv3WonV3(value) {
 }
 function osv3FindVendorV3(id) {
   return osv3VendorsV3.find(v => v.id === id) || null;
+}
+function osv3FindLineV3(lineId) {
+  for (const vendor of osv3VendorsV3) {
+    const line = vendor.pos.find(l => l.lineId === lineId);
+    if (line) return { vendor, line };
+  }
+  return null;
 }
 function osv3FindPoV3(poNo) {
   for (const vendor of osv3VendorsV3) {
@@ -411,6 +532,38 @@ function osv3QuarterListV3(start, end) {
 function osv3TodayMonthV3() {
   return '2026-06';   // 목업 기준월(공유 코어 isPastActualMonth의 경계와 맞춤)
 }
+// 잔여 기간 = 기준월 다음 달 ~ 계약 종료월. 미계획 금액을 여기에 균등하게 뿌립니다.
+function osv3RestMonthsV3(vendor) {
+  const months = bpoMonthRangeByDateV2(vendor.start, vendor.end);
+  const rest = months.filter(m => m > osv3TodayMonthV3());
+  return rest.length ? rest : months.slice(-1);
+}
+// 전체기간 예산 - 외주구매 계획 금액 합계 = 아직 계획이 수립되지 않은 금액.
+function osv3UnplannedV3(vendor) {
+  const planned = vendor.pos.reduce((s, line) => s + osv3NumV3(line.amount), 0);
+  const amount = osv3NumV3(vendor.budget) - planned;
+  const months = osv3RestMonthsV3(vendor);
+  return { amount, months, perMonth: amount > 0 && months.length ? Math.round(amount / months.length) : 0 };
+}
+// 균등 배분 — 나머지는 마지막 월에 실어 월 합계가 원금과 정확히 맞게 합니다.
+function osv3EvenShareV3(total, months, month) {
+  if (!months.length || !months.includes(month)) return 0;
+  const unit = Math.round(total / months.length);
+  return month === months[months.length - 1] ? total - unit * (months.length - 1) : unit;
+}
+// 계획 라인의 월별 금액 — 구매계약이 붙어 월별 검수계획이 있으면 그 값을, 없으면 투입기간에 균등 배분합니다.
+function osv3LineMonthAmountV3(line, month) {
+  const months = bpoMonthRangeByDateV2(line.start, line.end);
+  if (!months.includes(month)) return 0;
+  const detailed = line.plan && months.some(m => line.plan[m] && osv3NumV3(line.plan[m].amount) > 0);
+  if (detailed) return line.plan[month] ? osv3NumV3(line.plan[month].amount) : 0;
+  return osv3EvenShareV3(osv3NumV3(line.amount), months, month);
+}
+// 미계획 금액을 잔여 기간에 균등 배분한 해당 월 금액.
+function osv3UnplannedMonthV3(vendor, month) {
+  const un = osv3UnplannedV3(vendor);
+  return un.amount > 0 ? osv3EvenShareV3(un.amount, un.months, month) : 0;
+}
 function osv3VendorSumV3(vendor) {
   return vendor.pos.reduce((acc, po) => ({
     issued: acc.issued + osv3NumV3(po.amount),
@@ -420,9 +573,9 @@ function osv3VendorSumV3(vendor) {
   }), { issued:0, actual:0, planned:0, mm:0 });
 }
 
-// 예산 통제: 업체 예산은 전체기간 1건인데 PO는 분기별로 발생하므로,
-// 앞선 분기에 과도하게 계약하면 잔여 기간에 쓸 예산이 부족해집니다. 기간 경과율 대비 예산 발행율로 판정합니다.
-// PO 발행액이 예산을 넘는 상태(초과)는 구매계약 시점에 예산을 체크하므로 발생하지 않습니다 → 판정은 ok/warn 2단계.
+// 예산 통제: 업체 예산은 전체기간 1건인데 외주구매 계획은 기간을 나눠 여러 라인으로 세우므로,
+// 앞선 기간에 과도하게 계획하면 잔여 기간에 쓸 예산이 부족해집니다. 기간 경과율 대비 계획 편성율로 판정합니다.
+// 계획 합계가 예산을 넘는 상태는 라인 입력 시점에 상한을 걸어 막으므로 → 판정은 ok/warn 2단계.
 function osv3ControlV3(vendor) {
   const sum = osv3VendorSumV3(vendor);
   const remain = vendor.budget - sum.issued;
@@ -437,6 +590,71 @@ function osv3ControlV3(vendor) {
 }
 
 /* ── 액션 ── */
+// PM은 구매계약에 앞서 반드시 외주구매 계획 라인을 신규로 만들어 수립해야 합니다.
+function osv3AddPlanLineV3(vendorId) {
+  const vendor = osv3FindVendorV3(vendorId);
+  if (!vendor) return;
+  const un = osv3UnplannedV3(vendor);
+  if (un.amount <= 0) {
+    showToast(`${vendor.vendor}는 전체기간 예산 ${osv3WonV3(vendor.budget)}을 모두 계획으로 편성했습니다. 예산 증액 후 추가할 수 있습니다.`);
+    return;
+  }
+  const last = vendor.pos[vendor.pos.length - 1];
+  const start = last && last.end < vendor.end ? osv3NextDayV3(last.end) : (last ? vendor.end : vendor.start);
+  vendor.pos.push({
+    lineId:`pl-${++osv3LineSeqV3}`, poNo:'', fx:'',
+    start, end:vendor.end, amount:0, mm:0, actual:0, planned:0, plan:{}, quote:null,
+  });
+  osv3OpenVendorV3 = vendorId;
+  showToast(`외주구매 계획 라인을 추가했습니다. 투입 기간과 금액을 구매견적과 맞춰 입력하세요(미계획 ${osv3WonV3(un.amount)}).`);
+  renderBudgetPage();
+}
+function osv3NextDayV3(ymd) {
+  const d = new Date(`${ymd}T00:00:00`);
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// 구매계약(PO)이 붙은 라인은 계약이 곧 확정값이므로 기간·금액을 고칠 수 없습니다.
+function osv3SetLineFieldV3(lineId, field, value) {
+  const found = osv3FindLineV3(lineId);
+  if (!found) return;
+  const { vendor, line } = found;
+  if (line.poNo) {
+    showToast(`구매계약(${line.poNo})이 발생한 계획 라인은 수정할 수 없습니다.`);
+    renderBudgetPage();
+    return;
+  }
+  if (field === 'amount') {
+    const others = vendor.pos.reduce((s, l) => s + (l.lineId === lineId ? 0 : osv3NumV3(l.amount)), 0);
+    const max = Math.max(osv3NumV3(vendor.budget) - others, 0);
+    const next = osv3NumV3(value);
+    line.amount = Math.min(next, max);
+    if (next > max) showToast(`전체기간 예산을 넘습니다. 이 라인에 세울 수 있는 최대 금액은 ${osv3WonV3(max)}입니다.`);
+  } else if (field === 'start' || field === 'end') {
+    if (value < vendor.start || value > vendor.end) {
+      showToast(`투입 기간은 업체 전체기간(${vendor.start} ~ ${vendor.end}) 안에 있어야 합니다.`);
+      renderBudgetPage();
+      return;
+    }
+    line[field] = value;
+    if (line.end < line.start) line.end = line.start;
+  }
+  renderBudgetPage();
+}
+
+function osv3DeletePlanLineV3(lineId) {
+  const found = osv3FindLineV3(lineId);
+  if (!found) return;
+  if (found.line.poNo) {
+    showToast(`구매계약(${found.line.poNo})이 발생한 계획 라인은 삭제할 수 없습니다.`);
+    return;
+  }
+  found.vendor.pos = found.vendor.pos.filter(l => l.lineId !== lineId);
+  showToast('외주구매 계획 라인을 삭제했습니다.');
+  renderBudgetPage();
+}
+
 function osv3ToggleVendorV3(id) {
   osv3OpenVendorV3 = osv3OpenVendorV3 === id ? '' : id;
   osv3OpenPlanV3 = '';
@@ -559,7 +777,7 @@ function osv3DeleteVendorV3(vendorId) {
   const vendor = osv3FindVendorV3(vendorId);
   const ctrl = vendor ? osv3ControlV3(vendor) : null;
   if (ctrl && ctrl.actual > 0) {
-    showToast(`실적이 발생한 업체(${vendor.vendor})는 삭제할 수 없습니다. PO 및 검수계획을 먼저 정리해야 합니다.`);
+    showToast(`실적이 발생한 업체(${vendor.vendor})는 삭제할 수 없습니다. 외주구매 계획과 구매계약을 먼저 정리해야 합니다.`);
     return;
   }
   showToast('업체별 예산을 삭제했습니다.');
@@ -569,11 +787,14 @@ function osv3DeleteVendorV3(vendorId) {
    "외주비 예산내역" 표의 [실투입대상 외주비] 행을 비율 추정값이 아니라 아래에서 편집 중인
    업체별 예산 / PO / 월별 검수계획 실데이터로 대체합니다. 나머지 5개 상세계정은 기존 비율 로직을 그대로 씁니다.
    - 계획      = Σ 업체별 전체기간 예산
-   - 실적/확정 = Σ PO 실적
-   - 월별      = Σ 월별 검수계획 금액 (= PO 발행분. 아직 PO가 안 나온 예산은 월에 배정되지 않습니다) */
+   - 실적(확정) = Σ 계약 라인 실적
+   - 월별      = Σ 계획 라인의 월별 금액 + Σ 미계획 금액을 잔여 기간에 균등 배분한 금액
+                 (계획 라인은 월별 검수계획이 있으면 그 값, 없으면 투입기간 균등 배분) */
 function osv3MonthPlanTotalV3(month) {
-  return osv3VendorsV3.reduce((sum, vendor) => sum + vendor.pos.reduce(
-    (s, po) => s + (po.plan && po.plan[month] ? osv3NumV3(po.plan[month].amount) : 0), 0), 0);
+  return osv3VendorsV3.reduce((sum, vendor) => {
+    const lines = vendor.pos.reduce((s, line) => s + osv3LineMonthAmountV3(line, month), 0);
+    return sum + lines + osv3UnplannedMonthV3(vendor, month);
+  }, 0);
 }
 
 function osv3TotalsV3() {
@@ -668,16 +889,16 @@ function osv3SaveVendorV3() {
     return;
   }
 
-  // 이미 발행된 PO 합계보다 작은 예산은 저장 즉시 초과 상태가 되므로 막습니다.
+  // 이미 수립된 외주구매 계획 합계보다 작은 예산은 저장 즉시 초과 상태가 되므로 막습니다.
   if (editing) {
     const issued = osv3VendorSumV3(editing).issued;
     if (budget < issued) {
-      showToast(`전체기간 예산(${osv3WonV3(budget)})이 이미 발행된 PO 합계(${osv3WonV3(issued)})보다 작습니다. PO를 먼저 조정해야 합니다.`);
+      showToast(`전체기간 예산(${osv3WonV3(budget)})이 이미 수립된 외주구매 계획 합계(${osv3WonV3(issued)})보다 작습니다. 계획 라인을 먼저 조정해야 합니다.`);
       return;
     }
-    const outside = editing.pos.filter(po => po.start < start || po.end > end);
+    const outside = editing.pos.filter(line => line.start < start || line.end > end);
     if (outside.length) {
-      showToast(`전체기간(${start} ~ ${end}) 밖에 있는 PO ${outside.length}건(${outside.map(po => po.poNo).join(', ')})이 있어 기간을 좁힐 수 없습니다.`);
+      showToast(`전체기간(${start} ~ ${end}) 밖에 있는 외주구매 계획 ${outside.length}건(${outside.map(line => line.poNo || `${line.start}~${line.end}`).join(', ')})이 있어 기간을 좁힐 수 없습니다.`);
       return;
     }
     Object.assign(editing, { vendor:vendorName, contract, start, end, budget });
@@ -687,7 +908,7 @@ function osv3SaveVendorV3() {
       id:`v-${Date.now().toString(36)}`,
       vendor:vendorName, contract, start, end, budget, pos:[],
     });
-    showToast(`${vendorName} 업체별 예산을 등록했습니다. 이제 [PO 수신]으로 분기별 구매계약을 받으면 됩니다.`);
+    showToast(`${vendorName} 업체별 예산을 등록했습니다. 이제 [＋ 계획 라인]으로 구매견적에 맞춘 외주구매 계획을 수립하세요.`);
   }
   bpoCloseFormV2();
 }
@@ -700,7 +921,7 @@ function osv3RenderVendorFormV3() {
       <div class="bpo-form-head">
         <div>
           <strong>${editing ? '외주업체 예산 수정' : '외주업체 예산 신규 등록'}</strong>
-          <span>업체별로 프로젝트 전체기간 예산만 편성합니다. 금액·MM·견적은 PO(구매계약) 단위로 구매시스템에서 수신하므로 여기서 입력하지 않습니다.</span>
+          <span>업체별로 프로젝트 전체기간 예산만 편성합니다. 투입 기간·금액은 아래 [외주구매 계획] 라인에서 구매견적에 맞춰 수립하고, PO번호·실적·집행예정은 구매계약이 발생하면 채워집니다.</span>
         </div>
         <button class="labor-sub-btn" onclick="bpoCloseFormV2()">닫기</button>
       </div>
@@ -735,16 +956,32 @@ function osv3RenderAlertV3(vendor, ctrl) {
   const time = Math.round(ctrl.timeRatio * 100);
   const pace = Math.round(ctrl.paceRatio * 100);
   if (ctrl.level === 'warn') {
+    const slot = `osv3-ai-${vendor.id}`;
+    const summary = `${vendor.vendor} · 계약기간 ${time}% 경과 / 예산 ${pace}% 계획 편성 · 미계획 ${osv3WonV3(ctrl.remain)}`;
+    const facts = {
+      '업체': vendor.vendor, '업무': vendor.contract,
+      '전체기간': `${vendor.start} ~ ${vendor.end}`,
+      '전체기간 예산': osv3WonV3(vendor.budget),
+      '계획 금액': osv3WonV3(ctrl.issued),
+      '미계획 금액': osv3WonV3(ctrl.remain),
+      '실적(검수)': osv3WonV3(ctrl.actual),
+      '기간 경과율': `${time}%`, '계획 편성율': `${pace}%`,
+      '계획 라인': `${vendor.pos.length}건(계약 ${vendor.pos.filter(l => l.poNo).length}건)`,
+      '남은 분기 수': `${ctrl.restQuarters}개`,
+    };
+    const payload = budgetAiEscapeV1(JSON.stringify({ kind:'outsource-pace', title:'분기 편중 주의', summary, facts }));
     return `<div class="osv3-alert warn">
       <em>분기 편중 주의</em>
-      <div>${vendor.vendor} · 계약기간은 <b>${time}%</b> 경과했는데 예산은 <b>${pace}%</b>가 이미 발행됐습니다.
-      잔여 기간동안 쓸 수 있는 금액은 <b>${osv3WonV3(ctrl.remain)}</b>뿐입니다.</div>
+      <div>${vendor.vendor} · 계약기간은 <b>${time}%</b> 경과했는데 예산은 <b>${pace}%</b>가 이미 계획으로 편성됐습니다.
+        잔여 기간에 계획을 세울 수 있는 금액은 <b>${osv3WonV3(ctrl.remain)}</b>뿐입니다.
+        <span class="budget-ai-slot" id="${slot}"></span></div>
+      <button class="budget-ai-btn" onclick='budgetAiExplainV1("${slot}", ${payload})'>AI 해설</button>
     </div>`;
   }
   return `<div class="osv3-alert ok">
     <em>정상</em>
-    <div>${vendor.vendor} · 기간 ${time}% 경과 / 예산 ${pace}% 발행.
-    잔여 기간동안 ${osv3WonV3(ctrl.remain)} 사용 가능합니다.</div>
+    <div>${vendor.vendor} · 기간 ${time}% 경과 / 예산 ${pace}% 계획 편성.
+    잔여 기간에 ${osv3WonV3(ctrl.remain)} 만큼 계획을 세울 수 있습니다.</div>
   </div>`;
 }
 
@@ -759,7 +996,7 @@ function osv3RenderAlertRowV3(list) {
   }).join(', ');
   return `<div class="osv3-alert warn">
     <em>분기 편중 주의 ${list.length}건</em>
-    <div>${names} — 예산 발행이 기간 경과보다 앞서 있습니다. 업체명에 마우스를 올리면 상세가 표시됩니다.</div>
+    <div>${names} — 계획 편성이 기간 경과보다 앞서 있습니다. 업체명에 마우스를 올리면 상세가 표시됩니다.</div>
   </div>`;
 }
 
@@ -803,43 +1040,80 @@ function osv3RenderPlanPanelV3(po) {
 
 function osv3RenderPoBlockV3(vendor) {
   const sum = osv3VendorSumV3(vendor);
-  const rows = vendor.pos.map(po => {
-    const planOpen = osv3OpenPlanV3 === po.poNo;
-    const diff = osv3PlanTotalV3(po) - osv3NumV3(po.amount);
+  const un = osv3UnplannedV3(vendor);
+  const contracted = vendor.pos.filter(line => line.poNo).length;
+
+  const rows = vendor.pos.map(line => {
+    const fixed = !!line.poNo;              // 구매계약 발생 → 계획 확정(조회 전용)
+    const planOpen = fixed && osv3OpenPlanV3 === line.poNo;
     return `
-      <tr>
-        <td class="osv3-po-no"><b>${po.poNo}</b><small>${po.fx}</small></td>
-        <td><span class="osv3-q">${osv3QuarterOfV3(po.start.slice(0, 7))}</span></td>
-        <td>${po.start} ~ ${po.end}</td>
-        <td class="num">${osv3WonV3(po.amount)}</td>
-        <td class="num">${osv3NumV3(po.mm).toFixed(1)}MM</td>
-        <td class="num osv3-good">${osv3WonV3(po.actual)}</td>
-        <td class="num osv3-plan-amt">${osv3WonV3(po.planned)}</td>
+      <tr class="${fixed ? 'osv3-line-fixed' : 'osv3-line-draft'}">
+        <td>
+          ${fixed
+            ? `${line.start} ~ ${line.end}`
+            : `<div class="osv3-inline-range">
+                 <input type="date" value="${line.start}" min="${vendor.start}" max="${vendor.end}"
+                   onchange="osv3SetLineFieldV3('${line.lineId}','start',this.value)">
+                 <em>~</em>
+                 <input type="date" value="${line.end}" min="${vendor.start}" max="${vendor.end}"
+                   onchange="osv3SetLineFieldV3('${line.lineId}','end',this.value)">
+               </div>`}
+        </td>
+        <td class="num">
+          ${fixed
+            ? osv3WonV3(line.amount)
+            : `<input class="osv3-line-amt" value="${fmt(osv3NumV3(line.amount))}"
+                 onchange="osv3SetLineFieldV3('${line.lineId}','amount',this.value)">`}
+        </td>
+        <td class="osv3-po-no">
+          ${fixed
+            ? `<b>${line.poNo}</b><small>${line.fx}</small>`
+            : '<span class="osv3-wait">계약 대기</span>'}
+        </td>
+        <td class="num ${fixed ? 'osv3-good' : 'osv3-empty'}">${fixed ? osv3WonV3(line.actual) : '–'}</td>
+        <td class="num ${fixed ? 'osv3-plan-amt' : 'osv3-empty'}">${fixed ? osv3WonV3(line.planned) : '–'}</td>
         <td>
           <div class="osv3-actions">
-            <button class="osv3-mini ${planOpen ? 'active' : ''}" onclick="osv3TogglePlanV3('${po.poNo}')">${planOpen ? '∧' : '∨'} 월별 검수 계획${diff === 0 ? '' : ' !'}</button>
-            <button class="osv3-mini" onclick="osv3OpenQuoteV3('${po.poNo}')">▦ 견적</button>
+            ${fixed ? `<button class="osv3-mini" onclick="osv3OpenQuoteV3('${line.poNo}')">▦ 견적</button>` : ''}
+            <button class="osv3-mini round danger" ${fixed ? 'disabled' : ''}
+              title="${fixed ? '구매계약이 발생한 계획은 삭제할 수 없습니다' : '계획 라인 삭제'}"
+              onclick="osv3DeletePlanLineV3('${line.lineId}')">×</button>
           </div>
         </td>
       </tr>
-      ${planOpen ? `<tr><td colspan="8" style="padding:0">${osv3RenderPlanPanelV3(po)}</td></tr>` : ''}`;
+      ${planOpen ? `<tr><td colspan="6" style="padding:0">${osv3RenderPlanPanelV3(line)}</td></tr>` : ''}`;
   }).join('');
+
+  // 계획이 수립되지 않은 금액은 잔여 기간에 균등 배분한 상태로 보여줍니다(라인으로 확정되면 여기서 빠집니다).
+  const restLabel = un.months.length
+    ? `${un.months[0]} ~ ${un.months[un.months.length - 1]} · ${un.months.length}개월`
+    : '잔여 기간 없음';
+  const unRow = un.amount > 0 ? `
+    <tr class="osv3-line-open">
+      <td>${restLabel}</td>
+      <td class="num">${osv3WonV3(un.amount)}</td>
+      <td colspan="4">계획 미수립 — 잔여 기간에 월 <b>${osv3WonV3(un.perMonth)}</b>씩 균등 배분 중입니다. 구매견적이 나오면 계획 라인으로 확정하세요.</td>
+    </tr>` : '';
+  const emptyRow = vendor.pos.length ? '' : `
+    <tr><td colspan="6" class="osv3-line-none">외주구매 계획이 없습니다. 구매계약 전에 [＋ 계획 라인]으로 먼저 계획을 수립해야 합니다.</td></tr>`;
 
   return `
     <tr class="osv3-po-wrap">
       <td colspan="7">
         <div class="osv3-po-head">
-          <span class="osv3-badge">구매실적</span>
-          <b>PO ${vendor.pos.length}건 · 합계 ${osv3WonV3(sum.issued)} · ${sum.mm.toFixed(1)}MM</b>
+          <span class="osv3-badge">외주구매 계획</span>
+          <button class="osv3-mini" onclick="osv3AddPlanLineV3('${vendor.id}')">＋ 계획 라인</button>
+          <b>계획 ${vendor.pos.length}건(계약 ${contracted}건) · 합계 ${osv3WonV3(sum.issued)} · 미계획 ${osv3WonV3(Math.max(un.amount, 0))}</b>
         </div>
         <table class="osv3-po-table">
           <thead>
             <tr>
-              <th>PO번호</th><th>분기</th><th>계약기간</th><th class="num">PO금액</th><th class="num">MM</th>
-              <th class="num">실적</th><th class="num">집행예정</th><th style="text-align:right">검수계획</th>
+              <th>투입 기간</th><th class="num">금액</th><th>PO번호</th>
+              <th class="num">실적(검수)</th><th class="num">집행예정(미검수)</th>
+              <th style="text-align:right">관리</th>
             </tr>
           </thead>
-          <tbody>${rows}</tbody>
+          <tbody>${rows}${emptyRow}${unRow}</tbody>
         </table>
       </td>
     </tr>`;
@@ -887,6 +1161,7 @@ function osv3RenderQuoteModalV3() {
 }
 
 // 실투입 탭의 헤드 라인 좌측 정보 = 분기 편중 경고 + 전체 요약.
+
 // 모든 탭이 같은 .osv3-headrow 한 줄을 공유하도록, 이 정보만 떼어내 renderBpoOutsourcePanelFinal 이 조립합니다.
 function osv3DirectHeadInfoV3() {
   const totalBudget = osv3VendorsV3.reduce((s, v) => s + osv3NumV3(v.budget), 0);
@@ -898,9 +1173,9 @@ function osv3DirectHeadInfoV3() {
     <div class="osv3-headinfo">${osv3RenderAlertRowV3(risky)}</div>
     <div class="osv3-board-sum">
       <span class="osv3-hint"
-        title="업체별로 프로젝트 전체기간 예산을 1줄로 편성하고, 그 안에서 분기별 PO가 N건 발생합니다. PM은 PO별 월별 검수계획만 수립합니다.">?</span>
+        title="업체별로 프로젝트 전체기간 예산을 1줄로 편성하고, PM이 그 안에서 구매견적에 맞춘 외주구매 계획 라인을 세웁니다. PO번호·실적·집행예정은 그 라인에 구매계약이 발생하면 채워집니다.">?</span>
       업체 ${osv3VendorsV3.length}곳 · 예산 <b>${osv3WonV3(totalBudget)}</b> ·
-      PO 발행 <b>${osv3WonV3(totalIssued)}</b> (${totalBudget ? Math.round((totalIssued / totalBudget) * 100) : 0}%)
+      계획 편성 <b>${osv3WonV3(totalIssued)}</b> (${totalBudget ? Math.round((totalIssued / totalBudget) * 100) : 0}%)
     </div>`;
 }
 
@@ -913,8 +1188,8 @@ function osv3RenderVendorBoardV3() {
       <tr class="osv3-vendor ${open ? 'open' : ''}">
         <td>
           <div class="osv3-vendor-name">
-            <button class="osv3-toggle" title="${open ? 'PO 접기' : 'PO 펼치기'}" onclick="osv3ToggleVendorV3('${vendor.id}')">${open ? '∧' : '∨'}</button>
-            <div><b>${vendor.vendor}</b><small>${vendor.contract} · PO ${vendor.pos.length}건 · ${vendor.start} ~ ${vendor.end}</small></div>
+            <button class="osv3-toggle" title="${open ? '외주구매 계획 접기' : '외주구매 계획 펼치기'}" onclick="osv3ToggleVendorV3('${vendor.id}')">${open ? '∧' : '∨'}</button>
+            <div><b>${vendor.vendor}</b><small>${vendor.contract} · 계획 ${vendor.pos.length}건(계약 ${vendor.pos.filter(l => l.poNo).length}건) · ${vendor.start} ~ ${vendor.end}</small></div>
           </div>
         </td>
         <td class="num">${osv3WonV3(vendor.budget)}</td>
@@ -927,7 +1202,6 @@ function osv3RenderVendorBoardV3() {
         <td class="num osv3-plan-amt">${osv3WonV3(ctrl.planned)}</td>
         <td>
           <div class="osv3-actions">
-            <button class="osv3-mini" onclick="osv3ReceivePoV3('${vendor.id}')">↓ PO 수신</button>
             <button class="osv3-mini round" title="업체별 예산 수정" onclick="osv3EditVendorV3('${vendor.id}')">✎</button>
             <button class="osv3-mini round danger" title="삭제" onclick="osv3DeleteVendorV3('${vendor.id}')">×</button>
           </div>
@@ -942,8 +1216,8 @@ function osv3RenderVendorBoardV3() {
         <table class="bpo-list-table osv3-table">
           <thead>
             <tr>
-              <th>업체명</th><th class="num">전체기간 예산</th><th class="num">PO 발행액</th>
-              <th class="num">잔여예산</th><th class="num">실적</th><th class="num">집행예정</th>
+              <th>업체명</th><th class="num">전체기간 예산</th><th class="num">계획 금액</th>
+              <th class="num">미계획 금액</th><th class="num">실적(검수)</th><th class="num">집행예정(미검수)</th>
               <th style="text-align:right">관리</th>
             </tr>
           </thead>

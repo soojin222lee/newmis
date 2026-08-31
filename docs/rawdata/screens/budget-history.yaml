@@ -1,0 +1,173 @@
+# rawdata: 수행원가 > 변경 이력 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+# 주의: 렌더러는 budget-status.js + budget-status-2~5.js 5분할이며 동일 함수를 여러 번 override.
+#       본 문서는 최종 유효 버전 기준. costMode='history'는 전역 기본값.
+
+screen:
+  id: s-budget            # 수행원가 3개 소메뉴 공유 화면(공유 렌더러 renderBudgetPage)
+  name: 수행원가 > 변경 이력 (실행예산 버전 이력 조회·비교)
+  menu_path: 수행원가 > 변경 이력
+  route: "#/budget-history"
+  cost_mode: history      # 전역 기본값(budget-status-5.js:69)
+  entry: "showCostHistory() → costMode='history'; showBudget()  /  openCostHistory(k) → openBudgetProjectScreen(k)"
+  source_files:
+    - public/js/budget-cost-history.js # 변경 이력 진입점 + 라우트 등록
+    - public/js/budget-status.js       # budgetTransferHistory(초기값·적재)·selectBudgetHistoryVersion·saveBudgetTransfer·영속화
+    - public/js/budget-status-3.js     # renderAccountTransferTable(이관 이력 탭/패널)·최종 renderBudgetPage
+    - public/js/budget-status-4.js     # 실행예산 버전 스냅샷/결재 상태·renderBudgetSetupOverview(history 분기)·버전 비교/상세/생성
+    - public/js/budget-status-5.js     # openBudgetProjectScreen override(history → budgetSetupStage='history')
+    - public/js/app.js                 # SCREEN_ROUTES['s-budget']·라우팅
+  purpose: >
+    프로젝트 실행예산의 버전 이력을 조회·비교한다. 두 종류 이력이 병존:
+    (1) 실행예산 버전 이력(V1/V2/V3 스냅샷 + 결재 상태) — 랜딩,
+    (2) 예산 이관 변경 이력(budgetTransferHistory) — 원가조정 이관 저장 시 누적, 이관 테이블 내 이력 탭.
+
+# ── 진입/딥링크(양방향) ──
+routing:
+  cost_mode: history      # 전역 기본
+  list_entry:    "showCostHistory() (budget-cost-history.js:8)"
+  project_entry: "openCostHistory(k) → openBudgetProjectScreen(k) (budget-cost-history.js:10)"
+  route_action:  "ROUTE_ACTIONS['budget-history'] (budget-cost-history.js:14~18)"
+  deeplink:      "#/budget-history?pj=<프로젝트키>"
+  url_to_screen: >
+    ?pj= 있으면 costMode='history' 후 openBudgetProjectScreen(pj)로 이력 스테이지 진입, 없으면
+    showCostHistory()로 목록(budget-cost-history.js:15~17). Budget Navi 등에서 openCostHistory(k)로도 호출.
+  screen_to_url: >
+    SCREEN_ROUTES['s-budget'](app.js:56): costMode==='history'이면 base='budget-history',
+    budgetScreenView==='detail'이면 '?pj='+currentBudgetProj 부착. updateHashForScreen(app.js:112)로 반영.
+
+# ── 화면 상태 ── costMode(history) × budgetScreenView × budgetSetupStage
+states:
+  - id: list
+    when: "costMode=='history' && budgetScreenView=='list'"
+    renderer: "renderBudgetListView (budget-status-3.js:1791)"
+    shows: [EXEC_BUDGET_PROJECTS 목록 + 필터]
+    url: "#/budget-history"
+  - id: version_history_stage    # 랜딩(변경 이력 고유 진입)
+    when: "budgetScreenView=='detail' && budgetSetupStage=='history'"
+    renderer: "renderBudgetSetupOverview history 분기 (budget-status-4.js:1650~1675)"
+    shows: [3단계 스테퍼, 버전 목록(세로 탭 V3/V2/V1), 선택 버전 상세 카드, ＋ 신규 버전 생성]
+    url: "#/budget-history?pj=<key>"
+    note: "openBudgetProjectScreen에서 costMode!=='adjust'이면 budgetSetupStage='history'(budget-status-5.js:76). 요약 그리드로 안 넘어가고 이력 스테이지에 머묾"
+  - id: version_detail
+    when: "버전 pill 선택 후"
+    renderer: "renderBudgetVersionDetailFinal (budget-status-4.js:1601)"
+    shows: [선택 버전 계정별 금액(인건비·외주비·재료비·경비·A/S비), 작성/승인 총액, memo, 상태]
+  - id: version_diff
+    when: "결재 스테이지/비교 시"
+    renderer: "renderExecBudgetVersionDiffRowsFinal (budget-status-4.js:1460)"
+    shows: [직전 버전 대비 계정별/총액 증감(diff)]
+    edge: "최초 버전이면 '이전 버전이 없는 최초 실행예산입니다.'(:1471)"
+  - id: transfer_change_history
+    when: "renderAccountTransferTable 이력 영역(budget-status-3.js:2223~2259)"
+    renderer: "renderAccountTransferTable 이력 탭"
+    shows: [버전 탭(v<n>·changedBy·changedAt), 선택 버전 changes[] 표(계정/변경전/변경후/증감)]
+    empty: "'아직 저장된 이관 변경 이력이 없습니다.'"
+
+# ── 요소(버튼/탭) 인벤토리 ── ★ 프론트/백엔드 로직
+elements:
+  - id: row-project-open
+    label: 프로젝트 목록 행 클릭
+    type: row(clickable)
+    area: 프로젝트 목록
+    event: onclick
+    front:
+      handler: "openBudgetProjectScreen('${p.key}')"
+      file: "budget-status-3.js:1815 / budget-status-5.js:71~92"
+      logic: "costMode!=='adjust'이므로 budgetSetupStage='history'로 진입(budget-status-5.js:76). 이관 선택 버전 최신 초기화"
+      state_writes: [currentBudgetProj, budgetScreenView, budgetSetupStage, budgetHistorySelectedVersion]
+    backend: null
+    result: 선택 프로젝트 실행예산 이력 스테이지 진입 + URL ?pj= 갱신
+  - id: tab-select-exec-version
+    label: 실행예산 버전 탭 (V3/V2/V1)
+    type: button(vertical-tab)
+    area: 버전 이력 랜딩
+    event: onclick
+    front:
+      handler: "selectExecBudgetVersionFinal(key)"
+      file: "budget-status-4.js:1431"
+      logic: "selectedExecBudgetVersionFinal=key(기본 'v3', :1344) → renderBudgetVersionDetailFinal로 상세 카드 갱신"
+      state_writes: [selectedExecBudgetVersionFinal]
+    backend: null
+    result: 선택 버전 계정별 금액·총액·상태·memo 상세 열람
+  - id: btn-create-version
+    label: ＋ 신규 버전 생성
+    type: button
+    area: 버전 이력 랜딩
+    event: onclick
+    front:
+      handler: "createBudgetVersionFinal"
+      file: "budget-status-4.js:1544"
+      logic: "작성중 버전 이어쓰기 또는 최신 승인본 복제"
+    result: 신규 실행예산 버전 생성
+  - id: btn-goto-edit
+    label: "이 버전 계정별 작성 → / 계정 내역 보기 →"
+    type: button
+    area: 버전 상세 카드
+    event: onclick
+    front:
+      handler: "goBudgetSetupStage('edit')"
+      file: "budget-status-4.js:1537"
+      logic: "작성중이면 '이 버전 계정별 작성 →'(원가조정 편집으로 연결), 아니면 '계정 내역 보기 →'(읽기 전용)"
+    result: 계정별 작성(원가조정 edit 스테이지)으로 이동
+  - id: tab-select-transfer-version
+    label: 이관 변경 이력 버전 탭 (v<n>)
+    type: button(tab)
+    area: 이관 테이블 이력 영역
+    event: onclick
+    front:
+      handler: "selectBudgetHistoryVersion(version)"
+      file: "budget-status.js:1402"
+      logic: "budgetHistorySelectedVersion=Number(version) → renderBudgetPage()로 changes[] 패널 갱신"
+      state_writes: [budgetHistorySelectedVersion]
+    backend: null
+    result: 선택 버전의 계정별 변경 전(oldAdjusted)/변경 후(newAdjusted)/증감(diff, +초록·−빨강) 표 표시
+
+# ── 비즈니스 로직 & 규칙 ──
+rules:
+  exec_version_selection: "실행예산 버전 selectedExecBudgetVersionFinal(기본 'v3', budget-status-4.js:1344)"
+  transfer_version_selection: "이관 이력 버전 budgetHistorySelectedVersion — 진입 시 최신 버전으로 초기화(budget-status.js:1181 / budget-status-5.js 진입부)"
+  version_diff: "getPreviousExecBudgetVersionFinal(:1437)로 직전 버전 찾아 renderExecBudgetVersionDiffRowsFinal(:1460)이 계정별 이전/현재/증감 산출. 최초 버전이면 예외 메시지(:1471)"
+  version_total: "budgetVersionTotalFinal(version) = Σ budgets (budget-status-4.js:1596)"
+  version_status: "작성중/승인요청/승인완료(execBudgetApprovalStateFinal budget-status-4.js:1345~1349). 스냅샷 적용 시 plan 대비 비율로 월별 재분배(applyExecBudgetVersionSnapshotFinal :1407)"
+  transfer_history_source: >
+    이관 변경 이력은 원가조정 saveBudgetTransfer 저장 성공 시에만 budgetTransferHistory에 새 버전 unshift
+    (version=기존+1, changedAt=현재시각, changedBy=PM), budgetHistorySelectedVersion 최신 갱신
+    (budget-status.js:2355~2364). 즉 변경 이력은 이관 저장의 부산물로 누적.
+  persistence: "이관 이력은 localStorage['budgetTransferState']에 저장/복원(persist/restoreBudgetTransferState budget-status.js:1407/1415). 실행예산 버전 스냅샷/결재 상태는 목업 상수(메모리) 기반"
+
+# ── 데이터 모델 ──
+data:
+  state_vars:
+    - { name: costMode, shape: "'history'(전역 기본)", file: "budget-status-5.js:69", purpose: 진입 모드 }
+    - { name: budgetSetupStage, shape: "'history'", file: "budget-status-4.js:1535", purpose: 이력 스테이지 }
+    - { name: selectedExecBudgetVersionFinal, shape: "'v1|v2|v3'", file: "budget-status-4.js:1344", purpose: 실행예산 버전 선택(기본 v3) }
+    - { name: budgetHistorySelectedVersion, shape: number, file: budget-status.js, purpose: 이관 이력 선택 버전(진입 시 최신) }
+  datasets:
+    - { name: EXEC_BUDGET_PROJECTS, file: "budget-status.js:1200", note: "실행예산 프로젝트 목록 16건" }
+    - { name: "실행예산 버전 스냅샷", file: "budget-status-4.js:1351~1400 (getExecBudgetVersionSnapshotsFinal)", note: "[{key:'v3',label,date,status,owner:'이봄',memo,budgets:{인건비,외주비,재료비,경비,'A/S Cost':금액}}, …]" }
+    - { name: "execBudgetApprovalStateFinal", file: "budget-status-4.js:1345", note: "{v3|v2|v1:{status,approvalStatus,requestedAt,approver:'김도윤 팀장',comment}}" }
+    - { name: "budgetTransferHistory[projKey][]", file: "budget-status.js:1279~1311", note: "[{version,changedAt,changedBy,changes:[{acct,oldAdjusted,newAdjusted,diff,transfer}]}] — 목업 초기값 v1~v3 존재" }
+
+# ── 대표 플로우 ──
+flows:
+  - name: 버전 선택/비교 + 이관 변경 이력 열람
+    steps:
+      - "'변경 이력' 메뉴 → #/budget-history → 목록 (딥링크 ?pj=로 바로 진입)"
+      - "프로젝트 선택 → openBudgetProjectScreen(k) → 실행예산 이력 스테이지 진입"
+      - "세로 버전 탭(V3/V2/V1) 선택(selectExecBudgetVersionFinal) → 상세 카드에서 계정별 금액·총액·상태·memo 열람"
+      - "결재 스테이지 이동 시 직전 승인 버전 대비 계정별/총 증감(diff) 비교(getPreviousExecBudgetVersionFinal → renderExecBudgetVersionDiffRowsFinal)"
+      - "(원가조정 이관 저장 시) 이관 테이블 이력 탭에서 v<n> 선택(selectBudgetHistoryVersion) → 계정별 변경 전/후/증감 확인"
+      - "작성중 버전이면 '계정별 작성 →'으로 원가조정 편집 이어가기, 승인본은 읽기 전용 열람"
+
+# ── 요구사항 후보(FR) ──
+requirements:
+  - { id: FR-BHI-01, text: 변경 이력은 #/budget-history?pj=<key> 딥링크로 특정 프로젝트 이력에 바로 진입할 수 있어야 한다 }
+  - { id: FR-BHI-02, text: 진입 시 실행예산 버전 이력(V1/V2/V3) 스테이지로 열려야 한다 }
+  - { id: FR-BHI-03, text: 사용자는 버전을 선택해 계정별 금액·총액·상태·메모를 열람할 수 있어야 한다 }
+  - { id: FR-BHI-04, text: 각 버전은 상태(작성중/승인요청/승인완료)와 작성자·일시를 표시해야 한다 }
+  - { id: FR-BHI-05, text: 선택 버전은 직전 버전과 계정별/총액 증감(diff)을 비교 제공해야 한다(최초 버전 예외 처리) }
+  - { id: FR-BHI-06, text: 예산 이관 저장 시 발생한 변경 내역을 버전별(계정 변경 전/후/증감)로 조회할 수 있어야 한다 }
+  - { id: FR-BHI-07, text: 이관 변경 이력은 로컬 영속화되어 재진입 시 복원되어야 한다 }
+  - { id: FR-BHI-08, text: 작성중 버전은 계정별 작성(원가조정)으로 이어갈 수 있고, 승인 버전은 읽기 전용으로 열람되어야 한다 }

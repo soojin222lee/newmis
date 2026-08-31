@@ -1,0 +1,340 @@
+# rawdata: 인사이트 > 버전별 예산 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+
+screen:
+  id: s-insights-version
+  name: 인사이트 · 버전별 예산 (기준 대비 V1~V4 계정 돌려쓰기 · 차트+표 · AI 요약)
+  menu_path: 인사이트 > 버전별 예산
+  route: "#/insights/version?pj=<불투명프로젝트ID>"
+  entry: "showInsights('version') → renderInsights() → insightsHtml() → insVersionHtml(p) → insVerPanel(p)"
+  source_files:
+    - public/js/insights.js            # 렌더·핸들러·상태·파생계산
+    - public/js/app.js                 # 라우트(DYNAMIC_ROUTES, insHash('version'), SCREEN_ROUTES['s-insights'])
+    - server.js                        # /api/budget-summary(LLM), buildBudgetPrompt, localBudgetSummary, callLLM, localNavigate
+    - public/css/insights.css          # ins-ver-* 스타일 (참고)
+  purpose: >
+    기준선(계약 원가 base 배분) 대비 실행예산 버전(V1~V4)의 계정 간 예산 돌려쓰기를 분석한다.
+    총액은 버전 내내 동일하고 계정 간 배분만 이동한다(인건비→외주비). 차트+표로 시각화하고 AI로 요약. 인사이트 세 번째 탭.
+  key_facts:
+    - "insTab='version' (showInsights insights.js:278-283). 탭 라벨 '버전별 예산' (insights.js:307)."
+    - "핵심 개념: 총액 불변, 계정 이동. 인건비 증가분 = 외주비 감소분 → 총액 일정."
+    - "부가 기능: 계정 필터(전체/4대계정), 금액↔비율 토글, 계정 [+] 상세계정 펼침."
+    - "메인 챗 네비게이터 연계: localNavigate(server.js:498) '버전/돌려/배분' 키워드 → insights-version."
+    - "AI 요약 모달(openInsAiModal)은 원가 소진율 탭과 공유."
+    - "계정/단위/펼침 상태는 전역이라 프로젝트 전환 시에도 보기 설정 유지."
+
+# ── URL / 라우팅 ──
+routing:
+  hash: "#/insights/version?pj=<프로젝트ID>"
+  notes:
+    - "동적 딥링크: DYNAMIC_ROUTES /^insights(?:\\/([^/?]+))?$/ → gotoInsights(pj,'version') (app.js:129-131)."
+    - "진입: showInsights('version') (insights.js:278) 또는 탭바 클릭 / gotoInsights(pj,'version')."
+    - "pj: 불투명 ID → insProjectIndexById (insights.js:276)."
+    - "URL 역생성: SCREEN_ROUTES['s-insights'] (app.js:64-68). 홈 바로가기 insHash('version') (app.js:1248)."
+
+# ── 화면 상태 ──
+states:
+  - id: view_all_amount
+    when: "insVerAcct=='전체' && insVerUnit=='금액'"
+    shows: ["그룹 클러스터 컬럼 차트(기준 컬럼 opacity 0.4·'(원가)' 표기)", "표(4계정+합계행)"]
+  - id: view_all_ratio
+    when: "insVerAcct=='전체' && insVerUnit=='비율'"
+    shows: ["100% 누적 스택바 차트", "표(%·합계 100.0%)"]
+  - id: view_one_account
+    when: "insVerAcct in [인건비/외주비/재료비/경비]"
+    shows: ["개별 계정 차트(기준선 점선 + 버전 막대 + 증감)", "표(선택 계정 행만)"]
+  - id: row_expanded
+    when: "insVerExpanded[계정명]==true"
+    effect: "표에 상세계정 행 추가(부모값×비율 r) (insights.js:226-235)"
+  - id: ai_modal_loading
+    when: "insBudgetAiSummary() 호출 직후"
+    shows: ["AI 모달 스피너('예산 변동을 요약하고 있어요…')"]
+  - id: ai_modal_done
+    when: "/api/budget-summary 응답 성공"
+    shows: ["3~4문장 요약 + source 라벨(✦ AI 생성 분석 / 로컬 분석(샘플))"]
+  - id: ai_modal_error
+    when: "fetch 실패(catch)"
+    shows: ["'분석을 불러오지 못했어요' 재시도 안내 (insights.js:121, 135)"]
+
+# ── 요소(버튼/토글/차트) 인벤토리 ── ★ 버튼 단위 프론트/백엔드 로직
+elements:
+  # 공통 상단 프레임(insightsHtml insights.js:306-341) — 데이터 내보내기 / AI 보고서 생성 / 캐러셀 / 탭바
+  - id: btn-generate-report
+    label: AI 보고서 생성
+    type: button
+    area: ins-topbar
+    event: onclick
+    front: { handler: insGenerateReport(), file: insights.js, logic: "3개 탭 종합 → POST /api/report-summary → 보고서 팝업" }
+    backend: { api: /api/report-summary, method: POST }
+
+  - id: carousel-project-tab
+    label: 프로젝트 캐러셀 탭
+    type: button
+    area: hm-ptabs-carousel
+    event: onclick
+    front: { handler: "selectInsProject(i)", file: insights.js, logic: "재계산·재렌더 + URL pj 갱신(필터/단위/펼침 전역 유지)", state_writes: [insProject] }
+    backend: null
+
+  - id: tabbar-tab
+    label: "탭바 [종합 현황][원가 소진율][버전별 예산]"
+    type: button
+    area: ins-tabs
+    event: onclick
+    front: { handler: "showInsights('version')", file: insights.js, state_writes: [insTab] }
+    backend: null
+
+  # 버전별 예산 컨트롤 바(insVerPanel insights.js:91-103)
+  - id: seg-account-filter
+    label: "계정 세그먼트 [전체][인건비][외주비][재료비][경비]"
+    type: button(segment)
+    area: ins-ver-ctrl
+    event: onclick
+    front:
+      handler: "selectInsVerAcct(t)"
+      file: insights.js
+      logic: "insVerAcct=t → renderInsights() (insights.js:56). '전체'면 insVerAllChart, 아니면 insVerOneChart(cols,acct)"
+      state_writes: [insVerAcct]
+    backend: null
+    result: 차트/표 전환(전체=그룹·누적, 개별=기준선+막대)
+
+  - id: seg-unit-toggle
+    label: "단위 세그먼트 [금액][비율]"
+    type: button(segment)
+    area: ins-ver-ctrl
+    event: onclick
+    front:
+      handler: "setInsVerUnit(u)"
+      file: insights.js
+      logic: >
+        insVerUnit=u → renderInsights() (insights.js:57).
+        insVerVal(c,key)(insights.js:87): 비율이면 vals[key]/colTotal*100, 금액이면 원값.
+        insVerFmt(insights.js:88): 비율 'N.N%'/금액 'N.N억'. 증감 단위 insVerDeltaUnit(89): '%p'/'억'.
+      state_writes: [insVerUnit]
+    backend: null
+    result: 차트(비율=100% 누적 / 금액=그룹)·표(%/억) 단위 전환
+
+  - id: btn-budget-ai
+    label: "✦ AI 요약"
+    type: button
+    area: ins-ver-ctrl
+    event: onclick
+    front:
+      handler: insBudgetAiSummary()
+      file: insights.js
+      logic: >
+        cols=insVerCols(p), last=V4, base=기준.
+        payload{project, total(=budget), baseTotal(=base),
+        accounts=[{name, base:기준vals, current:V4vals, delta=current-base}]} →
+        openInsAiModal('loading') → POST /api/budget-summary → openInsAiModal('done', d.summary, d.source).
+        catch 시 'error'. (insights.js:106-122)
+    backend:
+      api: /api/budget-summary
+      method: POST
+    result: 공통 AI 모달에 3~4문장 돌려쓰기 요약 표시
+
+  - id: table-account-expand
+    label: 계정 [+] 상세계정 펼침
+    type: toggle(button)
+    area: ins-ver-table (부모행)
+    event: onclick
+    front:
+      handler: "toggleInsVerAcct(key)"
+      file: insights.js
+      logic: >
+        insVerExpanded[key] 반전 → renderInsights() (insights.js:58).
+        펼치면 INS_SUB_ACCTS[key] 하위계정 행 추가. 하위 값=부모값×r, 하위 증감=부모증감×r (insights.js:226-235).
+      state_writes: [insVerExpanded]
+    backend: null
+
+  - id: chart-all
+    label: 전체 차트 (금액=그룹 클러스터 / 비율=100% 누적)
+    type: chart(SVG)
+    area: ins-ver-chart
+    event: none
+    front:
+      source: "insVerAllChart(cols) (insights.js:186-210)"
+      file: insights.js
+      logic: >
+        비율(190-199): 4계정 아래→위 100% 누적 스택바.
+        금액(200-209): 계정별 얇은 막대 그룹, 기준 컬럼 opacity 0.4·라벨 '(원가)'.
+    backend: null
+
+  - id: chart-one
+    label: 개별 계정 차트 (기준선 + 버전 막대 + 증감)
+    type: chart(SVG)
+    area: ins-ver-chart
+    event: none
+    front:
+      source: "insVerOneChart(cols, acct) (insights.js:167-184)"
+      file: insights.js
+      logic: "선택 계정만: 기준선(점선 #8a94a6 + '기준 값' 라벨) + 컬럼 막대(기준=회색·버전=계정색) + 기준 대비 증감(d=v-baseVal, up/down)"
+    backend: null
+
+  - id: ver-table
+    label: 버전별 예산 표
+    type: table
+    area: ins-ver-chart 하단
+    event: none
+    front:
+      source: "insVerTable(cols) (insights.js:212-242)"
+      file: insights.js
+      logic: >
+        헤더: 계정|기준(계약원가)|V1|V2|V3|V4|증감(V4−기준). 행 필터(전체/선택 계정).
+        증감=insVerVal(lastCol)−insVerVal(baseCol), up/down 색상. [+] 상세계정 펼침.
+        전체 모드 합계행(비율 '100.0%'/금액 colTotal 합, insights.js:240).
+    backend: null
+
+  - id: btn-ai-modal-close
+    label: AI 모달 닫기
+    type: button
+    area: ins-ai-modal
+    event: "onclick / 오버레이 바깥 클릭"
+    front: { handler: closeInsAiModal(), file: "insights.js:165" }
+    backend: null
+
+# ── 백엔드 API 상세 ──
+apis:
+  - path: /api/budget-summary
+    method: POST
+    handler: "handleBudgetSummary (server.js:216-226), 라우트 등록 server.js:119"
+    called_by: "insBudgetAiSummary() (insights.js:106-122)"
+    request_schema:
+      project: string
+      total: number(총 실행예산 억, =budget)
+      baseTotal: number(계약 원가 기준 억, =base)
+      accounts: "[{name, base(기준 vals), current(V4 vals), delta=current-base}]  (인건비/외주비/재료비/경비)"
+    request_example: |
+      {
+        "project":"SKON 통합관제","total":27.2,"baseTotal":26.5,
+        "accounts":[
+          {"name":"인건비","base":11.1,"current":10.9,"delta":-0.2},
+          {"name":"외주비","base":8.7,"current":9.5,"delta":0.8},
+          {"name":"재료비","base":4.5,"current":4.6,"delta":0.1},
+          {"name":"경비","base":2.1,"current":2.2,"delta":0.1}
+        ]
+      }
+    response_success: "{ summary: '<한국어 3~4문장>', source: 'ai' }"
+    response_fallback: "{ summary: '<localBudgetSummary>', source: 'fallback', note?: '<에러메시지>' }"
+    validation: "body.accounts 배열 아니면 400 (server.js:217)"
+    branch: >
+      OPENAI_API_KEY 없으면 localBudgetSummary 폴백(server.js:219-220).
+      있으면 callLLM(buildBudgetPrompt) → 실패/빈응답 시 폴백+note.
+    prompt:
+      builder: "buildBudgetPrompt(d) (server.js:167-176)"
+      instruction: >
+        총 실행예산을 유지하며 계정 간 배분만 이동하는 '예산 돌려쓰기'를 비개발자 PM이 이해하기 쉽게 3~4문장 요약.
+        억 단위, 어느 계정이 늘고 줄었는지+주의점 중심. 마크다운·불릿 금지.
+    fallback_rule:
+      builder: "localBudgetSummary(d) (server.js:156-166)"
+      logic: "증가 계정(ups)/감소 계정(dns) 분리·정렬 → '총액 동일하나 배분 이동, dns 줄고 ups로 옮겨감, 최대증가 계정 주의' 문장 생성."
+    llm_common:
+      fn: "callLLM (server.js:178-215)"
+      model: "OPENAI_MODEL || gpt-4o-mini"
+      key: "process.env.OPENAI_API_KEY (env only)"
+      params: "max_tokens 600, timeout 20s"
+      security: "브라우저는 서버 경유만 → API 키 클라이언트 미노출"
+
+# ── 데이터 모델 ──
+data:
+  state_vars:
+    - { name: insTab,        shape: string, file: insights.js:7,  purpose: "현재 탭(version)" }
+    - { name: insProject,    shape: number, file: insights.js:8,  purpose: 현재 프로젝트 인덱스 }
+    - { name: insVerAcct,    shape: "'전체'|계정명", file: insights.js:53, purpose: 계정 필터(전역 유지) }
+    - { name: insVerUnit,    shape: "'금액'|'비율'", file: insights.js:54, purpose: 단위 토글(전역 유지) }
+    - { name: insVerExpanded, shape: "{계정명:bool}", file: insights.js:55, purpose: 계정별 상세 펼침(전역 유지) }
+  derived_fns:
+    - name: projVersions
+      file: insights.js:68-77
+      note: >
+        버전별 배분(돌려쓰기 핵심). B=budget(버전 동일). cur={인건비0.40,외주비0.35,재료비0.17,경비0.08}.
+        shift=[0.055,0.036,0.018,0](V1→V4 인건비→외주비 이동). 각 버전 인건비=B*(cur.인건비+s), 외주비=B*(cur.외주비-s), 재료비=B*0.17, 경비=B*0.08.
+    - name: projBaseline
+      file: insights.js:78-81
+      note: "기준선 배분. base를 {인건비0.42,외주비0.33,재료비0.17,경비0.08}로 안분."
+    - name: insVerCols
+      file: insights.js:82-85
+      note: "[{label:'기준',sub:'계약원가',vals:projBaseline,isBase:true}, ...projVersions 4개]. 총 5컬럼."
+    - { name: colTotal,        file: insights.js:86, note: "컬럼 4계정 합" }
+    - { name: insVerVal,       file: insights.js:87, note: "비율=vals/colTotal*100, 금액=원값" }
+    - { name: insVerFmt,       file: insights.js:88, note: "비율 'N.N%'/금액 'N.N억'" }
+    - { name: insVerDeltaUnit, file: insights.js:89, note: "비율 '%p'/금액 '억'" }
+    - { name: insVerAllChart,  file: insights.js:186-210, note: "전체 차트(비율 누적/금액 그룹)" }
+    - { name: insVerOneChart,  file: insights.js:167-184, note: "개별 계정 차트(기준선+막대+증감)" }
+    - { name: insVerTable,     file: insights.js:212-242, note: "표(기준+V1~V4+증감+상세펼침+합계행)" }
+    - { name: openInsAiModal,  file: insights.js:123-143, note: "공통 AI 모달(원가 소진율 탭과 공유, 기본 title '예산 변동 요약')" }
+  datasets:
+    - name: INS_PROJECTS
+      file: insights.js:23-34
+      count: 5
+      used_fields: "base(기준 배분 총원), budget(버전 총액)"
+    - name: INS_ACCTS
+      file: insights.js:49-52
+      note: "4대계정+색(인건비 #2f6bed, 외주비 #ea002c, 재료비 #f5a623, 경비 #22b07d)"
+    - name: INS_SUB_ACCTS
+      file: insights.js:61-66
+      note: "계정별 상세계정 배분비율(합 1.0). 인건비3/외주비6/재료비3/경비5"
+  constants:
+    - { name: "기준 비율", value: "{인건비:0.42, 외주비:0.33, 재료비:0.17, 경비:0.08}", file: insights.js:79 }
+    - { name: "V4 비율", value: "{인건비:0.40, 외주비:0.35, 재료비:0.17, 경비:0.08}", file: insights.js:70 }
+    - { name: "shift(이동량)", value: "[0.055, 0.036, 0.018, 0]", file: insights.js:71 }
+  invariant: "인건비 증가분 = 외주비 감소분 → 총액(budget) 버전 내내 일정. V1 인건비 최대(초기), V4 외주비 최대(현재)."
+  column_objects:
+    - { name: 기준, shape: "{label:'기준', sub:'계약원가', vals:{인건비,외주비,재료비,경비}, isBase:true}" }
+    - { name: 버전, shape: "{label:'V1'..'V4', sub:'', vals:{...}}" }
+
+# ── 대표 플로우 ──
+flows:
+  - name: 버전별 예산 돌려쓰기 분석 + AI 요약
+    steps:
+      - "인사이트 진입 후 '버전별 예산' 탭 → #/insights/version"
+      - "기본 전체(금액) 모드: 그룹 컬럼 차트로 기준+V1~V4 계정 배분 비교(기준 컬럼 흐리게)"
+      - "표에서 계정별 기준→V1~V4 값과 증감(V4−기준) 확인"
+      - "계정 세그먼트로 특정 계정 선택 → 개별 차트(기준선+버전 막대+증감) 전환"
+      - "단위 세그먼트 [비율] → 100% 누적 스택 차트·표 %로 전환(증감 %p)"
+      - "표에서 계정 [+] → 상세계정(실투입/이관/OT 등) 펼침(부모값×비율)"
+      - "[✦ AI 요약] → 모달 스피너 → /api/budget-summary 응답을 3~4문장으로 표시(AI/샘플 라벨)"
+
+# ── 요구사항 후보(FR) ──
+requirements:
+  - { id: FR-INS-VR-01, text: 버전별 예산은 총 실행예산을 버전 내내 고정한 채 계정 간 배분 이동('돌려쓰기')을 표현한다 }
+  - { id: FR-INS-VR-02, text: 기준선(계약 원가 배분) 대비 각 버전(V1~V4)의 계정 증감을 차트와 표로 제공한다 }
+  - { id: FR-INS-VR-03, text: 인건비 증가분과 외주비 감소분이 상쇄되어 총액이 일정하다는 불변식을 데이터가 만족한다 }
+  - { id: FR-INS-VR-04, text: 계정 필터(전체/인건비/외주비/재료비/경비)를 제공하고 전체는 그룹/누적 차트, 개별은 기준선+막대 차트로 전환한다 }
+  - { id: FR-INS-VR-05, text: 금액↔비율 단위 토글을 제공하고 비율 모드에서는 100% 누적 차트와 %/%p 단위로 표현한다 }
+  - { id: FR-INS-VR-06, text: 표에서 계정별 [+]로 상세계정을 펼치고 배분비율로 안분한 값과 증감을 보인다 }
+  - { id: FR-INS-VR-07, text: 전체 모드 표에는 합계행을 제공한다(금액=합, 비율=100%) }
+  - { id: FR-INS-VR-08, text: AI 요약은 기준 대비 V4 계정 증감을 근거로 3~4문장 돌려쓰기 요약을 생성하고 LLM 미설정/실패 시 규칙 기반 폴백을 제공한다 }
+  - { id: FR-INS-VR-09, text: AI 요약 모달은 생성 출처(AI/샘플)를 표시하고 원가 소진율 탭과 동일한 모달 컴포넌트를 재사용한다 }
+  - { id: FR-INS-VR-10, text: 계정/단위/펼침 상태는 전역으로 유지되어 프로젝트 전환 시에도 보기 설정이 보존된다 }
+  - { id: FR-INS-VR-11, text: 메인 챗 네비게이터는 버전/돌려/배분 키워드를 insights-version 라우트로 안내한다 }
+
+# ── 관련 소스 파일 ──
+source_index:
+  insights_js:
+    - insVersionHtml:707
+    - insVerPanel:91
+    - insVerCols:82
+    - projBaseline:78
+    - projVersions:68
+    - insVerAllChart:186
+    - insVerOneChart:167
+    - insVerTable:212
+    - insBudgetAiSummary:106
+    - openInsAiModal:123
+    - "INS_ACCTS:49"
+    - "INS_SUB_ACCTS:61"
+    - "selectInsVerAcct/setInsVerUnit/toggleInsVerAcct:56-58"
+  server_js:
+    - handleBudgetSummary:216
+    - buildBudgetPrompt:167
+    - localBudgetSummary:156
+    - callLLM:178
+    - "localNavigate(version 키워드):498"
+  app_js:
+    - "insHash('version'):1248"
+    - DYNAMIC_ROUTES:129
+    - "SCREEN_ROUTES['s-insights']:64"
+  docs:
+    - docs/인사이트/버전별예산.md
+    - docs/03-인사이트.md

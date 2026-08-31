@@ -839,7 +839,14 @@
 }
 .exec-budget-table {
   table-layout: fixed;
-  min-width: 1280px;
+  min-width: 1390px;
+}
+/* 목록 각 행은 항상 한 줄 — 프로젝트번호/기간이 접히지 않게 합니다. */
+.exec-budget-table thead th,
+.exec-budget-table tbody td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .exec-budget-table thead th {
   position: sticky;
@@ -857,9 +864,9 @@
   padding-bottom: 6px;
 }
 .exec-budget-table th:nth-child(1),
-.exec-budget-table td:nth-child(1) { width: 135px; }
+.exec-budget-table td:nth-child(1) { width: 150px; }
 .exec-budget-table th:nth-child(2),
-.exec-budget-table td:nth-child(2) { width: 390px; }
+.exec-budget-table td:nth-child(2) { width: 360px; }
 .exec-budget-table th:nth-child(3),
 .exec-budget-table td:nth-child(3) { width: 130px; }
 .exec-budget-table th:nth-child(4),
@@ -871,7 +878,7 @@
 .exec-budget-table th:nth-child(7),
 .exec-budget-table td:nth-child(7) { width: 150px; }
 .exec-budget-table th:nth-child(8),
-.exec-budget-table td:nth-child(8) { width: 190px; }
+.exec-budget-table td:nth-child(8) { width: 205px; }
 .exec-budget-table .pt-name {
   font-size: 14px;
   white-space: nowrap;
@@ -8237,41 +8244,124 @@
   gap: 14px;
 }
 .custom-report-hero {
+  position: relative;
+  overflow: hidden;
   display: flex;
   justify-content: space-between;
   gap: 18px;
-  padding: 18px;
-  border: 1px solid #fed7aa;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #fffaf7 0%, #ffffff 76%);
-  box-shadow: none;
+  padding: 20px 22px;
+  border: 1px solid #e3e7fb;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f4f6ff 0%, #f8f5ff 52%, #ffffff 100%);
+  box-shadow: 0 1px 2px rgba(79,70,229,.05), 0 8px 26px rgba(99,102,241,.07);
 }
+.custom-report-hero::after {
+  content: "";
+  position: absolute;
+  right: -60px; top: -70px;
+  width: 220px; height: 220px;
+  background: radial-gradient(circle, rgba(124,92,255,.16), rgba(47,107,237,0) 70%);
+  pointer-events: none;
+}
+.cr-hero-main { position: relative; z-index: 1; }
+.cr-hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 900; letter-spacing: .01em;
+  color: #4f46e5;
+  background: rgba(99,102,241,.09);
+  padding: 4px 11px; border-radius: 999px;
+}
+.cr-spark { color: #7c5cff; font-weight: 900; }
 .custom-report-hero p {
-  margin: 6px 0 0;
-  color: #64748b;
-  font-size: 15px;
-  font-weight: 800;
+  margin: 8px 0 0;
+  color: #5b6472;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.55;
+  max-width: 620px;
 }
+.custom-report-hero p b { color: #4f46e5; }
 .custom-report-ai {
+  position: relative;
+  z-index: 1;
   min-width: 280px;
   align-self: stretch;
   display: grid;
   align-content: center;
   gap: 6px;
-  padding: 14px;
-  border: 1px solid #fed7aa;
+  padding: 16px;
+  border: 1px solid #dfe0fb;
   border-radius: 14px;
-  background: #fff7ed;
+  background: linear-gradient(135deg, #eef1ff 0%, #f4efff 100%);
 }
 .custom-report-ai span {
-  color: #c2410c;
-  font-size: 14px;
+  display: inline-flex; align-items: center; gap: 5px;
+  color: #4f46e5;
+  font-size: 13px;
   font-weight: 950;
 }
 .custom-report-ai strong {
-  color: #0f172a;
-  font-size: 16px;
+  color: #1e2432;
+  font-size: 15px;
+  line-height: 1.5;
 }
+/* 맞춤 레포트 AI 자연어 질의 (LLM → SQL) */
+.cr-ai-panel { border: 1px solid #dfe6ef; border-radius: 14px; background: linear-gradient(180deg,#f7faff,#ffffff); padding: 16px 18px; margin-bottom: 16px; }
+.cr-ai-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.cr-ai-chip { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; background: #2f6bed; color: #fff; font-size: 12px; font-weight: 800; }
+.cr-ai-title { font-size: 14px; font-weight: 700; color: #2b3442; }
+.cr-ai-title b { color: #16151f; }
+.cr-ai-tag2 { font-size: 11px; font-weight: 800; color: #2f6bed; background: #e9f0ff; padding: 2px 8px; border-radius: 6px; margin-left: 6px; letter-spacing: .02em; }
+/* 운영자 SQL 표시 토글 바 */
+.cr-op-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: #fff; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 9px 13px; margin-bottom: 12px; }
+.cr-op-note { font-size: 12.5px; color: #64748b; }
+.cr-op-note b { color: #b45309; }
+.cr-op-toggle { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #cbd5e1; background: #f8fafc; color: #64748b; font-size: 12.5px; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.cr-op-toggle i { width: 30px; height: 16px; border-radius: 999px; background: #cbd5e1; position: relative; transition: .15s; flex: 0 0 auto; }
+.cr-op-toggle i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: .15s; }
+.cr-op-toggle.on { border-color: #2f6bed; color: #1d4ed8; background: #eff4ff; }
+.cr-op-toggle.on i { background: #2f6bed; }
+.cr-op-toggle.on i::after { left: 16px; }
+
+/* 조건 선택 패널 */
+.cr-cond { background: #fff; border: 1px solid #e5e9ef; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+.cr-cond-title { font-size: 13px; font-weight: 800; color: #2b3442; margin-bottom: 10px; }
+.cr-cond-title span { font-size: 11.5px; font-weight: 600; color: #94a3b8; margin-left: 6px; }
+.cr-cond-row { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: start; padding: 6px 0; }
+.cr-cond-row + .cr-cond-row { border-top: 1px solid #f1f5f9; }
+.cr-cond-label { font-size: 12.5px; font-weight: 700; color: #55606f; padding-top: 5px; }
+.cr-cond-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cr-cond-chip { border: 1px solid #dbe3ec; background: #fff; color: #55606f; font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; cursor: pointer; }
+.cr-cond-chip:hover { border-color: #94a3b8; }
+.cr-cond-chip.on { border-color: #2f6bed; background: #2f6bed; color: #fff; }
+.cr-ai-op-only { font-size: 10.5px; font-weight: 800; color: #fbbf24; background: rgba(251,191,36,.15); padding: 1px 7px; border-radius: 5px; margin-left: 4px; }
+
+.cr-ai-inputrow { display: flex; gap: 8px; }
+.cr-ai-inputrow input { flex: 1; height: 40px; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0 14px; font-size: 14px; color: #0f172a; background: #fff; }
+.cr-ai-inputrow input:focus { outline: none; border-color: #2f6bed; box-shadow: 0 0 0 3px #e9f0ff; }
+.cr-ai-examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.cr-ai-examples button { border: 1px solid #dbe3ec; background: #fff; color: #55606f; font-size: 12px; font-weight: 600; padding: 6px 11px; border-radius: 999px; cursor: pointer; }
+.cr-ai-examples button:hover { border-color: #2f6bed; color: #2f6bed; background: #f5f8ff; }
+.cr-ai-result { margin-top: 14px; }
+.cr-ai-result:empty { margin-top: 0; }
+.cr-ai-loading { display: flex; align-items: center; gap: 10px; padding: 14px 2px; font-size: 13px; font-weight: 700; color: #64748b; }
+.cr-ai-spin { width: 18px; height: 18px; border-radius: 50%; border: 3px solid #e2e8f0; border-top-color: #2f6bed; animation: crspin .8s linear infinite; }
+@keyframes crspin { to { transform: rotate(360deg); } }
+.cr-ai-sql { background: #0f172a; border-radius: 10px; padding: 11px 14px; margin-bottom: 12px; overflow-x: auto; }
+.cr-ai-sql-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.5px; font-weight: 800; color: #94a3b8; margin-bottom: 6px; }
+.cr-ai-sql pre { margin: 0; font-family: "Consolas","Menlo",monospace; font-size: 13px; line-height: 1.5; color: #e2e8f0; white-space: pre-wrap; word-break: break-word; }
+.cr-ai-src { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 6px; background: #334155; color: #cbd5e1; }
+.cr-ai-src.ai { background: #1d4ed8; color: #fff; }
+.cr-ai-count { font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 6px; }
+.cr-ai-err { font-size: 13px; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 12px; }
+.cr-ai-tablewrap { overflow-x: auto; border: 1px solid #e5e9ef; border-radius: 10px; }
+.cr-ai-table { width: 100%; border-collapse: collapse; background: #fff; font-size: 13px; }
+.cr-ai-table th { text-align: left; font-size: 11.5px; font-weight: 700; color: #64748b; background: #f8fafc; padding: 9px 12px; border-bottom: 1px solid #e5e9ef; white-space: nowrap; }
+.cr-ai-table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; color: #0f172a; white-space: nowrap; }
+.cr-ai-table tr:last-child td { border-bottom: 0; }
+.cr-ai-table tr:hover td { background: #fbfcfe; }
+.cr-ai-null { color: #cbd5e1; }
+
 .custom-report-toolbar {
   display: grid;
   grid-template-columns: 220px minmax(260px, 1fr) auto;
@@ -8307,24 +8397,64 @@
   align-items: center;
 }
 .custom-report-presets button {
-  border: 1px solid #fed7aa;
+  border: 1px solid #d8dee9;
   border-radius: 999px;
   background: #ffffff;
-  color: #9a3412;
-  padding: 8px 12px;
-  font-weight: 950;
+  color: #475569;
+  padding: 8px 14px;
+  font-weight: 800;
+  font-size: 13px;
   cursor: pointer;
+  transition: .13s;
 }
 .custom-report-presets button:hover {
-  background: #fff7ed;
-  border-color: #fb923c;
+  background: #f8fafc;
+  border-color: #94a3b8;
 }
-.custom-report-presets span {
+.cr-preset-ailabel {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12.5px; font-weight: 900; color: #4f46e5;
+  padding-left: 6px;
+}
+.custom-report-presets button.cr-preset-ai {
+  border-color: #c7cbfb;
+  background: linear-gradient(135deg, #eef1ff, #f3efff);
+  color: #4338ca;
+}
+.custom-report-presets button.cr-preset-ai:hover {
+  border-color: #7c5cff;
+  background: linear-gradient(135deg, #e6ebff, #ece5ff);
+  box-shadow: 0 2px 10px rgba(99,102,241,.15);
+}
+.custom-report-presets .cr-preset-count {
   margin-left: auto;
   color: #64748b;
-  font-size: 14px;
-  font-weight: 900;
+  font-size: 13px;
+  font-weight: 800;
 }
+.custom-report-presets .cr-preset-count b { color: #4f46e5; }
+.custom-report-page input[type="checkbox"] { accent-color: #4f46e5; }
+
+/* 맞춤 레포트 AI 도우미 채팅 */
+.report-chat { border: 1px solid #e3e7fb; border-radius: 16px; background: linear-gradient(180deg, #f7f8ff, #ffffff); overflow: hidden; }
+.rc-head { display: flex; align-items: center; gap: 7px; padding: 13px 16px; border-bottom: 1px solid #eceefb; font-size: 14px; font-weight: 900; color: #1e2432; background: #fff; }
+.rc-head .rc-sub { margin-left: 4px; font-size: 12px; font-weight: 700; color: #94a3b8; }
+.rc-body { max-height: 260px; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.rc-empty { font-size: 13px; color: #64748b; line-height: 1.6; padding: 8px 2px; }
+.rc-empty b { color: #4f46e5; }
+.rc-msg { max-width: 84%; font-size: 13.5px; line-height: 1.55; }
+.rc-msg.user { align-self: flex-end; background: #2f6bed; color: #fff; font-weight: 700; padding: 9px 13px; border-radius: 13px 13px 3px 13px; }
+.rc-msg.ai { align-self: flex-start; display: flex; gap: 8px; }
+.rc-ai-ic { flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, #6366f1, #7c5cff); color: #fff; font-size: 12px; font-weight: 900; }
+.rc-ai-body { background: #fff; border: 1px solid #e6e9f2; color: #1e2432; font-weight: 600; padding: 9px 13px; border-radius: 3px 13px 13px 13px; }
+.rc-ai-body.rc-loading { display: inline-flex; align-items: center; gap: 8px; color: #64748b; font-weight: 700; }
+.rc-applied { margin-top: 7px; font-size: 12px; font-weight: 800; color: #16a34a; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 5px 9px; }
+.rc-examples { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; }
+.rc-examples button { border: 1px solid #dbe3ec; background: #fff; color: #55606f; font-size: 12px; font-weight: 600; padding: 6px 11px; border-radius: 999px; cursor: pointer; }
+.rc-examples button:hover { border-color: #7c5cff; color: #4f46e5; background: #f6f7ff; }
+.rc-inputrow { display: flex; gap: 8px; padding: 0 16px 16px; }
+.rc-inputrow input { flex: 1; height: 40px; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0 14px; font-size: 14px; color: #0f172a; background: #fff; }
+.rc-inputrow input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px #eef1ff; }
 .custom-report-layout {
   display: grid;
   grid-template-columns: 1fr;
@@ -8333,19 +8463,25 @@
 }
 .custom-report-field-card,
 .custom-report-result-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e6e9f2;
   border-radius: 16px;
   background: #fff;
   overflow: hidden;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 6px 20px rgba(79,70,229,.05);
 }
 .custom-report-card-title,
 .custom-report-result-head {
   padding: 14px 16px;
-  border-bottom: 1px solid #e2e8f0;
-  background: #fffaf7;
-  color: #0f172a;
-  font-weight: 950;
+  border-bottom: 1px solid #eceefb;
+  background: linear-gradient(180deg, #f6f7ff, #ffffff);
+  color: #1e2432;
+  font-weight: 900;
+}
+.custom-report-card-title { position: relative; padding-left: 30px; }
+.custom-report-card-title::before {
+  content: "✦";
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  color: #7c5cff; font-weight: 900; font-size: 13px;
 }
 .custom-report-field-group {
   display: grid;
@@ -8364,7 +8500,7 @@
   gap: 8px;
   min-height: 36px;
   margin-bottom: 0;
-  color: #9a3412;
+  color: #4338ca;
   font-weight: 950;
 }
 .custom-report-group-head span {
@@ -8382,30 +8518,37 @@
   align-items: center;
   gap: 6px;
   padding: 8px;
-  border: 1px solid #f1f5f9;
+  border: 1px solid #eef1f6;
   border-radius: 10px;
   color: #334155;
   font-size: 14px;
   font-weight: 800;
+  transition: .12s;
 }
+.custom-report-field-list label:has(input:checked) {
+  border-color: #c7cbfb;
+  background: #f6f7ff;
+}
+.custom-report-field-list label input { accent-color: #4f46e5; }
 .custom-report-field-list label.locked {
-  border-color: #fed7aa;
-  background: #fff7ed;
-  color: #9a3412;
+  border-color: #dfe0fb;
+  background: #eef1ff;
+  color: #4338ca;
 }
 .custom-report-field-list label.locked input {
   cursor: not-allowed;
 }
 .custom-report-field-list label em {
   margin-left: auto;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 999px;
-  background: #ffffff;
-  color: #ea580c;
+  background: #eef1ff;
+  color: #4f46e5;
   font-size: 12px;
   font-style: normal;
   font-weight: 950;
 }
+.custom-report-field-list label.locked em { background: #fff; color: #6366f1; }
 .custom-report-result-head {
   display: flex;
   align-items: center;
@@ -9210,3 +9353,156 @@ tbody td,
 .expm-bar-bg {
   background: #ffedd5 !important;
 }
+
+/* 실행예산 계정별 작성 — [이력·계정별 작성·결재] 탭과 [임시저장·결재 상신] 버튼을 한 줄에 둡니다.
+   버튼 묶음이 마크업상 탭보다 앞에 있으므로, 오른쪽으로 흘려보내고 탭이 그 왼쪽 라인에 오게 합니다. */
+.setup-overview.compact > .setup-top-actions {
+  float: right;
+  align-items: center;
+  min-height: 54px;          /* 탭 묶음(.budget-flow-stepper)과 같은 높이 → 버튼이 세로 중앙 */
+  margin: 0 0 0 12px;
+}
+.setup-overview.compact > .setup-version-note {
+  clear: both;               /* 버튼 묶음이 아래 내용까지 밀고 들어오지 않게 끊습니다 */
+}
+
+/* ── CP총액(선행 승인 한도) 참고 버튼 · 한도 바 · 팝업 ────────────────── */
+.setup-version-note .cp-ref-btn {
+  margin-left: auto;                     /* 작성자/상태(em) 바로 왼쪽에 붙습니다 */
+  border: 1px solid #c7d2fe; border-radius: 999px; background: #eef2ff;
+  color: #3730a3; font-size: 13px; font-weight: 800; padding: 5px 12px;
+  cursor: pointer; white-space: nowrap;
+}
+.setup-version-note .cp-ref-btn:hover { border-color: #6366f1; background: #e0e7ff; }
+.setup-version-note .cp-ref-btn.over { border-color: #fca5a5; background: #fef2f2; color: #b91c1c; }
+.setup-version-note .cp-ref-btn ~ em { margin-left: 12px; }
+
+.cp-limit { margin-top: 12px; padding: 11px 14px; border: 1px solid #dbe4ea; border-radius: 12px; background: #f8fafc; }
+.cp-limit.over { border-color: #fca5a5; background: #fef2f2; }
+.cp-limit-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: #475569; }
+.cp-limit-head b { color: #1e293b; font-weight: 800; }
+.cp-limit.over .cp-limit-head b { color: #b91c1c; }
+.cp-limit-head em { margin-left: auto; font-style: normal; font-weight: 800; }
+.cp-limit-head em.ok { color: #15803d; }
+.cp-limit-head em.bad { color: #b91c1c; }
+.cp-limit-bar { height: 6px; margin: 8px 0 0; border-radius: 3px; background: #e2e8f0; overflow: hidden; }
+.cp-limit-bar > i { display: block; height: 100%; border-radius: 3px; background: #6366f1; }
+.cp-limit.over .cp-limit-bar > i { background: #ef4444; }
+.cp-limit-note { margin-top: 7px; font-size: 12px; color: #64748b; line-height: 1.6; }
+
+.cp-pop-dim { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center;
+  background: rgba(15, 23, 42, .38); padding: 20px; }
+.cp-pop { width: min(720px, 100%); max-height: 82vh; overflow: auto; background: #fff;
+  border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 24px 60px -28px rgba(15, 23, 42, .5); }
+.cp-pop-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #eef2f7; }
+.cp-pop-head strong { display: block; font-size: 16px; color: #0f172a; }
+.cp-pop-head span { display: block; margin-top: 4px; font-size: 13px; color: #64748b; line-height: 1.6; }
+.cp-pop-head button { margin-left: auto; flex: 0 0 auto; }
+.cp-pop-table { width: 100%; border-collapse: collapse; }
+.cp-pop-table th, .cp-pop-table td { padding: 11px 18px; font-size: 14px; text-align: left; border-bottom: 1px solid #eef2f7; white-space: nowrap; }
+.cp-pop-table th { background: #f8fafc; font-size: 13px; color: #64748b; font-weight: 800; }
+.cp-pop-table td.num, .cp-pop-table th.num { text-align: right; font-weight: 800; }
+.cp-pop-table tr.over > td { background: #fffbeb; }
+.cp-pop-table td.ok { color: #15803d; }
+.cp-pop-table td.bad { color: #b91c1c; }
+.cp-pop-table tfoot td { background: #f8fafc; font-weight: 900; color: #0f172a; border-bottom: 0; }
+
+/* 경비 자원계획은 원가조정 화면 안에 들어가 있으므로, 수주형 상세(.sifr)의
+   max-width:1180px 중앙정렬을 풀고 편집 영역 폭을 그대로 채우게 합니다. */
+.setup-editor .expense-plan-sifr,
+.setup-expanded-detail .expense-plan-sifr {
+  max-width: none;
+  margin: 0;
+}
+/* 표 하단 합계 행 */
+.expense-plan-sifr tfoot .exp-total-row > td {
+  background: #F7FAF9;
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+  font-weight: 800;
+  color: var(--ink);
+}
+.expense-plan-sifr tfoot .exp-total-row > td.exp-in-col { background: #EDF7F3; }
+.expense-plan-sifr tfoot .exp-total-row .exp-acct-sub { font-weight: 600; }
+
+/* CP총액 버튼을 한도 막대 오른쪽에 나란히 */
+.cp-limit-row { display: flex; align-items: center; gap: 12px; margin: 8px 0 0; }
+.cp-limit-row .cp-limit-bar { flex: 1 1 auto; margin: 0; }
+.cp-limit-row .cp-ref-btn {
+  flex: 0 0 auto;
+  border: 1px solid #c7d2fe; border-radius: 999px; background: #eef2ff;
+  color: #3730a3; font-size: 13px; font-weight: 800; padding: 5px 12px;
+  cursor: pointer; white-space: nowrap;
+}
+.cp-limit-row .cp-ref-btn:hover { border-color: #6366f1; background: #e0e7ff; }
+.cp-limit-row .cp-ref-btn.over { border-color: #fca5a5; background: #fef2f2; color: #b91c1c; }
+
+/* [프로젝트 총 실행 비용] 탭 — 계정별 합계표 */
+.total-cost-table { border: 1px solid #dbe4ea; border-radius: 14px; background: #fff; overflow: hidden; }
+.tct-head { padding: 13px 16px; border-bottom: 1px solid #eef2f7; }
+.tct-head strong { font-size: 15px; color: #0f172a; }
+.tct-head span { display: block; margin-top: 4px; font-size: 12.5px; color: #64748b; line-height: 1.6; }
+.tct-scroll { overflow-x: auto; }
+.tct-table { width: 100%; border-collapse: collapse; }
+.tct-table th, .tct-table td {
+  padding: 10px 14px; font-size: 14px; text-align: left;
+  border-bottom: 1px solid #eef2f7; white-space: nowrap;
+}
+.tct-table th { background: #f8fafc; font-size: 13px; color: #64748b; font-weight: 800; }
+.tct-table th.num, .tct-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tct-table td.tct-acct { font-weight: 800; color: #0f172a; }
+.tct-table td.tct-acct em {
+  margin-left: 6px; font-style: normal; font-size: 11px; font-weight: 700;
+  color: #0B6E55; background: #E7F5F0; border-radius: 5px; padding: 2px 7px;
+}
+.tct-table td.tct-done { color: #15803d; font-weight: 700; }
+.tct-table td.tct-open { color: #2f6bed; font-weight: 700; }
+/* 연도 묶음 셀은 여러 달을 colspan으로 덮으므로, 우측정렬이면 값이 화면 밖으로 밀립니다 → 가운데 */
+.tct-table td.tct-year { background: #f6fbf9; font-weight: 800; text-align: center; }
+.tct-table td.tct-year + td.tct-year { border-left: 1px solid #e2ece8; }
+.tct-table tfoot td { background: #f8fafc; font-weight: 900; color: #0f172a; border-bottom: 0; }
+.tct-note { margin: 0; padding: 10px 16px; border-top: 1px solid #eef2f7; font-size: 12px; color: #64748b; }
+/* 합계 행: 월별 합계가 경비를 제외한다는 표시 */
+.tct-table tfoot td.tct-acct em.tct-foot-hint {
+  margin-left: 8px; font-style: normal; font-size: 11px; font-weight: 700;
+  color: #64748b; background: #eef2f7; border-radius: 5px; padding: 2px 7px;
+}
+
+/* ── 실행예산 상단 프로젝트 기본정보 (탭 줄 위) ────────────────────────── */
+/* 코드 · 프로젝트명 · 상태 · 기간 · PM · 유형을 가로 한 줄로 나열 */
+.budget-proj-info {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 14px;
+  padding: 11px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fbfcfe 0%, #ffffff 70%);
+  overflow-x: auto;                      /* 좁은 화면에서도 줄이 접히지 않고 가로 스크롤 */
+}
+.bpi-code {
+  flex: 0 0 auto;
+  font-size: 13px; font-weight: 800; color: #3730a3;
+  background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 7px; padding: 3px 9px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.bpi-name {
+  flex: 0 1 auto; min-width: 0;
+  font-size: 16px; font-weight: 800; color: #0f172a; letter-spacing: -0.2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.budget-proj-info em {
+  flex: 0 0 auto;
+  font-style: normal; font-size: 12px; font-weight: 800;
+  border-radius: 999px; padding: 3px 10px; white-space: nowrap;
+}
+.bpi-status { color: #15803d; background: #eefaf5; border: 1px solid #bfe8d8; }
+.bpi-dplus { color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; }
+.bpi-item {
+  flex: 0 0 auto;
+  display: flex; align-items: baseline; gap: 6px;
+  padding-left: 16px; margin-left: 6px;
+  border-left: 1px solid #e5e7eb;        /* 항목 구분선 */
+}
+.bpi-item:first-of-type { margin-left: auto; }   /* 기간부터는 오른쪽으로 밀어 붙입니다 */
+.bpi-item span { font-size: 12.5px; font-weight: 700; color: #94a3b8; white-space: nowrap; }
+.bpi-item b { font-size: 13.5px; font-weight: 700; color: #334155; white-space: nowrap; }

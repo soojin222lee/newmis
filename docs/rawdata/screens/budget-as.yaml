@@ -1,0 +1,171 @@
+# rawdata: 원가조정 > A/S Cost 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+# 근거: 최종 유효본 기준. 상세는 docs/수행원가/계정/AS비.md 참조.
+
+screen:
+  id: s-budget-as
+  name: 원가조정 - A/S Cost (CATS[4], 하자보수 원가·유형별 행 직접입력)
+  menu_path: 수행원가 > 원가조정 > A/S Cost
+  route: "#/budget-adjust/as?pj=<프로젝트키>"
+  entry: "openCostArea('A/S Cost', pj||'budgetMock') → renderBudgetAccountEditor(data,'A/S Cost')"
+  source_files:
+    - public/js/budget-area-as.js         # ★A/S Cost 전용 데이터/렌더/데코레이터(주 소스, 모든 로직 집중)
+    - public/js/budget-area-routes.js     # #/budget-adjust/as 라우트(:7)
+    - public/js/budget-status.js          # CATS(:742), 공통 렌더 파이프라인
+    - public/js/budget-status-3.js        # 데코레이터 위임/override 원본
+    - public/js/budget-status-4.js        # 데코레이터 위임/override 원본(renderBudgetAccountEditor 등)
+  purpose: >
+    프로젝트 종료 후 하자보수(A/S) 단계 투입 원가를 계획한다. A/S 프로젝트에 별도로 수립할
+    인건비·외주비(예약 인력/공사MA)·재료비·경비를 5개 유형별 행으로 직접 입력하고, 그 합계를
+    A/S비 계획 총액(plan[CATS[4]])으로 반영한다. 기본 시드 48,918,351원.
+  load_order_note: >
+    데코레이터(계정편집기/월별표/집행계획/상세행)는 자기 계정(CATS[4])만 처리하고 나머지는 이전 정의로
+    위임하는 체인 패턴. 반드시 budget-status-*.js 전부 뒤에 로드되어야 최종 버전을 감싸며 동작(:4).
+
+# ── 화면 상태 ──
+states:
+  - id: default
+    when: "A/S Cost 계정 진입"
+    shows: [상단_월별예산표, 요약카드, 안내문, 5개_편집테이블, "A/S비 계획 저장 버튼"]
+  - id: empty-table
+    when: "asCostRows[kind].length == 0"
+    shows: ["'등록된 데이터가 없습니다.' 행(renderAsCostTable:108)"]
+  - id: row-added
+    when: "addAsCostRow 후"
+    effect: 해당 유형 테이블에 템플릿 행 추가 + 재렌더(요약카드/합계 갱신)
+  - id: inline-edit
+    when: "셀 인라인 입력"
+    effect: "updateAsCostInput in-place 갱신(재렌더 없음). 인건비/외주(예약) 금액 컬럼은 계산 결과 표시(입력 아님)"
+
+# ── 요소(버튼/입력) 인벤토리 ── ★ 버튼 단위 프론트/검증/결과
+elements:
+  - id: btn-as-add-row
+    label: "항목 추가 (유형별 x5: labor/outsourcePeople/outsourceMa/material/expense)"
+    type: button
+    area: 각 유형 테이블 헤드
+    event: onclick
+    front:
+      handler: "addAsCostRow(kind)"
+      file: budget-area-as.js:68
+      logic: >
+        유형별 템플릿 push 후 renderBudgetPage() 재렌더. 템플릿 기본값 —
+        labor{role,grade,unitPrice:0,mm:0,laborAmount:0,indirectAmount:0},
+        outsourcePeople{role,contractStatus:'미확정',vendor,grade,unitPrice:0,mm:0},
+        outsourceMa/material{major,middle,minor,expectedDate,amount:0}, expense{account,amount:0}.
+      state_writes: [asCostRows]
+    validation: null
+    backend: null
+    result: 해당 유형 테이블에 빈 행 추가, 재렌더
+
+  - id: btn-as-remove-row
+    label: "삭제"
+    type: button
+    area: 각 유형 테이블 행
+    event: onclick
+    front:
+      handler: "removeAsCostRow(kind, idx)"
+      file: budget-area-as.js:80
+      logic: "splice로 제거 후 재렌더. 길이 0 이하면 무시"
+      state_writes: [asCostRows]
+    result: 행 제거, 요약카드/합계 재계산
+
+  - id: input-as-cell
+    label: "셀 인라인 편집 인풋 (as-cost-input)"
+    type: input
+    area: 각 유형 테이블 셀
+    event: oninput
+    front:
+      handler: "updateAsCostInput(kind, idx, field, value)"
+      file: budget-area-as.js:63
+      logic: "해당 행/필드 값만 in-place 갱신(재렌더 없음). 존재하지 않는 kind/idx 무시"
+      state_writes: [asCostRows]
+      input_modes:
+        - "금액 컬럼: inputmode='numeric'"
+        - "M/M(투입공수): inputmode='decimal'"
+        - "예상납기일자: type='date'"
+    validation: "asNumber(:36) 콤마 제거 후 Number 변환, 실패 시 0"
+    backend: null
+    result: >
+      값 즉시 반영. 인건비 금액 컬럼=laborAmount+indirectAmount(계산, :128),
+      외주(예약) 금액 컬럼=round(unitPrice×mm)(계산, :134) — 입력 불가 표시값.
+      (요약카드/합계 행은 다음 재렌더 때 갱신)
+
+  - id: btn-save-as-cost-plan
+    label: "A/S비 계획 저장"
+    type: button
+    area: A/S 패널 하단 액션
+    event: onclick
+    front:
+      handler: saveAsCostPlan()
+      file: budget-area-as.js:86
+      logic: >
+        data=BUDGET_SOURCE[currentBudgetProj]; ensureAsCostPlanAmount(data)로 plan 슬롯 보장 →
+        data.plan[CATS[4]]=getAsCostTotal()(5개 유형 총합) → 토스트 'A/S비 계획이 저장되었습니다.' → 재렌더.
+      state_writes: ["BUDGET_SOURCE[proj].plan[CATS[4]]"]
+    validation: "별도 필수값 검증 없음(빈 값은 asNumber로 0 처리)"
+    backend: { note: "asCostRows는 전역 단일 객체(프로젝트별 분리 안됨) — SRS: 프로젝트별 영속화 필요" }
+    result: A/S비 계획 총액 = 5개 테이블 합계로 반영, 저장 토스트
+
+# ── 유형(5종) & 합계 방식 ──
+kinds:
+  - { key: labor, label: 인건비, columns: "번호/단위업무/직급/단가/투입공수(M/M)/인건비금액/간접비금액/금액(자동)", sum: "Σ(laborAmount+indirectAmount) (:42)" }
+  - { key: outsourcePeople, label: "외주비(예약 인건비)", columns: "번호/단위업무/협력업체 확정여부/협력업체/직급/단가/투입공수(M/M)/금액(자동)", sum: "Σ round(unitPrice×mm) (:45)" }
+  - { key: outsourceMa, label: "외주비(공사/MA)", columns: "번호/대분류/중분류/소분류/예상납기일자/금액", sum: "Σ amount (:48)" }
+  - { key: material, label: 재료비, columns: "번호/대분류/중분류/소분류/예상납기일자/금액", sum: "Σ amount (:51)" }
+  - { key: expense, label: 경비, columns: "번호/계정/금액", sum: "Σ amount (:54)" }
+  summary_card_note: "요약카드는 외주 두 유형(outsourcePeople+outsourceMa)을 묶어 'A/S 외주비'로 표시(:179)"
+
+# ── 데코레이터(체인 위임) ──
+decorators:
+  - { name: renderBudgetAccountEditor, file: budget-area-as.js:198, note: "A/S Cost면 월별 예산표(renderAccountMonthlyBudgetTable) + A/S 패널을 .setup-editor에 렌더, 아니면 이전 정의 위임" }
+  - { name: renderAccountMonthlyBudgetTable, file: budget-area-as.js:212, note: "CATS[4]를 'A/S비' 라벨로 치환 + 겉박스 스타일 제거(인라인 !important)" }
+  - { name: getExecPlanAccounts, file: budget-area-as.js:225, note: "집행계획 목록에 A/S Cost 행 없으면 예산(getBudgetAdjusted)·사용액(actual+quasi)·잔액·집행월수·집행률 계산해 추가(desc:'A/S 프로젝트 인건비, 외주비, 재료비, 경비')" }
+  - { name: getAccountDetailRows, file: budget-area-as.js:237, note: "A/S Cost 상세 비중 고정: A/S 인건비 .56 / A/S 외주비 .23 / A/S 재료비 .05 / A/S 경비 .16" }
+
+# ── 데이터 모델 ──
+data:
+  state_vars:
+    - { name: asCostRows, shape: "{labor[],outsourcePeople[],outsourceMa[],material[],expense[]}", file: budget-area-as.js:7, purpose: "A/S 유형별 행(전역 단일 객체, 프로젝트별 미분리)" }
+  datasets:
+    - name: asCostRows
+      file: budget-area-as.js:7
+      note: >
+        labor:[{role,grade,unitPrice,mm,laborAmount,indirectAmount}],
+        outsourcePeople:[{role,contractStatus,vendor,grade,unitPrice,mm}],
+        outsourceMa:[{major,middle,minor,expectedDate,amount}],
+        material:[{major,middle,minor,expectedDate,amount}], expense:[{account,amount}].
+        시드: labor 1(프로젝트 관리/P10, 인건비 24,282,439+간접비 3,156,715),
+        outsourcePeople 1(사업관리/ILS, 미확정, 7,440,000×1.5MM), outsourceMa 0,
+        material 1(기타/2,304,000), expense 7건(의욕관리비·회의비·잡비·석식대·국내출장비·중앙장비·자가차량지원비).
+    - { name: "BUDGET_SOURCE[proj].plan[CATS[4]]", file: budget-area-as.js:31, note: "A/S비 계획 총액 저장 위치(기본 시드 48,918,351)" }
+  functions:
+    - { name: asNumber, file: budget-area-as.js:36, note: "콤마 제거 후 Number, 실패 시 0" }
+    - { name: sumAsCostRows, file: budget-area-as.js:40, note: "유형별 합계" }
+    - { name: getAsCostTotal, file: budget-area-as.js:59, note: "5개 유형 총합" }
+    - { name: ensureAsCostPlanAmount, file: budget-area-as.js:29, note: "plan[CATS[4]] 슬롯 보장(기본 48,918,351)" }
+    - { name: renderAsCostTable, file: budget-area-as.js:98, note: "공통 테이블 렌더러(제목·건수 배지·[항목 추가]·스크롤·합계 행)" }
+    - { name: renderAsCostPanel, file: budget-area-as.js:116, note: ".as-cost-panel 전체 렌더(요약카드+안내문+5테이블+저장버튼)" }
+
+# ── 대표 플로우 ──
+flows:
+  - name: A/S 원가 계획 수립
+    steps:
+      - "원가조정(#/budget-adjust)에서 A/S Cost 계정 선택 → #/budget-adjust/as 진입"
+      - "편집기에 월별 예산표 + A/S비 패널(요약카드 + 5개 테이블) 표시"
+      - "각 테이블 [항목 추가]로 행 생성 → 셀 인라인 입력(updateAsCostInput) → 필요 시 [삭제]"
+      - "추가·삭제 즉시 재렌더(요약카드/합계 갱신), 셀 수정은 in-place"
+      - "[A/S비 계획 저장] → 총액이 plan[CATS[4]]에 반영 → 토스트"
+      - "계정 선택 복귀는 브라우저 뒤로가기"
+
+# ── 요구사항 후보(FR) — AS비.md §10 재사용 ──
+requirements:
+  - { id: FR-AS-01, text: "A/S비 계정은 인건비/외주(예약 인력)/외주(공사·MA)/재료/경비 5개 유형별 행을 각각 추가·수정·삭제할 수 있어야 한다" }
+  - { id: FR-AS-02, text: "인건비 유형의 금액은 인건비금액+간접비금액, 외주(예약 인력) 금액은 단가×투입공수(M/M) 반올림으로 자동 계산·표시되어야 한다" }
+  - { id: FR-AS-03, text: "각 유형 테이블은 건수 배지와 유형별 합계 행을 표시하고, 상단 요약 카드는 인건비/외주비(예약+공사MA 합산)/재료비/경비/총합계를 표시해야 한다" }
+  - { id: FR-AS-04, text: "[A/S비 계획 저장] 시 5개 유형 총합을 프로젝트 계획 총액(plan[CATS[4]])에 반영하고 저장 피드백을 제공해야 한다" }
+  - { id: FR-AS-05, text: "금액 입력은 콤마 포함 문자열을 허용하되 숫자로 정규화해 합산해야 한다(asNumber)" }
+  - { id: FR-AS-06, text: "외주/재료 유형은 대·중·소분류와 예상납기일자를, 외주(예약 인력) 유형은 협력업체 확정여부·협력업체·직급을 관리해야 한다" }
+  - { id: FR-AS-07, text: "집행계획 목록과 계정 상세(비중: 인건비 .56/외주 .23/재료 .05/경비 .16)에 A/S Cost가 자동 편입되어야 한다" }
+  - { id: FR-AS-08, text: "(검토 필요) 무상하자보증 유무/보증기간과 A/S비 산정의 연동 여부 — 현재 목업은 미연동. 실제 요건에서 무상 구간 원가 처리 규칙 정의 필요" }
+  - { id: FR-AS-09, text: "(개선) asCostRows가 전역 단일 객체로 프로젝트별 분리 저장이 안 됨 — 프로젝트별 A/S 원가 데이터 영속화 필요" }

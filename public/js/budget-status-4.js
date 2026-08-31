@@ -108,7 +108,7 @@ function renderAccountMonthlyBudgetTable(data, account) {
         <table class="account-monthly-table">
           <thead>
             <tr>
-              <th>구분</th><th>계획</th><th>실적/확정</th><th>잔여예산</th>${headMonths}
+              <th>구분</th><th>계획(전체)</th><th>실적(확정)</th><th>계획(미집행)</th>${headMonths}
             </tr>
           </thead>
           <tbody>
@@ -1535,6 +1535,20 @@ function renderExecBudgetApprovalSummaryFinal(data) {
 var budgetSetupStage = 'history'; // 'history' | 'edit' | 'approval'
 
 function goBudgetSetupStage(stage) {
+  // 전 계정 합계가 CP총액을 넘으면 결재로 넘어갈 수 없습니다(계정 단위 초과는 허용).
+  if (stage === 'approval' && typeof budgetRollupFinal === 'function') {
+    const data = BUDGET_SOURCE[currentBudgetProj];
+    if (data) {
+      const viewData = applyExecBudgetVersionSnapshotFinal(data, getSelectedExecBudgetVersionFinal(data));
+      const roll = budgetRollupFinal(viewData, data);
+      if (roll.overCp) {
+        showToast(`수립 예산 합계가 CP총액을 ${fmt(-roll.cpRemain)}원 초과했습니다. 계정 예산을 줄인 뒤 상신할 수 있습니다.`);
+        cpTotalPopupOpenFinal = true;
+        renderBudgetPage();
+        return;
+      }
+    }
+  }
   budgetSetupStage = stage;
   if (stage !== 'edit') budgetSetupEditAccount = null;
   renderBudgetPage();
@@ -1631,6 +1645,212 @@ function renderBudgetVersionDetailFinal(version) {
     </div>`;
 }
 
+/* ── CP총액(선행 시스템 승인 한도) vs 실제 수립 예산 ──────────────────────
+   - CP총액   : data.plan[계정] — 선행 시스템에서 승인받은 계정별 편성 한도(참고용)
+   - 수립 예산 : 계정별 예산내역 표에 실제로 쌓인 금액(Σ getMonthlyBudgetRows.plan)
+   PM은 계정 단위로는 CP총액을 넘길 수 있지만, 전 계정 합계는 CP 합계를 넘길 수 없습니다. */
+const CP_ACCOUNTS_FINAL = [CATS[0], CATS[1], CATS[2], CATS[3], CATS[4]];
+
+// 계정 하나의 "하단 예산내역 표" 합계 — 상단 배너·타일이 모두 이 값을 씁니다.
+function accountRollupFinal(viewData, acct) {
+  const rows = getMonthlyBudgetRows(viewData, acct) || [];
+  const plan = rows.reduce((s, r) => s + (r.plan || 0), 0);
+  const done = rows.reduce((s, r) => s + (r.actual || 0), 0);   // 실적 + 확정(= 표의 "실적/확정" 열)
+  return { plan, done, remain: Math.max(plan - done, 0) };
+}
+
+// 전 계정 롤업 + CP총액 비교 결과를 한 번에 돌려줍니다.
+function budgetRollupFinal(viewData, data) {
+  const src = data || viewData;
+  const rows = CP_ACCOUNTS_FINAL.map(acct => {
+    const roll = accountRollupFinal(viewData, acct);
+    const cp = viewData.plan[acct] || 0;
+    // 상세계정 비율 배분에서 생기는 몇 원짜리 반올림 차이는 "초과"로 보지 않습니다.
+    const diff = roll.plan - cp;
+    return Object.assign({ acct, cp, over: Math.abs(diff) < 1000 ? 0 : diff }, roll);
+  });
+  const plan = rows.reduce((s, r) => s + r.plan, 0);
+  const done = rows.reduce((s, r) => s + r.done, 0);
+  const cp = rows.reduce((s, r) => s + r.cp, 0);
+  // 투입확정은 기존 확정 소스를 그대로 쓰고, 실집행은 표 합계에서 확정분을 뺀 값으로 맞춥니다.
+  // → 실집행 + 투입확정 = 하단 "실적/확정" 합계, 투입미정 = 하단 "잔여예산" 합계가 정확히 성립합니다.
+  const quasi = Math.min(CP_ACCOUNTS_FINAL.reduce((s, c) => s + calcQuasi(src, c), 0), done);
+  return {
+    rows, cp, plan, done,
+    actual: Math.max(done - quasi, 0),
+    quasi,
+    remain: plan - done,
+    cpRemain: cp - plan,
+    overCp: plan - cp >= 1000,      // 반올림 오차(원 단위)로 상신이 막히지 않게 합니다
+
+  };
+}
+
+var cpTotalPopupOpenFinal = false;
+function openCpTotalPopupFinal() { cpTotalPopupOpenFinal = true; renderBudgetPage(); }
+function closeCpTotalPopupFinal() { cpTotalPopupOpenFinal = false; renderBudgetPage(); }
+
+// 계정 단위 초과는 허용하고, 전 계정 합계가 CP 합계를 넘는 것만 막습니다.
+function renderCpLimitBarFinal(roll) {
+  const used = roll.cp > 0 ? Math.min((roll.plan / roll.cp) * 100, 100) : 0;
+  const overAccts = roll.rows.filter(r => r.over > 0);
+  return `
+    <div class="cp-limit ${roll.overCp ? 'over' : ''}">
+      <div class="cp-limit-head">
+        <b>${roll.overCp ? '⚠ CP총액 초과' : 'CP총액 한도'}</b>
+        <span>수립 <b>${fmt(roll.plan)}</b>원 / CP총액 <b>${fmt(roll.cp)}</b>원</span>
+        <em class="${roll.overCp ? 'bad' : 'ok'}">${roll.overCp
+          ? `합계 ${fmt(-roll.cpRemain)}원 초과 — 결재 상신할 수 없습니다`
+          : `여유 ${fmt(roll.cpRemain)}원`}</em>
+      </div>
+      <div class="cp-limit-row">
+        <div class="cp-limit-bar"><i style="width:${used}%"></i></div>
+        <button class="cp-ref-btn ${roll.overCp ? 'over' : ''}" onclick="openCpTotalPopupFinal()"
+          title="선행 시스템에서 승인받은 계정별 편성 한도(참고용)">▣ CP총액 ${fmt(roll.cp)}원</button>
+      </div>
+      ${overAccts.length
+        ? `<div class="cp-limit-note">계정 초과 ${overAccts.length}건(${overAccts.map(r => `${r.acct} +${fmt(r.over)}원`).join(', ')})</div>`
+        : ''}
+    </div>`;
+}
+
+function renderCpTotalPopupFinal(roll, version) {
+  const body = roll.rows.map(r => `
+    <tr class="${r.over > 0 ? 'over' : ''}">
+      <td>${r.acct}</td>
+      <td class="num">${fmt(r.cp)}</td>
+      <td class="num">${fmt(r.plan)}</td>
+      <td class="num ${r.over > 0 ? 'bad' : 'ok'}">${r.over > 0 ? '+' + fmt(r.over) : fmt(-r.over)}</td>
+    </tr>`).join('');
+  return `
+    <div class="cp-pop-dim" onclick="if(event.target===this)closeCpTotalPopupFinal()">
+      <div class="cp-pop" role="dialog" aria-modal="true" aria-label="CP총액">
+        <div class="cp-pop-head">
+          <div>
+            <strong>CP총액 (선행 시스템 승인 한도)</strong>
+            <span>${version.label} 기준 · 참고용입니다. 계정 단위 초과는 허용되고, 합계만 넘길 수 없습니다.</span>
+          </div>
+          <button class="labor-sub-btn" onclick="closeCpTotalPopupFinal()">닫기</button>
+        </div>
+        <table class="cp-pop-table">
+          <thead><tr><th>계정</th><th class="num">CP총액(한도)</th><th class="num">수립 예산</th><th class="num">한도 대비</th></tr></thead>
+          <tbody>${body}</tbody>
+          <tfoot>
+            <tr>
+              <td>합계</td>
+              <td class="num">${fmt(roll.cp)}</td>
+              <td class="num">${fmt(roll.plan)}</td>
+              <td class="num ${roll.overCp ? 'bad' : 'ok'}">${roll.overCp ? '+' + fmt(-roll.cpRemain) + ' 초과' : fmt(roll.cpRemain) + ' 여유'}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>`;
+}
+
+/* ── [프로젝트 총 실행 비용] 탭 — 계정별 합계표 ─────────────────────────
+   계정 / 계획(전체) / 실적(확정) / 계획(미집행) / 월별 금액.
+   경비는 월단위가 아니라 연단위로 계획을 세우므로 그 계정만 연도로 묶어 한 칸에 표시합니다. */
+function renderTotalCostTableFinal(viewData, data) {
+  const roll = budgetRollupFinal(viewData, data);
+  const months = viewData.months.map(mo => mo.m);
+
+  // 경비는 연도별 묶음 — 월 헤더 대신 연도 헤더 하나가 여러 달을 덮습니다.
+  const expenseYears = (typeof expensePlanYearsFinal === 'function') ? expensePlanYearsFinal() : [];
+  const yearOfMonth = m => m.slice(0, 4);
+  const years = [...new Set(months.map(yearOfMonth))];
+
+  const monthCell = (acct, m) => {
+    if (acct === CATS[3] && expenseYears.length) return null;   // 경비는 아래에서 연도로 합산
+    const v = (typeof osv3MonthPlanTotalV3 === 'function' && acct === CATS[1])
+      ? osv3MonthPlanTotalV3(m)
+      : getMonthAccountValue(viewData.months.find(mo => mo.m === m) || {}, acct);
+    return Math.round(v || 0);
+  };
+
+  const bodyRows = roll.rows.map(r => {
+    const isExpense = r.acct === CATS[3];
+    const cells = isExpense
+      // 경비: 그 연도에 속한 달들을 하나로 합쳐 colspan으로 덮습니다.
+      ? years.map(y => {
+          const span = months.filter(m => yearOfMonth(m) === y).length;
+          const idxs = (expenseYears.find(e => e.year === y) || {}).idxs || [];
+          const v = (typeof getExpenseRows === 'function' && idxs.length)
+            ? getExpenseRows().reduce((sum, row) => sum + expenseYearPlan(row, idxs), 0)
+            : months.filter(m => yearOfMonth(m) === y).reduce((sum, m) => sum + (monthCell(r.acct, m) || 0), 0);
+          return `<td class="num tct-year" colspan="${span}" title="${y}년 연단위 계획">${fmt(v)}</td>`;
+        }).join('')
+      : months.map(m => `<td class="num">${fmt(monthCell(r.acct, m))}</td>`).join('');
+    return `
+      <tr>
+        <td class="tct-acct">${r.acct}${isExpense ? '<em>연단위</em>' : ''}</td>
+        <td class="num">${fmt(r.plan)}</td>
+        <td class="num tct-done">${fmt(r.done)}</td>
+        <td class="num tct-open">${fmt(r.remain)}</td>
+        ${cells}
+      </tr>`;
+  }).join('');
+
+  const monthTotals = months.map(m =>
+    roll.rows.reduce((sum, r) => sum + (r.acct === CATS[3] ? 0 : (monthCell(r.acct, m) || 0)), 0));
+
+  return `
+    <div class="total-cost-table">
+      <div class="tct-head">
+        <strong>계정별 합계</strong>
+        <span>계획(전체)은 PM이 수립한 예산, 실적(확정)은 이미 발생한 금액, 계획(미집행)은 계획은 섰지만 아직 실적이 없는 금액입니다.</span>
+      </div>
+      <div class="tct-scroll">
+        <table class="tct-table">
+          <thead>
+            <tr>
+              <th>계정</th><th class="num">계획(전체)</th><th class="num">실적(확정)</th><th class="num">계획(미집행)</th>
+              ${months.map(m => `<th class="num">${m}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>${bodyRows}</tbody>
+          <tfoot>
+            <tr>
+              <td class="tct-acct">합계<em class="tct-foot-hint">월별은 경비 제외</em></td>
+              <td class="num">${fmt(roll.plan)}</td>
+              <td class="num tct-done">${fmt(roll.done)}</td>
+              <td class="num tct-open">${fmt(roll.plan - roll.done)}</td>
+              ${monthTotals.map(v => `<td class="num">${fmt(v)}</td>`).join('')}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p class="tct-note">※ 경비는 월단위가 아니라 연단위로 계획을 수립하므로, 월 칸을 연도 단위로 병합해 그 해 전체금액을 표시합니다. 특정 월에 귀속시킬 수 없어 하단 월별 합계에서는 제외됩니다.</p>
+    </div>`;
+}
+
+// 실행예산 화면 맨 위 — 어떤 프로젝트의 예산을 보고 있는지 한 줄로 밝힙니다.
+// 코드/프로젝트명/기간/PM/유형은 프로젝트 목록(EXEC_BUDGET_PROJECTS)이 원본이고,
+// 목록에 없는 키면 BUDGET_SOURCE의 값으로 채웁니다.
+function renderBudgetProjectInfoFinal(data) {
+  const row = (typeof EXEC_BUDGET_PROJECTS !== 'undefined')
+    ? EXEC_BUDGET_PROJECTS.find(p => p.key === currentBudgetProj) : null;
+  const name = (row && row.name) || data.projName || '';
+  const code = (row && row.no) || '';
+  const period = (row && row.period) || [data.start, data.end].filter(Boolean).join(' ~ ');
+  const pm = (row && row.pm) || '';
+  const type = (row && row.type) || '';
+  const status = (row && row.status) || data.stage || '';
+  const item = (label, value) => value
+    ? `<div class="bpi-item"><span>${label}</span><b>${value}</b></div>` : '';
+  // 코드 · 프로젝트명 · 상태 · 기간 · PM · 유형을 가로 한 줄로 나열합니다.
+  return `
+    <div class="budget-proj-info">
+      ${code ? `<span class="bpi-code">${code}</span>` : ''}
+      <strong class="bpi-name">${name}</strong>
+      ${status ? `<em class="bpi-status">${status}</em>` : ''}
+      ${data.dplus ? `<em class="bpi-dplus">D+${data.dplus}일</em>` : ''}
+      ${item('기간', period)}
+      ${item('수행PM', pm)}
+      ${item('유형', type)}
+    </div>`;
+}
+
 renderBudgetSetupOverview = function(data, actual, quasi) {
   ensureAsCostPlanAmount(data);
   const versions = getExecBudgetVersionSnapshotsFinal(data);
@@ -1645,11 +1865,13 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
   ];
   const totalBudget = accounts.reduce((sum, item) => sum + (viewData.plan[item.key] || 0), 0);
   const stepper = renderBudgetFlowStepperFinal();
+  const projInfo = renderBudgetProjectInfoFinal(data);   // 탭 줄보다 위에 놓습니다
 
   // ── ① 이력 ──
   if (budgetSetupStage === 'history') {
     return `
       <div class="setup-overview compact">
+        ${projInfo}
         ${stepper}
         <div class="setup-stage-head">
           <div>
@@ -1679,6 +1901,7 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
   if (budgetSetupStage === 'approval') {
     return `
       <div class="setup-overview compact">
+        ${projInfo}
         ${stepper}
         ${renderBudgetApprovalLineFinal(data)}
         ${renderExecBudgetApprovalSummaryFinal(data)}
@@ -1686,21 +1909,33 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
   }
 
   // ── ② 계정별 작성 ──
-  const maxVal = Math.max(...accounts.map(item => viewData.plan[item.key] || 0), 1);
-  const rows = accounts.map(item => renderAcctTile({
-    label: item.label,
-    value: viewData.plan[item.key] || 0,
-    total: totalBudget,
-    maxVal,
-    active: budgetSetupEditAccount === item.key,
-    onclick: `openBudgetAccountEditor('${item.key}')`,
-  })).join('');
+  // 타일 금액 = PM이 실제로 수립한 예산(하단 예산내역 표 합계), 퍼센티지 = 그 계정의 집행률.
+  // CP총액(선행 승인 한도)은 금액 자리를 차지하지 않고 [CP총액] 팝업에서 참고합니다.
+  const roll = budgetRollupFinal(viewData, data);
+  const byAcct = {};
+  roll.rows.forEach(r => { byAcct[r.acct] = r; });
+  const builtTotal = roll.plan;
+  const rows = accounts.map(item => {
+    const r = byAcct[item.key] || { plan:0, done:0, cp:0 };
+    return renderAcctTile({
+      label: item.label,
+      value: r.plan,
+      total: builtTotal,
+      maxVal: 1,
+      rate: r.plan > 0 ? (r.done / r.plan) * 100 : 0,
+      rateTip: `집행률 = 실적/확정 ${fmt(r.done)}원 ÷ 수립 예산 ${fmt(r.plan)}원`
+        + ` · CP총액(한도) ${fmt(r.cp)}원`,
+      active: budgetSetupEditAccount === item.key,
+      onclick: `openBudgetAccountEditor('${item.key}')`,
+    });
+  }).join('');
   const expanded = budgetSetupEditAccount
     ? `<div class="setup-expanded-detail">${renderBudgetAccountEditor(viewData, budgetSetupEditAccount)}</div>`
-    : '';
+    : `<div class="setup-expanded-detail">${renderTotalCostTableFinal(viewData, data)}</div>`;
 
   return `
     <div class="setup-overview compact">
+      ${projInfo}
       <div class="setup-top-actions">
         <button class="labor-sub-btn" onclick="showToast('임시저장했어요.')">임시저장</button>
         <button class="labor-main-btn" onclick="goBudgetSetupStage('approval')">결재 상신 →</button>
@@ -1711,10 +1946,18 @@ renderBudgetSetupOverview = function(data, actual, quasi) {
         <span>${selectedVersion.memo}</span>
         <em>작성자 ${selectedVersion.owner} · 상태 ${selectedVersion.status}</em>
       </div>
+      ${cpTotalPopupOpenFinal ? renderCpTotalPopupFinal(roll, selectedVersion) : ''}
       <div class="acct-tile-group">
-        ${renderAcctTile({ label:'프로젝트 총 실행 비용', value: totalBudget, isTotal:true, active: budgetSetupEditAccount === null, onclick:`budgetSetupEditAccount=null;renderBudgetPage()` })}
+        ${renderAcctTile({
+          label:'프로젝트 총 실행 비용',
+          value: builtTotal,
+          isTotal:true,
+          foot: `집행률 ${builtTotal > 0 ? Math.round((roll.done / builtTotal) * 1000) / 10 : 0}% · 실적/확정 ${fmt(roll.done)}원`,
+          active: budgetSetupEditAccount === null,
+          onclick:`budgetSetupEditAccount=null;renderBudgetPage()` })}
         ${rows}
       </div>
+      ${renderCpLimitBarFinal(roll)}
       ${expanded}
     </div>`;
 };

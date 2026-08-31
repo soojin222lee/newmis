@@ -1,0 +1,342 @@
+# rawdata: 인사이트 > 종합 현황 화면 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+
+screen:
+  id: s-insights-overview
+  name: 인사이트 · 종합 현황 (KPI · 월별 원가 Trend · AI Insight · 계정별 원가)
+  menu_path: 인사이트 > 종합 현황
+  route: "#/insights/overview?pj=<불투명프로젝트ID>"
+  entry: "showInsights('overview') → renderInsights() → insightsHtml() → insOverviewHtml(p)"
+  source_files:
+    - public/js/insights.js            # 렌더·핸들러·상태·파생계산(탭 전체 로직)
+    - public/js/app.js                 # 라우트(ROUTE_ACTIONS['insights'], DYNAMIC_ROUTES, routeQueryParam, SCREEN_ROUTES['s-insights'])
+    - server.js                        # /api/insight (AI Insight LLM), buildInsightPrompt, localInsight, callLLM
+    - public/css/insights.css          # ins-* 스타일 (참고)
+  purpose: >
+    선택한 프로젝트의 손익·원가 핵심 지표(KPI 5종), 월별 원가 추세, AI 자동 인사이트,
+    계정별 원가 상세를 한 화면에서 조망한다. 인사이트 3개 탭 중 기본(첫 번째) 탭.
+  key_facts:
+    - "insTab='overview' (insights.js:7). 탭 파라미터가 overview|progress|version 외면 overview로 폴백 (showInsights insights.js:279)."
+    - "전 데이터는 프론트 mock(INS_PROJECTS insights.js:23-34). 서버는 AI 텍스트 생성만 담당."
+    - "AI Insight는 진입 시 자동 비동기 로드되고 프로젝트 단위로 캐시(insAiInsightCache)."
+    - "프로젝트 변경(selectInsProject) 시 전체 재렌더 + URL의 pj 갱신."
+
+# ── URL / 라우팅 ──
+routing:
+  hash: "#/insights/overview?pj=<프로젝트ID>"
+  notes:
+    - "정적 진입: ROUTE_ACTIONS['insights'] → gotoInsights(routeQueryParam('pj'),'overview') (app.js:91)."
+    - "동적 딥링크: DYNAMIC_ROUTES /^insights(?:\\/([^/?]+))?$/ → gotoInsights(pj, tab) (app.js:129-131)."
+    - "탭 생략(#/insights) → overview 기본 진입."
+    - "pj 파라미터: 배열 인덱스가 아닌 불투명 ID(예 pj7f3a9c) 노출."
+    - "insRouteId() (insights.js:275): 현재 프로젝트 id 반환."
+    - "insProjectIndexById(id) (insights.js:276): ID→인덱스, 없으면 0."
+    - "routeQueryParam('pj') (app.js:121-126): 해시 뒤 ?pj= 파싱."
+    - "URL 역생성: SCREEN_ROUTES['s-insights'] (app.js:64-68) → 'insights/'+insTab+'?pj='+insRouteId()."
+    - "프로젝트 변경 시 selectInsProject(i) (insights.js:289-293)가 updateHashForScreen('s-insights')로 pj 갱신."
+
+# ── 화면 상태 ──
+states:
+  - id: initial_loading_ai
+    when: "insAiInsightCache[p.id] 없음 && !insAiInsightLoading[p.id]"
+    shows: [KPI패널, Trend차트, "AI Insight 스피너(AI 분석 중…)", 계정표]
+    effect: "insAiInsightLoading[p.id]=true 후 setTimeout(loadInsOverviewAI(p),30) (insights.js:502)"
+  - id: ai_done
+    when: "insAiInsightCache[p.id] 존재"
+    shows: ["AI Insight 3줄 + 신뢰도 라벨(✦ AI 생성 / 샘플 분석)"]
+  - id: ai_fallback
+    when: "LLM 실패/빈결과 → projAI(p) 텍스트 사용 (insights.js:489)"
+    shows: ["규칙 기반 인사이트 + '샘플 분석' 라벨(source='fallback')"]
+  - id: async_stale_guard
+    when: "비동기 응답 도착 시 insTab!=='overview' 또는 다른 프로젝트"
+    effect: "DOM 미갱신(화면 덮어쓰기 방지) (insights.js:492)"
+  - id: table_expanded
+    when: "insOvExpanded[계정명] == true"
+    effect: "계정 소계정 [+] 펼침, 표만 부분 재렌더(outerHTML) (insights.js:878-882)"
+
+# ── 요소(버튼/토글/차트) 인벤토리 ── ★ 버튼 단위 프론트/백엔드 로직
+elements:
+  # 공통 상단 프레임(모든 탭 공유, insightsHtml insights.js:306-341)
+  - id: btn-export-data
+    label: 데이터 내보내기
+    type: button
+    area: ins-topbar
+    event: onclick
+    front: { handler: "showToast('데이터 내보내기 (준비)')", file: insights.js, logic: 토스트만(준비중) }
+    backend: null
+
+  - id: btn-generate-report
+    label: AI 보고서 생성
+    type: button
+    area: ins-topbar
+    event: onclick
+    front:
+      handler: insGenerateReport()
+      file: insights.js
+      logic: >
+        3개 탭 종합 payload(metrics+accounts+progress+versions) 구성 →
+        POST /api/report-summary → 보고서 팝업(insReportPageHtml) 렌더
+      state_writes: []
+    backend: { api: /api/report-summary, method: POST }
+    result: 레포트 오버레이(요약·제언 + 지표표 + 차트) 표시
+
+  - id: carousel-project-tab
+    label: 프로젝트 캐러셀 탭 (5개)
+    type: button
+    area: hm-ptabs-carousel
+    event: onclick
+    front:
+      handler: "selectInsProject(i)"
+      file: insights.js
+      logic: "insProject=i → renderInsights() → updateHashForScreen('s-insights')로 pj 갱신 (insights.js:289-293)"
+      state_writes: [insProject]
+    backend: null
+    result: 전체 화면 재렌더(선택 프로젝트 캐시 없으면 AI 자동 재로드)
+
+  - id: carousel-arrow
+    label: 캐러셀 좌우 화살표
+    type: button
+    area: hm-ptabs-carousel
+    event: onclick
+    front: { handler: "scrollInsProj(±1)", file: insights.js, logic: "트랙 scrollLeft ±240 (insights.js:294-299)" }
+    backend: null
+
+  - id: tabbar-tab
+    label: "탭바 [종합 현황][원가 소진율][버전별 예산]"
+    type: button
+    area: ins-tabs
+    event: onclick
+    front: { handler: "showInsights('overview'|'progress'|'version')", file: insights.js, state_writes: [insTab] }
+    backend: null
+
+  # 종합현황 본문 전용
+  - id: kpi-card
+    label: KPI 카드 (5종)
+    type: display
+    area: ins-kpi-panel
+    event: none
+    front:
+      source: "projKpis(p) (insights.js:253-264)"
+      file: insights.js
+      logic: >
+        5종=계약금액/실행예산/실적/예상원가/예상 원가율.
+        예상원가 chg=▲/▼|forecast-budget|억(≥0 bad·<0 good),
+        예상원가율 chg=▲/▼|diff|%p(≥0 bad·<0 good), 실적 chg=진행 round(actual/forecast*100)%
+    backend: null
+
+  - id: trend-hover-rect
+    label: 월별 원가 Trend 월 hover
+    type: chart-interaction
+    area: ins-trend (SVG)
+    event: "onmouseenter / onmouseleave / onclick"
+    front:
+      handler: "insTrendShow(m, this) / insTrendHide() / insTrendClick(m)"
+      file: insights.js
+      logic: >
+        insTrendShow(insights.js:790-805): 툴팁에 계획/실적(또는 예상)/차이(억·%) + '원인 분석 →' 버튼.
+        insCurTrend(전역, insights.js:500·projTrend)에서 값 재사용.
+        insTrendClick(insights.js:807): openAiChat('main', "<프로젝트> N월 외주비 왜 늘었어?")로 메인 챗 연계.
+      state_reads: [insCurTrend]
+    backend: null
+    result: hover 툴팁 표시 / 클릭 시 메인 AI 챗으로 질문 전달
+
+  - id: btn-ask-ai
+    label: "ASK AI — 이 화면에 대해 질문하기 →"
+    type: button
+    area: ins-ai (aside)
+    event: onclick
+    front:
+      handler: insAskBudgetQ()
+      file: insights.js
+      logic: >
+        openAiChat('q') 후 aiAgentMsg('q', ...)로 현재 프로젝트 기준 예시질문
+        (`<프로젝트> 원가 왜 올랐어?`, `<프로젝트> 외주비 상세 알려줘`) 주입 (insights.js:919-923)
+    backend: null
+
+  - id: btn-excel
+    label: Excel (계정별 원가 표)
+    type: button
+    area: ins-table-head
+    event: onclick
+    front: { handler: "showToast('Excel 다운로드 (준비)')", file: insights.js, logic: 준비중 토스트 }
+    backend: null
+
+  - id: table-sort-th
+    label: 계정별 원가 표 헤더 정렬
+    type: button(th)
+    area: ins-table
+    event: onclick
+    front:
+      handler: "insSortBy(k)"
+      file: insights.js
+      logic: "같은 키 재클릭 asc/desc 토글, 다른 키 desc 시작. 기본 {key:'forecast',dir:'desc'} → renderInsights() (insights.js:913)"
+      state_writes: [insSort]
+    backend: null
+
+  - id: table-col-toggle
+    label: 컬럼 표시 토글 (plan/actual/forecast/share)
+    type: toggle
+    area: ins-table
+    event: onclick
+    front:
+      handler: "insToggleCol(k)"
+      file: insights.js
+      logic: "insCols[k] 반전, 표만 부분 재렌더(outerHTML) (insights.js:914). 메뉴 토글 insToggleColMenu (915)"
+      state_writes: [insCols]
+    backend: null
+
+  - id: table-account-expand
+    label: 계정 [+] 소계정 펼침
+    type: toggle(button)
+    area: ins-table (부모행)
+    event: onclick
+    front:
+      handler: "toggleInsOvAcct(name)"
+      file: insights.js
+      logic: >
+        insOvExpanded[name] 반전 → 표 outerHTML 부분 재렌더 (insights.js:878-882).
+        insOvSubs(name) (insights.js:874-877): 계정명→상세계정 매핑(구매→재료비) 후 INS_SUB_ACCTS 반환.
+        하위 값 = 부모값 × 비율 r (insights.js:901-908).
+      state_writes: [insOvExpanded]
+    backend: null
+
+# ── 백엔드 API 상세 ──
+apis:
+  - path: /api/insight
+    method: POST
+    handler: "handleInsight (server.js:298-308), 라우트 등록 server.js:135"
+    called_by: "loadInsOverviewAI(p) (insights.js:474-496)"
+    request_schema:
+      project: string(프로젝트명)
+      status: string(관리필요|정상)
+      cause: string(증감 주요 원인)
+      metrics: "{contract,base,budget,actual,forecast,rate,diff,prog}"
+      accounts: "[{name,plan,actual,forecast,share}]  (projAccounts 기반)"
+    request_example: |
+      {
+        "project":"SKON 통합관제","status":"관리필요","cause":"개발 외주 인력 3명 투입기간 연장",
+        "metrics":{"contract":32.0,"base":26.5,"budget":27.2,"actual":18.4,"forecast":28.1,"rate":87.8,"diff":3.2,"prog":65},
+        "accounts":[{"name":"인건비","plan":11.5,"actual":7.8,"forecast":11.2,"share":40}]
+      }
+    response_success: "{ insight: '<줄바꿈 구분 3문장>', source: 'ai' }"
+    response_fallback: "{ insight: '<localInsight 3줄>', source: 'fallback', note?: '<에러메시지>' }"
+    validation: "body.project 없으면 400 (server.js:299)"
+    branch: >
+      OPENAI_API_KEY 없으면 즉시 localInsight 폴백(source=fallback, server.js:301-302).
+      있으면 callLLM(buildInsightPrompt) → 실패/빈응답 시 폴백+note.
+    prompt:
+      builder: "buildInsightPrompt(d) (server.js:286-297)"
+      instruction: "PM이 주목할 핵심 인사이트 3가지를 각각 한국어 한 문장. 줄바꿈으로만 구분, 불릿/번호/마크다운 금지. 숫자는 억·% 그대로."
+    fallback_rule:
+      builder: "localInsight(d) (server.js:276-285)"
+      logic: "(1)diff≥0 상승/미만 개선, (2)실적·진행·예상원가, (3)forecast 최대 계정을 비중 N%로 우선 점검."
+    llm_common:
+      fn: "callLLM(prompt,cb,system) (server.js:178-215)"
+      model: "OPENAI_MODEL || gpt-4o-mini"
+      key: "process.env.OPENAI_API_KEY (trim, 코드/깃 미저장)"
+      params: "temperature 0.3(system 미지정), max_tokens 600, timeout 20s"
+      security: "브라우저는 서버 경유만 → API 키 클라이언트 미노출"
+
+# ── 데이터 모델 ──
+data:
+  state_vars:
+    - { name: insTab,               shape: string, file: insights.js:7,  purpose: 현재 탭(overview) }
+    - { name: insProject,           shape: number, file: insights.js:8,  purpose: 현재 프로젝트 인덱스 }
+    - { name: insSort,              shape: "{key,dir}", file: insights.js:9, purpose: "계정표 정렬(기본 forecast desc)" }
+    - { name: insCols,              shape: "{plan,actual,forecast,share:bool}", file: insights.js:10, purpose: 계정표 컬럼 표시 }
+    - { name: insCurTrend,          shape: "{plan[12],actual[12],forecast[12]}", file: insights.js:11, purpose: 현 Trend 데이터(툴팁 재사용) }
+    - { name: insAiInsightCache,    shape: "{projectId:{items[],source}}", file: insights.js:12, purpose: 프로젝트별 AI 캐시 }
+    - { name: insAiInsightLoading,  shape: "{projectId:bool}", file: insights.js:13, purpose: 중복 로드 방지 }
+    - { name: insOvExpanded,        shape: "{계정명:bool}", file: insights.js:873, purpose: 계정표 소계정 펼침 상태 }
+  derived_fns:
+    - { name: projKpis,     file: insights.js:253-264, note: "KPI 5종(라벨/값/chg/dir/base)" }
+    - { name: projTrend,    file: insights.js:244-252, note: "월별 plan/actual/forecast 12개월. actual은 <INS_CUR만, plan*(1+(r-1)*1.15). forecast는 >=INS_CUR-1만, plan*r" }
+    - { name: projAccounts, file: insights.js:37-46,   note: "5대 카테고리(COST_CATS) 비중 안분: base/plan/actual, forecast=cost원본, share, delta=fc-plan, deltaBase=fc-base" }
+    - { name: projAI,       file: insights.js:265-271, note: "규칙 기반 폴백 인사이트(diff 기반 danger/info + 외주비 주의)" }
+    - { name: loadInsOverviewAI, file: insights.js:474-496, note: "AI 자동 로드·캐시·stale 가드" }
+    - { name: insAiInsightItemsHtml, file: insights.js:470-473, note: "items→ins-ai-item 리스트(빈배열 안내)" }
+    - { name: insTrendSvg,  file: insights.js:758-789, note: "라인차트(plan 점선/actual 실선 1~8월/forecast 점선 8~12월/현재월 세로선/hover rect)" }
+    - { name: insAccountTableHtml, file: insights.js:883-912, note: "정렬+컬럼토글+소계정 펼침 표" }
+  datasets:
+    - name: INS_PROJECTS
+      file: insights.js:23-34
+      count: 5
+      fields: "id(불투명ID), name, pm, contract, base, budget, actual, forecast, rate, diff, status, cost{인건비,외주비,구매,경비,기타}, cause"
+      note: "id 예: pj7f3a9c/pj2b8e14/pj9c4d7a/pjab35f0/pj61e2d8"
+    - name: INS_SUB_ACCTS
+      file: insights.js:61-66
+      note: "계정별 상세계정 배분비율(합 1.0). 인건비3/외주비6/재료비3/경비5. 종합현황은 insOvSubs로 구매→재료비 매핑"
+    - name: COST_CATS
+      file: insights.js:17-20
+      note: "5대 원가 카테고리+색(인건비/외주비/구매/경비/기타)"
+  constants:
+    - { name: INS_CUR, value: 8, file: insights.js:15, note: 현재월 }
+    - { name: MW, file: insights.js:16, note: 12개월 월별 가중치 배열 }
+  cache_shape: "insAiInsightCache[projectId] = { items: string[], source: 'ai'|'fallback' }"
+
+# ── 데이터 용어 정의 (insights.js:22) ──
+glossary:
+  contract: 계약금액(수주)
+  base: 원가(계약 시 수립 기준)
+  budget: 계획(실행예산)
+  actual: 실적(누적 집행)
+  forecast: 예상원가
+  rate: 예상 원가율(%)
+  diff: 원가율 계획 대비 증감(%p)
+
+# ── 대표 플로우 ──
+flows:
+  - name: 종합현황 진입 + AI 자동 인사이트
+    steps:
+      - "좌측 네비 '인사이트' → #/insights/overview, 기본 프로젝트(index 0) 표시"
+      - "insOverviewHtml 렌더 → AI Insight 영역 'AI 분석 중…' 스피너, 30ms 뒤 loadInsOverviewAI 비동기 호출"
+      - "POST /api/insight → 같은 탭/프로젝트면 3줄 + 신뢰도 라벨 갱신, 캐시 저장"
+      - "프로젝트 캐러셀 전환 → 전체 재렌더, 캐시 없으면 재로드(URL pj 갱신)"
+      - "Trend 월 hover 툴팁 → '원인 분석 →' 클릭 시 메인 AI 챗 연계"
+      - "계정별 표 정렬/컬럼토글/[+] 소계정 펼침"
+
+# ── 요구사항 후보(FR) ──
+requirements:
+  - { id: FR-INS-OV-01, text: 사용자는 프로젝트를 선택해 계약금액·실행예산·실적·예상원가·예상원가율 5개 KPI를 즉시 확인할 수 있다 }
+  - { id: FR-INS-OV-02, text: 예상원가·예상원가율 KPI는 계획 대비 증감 방향에 따라 색상(악화=빨강/개선=파랑)과 ▲▼ 기호로 구분 표시한다 }
+  - { id: FR-INS-OV-03, text: 월별 원가 Trend는 계획(전체)·실적(현재월 이전)·예측(현재월 이후)을 한 차트에 그리고 현재월(8월) 경계를 표시한다 }
+  - { id: FR-INS-OV-04, text: Trend 각 월 hover 시 계획/실적(예상)/차이(억·%)를 툴팁으로 보여주고 '원인 분석'으로 AI 챗에 질문을 넘길 수 있다 }
+  - { id: FR-INS-OV-05, text: 종합현황 진입 시 AI Insight 3줄이 자동 생성되며 생성 여부(AI 생성/샘플)를 명시한다 }
+  - { id: FR-INS-OV-06, text: AI Insight는 프로젝트 단위로 캐시하여 동일 프로젝트 재방문 시 재요청하지 않는다 }
+  - { id: FR-INS-OV-07, text: 비동기 AI 응답 도착 시 사용자가 이미 다른 탭/프로젝트로 이동했다면 화면을 덮어쓰지 않는다 }
+  - { id: FR-INS-OV-08, text: LLM 미설정/실패 시 규칙 기반 폴백 인사이트로 화면이 비지 않으며 source로 구분한다 }
+  - { id: FR-INS-OV-09, text: 계정별 원가 표는 계획/실적/예상원가/비중 정렬, 컬럼 표시 토글, 계정별 상세계정 [+] 펼침을 지원한다 }
+  - { id: FR-INS-OV-10, text: OpenAI 키는 서버 환경변수로만 관리하고 클라이언트에 노출되지 않는다 }
+  - { id: FR-INS-OV-11, text: URL에는 내부 인덱스가 아닌 불투명 프로젝트 ID(pj)를 사용하고 딥링크 진입을 지원한다 }
+
+# ── 관련 소스 파일 ──
+source_index:
+  insights_js:
+    - insOverviewHtml:498
+    - projKpis:253
+    - projTrend:244
+    - projAccounts:37
+    - projAI:265
+    - loadInsOverviewAI:474
+    - insAiInsightItemsHtml:470
+    - insTrendSvg:758
+    - insTrendShow:790
+    - insAccountTableHtml:883
+    - insAskBudgetQ:919
+    - toggleInsOvAcct:878
+    - insSortBy:913
+    - insToggleCol:914
+  server_js:
+    - handleInsight:298
+    - buildInsightPrompt:286
+    - localInsight:276
+    - callLLM:178
+  app_js:
+    - "ROUTE_ACTIONS['insights']:91"
+    - DYNAMIC_ROUTES:129
+    - routeQueryParam:121
+    - "SCREEN_ROUTES['s-insights']:64"
+  docs:
+    - docs/인사이트/종합현황.md
+    - docs/03-인사이트.md
