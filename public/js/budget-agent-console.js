@@ -71,10 +71,6 @@ var AGENT_PROPOSALS_FINAL = [
       '해당 외주구매 계획 라인 12,000,000원 + 업체 미계획 잔액 8,000,000원 = 20,000,000원',
       '부족액 10,000,000원 — 예산을 올리기 전에는 구매를 진행할 수 없습니다',
     ],
-    basis: {
-      main: '견적확정 I/F 수신 (실시간)',
-      alt: '견적이 오기 전이라도 4분기 마감 물량을 전제하면 같은 결론이 나옵니다 — 아크로디자인랩 1~3분기 PO 평균 계약액 15,000,000원에 과거 3개 프로젝트의 4분기 산출물 검수 증가분(평균 +95%)을 반영하면 약 29,000,000원으로, 계획 20,000,000원 대비 약 9,000,000원 부족이 예상됩니다. Agent는 견적이 확정되면 실제 값으로 다시 계산합니다.',
-    },
     monthly: [{ m: '2026-10', delta: 4000000 }, { m: '2026-11', delta: 3000000 }, { m: '2026-12', delta: 3000000 }],
     impact: '외주비 CP한도(1,200,000,000원) 이내입니다. 승인하시면 확정된 견적대로 구매를 진행할 수 있습니다.',
   },
@@ -720,6 +716,20 @@ function renderAgentLegacyViewFinal(viewData, data, roll) {
    6. 항목 6) 계정은 Agent가 관리 — 열람 전용 레일 + 수동 개입
    ========================================================================== */
 
+// CP총액 — 막대 없이 "여유 / ▣ CP총액" 두 조각만 한 줄로 붙입니다.
+function renderAgentCpChipFinal(roll) {
+  return `
+    <span class="agcp-chip">
+      <em class="${roll.overCp ? 'bad' : ''}">
+        <i>${roll.overCp ? '초과' : '여유'}</i>${fmt(roll.overCp ? -roll.cpRemain : roll.cpRemain)}원
+      </em>
+      <button class="cp-ref-btn ${roll.overCp ? 'over' : ''}" onclick="openCpTotalPopupFinal()"
+        title="선행 시스템에서 승인받은 계정별 편성 한도 — 계정별로 펼쳐 봅니다">
+        <b>CP총액</b><span>${fmt(roll.cp)}원</span><u aria-hidden="true">⌄</u>
+      </button>
+    </span>`;
+}
+
 // PM이 편성하는 "계정 타일"이 아니라, Agent가 관리 중인 계정의 상태를 보여주는 레일입니다.
 function renderAgentAccountRailFinal(viewData, data, roll) {
   const cards = roll.rows.map(r => {
@@ -766,11 +776,13 @@ function renderAgentAccountRailFinal(viewData, data, roll) {
   return `
     <div class="agent-section">
       <div class="ag-sec-head">
-        <strong>Agent가 관리 중인 계정</strong>
+        <div class="ag-sec-top">
+          <strong>Agent가 관리 중인 계정</strong>
+          ${renderAgentCpChipFinal(roll)}
+        </div>
         <span>PM은 예산을 직접 편성하지 않습니다. 내역은 열람 전용이며, 예외 상황에만 [수동 개입]으로 편집할 수 있고 그 사실이 이력에 남습니다.</span>
       </div>
       <div class="agent-acct-rail">${allCard}${cards}</div>
-      ${renderCpLimitBarFinal(roll)}
     </div>
     ${expanded}`;
 }
@@ -818,16 +830,9 @@ renderBudgetAccountEditor = function (data, account) {
       </div>
       ${html}`;
   }
+  // [2026.09.01] 안내 박스는 제거하고, 편집 잠금과 [수동 개입] 진입만 남깁니다.
   return `
     <div class="agent-readonly">
-      <div class="agr-note">
-        <span aria-hidden="true">🤖</span>
-        <div>
-          <b>${account}는 예산관리전문Agent가 관리합니다</b>
-          <span>PM은 값을 직접 고치지 않습니다. 변경이 필요하면 Agent가 감지해 제안하고, 승인/반려만 선택하세요.</span>
-        </div>
-        <button class="agr-manual" onclick="agentToggleManualFinal('${account}')">수동 개입</button>
-      </div>
       <div class="agr-veil">${html}</div>
     </div>`;
 };
@@ -864,13 +869,13 @@ function renderAgentProcessStripFinal() {
 
 /* ==========================================================================
    10. [2026.08.27 위클리 피드백 반영 #5] 4안 — 3분할
-       좌(절반): 예산 현황 보기 / 우상: 해야 할 일 / 우하: Agent에게 물어보기
+       좌(절반): 예산 현황 보기 / 우상: 해야 할 일 / 우하: Agent와 대화하기
    ========================================================================== */
 
 // [2026.08.28 위클리 피드백 반영] 세 화면은 각각 3단계로 접고 폅니다.
 //   collapsed(제목줄만) → normal(분할 안에서 보임) → full(전체 폭) → 다시 collapsed
 // 배치는 normal 인 화면 수로 정해집니다.
-//   3개 → 좌(예산 현황) / 우(할일·물어보기)   2개 → 좌 / 우 2분할
+//   3개 → 좌(예산 현황) / 우(할일·대화)   2개 → 좌 / 우 2분할
 //   1개 → 전체 폭                      0개 → 제목줄 3개만
 var AGENT_PANES_FINAL = ['todo', 'chat', 'budget'];
 var agentPaneStateMapFinal = { todo: 'normal', chat: 'normal', budget: 'normal' };
@@ -888,7 +893,7 @@ function agentNormalPanesFinal() {
   return AGENT_PANES_FINAL.filter(k => agentPaneStateFinal(k) === 'normal');
 }
 // 그리드 자리 계산 — 열린 개수에 따라 세 가지 배치만 나옵니다.
-//   3개: 좌(예산, 2행) / 우상(해야 할 일) / 우하(물어보기)
+//   3개: 좌(예산, 2행) / 우상(해야 할 일) / 우하(대화)
 //   2개: 무조건 좌우 분할. 예산 현황 보기가 포함되면 예산이 항상 좌측입니다.
 //   1개 이하: 탭 순서대로 한 줄씩 전체 폭
 function agentSplitPlanFinal() {
@@ -1018,7 +1023,7 @@ function renderAgentTodoFinal() {
   const list = mineCnt
     ? (exec
         ? subD.map(d => renderAgentDraftRowFinal(d, 'exec')).join('')
-        : retD.map(d => renderAgentDraftRowFinal(d, 'pm')).join('') + pend.map(renderAgentMiniRowFinal).join(''))
+        : retD.map(d => renderAgentDraftRowFinal(d, 'pm')).join('') + renderAgentPendingListFinal(pend))
     : `<div class="ag-empty">${exec
         ? 'PM이 상신하면 여기에서 결재하실 수 있습니다.'
         : 'Agent가 구매시스템 PO · SCM 투입계획 · ERP 가용예산 · 월 마감 실적을 계속 보고 있습니다.'}</div>`;
@@ -1038,7 +1043,7 @@ function renderAgentTodoFinal() {
         <div class="agpane-actbar">
           <label class="agm-check all" title="전체 선택">
             <input type="checkbox" ${selN === pend.length ? 'checked' : ''}
-              onchange="agentSelAllFinal(${JSON.stringify(pend.map(x => x.id))}, this.checked)">
+              onchange="agentSelAllFinal([${pend.map(x => `'${x.id}'`).join(',')}], this.checked)">
             <span>전체</span>
           </label>
           <button class="agm-box-draft" onclick="agentMiniBulkFinal()">${
@@ -1065,7 +1070,7 @@ function renderAgentChatPaneFinal() {
     <div class="agent-pane chat ${agentPaneStateFinal('chat')}"${agentPaneGridStyleFinal(agentSplitPlanFinal(), 'chat')}>
       <div class="agpane-head">
         <div class="agpane-title">
-          <strong>Agent에게 물어보기</strong>
+          <strong>Agent와 대화하기</strong>
           <span>예산 근거를 바로 물어보세요. 직책자 질의도 같은 창구를 씁니다.</span>
         </div>
         ${agentPaneToggleBtnFinal('chat')}
@@ -1085,7 +1090,7 @@ function renderAgentChatPaneFinal() {
     </div>`;
 }
 
-// ④ 3분할 — 탭 순서는 할일·물어보기·예산, 3분할 배치는 좌 예산 / 우상 할일 / 우하 물어보기
+// ④ 3분할 — 탭 순서는 할일·대화·예산, 3분할 배치는 좌 예산 / 우상 할일 / 우하 대화
 function renderAgentSplitViewFinal(viewData, data, projInfo, roll) {
   return `
     ${renderAgentViewSwitchFinal()}
@@ -1103,7 +1108,6 @@ function renderAgentSplitViewFinal(viewData, data, projInfo, roll) {
             ${agentPaneToggleBtnFinal('budget')}
           </div>
           <div class="agpane-body">
-            ${renderAgentStatusStripFinal(roll)}
             ${renderAgentAccountRailFinal(viewData, data, roll)}
           </div>
         </div>
@@ -1148,7 +1152,6 @@ function renderAgentInsightFinal(viewData, data, roll) {
   const elapsed = months.length ? passed / months.length : 0;
 
   const pend = agentProposalsFinal('pending');
-  const appr = agentProposalsFinal('approved');
   const pendByAcct = {};
   pend.forEach(p => { pendByAcct[p.acct] = (pendByAcct[p.acct] || 0) + (p.to - p.from); });
 
@@ -1173,22 +1176,11 @@ function renderAgentInsightFinal(viewData, data, roll) {
   if (biggest) notes.push(`미집행 계획이 가장 많은 계정은 ${biggest.r.acct} ${agentWonFinal(biggest.r.remain)}으로, 전체 미집행의 ${roll.plan - roll.done > 0 ? Math.round((biggest.r.remain / (roll.plan - roll.done)) * 100) : 0}%를 차지합니다.`);
   notes.push(`총액이 바뀌지 않는 조정 ${AGENT_AUTO_FINAL.length}건은 Agent가 확인 없이 반영했습니다. PM 검토가 필요한 것은 금액이 바뀌는 변경뿐입니다.`);
 
-  const kpi = (label, value, sub, cls) => `
-    <div class="agin-kpi ${cls || ''}"><span>${label}</span><strong>${value}</strong><em>${sub}</em></div>`;
-
   return `
     <div class="agent-insight">
       <div class="agin-head">
         <strong>전체 계정 인사이트</strong>
         <span>기간 경과율 ${Math.round(elapsed * 100)}% (${passed}/${months.length}개월) 기준으로 Agent가 ${roll.rows.length}개 계정을 판단한 결과입니다.</span>
-      </div>
-
-      <div class="agin-kpis">
-        ${kpi('수립 예산', fmt(roll.plan) + '원', 'CP총액 대비 ' + (roll.cp > 0 ? Math.round((roll.plan / roll.cp) * 100) : 0) + '%', '')}
-        ${kpi('실적(확정)', fmt(roll.done) + '원', '집행률 ' + (roll.plan > 0 ? Math.round((roll.done / roll.plan) * 1000) / 10 : 0) + '%', 'ok')}
-        ${kpi('계획(미집행)', fmt(roll.plan - roll.done) + '원', '남은 기간에 집행할 금액', 'open')}
-        ${kpi('CP총액 여유', fmt(roll.cpRemain) + '원', pend.length ? `대기 ${pend.length}건 반영 시 ${fmt(roll.cpRemain - pend.reduce((t, p) => t + (p.to - p.from), 0))}원` : '추가 편성 가능액', roll.overCp ? 'bad' : '')}
-        ${kpi('Agent 처리', AGENT_AUTO_FINAL.length + '건 자율 / ' + pend.length + '건 대기', appr.length ? `검토 완료 ${appr.length}건` : 'PM 검토 대기 중', 'auto')}
       </div>
 
       <div class="agin-scroll">
@@ -1260,9 +1252,20 @@ function agentMiniBulkFinal() {
 }
 
 /* ── 5안 목록 행 — PERSONA 에 따라 우측 액션이 달라집니다 ── */
-function renderAgentMiniRowFinal(p) {
+// 이관 건은 합계가 ±0이라 "변동 없음"으로 읽힙니다. 계정별 증감을 그대로 보여줍니다.
+function renderAgentDeltaCellFinal(p) {
+  const legs = p.legs || [];
+  if (legs.length > 1) {
+    return `<em class="agm-delta multi">${legs.map(l => `
+      <span class="agmd-leg"><i class="${agentAcctColorFinal(l.acct)}">${l.acct}</i>${agentDeltaFinal(l.delta)}</span>`).join('')}</em>`;
+  }
+  const d = agentNetFinal(p);
+  return `<em class="agm-delta ${d > 0 ? 'up' : d < 0 ? 'down' : 'zero'}">${d === 0 ? '±0원' : agentDeltaFinal(d)}</em>`;
+}
+
+function renderAgentMiniRowFinal(p, optLabel, optHint, optTitle) {
   const open = agentMiniOpenFinal === p.id;
-  const delta = agentNetFinal(p);          // 이관 건은 계정 합계(±0)로 표시합니다
+  const delta = agentNetFinal(p);
   const exec = agentIsExecFinal();
   let right = '';
   if (p.status === 'pending') {
@@ -1291,22 +1294,25 @@ function renderAgentMiniRowFinal(p) {
     right = '<span class="agm-done rejected">반려</span>';
   }
   return `
-    <div class="agm-row ${open ? 'open' : ''} ${p.status}">
+    <div class="agm-row ${open ? 'open' : ''} ${p.status} ${optLabel ? 'as-opt' : ''}">
       <div class="agm-line">
         ${(!agentIsExecFinal() && p.status === 'pending') ? `
           <label class="agm-check" title="선택해서 함께 기안">
             <input type="checkbox" ${agentMiniSelFinal[p.id] ? 'checked' : ''} onchange="agentSelToggleFinal('${p.id}')">
           </label>` : ''}
         <button class="agm-open" onclick="agentMiniToggleFinal('${p.id}')" title="${open ? '접기' : '근거·상세 보기'}">
-          <span class="agp-acct sm ${agentAcctColorFinal(p.acct)}">${p.acct}</span>
-          <b>${escHtml(p.title)}</b>
-          <em class="agm-delta ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'zero'}">${delta === 0 ? '±0원' : agentDeltaFinal(delta)}</em>
+          ${optLabel
+            ? `<span class="agm-opt">${optLabel}</span>`
+            : `<span class="agp-acct sm ${agentAcctColorFinal(p.acct)}">${p.acct}</span>`}
+          <b>${escHtml(optTitle || p.title)}</b>
+          ${renderAgentDeltaCellFinal(p)}
           ${p.transfer ? '<i class="agm-tag">계정 간 이관</i>' : ''}
           ${p.urgent ? '<i class="agm-tag urgent">실적 초과</i>' : ''}
           <i class="agm-caret">${open ? '∧' : '∨'}</i>
         </button>
         ${right}
       </div>
+      ${optHint ? `<div class="agm-opthint">${escHtml(optHint)}</div>` : ''}
       ${p.status === 'returned' && p.returnReason ? `
         <div class="agm-return">↩ 직책자 반려 사유 — ${escHtml(p.returnReason)}<span>${p.returnedAt || ''}</span></div>` : ''}
       ${p.status === 'submitted' && p.draftNote ? `
@@ -1332,7 +1338,7 @@ function renderAgentMiniRowFinal(p) {
 
 /* ── ⑤ 간소화 — PM / 직책자 두 화면 ── */
 /* ── [2026.08.31] 5안은 다섯 항목을 같은 Depth 의 접이식 섹션으로 둡니다.
-      해야 할 일 · 결재 이력 · 변경 이력 · Agent에게 물어보기 · 예산 현황 보기
+      해야 할 일 · 결재 이력 · 변경 이력 · Agent와 대화하기 · 예산 현황 보기
       (탭이 아니라 각각 자기 버튼을 갖고, 여러 개를 동시에 열 수 있습니다) ── */
 var agentMiniSecFinal = { todo: true, chat: false, budget: false };
 
@@ -1405,24 +1411,10 @@ function renderAgentChatBodyFinal() {
     </div>`;
 }
 
+// [2026.09.01] 간소화 화면도 3분할 화면과 같은 구성을 씁니다 —
+//   계정 레일(CP총액 칩 포함) + 선택한 계정 내역 / 미선택 시 전체 계정 인사이트.
 function renderAgentBudgetBodyFinal(viewData, data, roll) {
-  return `
-    <div class="agm-accts">
-      ${roll.rows.map(r => {
-        const rate = r.plan > 0 ? (r.done / r.plan) * 100 : 0;
-        return `
-          <button class="agm-acct" onclick="openBudgetAccountEditor('${r.acct}')" title="${r.acct} 예산내역 열기">
-            <span class="agp-acct sm ${agentAcctColorFinal(r.acct)}">${r.acct}</span>
-            <b>${fmt(r.plan)}<i>원</i></b>
-            <div class="agm-acct-bar"><u style="width:${Math.min(rate, 100)}%"></u></div>
-            <em>집행률 ${Math.round(rate * 10) / 10}% · 미집행 ${fmt(r.remain)}원</em>
-          </button>`;
-      }).join('')}
-    </div>
-    ${renderCpLimitBarFinal(roll)}
-    <div class="agm-more">
-      <button onclick="agentSetViewFinal('split')">자세한 인사이트·이력은 4안 화면에서 →</button>
-    </div>`;
+  return renderAgentAccountRailFinal(viewData, data, roll);
 }
 
 /* ── ⑤ 간소화 — PM / 직책자 두 화면 ── */
@@ -1452,7 +1444,7 @@ function renderAgentMiniViewFinal(viewData, data, projInfo, roll) {
   const todoBody = mineCnt
     ? (exec
         ? subD.map(d => renderAgentDraftRowFinal(d, 'exec')).join('')
-        : retD.map(d => renderAgentDraftRowFinal(d, 'pm')).join('') + pend.map(renderAgentMiniRowFinal).join(''))
+        : retD.map(d => renderAgentDraftRowFinal(d, 'pm')).join('') + renderAgentPendingListFinal(pend))
     : `<div class="ag-empty">${exec
         ? 'PM이 상신하면 여기에서 결재하실 수 있습니다.'
         : 'Agent가 구매시스템 PO · SCM 투입계획 · ERP 가용예산 · 월 마감 실적을 계속 보고 있습니다.'}</div>`;
@@ -1460,7 +1452,7 @@ function renderAgentMiniViewFinal(viewData, data, projInfo, roll) {
   const todoActions = (!exec && pend.length) ? `
     <label class="agm-check all" title="전체 선택">
       <input type="checkbox" ${selN === pend.length ? 'checked' : ''}
-        onchange="agentSelAllFinal(${JSON.stringify(pend.map(x => x.id))}, this.checked)">
+        onchange="agentSelAllFinal([${pend.map(x => `'${x.id}'`).join(',')}], this.checked)">
       <span>전체</span>
     </label>
     <button class="agm-box-draft" onclick="agentMiniBulkFinal()">${
@@ -1474,7 +1466,7 @@ function renderAgentMiniViewFinal(viewData, data, projInfo, roll) {
       body: `<div class="agm-list">${todoBody}</div>`,
     },
     {
-      key: 'chat', ic: '💬', title: 'Agent에게 물어보기',
+      key: 'chat', ic: '💬', title: 'Agent와 대화하기',
       sub: '왜 이렇게 판단했는지, 다른 방법은 없는지 물어보세요',
       body: renderAgentChatBodyFinal(),
     },
@@ -1511,15 +1503,6 @@ function renderAgentMiniViewFinal(viewData, data, projInfo, roll) {
           <button onclick="agentHistOpenFinal('approval')">결재 이력 보기 →</button>
         </div>` : ''}
 
-      ${budgetSetupEditAccount ? `
-        <div class="agm-acct-detail">
-          <div class="agm-acct-detail-head">
-            <b>${budgetSetupEditAccount} 내역</b>
-            <span>${exec ? '직책자' : '검토자'}가 직접 열어 본 상세입니다.</span>
-            <button onclick="closeBudgetAccountEditor()">닫기</button>
-          </div>
-          <div class="setup-expanded-detail">${renderBudgetAccountEditor(viewData, budgetSetupEditAccount)}</div>
-        </div>` : ''}
     </div>
     ${agentApprovalPopupFinal.length ? renderAgentApprovalPopupFinal() : ''}
     ${renderAgentRejectAskFinal()}
@@ -1578,7 +1561,19 @@ function agentByStatusFinal(st) {
 
 /* ── [#2][#3] PM: Y → 결재선 지정 팝업 → 상신 ── */
 function agentOpenApprovalPopupFinal(ids) {
-  agentApprovalPopupFinal = Array.isArray(ids) ? ids.slice() : [ids];
+  const list = Array.isArray(ids) ? ids.slice() : [ids];
+  const conflicts = agentExConflictsFinal(list);
+  if (conflicts.length) {
+    const c = conflicts[0];
+    agentExAlertFinal = c.g.key;
+    agentExOpenFinal[c.g.key] = true;   // 해제하러 들어온 김에 계속 펼쳐 둡니다
+    c.g.ids.forEach(x => { if (list.indexOf(x) >= 0) agentMiniSelFinal[x] = true; });
+    showToast(`${c.g.acct} 부족은 1안·2안 중 하나만 기안할 수 있습니다. 둘 중 하나의 체크를 해제해 주세요.`);
+    renderBudgetPage();
+    return;
+  }
+  agentExAlertFinal = '';
+  agentApprovalPopupFinal = list;
   renderBudgetPage();
 }
 function agentCloseApprovalPopupFinal() { agentApprovalPopupFinal = []; renderBudgetPage(); }
@@ -1765,6 +1760,138 @@ function agentSyncProposalsFinal(roll) {
 }
 function agentNetFinal(p) { return (p.legs || []).reduce((t, l) => t + l.delta, 0); }
 
+/* ── [2026.09.01] 서로 배타인 제안 ─────────────────────────────────────
+   같은 부족을 다른 방법으로 메우는 제안은 함께 처리하면 과다 증액이 됩니다.
+   외주비 부족을 ①CP 여유로 증액 ②재료비 여유분 이관 두 가지로 풀 수 있는데,
+   둘 다 승인하면 외주비가 30,000,000원 늘어 필요한 것보다 많아집니다. */
+var AGENT_EXCLUSIVE_FINAL = [
+  {
+    key: 'ex-outsource', acct: '외주비', ids: ['ap-03', 'ap-05'],
+    problem: '현재 예산으로는 4분기 확정 견적대로 구매할 수 없습니다',
+    detected: '부족액 10,000,000원 · 확신도 94%',
+    // 1안·2안이 공유하는 감지 근거 — 무엇을 보고 알았는지가 방법 선택보다 먼저입니다.
+    source: {
+      main: '견적확정 I/F 수신 (실시간)',
+      ifAt: '2026-08-27 09:05',
+      ifFrom: '구매시스템 → 예산관리 Agent',
+      ifBody: '아크로디자인랩 30,000,000원 · 계약기간 2026-10-01 ~ 12-31',
+      judgedAt: '2026-08-27 09:12',
+      facts: [
+        '해당 외주구매 계획 라인 12,000,000원 + 업체 미계획 잔액 8,000,000원 = 가용 20,000,000원',
+        '확정 견적 30,000,000원 − 가용 20,000,000원 = 부족액 10,000,000원',
+      ],
+      alt: '견적이 오기 전이라도 4분기 마감 물량을 전제하면 같은 결론이 나옵니다 — 아크로디자인랩 1~3분기 PO 평균 계약액 15,000,000원에 과거 3개 프로젝트의 4분기 산출물 검수 증가분(평균 +95%)을 반영하면 약 29,000,000원으로, 계획 20,000,000원 대비 약 9,000,000원 부족이 예상됩니다. Agent는 견적이 확정되면 실제 값으로 다시 계산합니다.',
+    },
+    why: '아래 두 방법 모두 외주비를 늘립니다. 함께 기안하면 외주비가 30,000,000원 늘어 필요한 금액을 넘으니, 하나만 남기고 체크를 해제해 주세요.',
+    titles: {
+      'ap-03': 'CP 여유로 외주비를 증액합니다',
+      'ap-05': '재료비 여유분을 외주비로 이관합니다 (총액 변동 없음)',
+    },
+    options: {
+      'ap-03': '확정된 견적분만 해결합니다. 재료비는 그대로 두고 CP 여유 567,000,000원에서 씁니다.',
+      'ap-05': '4분기 계약 예정분까지 해결하고 총액은 그대로입니다. 집행률이 낮은 재료비를 정리합니다.',
+    },
+  },
+];
+function agentExGroupFinal(id) {
+  return AGENT_EXCLUSIVE_FINAL.find(g => g.ids.indexOf(id) >= 0) || null;
+}
+function agentExPartnersFinal(id) {
+  const g = agentExGroupFinal(id);
+  return g ? g.ids.filter(x => x !== id) : [];
+}
+// 목록에 함께 떠 있는(검토 대기) 상대만 실제 충돌입니다.
+function agentExLivePartnersFinal(id) {
+  return agentExPartnersFinal(id).filter(x => {
+    const q = agentFindProposalFinal(x);
+    return q && q.status === 'pending';
+  });
+}
+// 여러 건을 한 번에 처리할 때 배타 그룹당 앞선 1건만 남깁니다.
+/* 검토 대기 목록 — 배타 그룹은 "문제 한 줄 + 1안/2안" 한 덩어리로 내려갑니다. */
+function renderAgentPendingListFinal(list) {
+  const done = {};
+  return list.map(p => {
+    const g = agentExGroupFinal(p.id);
+    if (!g) return renderAgentMiniRowFinal(p);
+    if (done[g.key]) return '';
+    const members = g.ids.map(id => list.find(x => x.id === id)).filter(Boolean);
+    if (members.length < 2) return renderAgentMiniRowFinal(p);
+    done[g.key] = true;
+    return renderAgentExGroupFinal(g, members);
+  }).join('');
+}
+
+// 감지 소스 — I/F 수신 시각과 그때 받은 값을 그대로 보여줍니다.
+function renderAgentExSourceFinal(src) {
+  return `
+    <div class="agex-src">
+      <div class="agex-src-row">
+        <span class="agex-src-k">감지 소스</span>
+        <div class="agex-src-v">
+          <b>${escHtml(src.main)}</b>
+          <span class="agex-src-if">
+            <i>I/F 수신 ${escHtml(src.ifAt)}</i> · ${escHtml(src.ifFrom)} · ${escHtml(src.ifBody)}
+          </span>
+          ${(src.facts || []).map(f => `<span class="agex-src-fact">· ${escHtml(f)}</span>`).join('')}
+          <span class="agex-src-judge">Agent 판단 ${escHtml(src.judgedAt)}</span>
+        </div>
+      </div>
+      ${src.alt ? `
+        <div class="agex-src-row alt">
+          <span class="agex-src-k alt">추세 기반 대안</span>
+          <div class="agex-src-v"><span class="agex-src-alt">${escHtml(src.alt)}</span></div>
+        </div>` : ''}
+    </div>`;
+}
+
+// 다른 항목처럼 접었다 펼 수 있습니다. 기본은 접힘, 택1 경고가 뜨면 자동으로 펼칩니다.
+var agentExOpenFinal = {};
+function agentExToggleFinal(key) {
+  agentExOpenFinal[key] = !agentExOpenFinal[key];
+  renderBudgetPage();
+}
+function renderAgentExGroupFinal(g, members) {
+  const alert = agentExAlertFinal === g.key;
+  const selN = members.filter(m => agentMiniSelFinal[m.id]).length;
+  const open = !!agentExOpenFinal[g.key] || alert;
+  return `
+    <div class="agex-group ${alert ? 'alert' : ''} ${open ? 'open' : ''}">
+      <button class="agex-glead" onclick="agentExToggleFinal('${g.key}')"
+        title="${open ? '접기' : '감지 근거와 방법 2개 보기'}" aria-expanded="${open}">
+        <span class="agp-acct sm ${agentAcctColorFinal(g.acct)}">${g.acct}</span>
+        <div class="agex-gtitle">
+          <b>${escHtml(g.problem)}</b>
+          <span>${escHtml(g.detected)}${open ? '' : ' · 방법 ' + members.length + '개'}</span>
+        </div>
+        ${selN ? `<i class="agm-tag ${selN > 1 ? 'urgent' : ''}">${selN > 1 ? selN + '개 선택' : (members.findIndex(m => agentMiniSelFinal[m.id]) + 1) + '안 선택'}</i>` : ''}
+        <i class="agm-tag pick1">택1</i>
+        <i class="agm-caret">${open ? '∧' : '∨'}</i>
+      </button>
+      ${(!open && (alert || selN > 1)) ? `
+        <div class="agex-warn">1안·2안이 모두 선택되어 있습니다. 펼쳐서 하나만 남겨 주세요.</div>` : ''}
+      ${open ? `
+        ${g.source ? renderAgentExSourceFinal(g.source) : ''}
+        <p class="agex-gwhy">${escHtml(g.why)}</p>
+        ${alert ? `
+          <div class="agex-alert">
+            ⚠ 1안과 2안이 모두 선택되어 있습니다. 기안하려면 <b>하나의 체크를 해제</b>해 주세요.
+          </div>` : (selN > 1 ? `
+          <div class="agex-warn">1안·2안이 모두 선택되어 있습니다. 기안 전에 하나만 남겨 주세요.</div>` : '')}
+        <div class="agex-opts">
+          ${members.map((m, i) => renderAgentMiniRowFinal(m, (i + 1) + '안', g.options[m.id], (g.titles || {})[m.id])).join('')}
+        </div>` : ''}
+    </div>`;
+}
+
+// 함께 기안할 수 없는 조합이 담겼는지 검사합니다. 자동으로 빼지 않습니다.
+var agentExAlertFinal = '';        // 경고를 띄울 그룹 key
+function agentExConflictsFinal(ids) {
+  return AGENT_EXCLUSIVE_FINAL
+    .map(g => ({ g, hit: g.ids.filter(x => ids.indexOf(x) >= 0) }))
+    .filter(x => x.hit.length > 1);
+}
+
 
 /* ── [#3] 계정별 변경 전 / 변경 후 표 — 직책자가 가장 먼저 봐야 하는 것 ── */
 function renderAgentLegsTableFinal(p, compact) {
@@ -1911,14 +2038,34 @@ function renderAgentEvidenceExtraFinal(p) {
 var agentMiniSelFinal = {};
 function agentSelToggleFinal(id) {
   agentMiniSelFinal[id] = !agentMiniSelFinal[id];
+  // 배타 그룹에서 하나만 남으면 경고를 내립니다.
+  const g = agentExGroupFinal(id);
+  if (g && agentExAlertFinal === g.key) {
+    const sel = g.ids.filter(x => agentMiniSelFinal[x]);
+    if (sel.length < 2) agentExAlertFinal = '';
+  }
   renderBudgetPage();
 }
 function agentSelAllFinal(ids, on) {
-  ids.forEach(id => { agentMiniSelFinal[id] = on; });
+  ids.forEach(id => { agentMiniSelFinal[id] = !!on; });
+  if (!on) agentExAlertFinal = '';
   renderBudgetPage();
 }
 function agentSelectedFinal(ids) {
   return ids.filter(id => agentMiniSelFinal[id]);
+}
+
+/* ── [2026.09.01] 인건비 계정 내역의 PM 안내 배너 제거 ────────────────────
+   SCM 인력 확정 수신 / OT비 실적 발생 / P레벨 단가 확정 — 세 배너는
+   "PM이 알아채고 처리하라"는 안내입니다. 지금은 Agent가 같은 신호를 먼저 감지해
+   [해야 할 일] 제안으로 올리므로 중복이라 띄우지 않습니다.
+   초안(8/27 이전) 화면은 개편 전 모습이라 그대로 둡니다. */
+if (typeof renderLaborAlertsFinal === 'function') {
+  var renderLaborAlertsBeforeAgentFinal = renderLaborAlertsFinal;
+  renderLaborAlertsFinal = function () {
+    if (agentViewFinal === 'draft') return renderLaborAlertsBeforeAgentFinal();
+    return '';
+  };
 }
 
 /* ==========================================================================
@@ -2152,23 +2299,33 @@ function renderAgentDraftRowFinal(d, mode) {
   .ags-recheck { margin-left:auto; flex:0 0 auto; border:1px solid #c7d2fe; background:#fff; color:#4338ca;
     border-radius:999px; padding:7px 14px; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap; }
   .ags-recheck:hover { background:#eef2ff; }
-  .ags-kpis { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin-top:13px; }
-  .ags-kpi { border:1px solid var(--agc-line); border-radius:12px; background:#fff; padding:11px 13px; min-width:0; }
-  .ags-kpi-label { display:block; font-size:12px; font-weight:800; color:#94a3b8; white-space:nowrap; }
-  .ags-kpi-val { display:block; margin:4px 0 2px; font-size:21px; font-weight:900; color:var(--agc-ink); letter-spacing:-.5px; }
-  .ags-kpi-sub { display:block; font-size:11.5px; color:var(--agc-mute); line-height:1.5; }
-  .ags-kpi.warn { border-color:#fcd34d; background:#fffbeb; }
-  .ags-kpi.warn .ags-kpi-val { color:#b45309; }
-  .ags-kpi.auto .ags-kpi-val { color:#4338ca; }
-  .ags-kpi.ok .ags-kpi-val { color:#15803d; }
-  .ags-kpi.bad { border-color:#fca5a5; background:#fef2f2; }
-  .ags-kpi.bad .ags-kpi-val { color:#b91c1c; }
 
   /* 섹션 */
   .agent-section { margin:0 0 16px; }
-  .ag-sec-head { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin:0 0 9px; }
-  .ag-sec-head strong { font-size:15px; font-weight:900; color:var(--agc-ink); }
-  .ag-sec-head span { font-size:12.5px; color:var(--agc-mute); line-height:1.6; }
+  .ag-sec-head { display:flex; flex-direction:column; gap:4px; margin:0 0 9px; }
+  .ag-sec-top { display:flex; align-items:center; gap:10px; min-width:0; }
+  .ag-sec-head strong { flex:0 0 auto; font-size:15px; font-weight:900; color:var(--agc-ink); }
+  .ag-sec-head > span { font-size:12.5px; color:var(--agc-mute); line-height:1.6; }
+  /* CP총액 — 제목 줄 우측 끝에 여유·버튼 두 조각만 */
+  .agcp-chip { flex:0 1 auto; min-width:0; margin-left:auto; display:inline-flex; align-items:center;
+    gap:9px; flex-wrap:nowrap; }
+  .agcp-chip .cp-ref-btn { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .agcp-chip em { flex:0 0 auto; display:inline-flex; align-items:baseline; gap:5px;
+    font-style:normal; font-size:13px; font-weight:900; color:#12724f;
+    font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .agcp-chip em i { font-style:normal; font-size:10.5px; font-weight:900; letter-spacing:.04em; color:#94a3b8; }
+  .agcp-chip em.bad { color:#b91c1c; }
+  .agcp-chip em.bad i { color:#fca5a5; }
+  /* CP총액 — 눌러서 계정별 한도를 펼쳐 보는 참고 칩 */
+  .agcp-chip .cp-ref-btn { display:inline-flex; align-items:baseline; gap:7px;
+    border:1px solid #e2e8f0; border-radius:9px; background:#fff; color:#0f172a;
+    padding:5px 10px; font:inherit; font-size:13px; font-weight:900;
+    font-variant-numeric:tabular-nums; cursor:pointer; }
+  .agcp-chip .cp-ref-btn b { font-size:10.5px; font-weight:900; letter-spacing:.04em; color:#94a3b8; }
+  .agcp-chip .cp-ref-btn u { text-decoration:none; font-size:11px; color:#cbd5e1; }
+  .agcp-chip .cp-ref-btn:hover { border-color:#6366f1; background:#f5f6ff; color:#3730a3; }
+  .agcp-chip .cp-ref-btn:hover b, .agcp-chip .cp-ref-btn:hover u { color:#6366f1; }
+  .agcp-chip .cp-ref-btn.over { border-color:#fca5a5; background:#fef2f2; color:#b91c1c; }
   .ag-empty { border:1px dashed var(--agc-line); border-radius:12px; background:#fbfcfe;
     padding:20px; text-align:center; font-size:13.5px; font-weight:700; color:#94a3b8; }
 
@@ -2300,7 +2457,7 @@ function renderAgentDraftRowFinal(d, mode) {
   .agq-a.pending { color:#94a3b8; }
 
   /* 계정 레일 (열람 전용) */
-  .agent-acct-rail { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }
+  .agent-acct-rail { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; }
   .agent-acct { border:1px solid var(--agc-line); border-radius:14px; background:#fff; padding:12px 13px; min-width:0; }
   .agent-acct.active { border-color:#0f172a; box-shadow:0 0 0 2px rgba(15,23,42,.08); }
   .agent-acct.unlocked { border-color:#fcd34d; background:#fffdf5; }
@@ -2324,14 +2481,6 @@ function renderAgentDraftRowFinal(d, mode) {
 
   /* 열람 전용 편집기 */
   .agent-readonly { position:relative; }
-  .agr-note { display:flex; align-items:center; gap:12px; margin-bottom:12px;
-    border:1px solid #c7d2fe; border-radius:13px; background:#f5f6ff; padding:12px 14px; }
-  .agr-note > span { font-size:20px; }
-  .agr-note b { display:block; font-size:14px; font-weight:900; color:#3730a3; }
-  .agr-note div span { display:block; margin-top:3px; font-size:12.5px; color:#4b5563; line-height:1.6; }
-  .agr-manual { margin-left:auto; flex:0 0 auto; border:1px solid #f5a623; background:#fff;
-    color:#a45b06; border-radius:999px; padding:8px 16px; font-size:13px; font-weight:800; cursor:pointer; }
-  .agr-manual:hover { background:#fff5e5; }
   .agr-veil { position:relative; }
   .agr-veil::after { content:''; position:absolute; inset:0; z-index:5; background:rgba(248,250,252,.35); cursor:not-allowed; }
   .agr-veil input, .agr-veil select, .agr-veil textarea { pointer-events:none !important; background:#f4f6fa !important; color:#94a3b8 !important; }
@@ -2508,17 +2657,6 @@ function renderAgentDraftRowFinal(d, mode) {
   .agin-head { padding:13px 16px; border-bottom:1px solid #eef2f7; }
   .agin-head strong { font-size:15px; font-weight:900; color:var(--agc-ink); }
   .agin-head span { display:block; margin-top:3px; font-size:12.5px; color:var(--agc-mute); line-height:1.6; }
-  .agin-kpis { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:9px; padding:13px 16px; }
-  .agin-kpi { border:1px solid var(--agc-line); border-radius:11px; background:#fbfcfe; padding:10px 12px; min-width:0; }
-  .agin-kpi span { display:block; font-size:11.5px; font-weight:800; color:#94a3b8; white-space:nowrap; }
-  .agin-kpi strong { display:block; margin:4px 0 2px; font-size:17px; font-weight:900; color:var(--agc-ink);
-    letter-spacing:-.4px; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .agin-kpi em { display:block; font-style:normal; font-size:11px; color:var(--agc-mute); line-height:1.5; }
-  .agin-kpi.ok strong { color:#12724f; }
-  .agin-kpi.open strong { color:#1d4ed8; }
-  .agin-kpi.auto strong { color:#4338ca; }
-  .agin-kpi.bad { border-color:#fca5a5; background:#fef2f2; }
-  .agin-kpi.bad strong { color:#b91c1c; }
 
   .agin-table { width:100%; border-collapse:collapse; }
   .agin-table th, .agin-table td { padding:10px 14px; font-size:13px; text-align:left;
@@ -2549,21 +2687,8 @@ function renderAgentDraftRowFinal(d, mode) {
 
   .agin-scroll { overflow-x:auto; }
 
-  /* 분할 화면 안에서는 폭이 좁으므로 KPI를 여러 줄로 접어 숫자가 잘리지 않게 합니다 */
-  .agent-split .ags-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); }
-  .agent-split.n3 .ags-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .agent-split .agin-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); }
-  .agent-split.n3 .agin-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .agent-pane.full .ags-kpis, .agent-pane.full .agin-kpis,
-  .agent-split.n1 .agent-pane.normal .ags-kpis,
-  .agent-split.n1 .agent-pane.normal .agin-kpis { grid-template-columns:repeat(5,minmax(0,1fr)); }
-  .agent-split .ags-kpi-val { font-size:18px; }
   .agent-split .ags-head { flex-wrap:wrap; }
   .agent-split .ags-recheck { margin-left:auto; }
-
-  @media (max-width:1280px) {
-    .agin-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  }
 
   /* [#5] 해야 할 일 카드 */
   .agent-todo { border:1px solid var(--agc-line); border-radius:12px; background:#fff;
@@ -2673,20 +2798,6 @@ function renderAgentDraftRowFinal(d, mode) {
   .agm-panel-body { padding:14px 16px; border-top:1px solid #eef2f7; }
   .agm-panel-body .agpane-foot { border:0; background:transparent; padding:10px 0 0; }
 
-  .agm-accts { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:9px; margin-bottom:12px; }
-  .agm-acct { border:1px solid var(--agm-line); border-radius:11px; background:#fff; padding:11px 12px;
-    text-align:left; cursor:pointer; min-width:0; }
-  .agm-acct:hover { border-color:#0f172a; }
-  .agm-acct b { display:block; margin:8px 0 0; font-size:16px; font-weight:900; color:#0f172a;
-    font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .agm-acct b i { font-style:normal; font-size:11px; font-weight:700; color:#94a3b8; margin-left:2px; }
-  .agm-acct-bar { height:5px; margin:7px 0 6px; border-radius:3px; background:#e9edf4; overflow:hidden; }
-  .agm-acct-bar > u { display:block; height:100%; border-radius:3px; background:#0f9d63; }
-  .agm-acct em { display:block; font-style:normal; font-size:11px; color:#94a3b8; white-space:nowrap;
-    overflow:hidden; text-overflow:ellipsis; }
-  .agm-more { margin-top:10px; text-align:right; }
-  .agm-more button { border:0; background:transparent; color:#4338ca; font-size:12.5px;
-    font-weight:800; cursor:pointer; text-decoration:underline; }
 
 /* ===== PERSONA 전환 (PM / 직책자) ===== */
   .agent-persona { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
@@ -2973,6 +3084,58 @@ function renderAgentDraftRowFinal(d, mode) {
   .agapl-legs b { color:#0f172a; font-weight:900; }
 
   .agm-delta.zero { color:#a45b06; }
+  /* 이관 건 — 계정별 증감을 나란히 */
+  .agm-delta.multi { display:inline-flex; align-items:center; gap:10px; font-size:13.5px; }
+  .agmd-leg { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+  .agmd-leg i { font-style:normal; font-size:11px; font-weight:800; border-radius:5px; padding:2px 6px; }
+  .agmd-leg:first-child { color:#1d4ed8; }
+  .agmd-leg:last-child { color:#c1122f; }
+  /* 택1 안내 */
+  .agm-tag.pick1 { border-color:#c7d2fe; background:#eef2ff; color:#3730a3; }
+  /* 배타 그룹 — 문제 한 줄 + 1안/2안 */
+  .agex-group { border:1px solid #fde68a; background:#fffdf5; border-radius:12px;
+    margin:0 0 2px; padding:11px 13px 9px; }
+  .agex-group.alert { border-color:#fca5a5; background:#fef6f6; }
+  .agex-glead { width:100%; display:flex; align-items:flex-start; gap:11px;
+    border:0; background:transparent; padding:2px 0 0; cursor:pointer; text-align:left; font:inherit; }
+  .agex-glead:hover .agex-gtitle b { color:#4338ca; }
+  .agex-glead .agm-caret { align-self:center; }
+  .agex-group:not(.open) .agex-glead { padding-bottom:1px; }
+  .agex-gtitle { flex:1 1 auto; min-width:0; }
+  .agex-gtitle b { display:block; font-size:15px; font-weight:800; color:#0f172a; }
+  .agex-gtitle span { display:block; margin-top:3px; font-size:11.5px; color:var(--agc-mute); }
+  .agex-gwhy { margin:9px 0 0; font-size:12px; color:#7c5310; line-height:1.6; }
+  .agex-src { margin-top:9px; border:1px solid #e5e7eb; border-radius:10px; background:#fff;
+    padding:9px 11px; display:flex; flex-direction:column; gap:8px; }
+  .agex-src-row { display:flex; align-items:flex-start; gap:9px; }
+  .agex-src-k { flex:0 0 auto; font-size:10.5px; font-weight:900; color:#3730a3;
+    background:#eef2ff; border:1px solid #c7d2fe; border-radius:6px; padding:3px 8px; white-space:nowrap; }
+  .agex-src-k.alt { color:#a45b06; background:#fff7e6; border-color:#fde68a; }
+  .agex-src-v { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .agex-src-v b { font-size:12.5px; font-weight:800; color:#0f172a; }
+  .agex-src-if { font-size:11.5px; color:#334155; }
+  .agex-src-if i { font-style:normal; font-weight:800; color:#1d4ed8;
+    font-variant-numeric:tabular-nums; }
+  .agex-src-fact { font-size:11.5px; color:var(--agc-mute); line-height:1.6; }
+  .agex-src-judge { font-size:11px; color:#94a3b8; }
+  .agex-src-alt { font-size:11.5px; color:#7c5310; line-height:1.65; }
+  .agex-warn { margin-top:8px; font-size:12px; font-weight:800; color:#a45b06;
+    background:#fff7e6; border:1px solid #fde68a; border-radius:8px; padding:7px 10px; }
+  .agex-alert { margin-top:8px; font-size:12.5px; font-weight:800; color:#b91c1c;
+    background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:8px 11px; }
+  .agex-opts { margin-top:8px; display:flex; flex-direction:column; gap:5px; }
+  .agex-opts .agm-row { border:1px solid var(--agc-line); border-radius:10px; background:#fff; }
+  .agex-opts .agm-line { gap:7px; padding:2px 9px 2px 3px; }
+  .agex-opts .agm-open { gap:8px; padding:7px 6px 7px 8px; }
+  .agex-opts .agm-open b { font-size:13px; font-weight:800; }
+  .agex-opts .agm-delta { font-size:13px; }
+  .agex-opts .agm-delta.multi { font-size:12px; gap:8px; }
+  .agex-opts .agm-yn button { height:28px; min-width:38px; font-size:12.5px; }
+  .agex-opts .agm-check { padding:0 2px; }
+  .agex-opts .agm-tag { font-size:10.5px; padding:2px 6px; }
+  .agm-opt { flex:0 0 auto; font-size:11px; font-weight:900; color:#3730a3;
+    background:#eef2ff; border:1px solid #c7d2fe; border-radius:6px; padding:2px 7px; white-space:nowrap; }
+  .agm-opthint { padding:0 10px 7px 40px; font-size:11px; color:var(--agc-mute); line-height:1.55; }
   .agm-tag { flex:0 0 auto; font-style:normal; font-size:10.5px; font-weight:900; border-radius:6px;
     padding:3px 8px; background:#fffbeb; color:#a45b06; border:1px solid #fde68a; white-space:nowrap; }
   .agm-tag.urgent { background:#fdecef; color:#c1122f; border-color:#f6c3ce; }
@@ -3006,18 +3169,8 @@ function renderAgentDraftRowFinal(d, mode) {
 
   /* 직책자 화면 톤 */
 
-  .agm-acct-detail { margin-top:12px; border:1px solid #c7d2fe; border-radius:13px; background:#fff; overflow:hidden; }
-  .agm-acct-detail-head { display:flex; align-items:center; gap:10px; padding:12px 16px;
-    background:#f5f6ff; border-bottom:1px solid #e5e7eb; }
-  .agm-acct-detail-head b { font-size:14.5px; font-weight:900; color:#3730a3; }
-  .agm-acct-detail-head span { flex:1 1 auto; font-size:12.5px; color:#94a3b8; }
-  .agm-acct-detail-head button { flex:0 0 auto; border:1px solid #cbd5e1; background:#fff; color:#475569;
-    border-radius:999px; padding:6px 14px; font-size:12.5px; font-weight:800; cursor:pointer; }
-  .agm-acct-detail-head button:hover { border-color:#0f172a; color:#0f172a; }
-  .agm-acct-detail .setup-expanded-detail { padding:14px 16px; }
 
   @media (max-width:1100px) {
-    .agm-accts { grid-template-columns:repeat(2,minmax(0,1fr)); }
   }
 
   @media (max-width:1100px) {
@@ -3027,8 +3180,7 @@ function renderAgentDraftRowFinal(d, mode) {
   }
 
   @media (max-width:1200px) {
-    .ags-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
-    .agent-acct-rail { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .agent-acct-rail { grid-template-columns:repeat(3,minmax(0,1fr)); }
     .agent-console-grid { grid-template-columns:1fr; }
   }
   `;
