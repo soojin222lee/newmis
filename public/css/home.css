@@ -1118,3 +1118,25 @@ body.menu-shown .topbar .topnav { display: flex !important; }
 /* 전환 대상이 하나뿐일 때 사용자 영역의 화살표 표시를 없앤다 */
 .tb-user:not(.switchable)::after { content: none; }
 @media (max-width: 720px) { .home2-title { font-size: 24px; margin: 32px 0 18px; } }
+
+/* ==========================================================================
+   20차 — 처리 상태 표기 (처리완료 · 결재중 · 재기안)
+   ========================================================================== */
+.pc-flag { font-style: normal; font-weight: 900; font-size: 11px; margin-right: 4px; }
+.pc-flag.done { color: #98a2b3; }
+.pc-flag.prog { color: #5546c9; }
+.pc-flag.ret  { color: #b8283f; }
+
+/* 처리완료 행은 회색으로 가라앉힌다 */
+.pc-row.done { opacity: .55; }
+.pc-row.done .pc-t { color: #98a2b3 !important; text-decoration: line-through; text-decoration-color: #d5dae2; }
+.pc-row.done .pc-acct { background: #f2f4f7 !important; color: #aab2c0 !important; }
+.pc-row.done:hover { opacity: .75; background: #f7f8fb; }
+
+/* 결재 진행 중 */
+.pc-row.prog .pc-t { color: #55606f; }
+
+/* 처리완료 건수 뱃지 */
+.pc-k.done { background: #eef0f4; color: #8a94a6; }
+.pc-k.done i { background: #aab2c0; }
+.pc-k.done b { color: #6a7382; }
