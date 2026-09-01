@@ -2638,7 +2638,6 @@ function homeStageRisks() {
         // 최초 생성 직후라 승인된 버전이 아직 없다 (PM이 편성·상신하면 v1이 생긴다)
         budgetTransferHistory[SCEN_PJT.key] = [];
       }
-      console.log('[시나리오] ' + SCEN_PJT.no + ' 생성 완료');
     } catch (e) { setTimeout(bind, 400); }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
@@ -3824,4 +3823,875 @@ function renderPmDashboard() {
     </div>
     <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
     <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}
+
+// ============================================================
+//  22차 — 사용자 전환 복원 + 팀장용 메인화면
+//
+//  · 상단 "이봄 님 PM" 클릭 → 김여름 팀장으로 전환
+//  · 팀장 화면은 PM 화면과 골격(입력창 위치 · 카드 섹션 위치)을 그대로 두고
+//    내용만 팀 단위 집계로 바꾼다.
+//  · 인사이트 › 원가 소진율의 지표(계획율 · 소진율 · 진척 편차)를 팀 전체로 확장.
+//  · 카드/항목 클릭 시 수행원가로 이동하며 Agent 콘솔 페르소나를 '직책자'로 맞춘다.
+// ============================================================
+
+// 사용자 복원 — 팀장 추가
+HOME_USERS.lead = { key:'lead', name:'김여름', role:'팀장', greet:'여름님', desc:'팀 원가 현황과 결재' };
+
+// 전사 비교 기준 (팀 평균과 대조하는 참고값)
+const TEAM_BENCH = { corpBurn: 58.2, corpDev: 1.4, teamName: 'NOVA PMO팀' };
+
+// ── 프로젝트별 원가 소진율 지표 ──
+// 계획율 = 경과 개월 ÷ 총 개월, 소진율 = 실적 ÷ 계획, 진척 편차 = 소진율 − 계획율
+function pjtBurnOf(pj) {
+  const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[pj] : null;
+  if (!src || !Array.isArray(src.months) || !src.months.length) return null;
+  const cats = ['인건비', '외주비', '재료비', '경비'];
+  const plan = cats.reduce(function (a, c) { return a + (src.plan[c] || 0); }, 0);
+  let act = 0, done = 0;
+  src.months.forEach(function (m) {
+    if (m.type !== 'actual') return;
+    done += 1;
+    cats.forEach(function (c) { if (m[c] && m[c].a) act += m[c].a; });
+  });
+  const total = src.months.length;
+  const planRate = total ? (done / total) * 100 : 0;
+  const burnRate = plan ? (act / plan) * 100 : 0;
+  return { plan: plan, act: act, months: total, done: done,
+           planRate: planRate, burnRate: burnRate, dev: burnRate - planRate };
+}
+
+// 팀 집계 + 표준편차
+function teamBurnStats() {
+  const rows = homeCardPjts().map(function (p) {
+    const b = pjtBurnOf(p.id);
+    return b ? { id:p.id, no:p.no, name:p.name, b:b } : null;
+  }).filter(Boolean);
+  const plan = rows.reduce(function (a, r) { return a + r.b.plan; }, 0);
+  const act = rows.reduce(function (a, r) { return a + r.b.act; }, 0);
+  const devs = rows.map(function (r) { return r.b.dev; });
+  const avg = devs.length ? devs.reduce(function (a, x) { return a + x; }, 0) / devs.length : 0;
+  const sd = devs.length
+    ? Math.sqrt(devs.reduce(function (a, x) { return a + Math.pow(x - avg, 2); }, 0) / devs.length)
+    : 0;
+  return { rows: rows, plan: plan, act: act,
+           burn: plan ? (act / plan) * 100 : 0, avgDev: avg, sd: sd };
+}
+
+// 표준편차 밖 = 눈여겨봐야 할 PJT (상위: 조기 소진 / 하위: 집행 부진)
+function teamOutliers() {
+  const s = teamBurnStats();
+  const hi = s.avgDev + s.sd, lo = s.avgDev - s.sd;
+  return s.rows.map(function (r) {
+    const d = r.b.dev;
+    let kind = null;
+    if (d > hi) kind = 'over';
+    else if (d < lo) kind = 'under';
+    if (!kind) return null;
+    const risks = pjtRisksOf(r.id).filter(function (x) { return x.open; });
+    const todos = pjtTodosOf(r.id).filter(function (x) { return x.open; });
+    const why = kind === 'over'
+      ? (risks.length ? risks[0].title
+          : '계획보다 빠르게 소진되고 있습니다. 잔여 기간 예산이 부족해질 수 있습니다.')
+      : (todos.length ? todos[0].title
+          : '집행이 계획보다 늦습니다. 투입 지연이나 검수 이월 여부를 확인해야 합니다.');
+    return { id:r.id, no:r.no, name:r.name, kind:kind, dev:d,
+             burn:r.b.burnRate, planRate:r.b.planRate, why:why,
+             risks:risks.length, todos:todos.length };
+  }).filter(Boolean).sort(function (a, b) { return Math.abs(b.dev) - Math.abs(a.dev); });
+}
+
+// ── 팀장 결재 대기 큐 (상세 화면 상태와 연동) ──
+function leadApprovalQueue() {
+  if (typeof AGENT_PROPOSALS_FINAL === 'undefined') return [];
+  const known = homeCardPjts().map(function (p) { return p.id; });
+  return AGENT_PROPOSALS_FINAL.filter(function (p) {
+    return (p.status === 'submitted' || p.status === 'approved')
+      && known.indexOf(p.pjt || MOCK_PJT.key) >= 0;
+  });
+}
+
+// 데모용 시드 — 내가 만든 시나리오 PJT 2건을 결재 대기로 올려둔다.
+// (팀원 소유인 budgetMock 제안은 건드리지 않는다)
+(function seedSubmitted() {
+  function bind() {
+    if (typeof AGENT_PROPOSALS_FINAL === 'undefined') { setTimeout(bind, 300); return; }
+    [['smart', '외주비'], ['aidoc2', '인건비']].forEach(function (t) {
+      const p = AGENT_PROPOSALS_FINAL.find(function (x) {
+        return x.pjt === t[0] && x.acct === t[1] && x.status === 'pending';
+      });
+      if (!p) return;
+      p.status = 'submitted';
+      p.approver = { title: '팀장', name: '김여름' };
+      p.draftNote = 'PM 이봄 상신 · 직책자 결재 대기';
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+// 팀장이 상세로 갈 때는 Agent 콘솔 페르소나를 직책자로 맞춘다
+function leadGo(pj, acct) {
+  try {
+    if (typeof agentPersonaFinal !== 'undefined') agentPersonaFinal = 'exec';
+  } catch (e) {}
+  homePjtGo(pj, acct);
+}
+
+// ── 22차 — 팀장용 보드 렌더 ───────────────────────────────
+
+// 데이터가 아직 준비되지 않은 시점에 호출돼도 화면이 죽지 않게 숫자로 보정한다
+function pct(v) { const n = Number(v); return (isFinite(n) ? n : 0).toFixed(1) + '%'; }
+function pctSigned(v) { const n = Number(v); const x = isFinite(n) ? n : 0; return (x > 0 ? '+' : '') + x.toFixed(1) + '%p'; }
+
+// ① 팀 원가 현황 집계
+function leadKpiHtml() {
+  const s = teamBurnStats();
+  const gap = s.burn - TEAM_BENCH.corpBurn;
+  const tile = function (l, v, cls, sub) {
+    return `<div class="ld-k"><span class="ld-k-l">${l}</span>
+      <b class="ld-k-v ${cls || ''}">${v}</b>${sub ? `<span class="ld-k-s">${sub}</span>` : ''}</div>`;
+  };
+  return `
+    <div class="ld-kpi">
+      <div class="ld-kpi-h">
+        <span class="ld-t">${escHtml(TEAM_BENCH.teamName)} 원가 현황</span>
+        <span class="ld-d">담당 PJT ${s.rows.length}건 집계 · 인사이트 › 원가 소진율 기준</span>
+      </div>
+      <div class="ld-kpi-g">
+        ${tile('수행원가 계획', homeWon(s.plan))}
+        ${tile('실적(집행)', homeWon(s.act))}
+        ${tile('팀 평균 소진율', pct(s.burn), s.burn >= 70 ? 'up' : '')}
+        ${tile('전사 평균 대비', pctSigned(gap), gap > 0 ? 'up' : 'down', '전사 ' + TEAM_BENCH.corpBurn + '%')}
+        ${tile('진척 편차 평균', pctSigned(s.avgDev), s.avgDev > 0 ? 'up' : 'down', '표준편차 ' + s.sd.toFixed(1) + '%p')}
+      </div>
+    </div>`;
+}
+
+// ② 진척 편차 분포 — 평균 ±1σ 밖이 눈여겨볼 PJT
+function leadDistHtml() {
+  const s = teamBurnStats();
+  if (!s.rows.length) return '';
+  const devs = s.rows.map(function (r) { return r.b.dev; });
+  const min = Math.min.apply(null, devs.concat([s.avgDev - s.sd * 1.6, -8]));
+  const max = Math.max.apply(null, devs.concat([s.avgDev + s.sd * 1.6, 8]));
+  const span = (max - min) || 1;
+  const x = function (v) { return ((v - min) / span) * 100; };
+  const dots = s.rows.map(function (r) {
+    const d = r.b.dev;
+    const out = (d > s.avgDev + s.sd) ? 'over' : (d < s.avgDev - s.sd) ? 'under' : '';
+    return `<span class="ld-dot ${out}" style="left:${x(d).toFixed(1)}%"
+        title="${escHtml(r.name)} · 편차 ${pctSigned(d)}"></span>`;
+  }).join('');
+  return `
+    <div class="ld-dist">
+      <div class="ld-dist-h">
+        <span class="ld-t">진척 편차 분포</span>
+        <span class="ld-d">소진율 − 계획율 · 평균 ${pctSigned(s.avgDev)} · ±1σ ${s.sd.toFixed(1)}%p 밖이 점검 대상</span>
+      </div>
+      <div class="ld-axis">
+        <span class="ld-band" style="left:${x(s.avgDev - s.sd).toFixed(1)}%;width:${(x(s.avgDev + s.sd) - x(s.avgDev - s.sd)).toFixed(1)}%"></span>
+        <span class="ld-avg" style="left:${x(s.avgDev).toFixed(1)}%"></span>
+        ${dots}
+      </div>
+      <div class="ld-axis-l"><span>집행 부진 ←</span><span>평균</span><span>→ 조기 소진</span></div>
+    </div>`;
+}
+
+// ③ 편차 이상 PJT + 사유
+function leadOutlierHtml() {
+  const list = teamOutliers();
+  const rows = list.length
+    ? list.map(function (o) {
+        return `<button class="ld-row ${o.kind}" onclick="leadGo('${escAttr(o.id)}')">
+            <span class="ld-row-t">
+              <span class="ld-flag ${o.kind}">${o.kind === 'over' ? '조기 소진' : '집행 부진'}</span>
+              <b>${escHtml(o.name)}</b>
+              <em class="ld-dev ${o.kind === 'over' ? 'up' : 'down'}">${pctSigned(o.dev)}</em>
+            </span>
+            <span class="ld-row-w">${escHtml(o.why)}</span>
+            <span class="ld-row-m">소진율 ${pct(o.burn)} · 계획율 ${pct(o.planRate)}${o.risks ? ` · 이상징후 ${o.risks}건` : ''}</span>
+          </button>`;
+      }).join('')
+    : '<div class="pc-empty">표준편차 범위 안입니다. 특이 PJT가 없습니다.</div>';
+  return `
+    <section class="ld-card">
+      <div class="ld-card-h"><span class="ld-ic warn">!</span><b>점검이 필요한 프로젝트</b>
+        <em>${list.length}건</em><span class="ld-d">평균 ±1σ 밖 · AI가 사유를 함께 제시</span></div>
+      <div class="ld-card-b">${rows}</div>
+    </section>`;
+}
+
+// ④ 결재 대기 큐 — 한 화면에서 일괄 승인
+function leadQueueHtml() {
+  const q = leadApprovalQueue();
+  const rows = q.length
+    ? q.map(function (p) {
+        const nm = (HOME_PROJECTS.find(function (x) { return x.id === (p.pjt || MOCK_PJT.key); }) || {}).name || '';
+        return `<button class="ld-row q" onclick="leadGo('${escAttr(p.pjt || MOCK_PJT.key)}','${escAttr(p.acct)}')">
+            <span class="ld-row-t">
+              <span class="pc-acct ${homeAcctCls(p.acct)}">${escHtml(p.acct)}</span>
+              <b>${escHtml(nm)}</b>
+              <em class="ld-dev ${(p.to - p.from) > 0 ? 'up' : 'down'}">${homeWonDelta(p.from, p.to)}</em>
+            </span>
+            <span class="ld-row-w">${escHtml(p.title)}</span>
+            <span class="ld-row-m">${p.status === 'submitted' ? '직책자 결재 대기' : 'PM 검토 완료 · 상신 예정'}${p.draftNote ? ' · ' + escHtml(p.draftNote) : ''}</span>
+          </button>`;
+      }).join('')
+    : '<div class="pc-empty">결재할 건이 없습니다.</div>';
+  return `
+    <section class="ld-card">
+      <div class="ld-card-h"><span class="ld-ic">✓</span><b>내 결재 대기</b>
+        <em>${q.length}건</em><span class="ld-d">누르면 그 계정 화면에서 바로 승인·반려</span>
+        ${q.length ? `<button class="ld-all" onclick="event.stopPropagation();leadApproveAll()">전체 승인</button>` : ''}
+      </div>
+      <div class="ld-card-b">${rows}</div>
+    </section>`;
+}
+
+// 결재 대기 전체 승인 — 팀장이 반복 클릭하지 않도록
+function leadApproveAll() {
+  const q = leadApprovalQueue();
+  if (!q.length) return;
+  q.forEach(function (p) {
+    if (typeof agentExecApproveFinal === 'function' && p.status === 'submitted') {
+      try { agentExecApproveFinal(p.id); return; } catch (e) {}
+    }
+    p.status = 'confirmed';
+    p.decidedAt = '2026-08-31 10:35';
+  });
+  if (typeof rerenderHomeFeed === 'function') rerenderHomeFeed();
+  if (typeof showToast === 'function') showToast(q.length + '건을 승인했습니다. 예산에 반영되고 PM 화면에 처리완료로 표시됩니다.');
+}
+
+// ⑤ 팀장 관점 PJT 카드 — 소진율·편차 중심
+function leadPjtCardHtml(p) {
+  const b = pjtBurnOf(p.id);
+  const todos = pjtTodosOf(p.id), risks = pjtRisksOf(p.id);
+  const openR = risks.filter(function (r) { return r.open; }).length;
+  const q = leadApprovalQueue().filter(function (x) { return (x.pjt || MOCK_PJT.key) === p.id; }).length;
+  const s = teamBurnStats();
+  const out = b ? (b.dev > s.avgDev + s.sd ? 'over' : b.dev < s.avgDev - s.sd ? 'under' : '') : '';
+  const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[p.id] : null;
+  return `
+    <article class="pc ld ${out}" onclick="leadGo('${escAttr(p.id)}')">
+      <div class="pc-head">
+        <div class="pc-no">${escHtml(p.no || '')}${src ? ` · <em>${escHtml(src.stage)}</em>` : ''}</div>
+        <h3 class="pc-name">${escHtml(p.name)}</h3>
+      </div>
+      <div class="pc-kpi">
+        ${q ? `<span class="pc-k lead"><i>✓</i>결재 대기 <b>${q}</b></span>` : ''}
+        <span class="pc-k risk"><i>!</i>이상징후 <b>${openR}</b></span>
+        ${out ? `<span class="pc-k ${out === 'over' ? 'over' : 'under'}"><i>~</i>${out === 'over' ? '조기 소진' : '집행 부진'}</span>` : ''}
+      </div>
+      <div class="pc-body">
+        ${b ? `
+        <div class="ld-bar">
+          <div class="ld-bar-l"><span>계획율 ${pct(b.planRate)}</span><span>소진율 <b>${pct(b.burnRate)}</b></span></div>
+          <div class="ld-bar-t">
+            <i class="plan" style="width:${Math.min(100, b.planRate).toFixed(1)}%"></i>
+            <i class="act ${out}" style="width:${Math.min(100, b.burnRate).toFixed(1)}%"></i>
+          </div>
+          <div class="ld-bar-d">진척 편차 <b class="${b.dev > 0 ? 'up' : 'down'}">${pctSigned(b.dev)}</b>
+            · 계획 ${homeWon(b.plan)} / 실적 ${homeWon(b.act)}</div>
+        </div>` : '<div class="pc-empty">원가 데이터가 없습니다.</div>'}
+        ${openR ? `<div class="pc-sec risk">이상징후</div>` + risks.filter(function (r) { return r.open; }).slice(0, 2).map(function (r) {
+          return `<button class="pc-row risk" onclick="event.stopPropagation();leadGo('${escAttr(p.id)}','${escAttr(r.acct)}')">
+              <span class="pc-acct ${homeAcctCls(r.acct)}">${escHtml(r.acct)}</span>
+              <span class="pc-t">${escHtml(r.title)}</span></button>`;
+        }).join('') : ''}
+      </div>
+    </article>`;
+}
+
+// ── 보드 — 사용자에 따라 갈라진다 (골격·위치는 동일) ──
+function homeWorkBoardHtml() {
+  const all = homeCardPjts();
+  const few = all.length <= 2 ? ' few n' + all.length : '';
+  const lead = homeUser === 'lead';
+
+  if (lead) {
+    const cards = all.map(leadPjtCardHtml).join('');
+    return `
+      <div class="pc-head-row">
+        <span class="pc-h-t">담당 프로젝트 <b>${all.length}</b></span>
+        <span class="pc-h-d">팀 전체 원가 소진율과 결재 대기를 봅니다 · 누르면 직책자 화면으로 이동합니다</span>
+        <span class="pc-view">
+          <button class="pc-v ${pjtView === 'card' ? 'on' : ''}" onclick="setPjtView('card')">▦ 상세</button>
+          <button class="pc-v ${pjtView === 'list' ? 'on' : ''}" onclick="setPjtView('list')">☰ 간소</button>
+        </span>
+      </div>
+      ${leadKpiHtml()}
+      ${leadDistHtml()}
+      <div class="ld-2col">${leadQueueHtml()}${leadOutlierHtml()}</div>
+      ${pjtView === 'list' ? pjtListHtml() : `<div class="pc-grid${few}">${cards}</div>`}`;
+  }
+
+  const body = (pjtView === 'list')
+    ? pjtListHtml()
+    : `<div class="pc-grid${few}">${all.map(pjtCardHtml).join('')}</div>`;
+  return `
+    <div class="pc-head-row">
+      <span class="pc-h-t">담당 프로젝트 <b>${all.length}</b></span>
+      <span class="pc-h-d">해야 할 일과 이상징후를 프로젝트별로 봅니다 · 항목을 누르면 해당 계정 화면으로 이동합니다</span>
+      <span class="pc-view">
+        <button class="pc-v ${pjtView === 'card' ? 'on' : ''}" onclick="setPjtView('card')" aria-pressed="${pjtView === 'card'}">▦ 상세</button>
+        <button class="pc-v ${pjtView === 'list' ? 'on' : ''}" onclick="setPjtView('list')" aria-pressed="${pjtView === 'list'}">☰ 간소</button>
+      </span>
+    </div>
+    ${body}`;
+}
+
+// 간소 보기 미리보기도 사용자에 맞춘 카드로
+function pjtPreviewHtml() {
+  const p = homeCardPjts().find(function (x) { return x.id === pjtPreview; });
+  if (!p) return '<div class="pc-empty">프로젝트를 선택하면 상세가 나옵니다.</div>';
+  return (homeUser === 'lead') ? leadPjtCardHtml(p) : pjtCardHtml(p);
+}
+
+// ============================================================
+//  23차 — 팀장 화면 재구성
+//  · 팀장은 여러 팀 비교가 아니라 "우리 팀 프로젝트의 특이사항·진척 관리"가 목적이다.
+//    → 편차 분포(팀 간 비교 성격)를 걷어내고, 프로젝트 선택 + 원가 분해로 바꾼다.
+//  · 결재 대기 / 점검 프로젝트는 목록으로 두고 누르면 그 자리에서 펼친다.
+//  · 하단 프로젝트는 간소 목록 고정 (팀은 수십~수백 건이라 카드가 공간을 잡아먹는다)
+// ============================================================
+
+// 팀장 이름을 수행원가 Agent 콘솔의 직책자와 통일
+HOME_USERS.lead = { key:'lead', name:'박정우', role:'팀장', greet:'정우님', desc:'팀 원가 현황과 결재' };
+
+let leadPjtSel = 'all';        // 원가 분석 대상 (전체 | 프로젝트 id)
+let leadOpenRow = '';          // 펼쳐진 목록 행
+
+function setLeadPjt(v) { leadPjtSel = v; leadOpenRow = ''; rerenderHomeFeed(); }
+function toggleLeadRow(id) { leadOpenRow = (leadOpenRow === id) ? '' : id; rerenderHomeFeed(); }
+
+// ── 선택 대상의 원가 분해 (인사이트 '합의 Cost 분해'와 같은 관점) ──
+// Cost(수행원가 계획) = 실적 + 집행예정(PO 확정·전표 미집행) + 잔여
+function leadCostBreak(sel) {
+  const ids = (sel === 'all') ? homeCardPjts().map(function (p) { return p.id; }) : [sel];
+  let plan = 0, act = 0, months = 0, done = 0;
+  const cats = ['인건비', '외주비', '재료비', '경비'];
+  const acc = {};
+  cats.forEach(function (c) { acc[c] = { plan: 0, act: 0 }; });
+  ids.forEach(function (id) {
+    const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+    if (!src || !Array.isArray(src.months)) return;
+    cats.forEach(function (c) { acc[c].plan += (src.plan[c] || 0); });
+    plan += cats.reduce(function (a, c) { return a + (src.plan[c] || 0); }, 0);
+    months += src.months.length;
+    src.months.forEach(function (m) {
+      if (m.type !== 'actual') return;
+      done += 1;
+      cats.forEach(function (c) { if (m[c] && m[c].a) { acc[c].act += m[c].a; act += m[c].a; } });
+    });
+  });
+  const rest = Math.max(0, plan - act);
+  const committed = Math.round(rest * 0.34);   // 구매 확정·전표 미집행 추정분
+  const remaining = rest - committed;
+  const planRate = months ? (done / months) * 100 : 0;
+  const burnRate = plan ? (act / plan) * 100 : 0;
+  const rows = cats.map(function (c) {
+    const p = acc[c].plan, a = acc[c].act;
+    const br = p ? (a / p) * 100 : 0;
+    return { acct: c, plan: p, act: a, left: p - a, burn: br, dev: br - planRate };
+  }).filter(function (r) { return r.plan > 0; });
+  return { plan: plan, act: act, committed: committed, remaining: remaining,
+           planRate: planRate, burnRate: burnRate, rows: rows, count: ids.length };
+}
+
+// 특이 계정만 선별 — 계획율 대비 편차가 큰 순
+const LEAD_DEV_TH = 8;   // %p
+function leadOddAccounts(b) {
+  return b.rows.filter(function (r) { return Math.abs(r.dev) >= LEAD_DEV_TH; })
+    .sort(function (x, y) { return Math.abs(y.dev) - Math.abs(x.dev); });
+}
+
+// ── 팀 원가 현황 + 프로젝트 선택 ──
+function leadKpiHtml() {
+  const b = leadCostBreak(leadPjtSel);
+  const gap = b.burnRate - TEAM_BENCH.corpBurn;
+  const opts = ['<option value="all"' + (leadPjtSel === 'all' ? ' selected' : '') + '>전체 (' + homeCardPjts().length + '건)</option>']
+    .concat(homeCardPjts().map(function (p) {
+      return '<option value="' + escAttr(p.id) + '"' + (leadPjtSel === p.id ? ' selected' : '') + '>' + escHtml(p.name) + '</option>';
+    })).join('');
+  const tile = function (l, v, cls, sub) {
+    return `<div class="ld-k"><span class="ld-k-l">${l}</span>
+      <b class="ld-k-v ${cls || ''}">${v}</b>${sub ? `<span class="ld-k-s">${sub}</span>` : ''}</div>`;
+  };
+  return `
+    <div class="ld-kpi">
+      <div class="ld-kpi-h">
+        <span class="ld-t">${escHtml(TEAM_BENCH.teamName)} 원가 현황</span>
+        <span class="ld-d">인사이트 › 원가 소진율 기준</span>
+        <select class="ld-sel" onchange="setLeadPjt(this.value)" aria-label="분석 대상 프로젝트">${opts}</select>
+      </div>
+      <div class="ld-kpi-g">
+        ${tile('수행원가 계획', homeWon(b.plan))}
+        ${tile('실적(집행)', homeWon(b.act), '', '소진율 ' + pct(b.burnRate))}
+        ${tile('계획율', pct(b.planRate), '', '경과 기간 기준')}
+        ${tile('진척 편차', pctSigned(b.burnRate - b.planRate), (b.burnRate - b.planRate) > 0 ? 'up' : 'down', '소진율 − 계획율')}
+        ${tile('전사 평균 대비', pctSigned(gap), gap > 0 ? 'up' : 'down', '전사 ' + TEAM_BENCH.corpBurn + '%')}
+      </div>
+    </div>`;
+}
+
+// ── 원가 분해 + 특이 계정 ──
+function leadCostHtml() {
+  const b = leadCostBreak(leadPjtSel);
+  if (!b.plan) return '';
+  const w = function (v) { return Math.max(0.5, (v / b.plan) * 100); };
+  const odd = leadOddAccounts(b);
+  const name = (leadPjtSel === 'all')
+    ? '담당 ' + b.count + '건 합계'
+    : ((homeCardPjts().find(function (p) { return p.id === leadPjtSel; }) || {}).name || '');
+  const oddRows = odd.length
+    ? odd.map(function (r) {
+        const over = r.dev > 0;
+        return `<button class="ld-odd ${over ? 'over' : 'under'}"
+            onclick="leadOddGo('${escAttr(r.acct)}')">
+            <span class="pc-acct ${homeAcctCls(r.acct)}">${escHtml(r.acct)}</span>
+            <span class="ld-odd-t">${over ? '조기 소진' : '집행 부진'} — 소진율 <b>${pct(r.burn)}</b> · 계획율 ${pct(b.planRate)}</span>
+            <span class="ld-odd-d ${over ? 'up' : 'down'}">${pctSigned(r.dev)}</span>
+            <span class="ld-odd-m">계획 ${homeWon(r.plan)} · 실적 ${homeWon(r.act)} · 잔여 ${homeWon(r.left)}</span>
+          </button>`;
+      }).join('')
+    : `<div class="pc-empty">계획율 대비 ±${LEAD_DEV_TH}%p 밖인 계정이 없습니다. 정상 범위입니다.</div>`;
+  return `
+    <div class="ld-cost">
+      <div class="ld-cost-h">
+        <span class="ld-t">원가 분해</span>
+        <span class="ld-d">${escHtml(name)} · 수행원가 계획 = 실적 + 집행예정 + 잔여</span>
+        <span class="ld-cost-tot">${homeWon(b.plan)}</span>
+      </div>
+      <div class="ld-cost-bar">
+        <i class="act" style="width:${w(b.act).toFixed(1)}%" title="실적 ${homeWon(b.act)}"></i>
+        <i class="com" style="width:${w(b.committed).toFixed(1)}%" title="집행예정 ${homeWon(b.committed)}"></i>
+        <i class="rem" style="width:${w(b.remaining).toFixed(1)}%" title="잔여 ${homeWon(b.remaining)}"></i>
+      </div>
+      <div class="ld-cost-lg">
+        <span><i class="act"></i>실적 <b>${homeWon(b.act)}</b></span>
+        <span><i class="com"></i>집행예정 <b>${homeWon(b.committed)}</b></span>
+        <span><i class="rem"></i>잔여 <b>${homeWon(b.remaining)}</b></span>
+      </div>
+      <div class="ld-cost-s">특이 원가 항목 <em>${odd.length}건</em>
+        <span class="ld-d">계획율 대비 ±${LEAD_DEV_TH}%p 밖만 선별</span></div>
+      <div class="ld-odd-list">${oddRows}</div>
+    </div>`;
+}
+
+// ── 결재 대기 — 목록 + 클릭 시 펼침 ──
+function leadQueueHtml() {
+  const q = leadApprovalQueue();
+  const rows = q.length
+    ? q.map(function (p) {
+        const pj = p.pjt || MOCK_PJT.key;
+        const nm = (HOME_PROJECTS.find(function (x) { return x.id === pj; }) || {}).name || '';
+        const open = leadOpenRow === p.id;
+        return `
+          <div class="ld-li ${open ? 'open' : ''}">
+            <button class="ld-li-h" onclick="toggleLeadRow('${escAttr(p.id)}')">
+              <span class="pc-acct ${homeAcctCls(p.acct)}">${escHtml(p.acct)}</span>
+              <span class="ld-li-n">${escHtml(nm)}</span>
+              <span class="ld-li-d ${(p.to - p.from) > 0 ? 'up' : 'down'}">${homeWonDelta(p.from, p.to)}</span>
+              <span class="ld-li-c">${open ? '▴' : '▾'}</span>
+            </button>
+            ${open ? `<div class="ld-li-b">
+              <div class="ld-li-t">${escHtml(p.title)}</div>
+              <div class="ld-li-w">${escHtml(p.why || '')}</div>
+              <div class="ld-li-m">${p.status === 'submitted' ? '직책자 결재 대기' : 'PM 검토 완료 · 상신 예정'}${p.draftNote ? ' · ' + escHtml(p.draftNote) : ''}</div>
+              <div class="ld-li-a">
+                <button class="hm-btn pri" onclick="event.stopPropagation();leadGo('${escAttr(pj)}','${escAttr(p.acct)}')">화면에서 승인·반려 →</button>
+              </div>
+            </div>` : ''}
+          </div>`;
+      }).join('')
+    : '<div class="pc-empty">결재할 건이 없습니다.</div>';
+  return `
+    <section class="ld-card">
+      <div class="ld-card-h"><span class="ld-ic">✓</span><b>내 결재 대기</b>
+        <em>${q.length}건</em>
+        ${q.length ? `<button class="ld-all" onclick="leadApproveAll()">전체 승인</button>` : ''}
+      </div>
+      <div class="ld-card-b">${rows}</div>
+    </section>`;
+}
+
+// ── 점검이 필요한 프로젝트 — 목록 + 클릭 시 펼침 ──
+function leadOutlierHtml() {
+  const list = teamOutliers();
+  const rows = list.length
+    ? list.map(function (o) {
+        const open = leadOpenRow === 'o-' + o.id;
+        return `
+          <div class="ld-li ${open ? 'open' : ''} ${o.kind}">
+            <button class="ld-li-h" onclick="toggleLeadRow('o-${escAttr(o.id)}')">
+              <span class="ld-flag ${o.kind}">${o.kind === 'over' ? '조기 소진' : '집행 부진'}</span>
+              <span class="ld-li-n">${escHtml(o.name)}</span>
+              <span class="ld-li-d ${o.kind === 'over' ? 'up' : 'down'}">${pctSigned(o.dev)}</span>
+              <span class="ld-li-c">${open ? '▴' : '▾'}</span>
+            </button>
+            ${open ? `<div class="ld-li-b">
+              <div class="ld-li-w">${escHtml(o.why)}</div>
+              <div class="ld-li-m">소진율 ${pct(o.burn)} · 계획율 ${pct(o.planRate)}${o.risks ? ` · 이상징후 ${o.risks}건` : ''}${o.todos ? ` · 해야 할 일 ${o.todos}건` : ''}</div>
+              <div class="ld-li-a">
+                <button class="hm-btn" onclick="event.stopPropagation();setLeadPjt('${escAttr(o.id)}')">이 프로젝트 원가 분석</button>
+                <button class="hm-btn pri" onclick="event.stopPropagation();leadGo('${escAttr(o.id)}')">원가조정으로 이동 →</button>
+              </div>
+            </div>` : ''}
+          </div>`;
+      }).join('')
+    : '<div class="pc-empty">표준편차 범위 안입니다. 특이 프로젝트가 없습니다.</div>';
+  return `
+    <section class="ld-card">
+      <div class="ld-card-h"><span class="ld-ic warn">!</span><b>점검이 필요한 프로젝트</b>
+        <em>${list.length}건</em><span class="ld-d">AI가 사유를 함께 제시</span></div>
+      <div class="ld-card-b">${rows}</div>
+    </section>`;
+}
+
+// ── 보드 ──
+function homeWorkBoardHtml() {
+  const all = homeCardPjts();
+  const lead = homeUser === 'lead';
+
+  if (lead) {
+    return `
+      <div class="pc-head-row">
+        <span class="pc-h-t">담당 프로젝트 <b>${all.length}</b></span>
+        <span class="pc-h-d">팀 원가 현황과 결재 대기를 봅니다 · 누르면 직책자 화면으로 이동합니다</span>
+      </div>
+      ${leadKpiHtml()}
+      ${leadCostHtml()}
+      <div class="ld-2col">${leadQueueHtml()}${leadOutlierHtml()}</div>
+      ${pjtListHtml()}`;
+  }
+
+  const few = all.length <= 2 ? ' few n' + all.length : '';
+  const body = (pjtView === 'list')
+    ? pjtListHtml()
+    : `<div class="pc-grid${few}">${all.map(pjtCardHtml).join('')}</div>`;
+  return `
+    <div class="pc-head-row">
+      <span class="pc-h-t">담당 프로젝트 <b>${all.length}</b></span>
+      <span class="pc-h-d">해야 할 일과 이상징후를 프로젝트별로 봅니다 · 항목을 누르면 해당 계정 화면으로 이동합니다</span>
+      <span class="pc-view">
+        <button class="pc-v ${pjtView === 'card' ? 'on' : ''}" onclick="setPjtView('card')" aria-pressed="${pjtView === 'card'}">▦ 상세</button>
+        <button class="pc-v ${pjtView === 'list' ? 'on' : ''}" onclick="setPjtView('list')" aria-pressed="${pjtView === 'list'}">☰ 간소</button>
+      </span>
+    </div>
+    ${body}`;
+}
+
+// ── 페르소나 일관 처리 ──
+// 팀장이 어느 경로로 상세로 들어가든(카드·목록·결재 대기·점검 목록) 직책자 화면이 되게 한다.
+// (기존 homePjtGo 호출부를 하나하나 바꾸지 않고 진입 지점에서 한 번에 맞춘다)
+function homePjtGo(pj, acct) {
+  const a = (!acct || acct === "전 계정") ? "인건비" : acct;
+  try {
+    if (typeof agentPersonaFinal !== "undefined") {
+      agentPersonaFinal = (homeUser === "lead") ? "exec" : "pm";
+    }
+  } catch (e) {}
+  if (typeof openCostArea === "function") openCostArea(a, pj);
+  else if (typeof openCostAdjust === "function") openCostAdjust(pj);
+}
+
+// 특이 계정의 원인 프로젝트로 이동 — 그 계정 진척 편차가 가장 큰 프로젝트를 고른다
+function leadOddGo(acct) {
+  if (leadPjtSel !== 'all') { leadGo(leadPjtSel, acct); return; }
+  let best = null, worst = -1;
+  homeCardPjts().forEach(function (p) {
+    const b = leadCostBreak(p.id);
+    const row = b.rows.find(function (r) { return r.acct === acct; });
+    if (!row) return;
+    const d = Math.abs(row.dev);
+    if (d > worst) { worst = d; best = p.id; }
+  });
+  leadGo(best || homeCardPjts()[0].id, acct);
+}
+
+// ============================================================
+//  24차 — 팀장 원가 현황 재구성
+//  · "진척 편차"·"전사 평균 대비" 제거 (팀장 입장에서 의미가 모호하다는 피드백)
+//  · 대신 예비비 편성·미사용 현황과 예상 확정 원가를 수치로 제시한다.
+//    AI 예비비·손실예비비는 계획에 편성해두고 "쓰지 않아야" 언더런으로
+//    수익 인식이 되므로, 미사용 금액이 클수록 긍정 신호다.
+//  · 5-Tier(정직원 인건비 · 협력직BP/ATS/AGS 외주비 · AI 예비비) 사용·예상 소진
+//  · 팀장 화면 하단 PJT 간소 목록 제거
+// ============================================================
+
+// 예비비 편성 비율 (수행원가 계획 대비) — 목업에 예비비 데이터가 없어 계획에서 역산한다
+const RESERVE_RATE = { ai: 0.030, loss: 0.035 };
+// 외주비의 소싱 구성 — 협력직(BP) · ATS · AGS
+// 계획 구성비와 실적 구성비를 분리한다. 초기에는 상주 협력직(BP) 투입이 먼저 일어나고
+// ATS·AGS는 후반 물량이라 집행이 뒤따르므로, 항목별 소진율이 서로 달라진다.
+const TIER_SPLIT = { bp: 0.50, ats: 0.30, ags: 0.20 };
+const TIER_ACT_SPLIT = { bp: 0.62, ats: 0.23, ags: 0.15 };
+// AI 예상 집행률 — 실 원가는 잔여의 95%가 집행되고, 예비비는 20%만 쓰인다고 본다
+const EXP_BURN = 0.95, EXP_RESERVE_USE = 0.20;
+
+// 예비비 편성·미사용 + 예상 확정 원가
+function leadReserve(sel) {
+  const b = leadCostBreak(sel);
+  const ai = Math.round(b.plan * RESERVE_RATE.ai);
+  const loss = Math.round(b.plan * RESERVE_RATE.loss);
+  const total = ai + loss;
+  const base = Math.max(0, b.plan - total);                       // 예비비를 뺀 실 원가 계획
+  const expBase = b.act + Math.max(0, base - b.act) * EXP_BURN;   // 실 원가 예상 집행
+  const expFinal = Math.round(expBase + total * EXP_RESERVE_USE); // 예상 확정 원가
+  return {
+    plan: b.plan, act: b.act, ai: ai, loss: loss, total: total,
+    unused: Math.round(total * (1 - EXP_RESERVE_USE)),
+    expFinal: expFinal, under: b.plan - expFinal,                 // +면 언더런(절감)
+    burnRate: b.burnRate, planRate: b.planRate
+  };
+}
+
+// 5-Tier 사용 현황 + 예상 소진
+function leadTiers(sel) {
+  const b = leadCostBreak(sel);
+  const r = leadReserve(sel);
+  const row = function (acct) {
+    return b.rows.find(function (x) { return x.acct === acct; }) || { plan: 0, act: 0 };
+  };
+  const labor = row('인건비'), os = row('외주비');
+  const mk = function (name, plan, act, isReserve) {
+    const left = Math.max(0, plan - act);
+    const exp = Math.round(act + left * (isReserve ? EXP_RESERVE_USE : EXP_BURN));
+    return {
+      name: name, plan: Math.round(plan), act: Math.round(act), reserve: !!isReserve,
+      burn: plan ? (act / plan) * 100 : 0, exp: exp, expRate: plan ? (exp / plan) * 100 : 0
+    };
+  };
+  return [
+    mk('정직원 인건비', labor.plan, labor.act),
+    mk('협력직(BP) 외주비', os.plan * TIER_SPLIT.bp, os.act * TIER_ACT_SPLIT.bp),
+    mk('ATS 외주비', os.plan * TIER_SPLIT.ats, os.act * TIER_ACT_SPLIT.ats),
+    mk('AGS 외주비', os.plan * TIER_SPLIT.ags, os.act * TIER_ACT_SPLIT.ags),
+    mk('AI 예비비', r.ai, 0, true)
+  ].filter(function (t) { return t.plan > 0; });
+}
+
+// AI 요약 — 위 수치에서 근거를 만들어 한두 문장으로 압축한다
+function leadSummaryText(sel) {
+  const r = leadReserve(sel);
+  const name = (sel === 'all')
+    ? '담당 ' + homeCardPjts().length + '개 프로젝트'
+    : ((homeCardPjts().find(function (p) { return p.id === sel; }) || {}).name || '선택 프로젝트');
+  const slow = leadTiers(sel)
+    .filter(function (t) { return !t.reserve && (t.burn - r.planRate) <= -LEAD_DEV_TH; })
+    .sort(function (x, y) { return x.burn - y.burn; })[0];
+
+  let s = escHtml(name) + '의 수행원가 계획 ' + homeWon(r.plan) + ' 중 '
+        + homeWon(r.act) + '(' + pct(r.burnRate) + ')을 집행했고, 경과 기간 기준 계획율은 '
+        + pct(r.planRate) + '입니다. 이 속도가 이어지면 <b>예상 확정 원가는 '
+        + homeWon(r.expFinal) + '</b>로 계획 대비 '
+        + (r.under >= 0
+            ? '<b class="down">' + homeWon(r.under) + ' 언더런</b>이 예상되며, '
+            : '<b class="up">' + homeWon(-r.under) + ' 초과</b>가 예상되며, ')
+        + '편성 예비비 ' + homeWon(r.total) + '(AI ' + homeWon(r.ai) + ' · 손실 '
+        + homeWon(r.loss) + ') 중 <b class="down">' + homeWon(r.unused)
+        + '을 쓰지 않는 것</b>이 그 근거입니다.';
+  if (slow) {
+    s += ' 다만 <b>' + escHtml(slow.name) + '</b>가 계획율 대비 '
+       + pctSigned(slow.burn - r.planRate) + '로 집행이 늦어, 잔여 기간에 몰릴 경우 '
+       + '예비비를 당겨 쓰게 될 수 있습니다.';
+  }
+  return s;
+}
+
+// ── 팀 원가 현황 — AI 요약 + 숫자 카드 ──
+function leadKpiHtml() {
+  const r = leadReserve(leadPjtSel);
+  const opts = ['<option value="all"' + (leadPjtSel === 'all' ? ' selected' : '') + '>전체 (' + homeCardPjts().length + '건)</option>']
+    .concat(homeCardPjts().map(function (p) {
+      return '<option value="' + escAttr(p.id) + '"' + (leadPjtSel === p.id ? ' selected' : '') + '>' + escHtml(p.name) + '</option>';
+    })).join('');
+  const tile = function (l, v, cls, sub) {
+    return `<div class="ld-k"><span class="ld-k-l">${l}</span>
+      <b class="ld-k-v ${cls || ''}">${v}</b>${sub ? `<span class="ld-k-s">${sub}</span>` : ''}</div>`;
+  };
+  return `
+    <div class="ld-kpi">
+      <div class="ld-kpi-h">
+        <span class="ld-t">${escHtml(TEAM_BENCH.teamName)} 원가 현황</span>
+        <span class="ld-d">인사이트 › 원가 소진율 기준</span>
+        <select class="ld-sel" onchange="setLeadPjt(this.value)" aria-label="분석 대상 프로젝트">${opts}</select>
+      </div>
+      <div class="ld-ai">
+        <span class="ld-ai-tag">AI 요약</span>
+        <p class="ld-ai-t">${leadSummaryText(leadPjtSel)}</p>
+      </div>
+      <div class="ld-kpi-g">
+        ${tile('수행원가 계획', homeWon(r.plan))}
+        ${tile('실적(집행)', homeWon(r.act), '', '소진율 ' + pct(r.burnRate))}
+        ${tile('계획율(달성)', pct(r.planRate), '', '경과 기간 기준')}
+        ${tile('예상 확정 원가', homeWon(r.expFinal), r.under >= 0 ? 'down' : 'up',
+               (r.under >= 0 ? '언더런 ' : '초과 ') + homeWon(Math.abs(r.under)))}
+        ${tile('예비비 미사용 예상', homeWon(r.unused), 'down', '편성 ' + homeWon(r.total))}
+      </div>
+    </div>`;
+}
+
+// ── 5-Tier 원가 사용 현황 ──
+function leadTierHtml() {
+  const r = leadReserve(leadPjtSel);
+  const tiers = leadTiers(leadPjtSel);
+  if (!tiers.length || !r.plan) return '';
+  const rows = tiers.map(function (t) {
+    const dev = t.reserve ? null : (t.burn - r.planRate);
+    const w = function (v) { return t.plan ? Math.max(0, Math.min(100, (v / t.plan) * 100)) : 0; };
+    const wa = w(t.act), we = w(t.exp);
+    return `
+      <div class="ld-tier${t.reserve ? ' res' : ''}">
+        <span class="ld-tier-n">${escHtml(t.name)}${t.reserve ? '<em>미사용이 유리</em>' : ''}</span>
+        <span class="ld-tier-b" title="실적 ${pct(t.burn)} · 예상 소진 ${pct(t.expRate)}">
+          <i class="exp" style="width:${we.toFixed(1)}%"></i>
+          <i class="act" style="width:${wa.toFixed(1)}%"></i>
+        </span>
+        <span class="ld-tier-v">계획 <b>${homeWon(t.plan)}</b></span>
+        <span class="ld-tier-v">실적 <b>${homeWon(t.act)}</b> <em>${pct(t.burn)}</em></span>
+        <span class="ld-tier-v ex">예상 소진 <b>${homeWon(t.exp)}</b> <em>${pct(t.expRate)}</em></span>
+        <span class="ld-tier-d ${dev == null ? '' : (dev > 0 ? 'up' : 'down')}">${dev == null ? '—' : pctSigned(dev)}</span>
+      </div>`;
+  }).join('');
+  return `
+    <div class="ld-tierbox">
+      <div class="ld-cost-h">
+        <span class="ld-t">5-Tier 원가 사용 현황</span>
+        <span class="ld-d">항목별 집행과 AI 예상 소진 · 편차는 계획율 ${pct(r.planRate)} 기준</span>
+      </div>
+      <div class="ld-tier-hd">
+        <span>항목</span><span>집행 · 예상</span><span>계획</span><span>실적</span><span>예상 소진</span><span>편차</span>
+      </div>
+      ${rows}
+      <div class="ld-tier-f">AI 예상 소진 = 실적 + 잔여 × 예상 집행률(실 원가 ${(EXP_BURN * 100).toFixed(0)}% · 예비비 ${(EXP_RESERVE_USE * 100).toFixed(0)}%)</div>
+    </div>`;
+}
+
+// ── 보드 — 팀장 화면에서 하단 PJT 간소 목록 제거 ──
+function homeWorkBoardHtml() {
+  const all = homeCardPjts();
+
+  if (homeUser === 'lead') {
+    return `
+      <div class="pc-head-row">
+        <span class="pc-h-t">담당 프로젝트 <b>${all.length}</b></span>
+        <span class="pc-h-d">팀 원가 현황과 결재 대기를 봅니다 · 항목을 누르면 직책자 화면으로 이동합니다</span>
+      </div>
+      ${leadKpiHtml()}
+      ${leadCostHtml()}
+      ${leadTierHtml()}
+      <div class="ld-2col">${leadQueueHtml()}${leadOutlierHtml()}</div>`;
+  }
+
+  const few = all.length <= 2 ? ' few n' + all.length : '';
+  const body = (pjtView === 'list')
+    ? pjtListHtml()
+    : `<div class="pc-grid${few}">${all.map(pjtCardHtml).join('')}</div>`;
+  return `
+    <div class="pc-head-row">
+      <span class="pc-h-t">담당 프로젝트 <b>${all.length}</b></span>
+      <span class="pc-h-d">해야 할 일과 이상징후를 프로젝트별로 봅니다 · 항목을 누르면 해당 계정 화면으로 이동합니다</span>
+      <span class="pc-view">
+        <button class="pc-v ${pjtView === 'card' ? 'on' : ''}" onclick="setPjtView('card')" aria-pressed="${pjtView === 'card'}">▦ 상세</button>
+        <button class="pc-v ${pjtView === 'list' ? 'on' : ''}" onclick="setPjtView('list')" aria-pressed="${pjtView === 'list'}">☰ 간소</button>
+      </span>
+    </div>
+    ${body}`;
+}
+
+// ============================================================
+//  25차 — 팀장 화면 배치 조정
+//  · 결재 대기·점검 프로젝트를 chat 바로 아래(최상단)로 올린다.
+//    팀장이 화면을 열자마자 손댈 일이 먼저 보이고, 원가 분석은 그 뒤에 온다.
+//  · 프로젝트 선택 콤보박스를 KPI 헤더에서 빼내 독립된 선택 바로 키운다.
+//    (아래 3개 블록 — 원가 현황·원가 분해·5-Tier — 를 한꺼번에 바꾸는 컨트롤이라
+//     KPI 헤더 우측에 작게 붙어 있으면 그 역할이 드러나지 않는다)
+// ============================================================
+
+// ── 원가 분석 대상 선택 바 ──
+function leadPickHtml() {
+  const list = homeCardPjts();
+  const opts = ['<option value="all"' + (leadPjtSel === 'all' ? ' selected' : '') + '>전체 (' + list.length + '건 합계)</option>']
+    .concat(list.map(function (p) {
+      return '<option value="' + escAttr(p.id) + '"' + (leadPjtSel === p.id ? ' selected' : '') + '>'
+        + escHtml(p.name) + '</option>';
+    })).join('');
+  const cur = (leadPjtSel === 'all')
+    ? '담당 ' + list.length + '건 전체'
+    : ((list.find(function (p) { return p.id === leadPjtSel; }) || {}).name || '');
+  return `
+    <div class="ld-pick">
+      <div class="ld-pick-l">
+        <span class="ld-pick-lb">원가 분석 대상</span>
+        <span class="ld-pick-cur">${escHtml(cur)}</span>
+      </div>
+      <div class="ld-pick-c">
+        <select class="ld-pick-sel" onchange="setLeadPjt(this.value)" aria-label="원가 분석 대상 프로젝트">${opts}</select>
+      </div>
+      <span class="ld-pick-h">선택하면 아래 <b>원가 현황 · 원가 분해 · 5-Tier</b>가 함께 바뀝니다</span>
+    </div>`;
+}
+
+// ── 팀 원가 현황 — 콤보박스는 위 선택 바로 옮겼다 ──
+function leadKpiHtml() {
+  const r = leadReserve(leadPjtSel);
+  const tile = function (l, v, cls, sub) {
+    return `<div class="ld-k"><span class="ld-k-l">${l}</span>
+      <b class="ld-k-v ${cls || ''}">${v}</b>${sub ? `<span class="ld-k-s">${sub}</span>` : ''}</div>`;
+  };
+  return `
+    <div class="ld-kpi">
+      <div class="ld-kpi-h">
+        <span class="ld-t">${escHtml(TEAM_BENCH.teamName)} 원가 현황</span>
+        <span class="ld-d">인사이트 › 원가 소진율 기준</span>
+      </div>
+      <div class="ld-ai">
+        <span class="ld-ai-tag">AI 요약</span>
+        <p class="ld-ai-t">${leadSummaryText(leadPjtSel)}</p>
+      </div>
+      <div class="ld-kpi-g">
+        ${tile('수행원가 계획', homeWon(r.plan))}
+        ${tile('실적(집행)', homeWon(r.act), '', '소진율 ' + pct(r.burnRate))}
+        ${tile('계획율(달성)', pct(r.planRate), '', '경과 기간 기준')}
+        ${tile('예상 확정 원가', homeWon(r.expFinal), r.under >= 0 ? 'down' : 'up',
+               (r.under >= 0 ? '언더런 ' : '초과 ') + homeWon(Math.abs(r.under)))}
+        ${tile('예비비 미사용 예상', homeWon(r.unused), 'down', '편성 ' + homeWon(r.total))}
+      </div>
+    </div>`;
+}
+
+// ── 보드 — 팀장은 결재 대기·점검을 맨 위로 ──
+function homeWorkBoardHtml() {
+  const all = homeCardPjts();
+
+  if (homeUser === 'lead') {
+    return `
+      <div class="pc-head-row">
+        <span class="pc-h-t">내가 처리할 일</span>
+        <span class="pc-h-d">담당 프로젝트 ${all.length}건 · 항목을 누르면 직책자 화면으로 이동합니다</span>
+      </div>
+      <div class="ld-2col">${leadQueueHtml()}${leadOutlierHtml()}</div>
+      ${leadPickHtml()}
+      ${leadKpiHtml()}
+      ${leadCostHtml()}
+      ${leadTierHtml()}`;
+  }
+
+  const few = all.length <= 2 ? ' few n' + all.length : '';
+  const body = (pjtView === 'list')
+    ? pjtListHtml()
+    : `<div class="pc-grid${few}">${all.map(pjtCardHtml).join('')}</div>`;
+  return `
+    <div class="pc-head-row">
+      <span class="pc-h-t">담당 프로젝트 <b>${all.length}</b></span>
+      <span class="pc-h-d">해야 할 일과 이상징후를 프로젝트별로 봅니다 · 항목을 누르면 해당 계정 화면으로 이동합니다</span>
+      <span class="pc-view">
+        <button class="pc-v ${pjtView === 'card' ? 'on' : ''}" onclick="setPjtView('card')" aria-pressed="${pjtView === 'card'}">▦ 상세</button>
+        <button class="pc-v ${pjtView === 'list' ? 'on' : ''}" onclick="setPjtView('list')" aria-pressed="${pjtView === 'list'}">☰ 간소</button>
+      </span>
+    </div>
+    ${body}`;
 }
