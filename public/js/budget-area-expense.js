@@ -30,15 +30,16 @@ const EXPENSE_MIDDLE_ACCOUNTS_FINAL = [
 ];
 
 const EXPENSE_ACCOUNT_ROWS_FINAL = [
-  { id:'exf-01', middleCode:'C705501', middleName:'조직운영비', controlled:true, code:'705501', name:'의욕관리비', carried:12024000, actual:296642, erpAvailable:11456642, monthly:[1800000,1872000,1872000,1872000,1872000,1200000,900000,600000,0,0] },
-  { id:'exf-02', middleCode:'C700001', middleName:'일반통제성', controlled:true, code:'735901', name:'회의비', carried:3173000, actual:337400, erpAvailable:2945000, monthly:[500000,520000,520000,520000,520000,365000,0,0,0,0] },
-  { id:'exf-03', middleCode:'C700002', middleName:'우편송', controlled:true, code:'743901', name:'잡비', carried:3173000, actual:0, erpAvailable:2945000, monthly:[300000,300000,300000,300000,300000,300000,300000,300000,245000,0] },
-  { id:'exf-04', middleCode:'C700003', middleName:'일반비', controlled:true, code:'705502', name:'조직관리비', carried:0, actual:0, erpAvailable:5473239, monthly:[0,700000,700000,700000,700000,700000,700000,700000,573239,0] },
-  { id:'exf-05', middleCode:'C700100', middleName:'소모품비', controlled:true, code:'710301', name:'사무용품비', carried:501000, actual:0, erpAvailable:1093339, monthly:[75000,78000,78000,78000,78000,78000,78000,78000,78000,472339] },
-  { id:'exf-06', middleCode:'C700100', middleName:'소모품비', controlled:true, code:'710901', name:'전산소모품비', carried:835000, actual:22910, erpAvailable:775000, monthly:[125000,130000,130000,130000,130000,130000,0,0,0,0] },
+  // [2026.09.01] 화면 금액을 10만원 단위로 정리 — 계획 합계 25,000,000원 / 실적 합계 700,000원
+  { id:'exf-01', middleCode:'C705501', middleName:'조직운영비', controlled:true, code:'705501', name:'의욕관리비', carried:12100000, actual:300000, erpAvailable:11800000, monthly:[1800000,1900000,1900000,1900000,1900000,1200000,900000,600000,0,0] },
+  { id:'exf-02', middleCode:'C700001', middleName:'일반통제성', controlled:true, code:'735901', name:'회의비', carried:3200000, actual:300000, erpAvailable:2900000, monthly:[500000,500000,500000,500000,500000,400000,0,0,0,0] },
+  { id:'exf-03', middleCode:'C700002', middleName:'우편송', controlled:true, code:'743901', name:'잡비', carried:2600000, actual:0, erpAvailable:2600000, monthly:[300000,300000,300000,300000,300000,300000,300000,300000,200000,0] },
+  { id:'exf-04', middleCode:'C700003', middleName:'일반비', controlled:true, code:'705502', name:'조직관리비', carried:5500000, actual:0, erpAvailable:5500000, monthly:[0,700000,700000,700000,700000,700000,700000,700000,600000,0] },
+  { id:'exf-05', middleCode:'C700100', middleName:'소모품비', controlled:true, code:'710301', name:'사무용품비', carried:1100000, actual:0, erpAvailable:1100000, monthly:[100000,100000,100000,100000,100000,100000,100000,100000,100000,200000] },
+  { id:'exf-06', middleCode:'C700100', middleName:'소모품비', controlled:true, code:'710901', name:'전산소모품비', carried:800000, actual:100000, erpAvailable:700000, monthly:[100000,100000,100000,200000,200000,100000,0,0,0,0] },
   { id:'exf-07', middleCode:'C734101', middleName:'접대비', controlled:true, code:'734101', name:'접대비', carried:0, actual:0, erpAvailable:0, monthly:[0,0,0,0,0,0,0,0,0,0] },
-  { id:'exf-08', middleCode:'C700000', middleName:'일반비통제성', controlled:false, code:'NCTRL-01', name:'기타입차료', carried:245714000, actual:0, erpAvailable:null, monthly:[0,0,0,0,0,0,0,0,0,0] },
-  { id:'exf-09', middleCode:'C700000', middleName:'일반비통제성', controlled:false, code:'NCTRL-02', name:'PJ운영예비비', carried:1640967367, actual:0, erpAvailable:null, monthly:[0,0,0,0,0,0,0,0,0,0] },
+  { id:'exf-08', middleCode:'C700000', middleName:'일반비통제성', controlled:false, code:'NCTRL-01', name:'기타입차료', carried:245000000, actual:0, erpAvailable:null, monthly:[0,0,0,0,0,0,0,0,0,0] },
+  { id:'exf-09', middleCode:'C700000', middleName:'일반비통제성', controlled:false, code:'NCTRL-02', name:'PJ운영예비비', carried:1640000000, actual:0, erpAvailable:null, monthly:[0,0,0,0,0,0,0,0,0,0] },
   { id:'exf-10', middleCode:'C723101', middleName:'교육훈련비', controlled:true, code:'723101', name:'팀별교육비', carried:0, actual:0, erpAvailable:0, monthly:[0,0,0,0,0,0,0,0,0,0] },
   { id:'exf-11', middleCode:'C701101', middleName:'인건비', controlled:false, code:'701101', name:'외부교육 강사료', carried:0, actual:0, erpAvailable:null, monthly:[0,0,0,0,0,0,0,0,0,0] },
 ];

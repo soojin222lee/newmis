@@ -1358,12 +1358,14 @@ function getExecBudgetVersionSnapshotsFinal(data) {
       status:execBudgetApprovalStateFinal.v3.status,
       owner:'이봄',
       memo:'인건비 SCM 확정 인력과 A/S비가 반영된 최신 수립안',
+      // [2026.09.01] 화면에 보이는 금액을 깔끔하게 — CP총액을 억/천만원 단위로 정리했습니다.
+      //   V3 = 기준값, V2 = 0.95배, V1 = 0.90배 (배분 시 잔돈이 생기지 않는 비율)
       budgets:{
-        [CATS[0]]:770000000,
-        [CATS[1]]:1195000000,
-        [CATS[2]]:155000000,
-        [CATS[3]]:92000000,
-        [CATS[4]]:48918351,
+        [CATS[0]]:800000000,
+        [CATS[1]]:1200000000,
+        [CATS[2]]:160000000,
+        [CATS[3]]:100000000,
+        [CATS[4]]:50000000,
       },
     },
     {
@@ -1374,11 +1376,11 @@ function getExecBudgetVersionSnapshotsFinal(data) {
       owner:'이봄',
       memo:'외주비 검수계획과 재료비 상품계획 일부 보정',
       budgets:{
-        [CATS[0]]:755000000,
-        [CATS[1]]:1175000000,
-        [CATS[2]]:145000000,
-        [CATS[3]]:88000000,
-        [CATS[4]]:48918351,
+        [CATS[0]]:760000000,
+        [CATS[1]]:1140000000,
+        [CATS[2]]:152000000,
+        [CATS[3]]:95000000,
+        [CATS[4]]:47500000,
       },
     },
     {
@@ -1389,11 +1391,11 @@ function getExecBudgetVersionSnapshotsFinal(data) {
       owner:'이봄',
       memo:'최초 실행예산 승인 버전',
       budgets:{
-        [CATS[0]]:760000000,
-        [CATS[1]]:1160000000,
-        [CATS[2]]:150000000,
+        [CATS[0]]:720000000,
+        [CATS[1]]:1080000000,
+        [CATS[2]]:144000000,
         [CATS[3]]:90000000,
-        [CATS[4]]:48918351,
+        [CATS[4]]:45000000,
       },
     },
   ];
