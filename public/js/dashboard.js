@@ -3703,3 +3703,125 @@ function homeCardPjts() {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
 })();
+
+// ============================================================
+//  21차 — 카드 3열 배치 · 보기 방식(상세/간소) 선택 · 타이틀 제거
+//  · 3개씩 아래로 쌓고(3×n), 1~2개면 가운데 정렬
+//  · 간소 보기: 목록 + 마우스 오버/클릭 시 우측에 그 PJT 카드 미리보기
+//  · 선택한 보기 방식은 브라우저에 기억한다
+// ============================================================
+
+const PJT_VIEW_KEY = 'newmis.pjtView';
+let pjtView = (function () {
+  try { return localStorage.getItem(PJT_VIEW_KEY) === 'list' ? 'list' : 'card'; }
+  catch (e) { return 'card'; }
+})();
+let pjtPreview = null;   // 간소 보기에서 미리보기 중인 PJT
+
+function setPjtView(v) {
+  pjtView = (v === 'list') ? 'list' : 'card';
+  try { localStorage.setItem(PJT_VIEW_KEY, pjtView); } catch (e) {}
+  pjtPreview = null;
+  rerenderHomeFeed();
+}
+function previewPjt(id) {
+  if (pjtPreview === id) return;
+  pjtPreview = id;
+  const el = document.getElementById('pc-preview');
+  if (el) el.innerHTML = pjtPreviewHtml();
+  const rows = document.querySelectorAll('.pl-row');
+  rows.forEach(function (r) { r.classList.toggle('on', r.getAttribute('data-pj') === id); });
+}
+
+// ── 간소 보기 — 윈도우 탐색기 "자세히"처럼 목록으로 ──
+function pjtListHtml() {
+  const list = homeCardPjts();
+  if (!pjtPreview && list.length) pjtPreview = list[0].id;
+  const rows = list.map(function (p) {
+    const todos = pjtTodosOf(p.id), risks = pjtRisksOf(p.id);
+    const openT = todos.filter(function (t) { return t.open; }).length;
+    const openR = risks.filter(function (r) { return r.open; }).length;
+    const done = todos.filter(function (t) { return t.cls === 'done'; }).length
+               + risks.filter(function (r) { return r.cls === 'done'; }).length;
+    const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[p.id] : null;
+    return `
+      <button class="pl-row ${pjtPreview === p.id ? 'on' : ''}" data-pj="${escAttr(p.id)}"
+        onmouseenter="previewPjt('${escAttr(p.id)}')" onfocus="previewPjt('${escAttr(p.id)}')"
+        onclick="homePjtGo('${escAttr(p.id)}')">
+        <span class="pl-no">${escHtml(p.no || '')}</span>
+        <span class="pl-name">${escHtml(p.name)}</span>
+        <span class="pl-stage">${escHtml(src ? src.stage : '')}</span>
+        <span class="pl-n todo ${openT ? 'on' : ''}">${openT}</span>
+        <span class="pl-n risk ${openR ? 'on' : ''}">${openR}</span>
+        <span class="pl-n done">${done}</span>
+      </button>`;
+  }).join('');
+  return `
+    <div class="pl-wrap">
+      <div class="pl">
+        <div class="pl-head">
+          <span class="pl-no">프로젝트번호</span>
+          <span class="pl-name">프로젝트명</span>
+          <span class="pl-stage">상태</span>
+          <span class="pl-n">할 일</span>
+          <span class="pl-n">이상</span>
+          <span class="pl-n">완료</span>
+        </div>
+        ${rows}
+      </div>
+      <div class="pl-preview" id="pc-preview">${pjtPreviewHtml()}</div>
+    </div>`;
+}
+
+function pjtPreviewHtml() {
+  const p = homeCardPjts().find(function (x) { return x.id === pjtPreview; });
+  if (!p) return '<div class="pc-empty">프로젝트를 선택하면 상세가 나옵니다.</div>';
+  return pjtCardHtml(p);
+}
+
+// ── 보드 — 보기 전환 + 3열 그리드 ──
+function homeWorkBoardHtml() {
+  const all = homeCardPjts();
+  const few = all.length <= 2 ? ' few n' + all.length : '';
+  const body = (pjtView === 'list')
+    ? pjtListHtml()
+    : `<div class="pc-grid${few}">${all.map(pjtCardHtml).join('')}</div>`;
+  return `
+    <div class="pc-head-row">
+      <span class="pc-h-t">담당 프로젝트 <b>${all.length}</b></span>
+      <span class="pc-h-d">해야 할 일과 이상징후를 프로젝트별로 봅니다 · 항목을 누르면 해당 계정 화면으로 이동합니다</span>
+      <span class="pc-view">
+        <button class="pc-v ${pjtView === 'card' ? 'on' : ''}" onclick="setPjtView('card')" aria-pressed="${pjtView === 'card'}">▦ 상세</button>
+        <button class="pc-v ${pjtView === 'list' ? 'on' : ''}" onclick="setPjtView('list')" aria-pressed="${pjtView === 'list'}">☰ 간소</button>
+      </span>
+    </div>
+    ${body}`;
+}
+
+// ── 메인화면 — 타이틀 제거, 입력창을 위로 ──
+function renderPmDashboard() {
+  return `
+    <div class="ai-workspace home2 home-simple home-cards">
+      <section class="home2-main centered">
+        <div class="home2-search">
+          <span class="home2-orb" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
+              <path d="M12 4.4V8"/>
+              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
+              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
+              <path d="M2 13v3M22 13v3"/>
+            </svg>
+          </span>
+          <input id="ai-main-query" type="text" placeholder=""
+            onkeydown="if(event.key==='Enter') askFromHome()">
+          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+        </div>
+
+        <div id="home-board">${homeWorkBoardHtml()}</div>
+      </section>
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
+    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}
