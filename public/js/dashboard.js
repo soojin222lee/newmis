@@ -3576,3 +3576,130 @@ function renderPmDashboard() {
 function rerenderHomeFeed() {
   const bd = document.getElementById('home-board'); if (bd) bd.innerHTML = homeWorkBoardHtml();
 }
+
+// ============================================================
+//  20차 — 상세 화면의 처리 상태를 메인 카드에 연동
+//
+//  원가조정 Agent 콘솔의 제안 상태(budget-agent-console.js 기준)
+//    pending   PM 검토 대기        → 해야 할 일
+//    approved  PM 검토 완료(기안 대상) → 진행 중
+//    submitted 직책자 결재 대기        → 진행 중
+//    confirmed 승인 완료 · 예산 반영    → [처리완료] · 회색
+//    returned  반려 · PM 재기안 대기    → 해야 할 일(다시)
+//    rejected  PM 반려                 → 목록에서 제외
+//
+//  상세 화면에서 승인이 끝나면 같은 데이터를 읽는 메인 카드도 함께 바뀐다.
+// ============================================================
+
+// 상태별 표시 규칙
+const PJT_ITEM_STATE = {
+  pending:   { open:true,  label:'',        cls:'' },
+  returned:  { open:true,  label:'[재기안]', cls:'ret' },
+  approved:  { open:false, label:'[결재중]', cls:'prog' },
+  submitted: { open:false, label:'[결재중]', cls:'prog' },
+  confirmed: { open:false, label:'[처리완료]', cls:'done' },
+};
+function pjtItemState(st) { return PJT_ITEM_STATE[st] || PJT_ITEM_STATE.pending; }
+
+// 반려(rejected)만 감추고 나머지는 상태와 함께 보여준다
+function homeProposalsOf(pj, stage) {
+  if (typeof AGENT_PROPOSALS_FINAL === 'undefined') return [];
+  return AGENT_PROPOSALS_FINAL.filter(function (p) {
+    if ((p.pjt || MOCK_PJT.key) !== pj) return false;
+    if (p.status === 'rejected') return false;
+    const st = p.stage || 'input';
+    return !stage || st === stage;
+  });
+}
+
+function pjtTodosOf(pj) {
+  return homeProposalsOf(pj, null).map(function (p) {
+    const s = pjtItemState(p.status);
+    return { acct:p.acct, title:p.title, status:p.status, open:s.open, label:s.label, cls:s.cls,
+             from:p.from, to:p.to };
+  });
+}
+
+// 이상징후는 같은 계정의 제안이 승인 완료되면 해소된 것으로 본다
+function pjtRisksOf(pj) {
+  const confirmedAccts = homeProposalsOf(pj, null)
+    .filter(function (p) { return p.status === 'confirmed'; })
+    .map(function (p) { return p.acct; });
+  return (SCEN_RISKS_BY_PJT[pj] || []).map(function (r) {
+    const done = confirmedAccts.indexOf(r.acct) >= 0;
+    return { acct:r.acct, title:r.title, sev:r.sev, scen:r.scen, impact:r.impact,
+             open:!done, label:done ? '[처리완료]' : '', cls:done ? 'done' : '' };
+  });
+}
+
+// ── 카드 렌더 — 처리완료는 회색 + [처리완료] 표기 ──
+function pjtCardHtml(p) {
+  const todos = pjtTodosOf(p.id);
+  const risks = pjtRisksOf(p.id);
+  const openTodo = todos.filter(function (t) { return t.open; }).length;
+  const openRisk = risks.filter(function (r) { return r.open; }).length;
+  const doneCnt = todos.filter(function (t) { return t.cls === 'done'; }).length
+                + risks.filter(function (r) { return r.cls === 'done'; }).length;
+  const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[p.id] : null;
+  const stage = src ? src.stage : '';
+
+  const line = function (it, isRisk) {
+    return `<button class="pc-row ${isRisk ? 'risk' : ''} ${it.cls || ''}"
+        onclick="event.stopPropagation();homePjtGo('${escAttr(p.id)}','${escAttr(it.acct)}')">
+        <span class="pc-acct ${homeAcctCls(it.acct)}">${escHtml(it.acct)}</span>
+        <span class="pc-t">${it.label ? `<em class="pc-flag ${it.cls}">${escHtml(it.label)}</em>` : ''}${escHtml(it.title)}</span>
+      </button>`;
+  };
+  // 남은 일을 먼저, 처리된 건은 아래로
+  const sortOpen = function (a, b) { return (b.open ? 1 : 0) - (a.open ? 1 : 0); };
+  const tSorted = todos.slice().sort(sortOpen);
+  const rSorted = risks.slice().sort(sortOpen);
+  const todoRows = tSorted.slice(0, 3).map(function (t) { return line(t, false); }).join('');
+  const riskRows = rSorted.slice(0, 2).map(function (r) { return line(r, true); }).join('');
+  const moreT = todos.length > 3 ? `<span class="pc-more">+${todos.length - 3}건 더</span>` : '';
+  const moreR = risks.length > 2 ? `<span class="pc-more">+${risks.length - 2}건 더</span>` : '';
+
+  return `
+    <article class="pc" onclick="homePjtGo('${escAttr(p.id)}')">
+      <div class="pc-head">
+        <div class="pc-no">${escHtml(p.no || '')}${stage ? ` · <em>${escHtml(stage)}</em>` : ''}</div>
+        <h3 class="pc-name">${escHtml(p.name)}</h3>
+      </div>
+      <div class="pc-kpi">
+        <span class="pc-k todo"><i>✓</i>해야 할 일 <b>${openTodo}</b></span>
+        <span class="pc-k risk"><i>!</i>이상징후 <b>${openRisk}</b></span>
+        ${doneCnt ? `<span class="pc-k done"><i>✓</i>처리완료 <b>${doneCnt}</b></span>` : ''}
+      </div>
+      <div class="pc-body">
+        ${todos.length ? `<div class="pc-sec">해야 할 일</div>${todoRows}${moreT}` : '<div class="pc-empty">해야 할 일이 없습니다.</div>'}
+        ${risks.length ? `<div class="pc-sec risk">이상징후</div>${riskRows}${moreR}` : ''}
+      </div>
+    </article>`;
+}
+
+// 카드에 띄울 프로젝트 판단도 "남은 일"이 아니라 "표시할 항목" 기준으로
+function homeCardPjts() {
+  const order = [SCEN_PJT.key, MOCK_PJT.key, 'smart', 'aidoc2'];
+  const list = order.map(function (k) { return HOME_PROJECTS.find(function (p) { return p.id === k; }); }).filter(Boolean);
+  HOME_PROJECTS.forEach(function (p) {
+    if (order.indexOf(p.id) >= 0) return;
+    if (typeof BUDGET_SOURCE === 'undefined' || !BUDGET_SOURCE[p.id]) return;
+    if (pjtTodosOf(p.id).length + pjtRisksOf(p.id).length === 0) return;
+    list.push(p);
+  });
+  return list;
+}
+
+// 상세 화면에서 승인/반려하면 메인 카드도 최신 상태로 다시 그린다
+(function watchDetailDecisions() {
+  function bind() {
+    const main = document.getElementById('s-main');
+    if (!main) { setTimeout(bind, 300); return; }
+    // 메인으로 돌아올 때 카드 갱신
+    new MutationObserver(function () {
+      if (main.classList.contains('active') && typeof rerenderHomeFeed === 'function') rerenderHomeFeed();
+    }).observe(main, { attributes: true, attributeFilter: ['class'] });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
