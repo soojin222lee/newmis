@@ -1216,3 +1216,297 @@ body.menu-shown .topbar .topnav { display: flex !important; }
   .pl-no, .pl-stage { display: none; }
   .pc-view { margin-left: 0; }
 }
+
+/* ==========================================================================
+   22차 — 팀장용 메인화면 (팀 원가 집계 · 편차 분포 · 결재 대기)
+   ========================================================================== */
+
+.ld-t { font-size: 13px; font-weight: 900; color: var(--sk-ink); }
+.ld-d { font-size: 11.5px; color: #98a2b3; font-weight: 700; }
+
+/* ① 팀 KPI */
+.ld-kpi { background: #fff; border: 1px solid var(--sk-border); border-radius: 14px; overflow: hidden; margin-bottom: 12px; }
+.ld-kpi-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 12px 16px; background: #fafbfc; border-bottom: 1px solid var(--sk-border); }
+.ld-kpi-g { display: flex; flex-wrap: wrap; }
+.ld-k { flex: 1; min-width: 150px; padding: 13px 16px; border-right: 1px solid var(--sk-border); }
+.ld-k:last-child { border-right: none; }
+.ld-k-l { display: block; font-size: 11px; font-weight: 800; color: #98a2b3; }
+.ld-k-v { display: block; font-size: 20px; font-weight: 900; color: var(--sk-ink); margin-top: 3px; letter-spacing: -0.4px; font-variant-numeric: tabular-nums; }
+.ld-k-v.up { color: var(--sk-red); } .ld-k-v.down { color: var(--sk-blue); }
+.ld-k-s { display: block; font-size: 11px; color: #8a94a6; font-weight: 700; margin-top: 2px; }
+
+/* ② 편차 분포 */
+.ld-dist { background: #fff; border: 1px solid var(--sk-border); border-radius: 14px; padding: 13px 18px 14px; margin-bottom: 12px; }
+.ld-dist-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.ld-axis { position: relative; height: 30px; background: linear-gradient(90deg,#e8f1fd,#f5f6f8,#fde8ec); border-radius: 999px; }
+.ld-band { position: absolute; top: 0; bottom: 0; background: rgba(255,255,255,.75); border-left: 1px dashed #c3cad4; border-right: 1px dashed #c3cad4; }
+.ld-avg { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--sk-ink); transform: translateX(-1px); }
+.ld-dot {
+  position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%;
+  transform: translate(-50%, -50%); background: #8a94a6; border: 2px solid #fff; cursor: default;
+}
+.ld-dot.over { background: var(--sk-red); width: 15px; height: 15px; }
+.ld-dot.under { background: var(--sk-blue); width: 15px; height: 15px; }
+.ld-axis-l { display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 800; color: #aab2c0; margin-top: 6px; }
+
+/* ③④ 2단 카드 */
+.ld-2col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.ld-card { background: #fff; border: 1px solid var(--sk-border); border-radius: 14px; overflow: hidden; }
+.ld-card-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px; background: #fafbfc; border-bottom: 1px solid var(--sk-border); }
+.ld-card-h b { font-size: 14px; font-weight: 900; color: var(--sk-ink); }
+.ld-card-h em { font-style: normal; font-size: 11.5px; font-weight: 900; color: #fff; background: #6c5ce7; border-radius: 999px; padding: 1px 8px; }
+.ld-ic { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 900; background: #6c5ce7; color: #fff; }
+.ld-ic.warn { background: var(--sk-red); }
+.ld-card-h .ld-d { margin-left: 4px; }
+.ld-all {
+  margin-left: auto; cursor: pointer; border: 1px solid var(--sk-blue); background: var(--sk-blue);
+  color: #fff; border-radius: 999px; padding: 4px 12px; font-size: 11.5px; font-weight: 800;
+}
+.ld-all:hover { background: var(--sk-blue-deep); }
+.ld-card-b { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 7px; max-height: 300px; overflow-y: auto; }
+
+.ld-row {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: #fff; border: 1px solid var(--sk-border); border-left: 3px solid #c3cad4;
+  border-radius: 10px; padding: 10px 12px;
+}
+.ld-row:hover { border-color: var(--sk-border-strong); background: #fafbfc; }
+.ld-row.over { border-left-color: var(--sk-red); }
+.ld-row.under { border-left-color: var(--sk-blue); }
+.ld-row.q { border-left-color: #6c5ce7; }
+.ld-row-t { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ld-row-t b { font-size: 13px; font-weight: 900; color: var(--sk-ink); }
+.ld-flag { font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
+.ld-flag.over { background: #fde8ec; color: #b8283f; }
+.ld-flag.under { background: #e8f1fd; color: #1f5fbf; }
+.ld-dev { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.ld-dev.up { color: var(--sk-red); } .ld-dev.down { color: var(--sk-blue); }
+.ld-row-w { display: block; font-size: 12px; color: #55606f; margin-top: 5px; line-height: 1.55; }
+.ld-row-m { display: block; font-size: 11px; color: #98a2b3; font-weight: 700; margin-top: 4px; }
+
+/* ⑤ 팀장 카드의 소진율 막대 */
+.pc.ld.over { border-top: 2px solid var(--sk-red); }
+.pc.ld.under { border-top: 2px solid var(--sk-blue); }
+.pc-k.lead { background: #f1eefd; color: #4b3fb5; } .pc-k.lead i { background: #6c5ce7; }
+.pc-k.over { background: #fde8ec; color: #b8283f; } .pc-k.over i { background: var(--sk-red); }
+.pc-k.under { background: #e8f1fd; color: #1f5fbf; } .pc-k.under i { background: var(--sk-blue); }
+.ld-bar { margin-bottom: 8px; }
+.ld-bar-l { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #8a94a6; margin-bottom: 5px; }
+.ld-bar-l b { color: var(--sk-ink); font-weight: 900; }
+.ld-bar-t { position: relative; height: 8px; background: #eef0f4; border-radius: 999px; overflow: hidden; }
+.ld-bar-t i { position: absolute; top: 0; left: 0; height: 100%; border-radius: 999px; }
+.ld-bar-t i.plan { background: #c9d3e8; }
+.ld-bar-t i.act { background: var(--sk-ink); height: 100%; opacity: .85; }
+.ld-bar-t i.act.over { background: var(--sk-red); }
+.ld-bar-t i.act.under { background: var(--sk-blue); }
+.ld-bar-d { font-size: 11px; color: #8a94a6; font-weight: 700; margin-top: 6px; }
+.ld-bar-d b.up { color: var(--sk-red); } .ld-bar-d b.down { color: var(--sk-blue); }
+
+@media (max-width: 1100px) {
+  .ld-2col { grid-template-columns: minmax(0, 1fr); }
+  .ld-k { min-width: 45%; border-bottom: 1px solid var(--sk-border); }
+}
+
+/* ==========================================================================
+   23차 — 팀장 화면 재구성 (프로젝트 선택 · 원가 분해 · 펼침 목록)
+   ========================================================================== */
+
+/* 프로젝트 선택 콤보 */
+.ld-sel {
+  margin-left: auto; border: 1px solid var(--sk-border-strong); background: #fff;
+  border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 700;
+  color: var(--sk-ink); cursor: pointer; max-width: 300px;
+}
+
+/* 원가 분해 */
+.ld-cost { background: #fff; border: 1px solid var(--sk-border); border-radius: 14px; padding: 13px 18px 14px; margin-bottom: 12px; }
+.ld-cost-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.ld-cost-tot { margin-left: auto; font-size: 17px; font-weight: 900; color: var(--sk-ink); font-variant-numeric: tabular-nums; }
+.ld-cost-bar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: #eef0f4; }
+.ld-cost-bar i { display: block; height: 100%; }
+.ld-cost-bar i.act { background: var(--sk-ink); }
+.ld-cost-bar i.com { background: #8a7ee6; }
+.ld-cost-bar i.rem { background: #d9dee6; }
+.ld-cost-lg { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 9px; font-size: 11.5px; color: #6a7382; font-weight: 700; }
+.ld-cost-lg i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; }
+.ld-cost-lg i.act { background: var(--sk-ink); }
+.ld-cost-lg i.com { background: #8a7ee6; }
+.ld-cost-lg i.rem { background: #d9dee6; }
+.ld-cost-lg b { color: var(--sk-ink); font-weight: 900; }
+.ld-cost-s { display: flex; align-items: baseline; gap: 8px; margin: 16px 0 8px; font-size: 12.5px; font-weight: 900; color: var(--sk-ink); }
+.ld-cost-s em { font-style: normal; font-size: 11.5px; font-weight: 900; color: #fff; background: var(--sk-red); border-radius: 999px; padding: 1px 8px; }
+
+/* 특이 계정 */
+.ld-odd-list { display: flex; flex-direction: column; gap: 7px; }
+.ld-odd {
+  display: grid; grid-template-columns: 62px minmax(0, 1fr) 70px; gap: 8px; align-items: center;
+  width: 100%; text-align: left; cursor: pointer;
+  background: #fff; border: 1px solid var(--sk-border); border-left: 3px solid #c3cad4;
+  border-radius: 10px; padding: 10px 12px;
+}
+.ld-odd:hover { border-color: var(--sk-border-strong); background: #fafbfc; }
+.ld-odd.over { border-left-color: var(--sk-red); }
+.ld-odd.under { border-left-color: var(--sk-blue); }
+.ld-odd-t { font-size: 12.5px; color: #3f4855; }
+.ld-odd-t b { font-weight: 900; color: var(--sk-ink); }
+.ld-odd-d { text-align: right; font-size: 13px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.ld-odd-d.up { color: var(--sk-red); } .ld-odd-d.down { color: var(--sk-blue); }
+.ld-odd-m { grid-column: 2 / 4; font-size: 11px; color: #98a2b3; font-weight: 700; }
+
+/* 펼침 목록 */
+.ld-li { border: 1px solid var(--sk-border); border-left: 3px solid #6c5ce7; border-radius: 10px; overflow: hidden; background: #fff; }
+.ld-li.over { border-left-color: var(--sk-red); }
+.ld-li.under { border-left-color: var(--sk-blue); }
+.ld-li.open { box-shadow: 0 6px 18px -14px rgba(11, 18, 32, .5); }
+.ld-li-h {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto 18px; gap: 8px; align-items: center;
+  width: 100%; text-align: left; cursor: pointer; border: 0; background: transparent; padding: 10px 12px;
+}
+.ld-li-h:hover { background: #fafbfc; }
+.ld-li-n { font-size: 13px; font-weight: 800; color: var(--sk-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ld-li-d { font-size: 12.5px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.ld-li-d.up { color: var(--sk-red); } .ld-li-d.down { color: var(--sk-blue); }
+.ld-li-c { font-size: 10px; color: #aab2c0; text-align: right; }
+.ld-li-b { padding: 0 12px 12px; border-top: 1px solid #f1f0ea; }
+.ld-li-t { font-size: 13px; font-weight: 800; color: var(--sk-ink); margin-top: 10px; }
+.ld-li-w { font-size: 12px; color: #55606f; line-height: 1.6; margin-top: 6px; }
+.ld-li-m { font-size: 11px; color: #98a2b3; font-weight: 700; margin-top: 6px; }
+.ld-li-a { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+
+@media (max-width: 900px) {
+  .ld-sel { margin-left: 0; width: 100%; max-width: none; }
+  .ld-cost-tot { margin-left: 0; }
+}
+
+/* ==========================================================================
+   24차 — 팀장 원가 현황 (AI 요약 · 5-Tier 사용 현황)
+   ========================================================================== */
+
+/* AI 요약 문장 */
+.ld-ai {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: linear-gradient(180deg, #f7f5ff 0%, #fbfaff 100%);
+  border: 1px solid #e4defa; border-radius: 12px;
+  padding: 11px 14px; margin: 12px 0 13px;
+}
+.ld-ai-tag {
+  flex: 0 0 auto; font-size: 10.5px; font-weight: 900; color: #fff;
+  background: #6c5ce7; border-radius: 999px; padding: 3px 9px; margin-top: 1px;
+  letter-spacing: .02em;
+}
+.ld-ai-t { margin: 0; font-size: 12.8px; line-height: 1.72; color: #3f4855; }
+.ld-ai-t b { font-weight: 900; color: var(--sk-ink); }
+.ld-ai-t b.up { color: var(--sk-red); }
+.ld-ai-t b.down { color: var(--sk-blue); }
+
+/* 5-Tier 사용 현황 */
+.ld-tierbox {
+  background: #fff; border: 1px solid var(--sk-border); border-radius: 14px;
+  padding: 13px 18px 14px; margin-bottom: 12px;
+}
+.ld-tier-hd,
+.ld-tier {
+  display: grid;
+  grid-template-columns: 132px minmax(90px, 1fr) 108px 128px 138px 58px;
+  gap: 10px; align-items: center;
+}
+.ld-tier-hd {
+  font-size: 10.5px; font-weight: 900; color: #98a2b3; letter-spacing: .02em;
+  padding: 0 2px 7px; border-bottom: 1px solid #f1f0ea;
+}
+.ld-tier-hd span:last-child,
+.ld-tier-d { text-align: right; }
+.ld-tier { padding: 9px 2px; border-bottom: 1px solid #f7f6f2; }
+.ld-tier:last-of-type { border-bottom: 0; }
+.ld-tier-n {
+  font-size: 12.5px; font-weight: 800; color: var(--sk-ink);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ld-tier-n em {
+  font-style: normal; font-size: 10px; font-weight: 800; color: #1f9d6b;
+}
+.ld-tier.res { background: #f6fbf8; border-radius: 8px; }
+.ld-tier.res .ld-tier-n { color: #1f7a55; }
+
+/* 집행·예상 막대 — 예상 소진을 옅게 깔고 실적을 그 위에 겹친다 */
+.ld-tier-b {
+  position: relative; display: block; height: 10px;
+  border-radius: 6px; background: #eef0f4; overflow: hidden;
+}
+.ld-tier-b i { position: absolute; top: 0; left: 0; height: 100%; display: block; }
+.ld-tier-b i.exp { background: #c9c2f2; }
+.ld-tier-b i.act { background: var(--sk-ink); border-radius: 6px 0 0 6px; }
+.ld-tier.res .ld-tier-b i.exp { background: #b6e0cb; }
+
+.ld-tier-v { font-size: 11.5px; color: #6a7382; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ld-tier-v b { font-weight: 900; color: var(--sk-ink); }
+.ld-tier-v em { font-style: normal; color: #aab2c0; font-weight: 800; }
+.ld-tier-v.ex b { color: #5a4bd0; }
+.ld-tier-d { font-size: 12.5px; font-weight: 900; font-variant-numeric: tabular-nums; color: #c3cad4; }
+.ld-tier-d.up { color: var(--sk-red); }
+.ld-tier-d.down { color: var(--sk-blue); }
+
+.ld-tier-f { margin-top: 10px; font-size: 10.5px; color: #aab2c0; font-weight: 700; }
+
+@media (max-width: 1180px) {
+  .ld-tier-hd { display: none; }
+  .ld-tier {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 5px; padding: 11px 2px;
+  }
+  .ld-tier-b { grid-column: 1 / 3; }
+  .ld-tier-v { grid-column: 1 / 3; }
+}
+
+/* ==========================================================================
+   25차 — 팀장 원가 분석 대상 선택 바
+   콤보박스가 아래 3개 블록을 한꺼번에 바꾸는 컨트롤이라, 카드 헤더에
+   묻히지 않게 독립된 바로 키웠다. 수백 건까지 늘어날 수 있어 세그먼트
+   버튼이 아니라 select 를 그대로 쓰고, 크기·강조로만 눈에 띄게 한다.
+   ========================================================================== */
+
+.ld-pick {
+  display: grid;
+  grid-template-columns: auto minmax(240px, 480px) minmax(0, 1fr);
+  gap: 8px 18px; align-items: center;
+  background: linear-gradient(180deg, #fbfaff 0%, #fff 100%);
+  border: 1px solid #ded7f7; border-left: 4px solid #6c5ce7;
+  border-radius: 14px; padding: 14px 18px; margin-bottom: 12px;
+}
+.ld-pick-l { display: flex; flex-direction: column; gap: 3px; }
+.ld-pick-lb {
+  font-size: 10.5px; font-weight: 900; color: #6c5ce7;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.ld-pick-cur {
+  font-size: 15px; font-weight: 900; color: var(--sk-ink);
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* 큰 select — 네이티브 화살표를 지우고 직접 그린다 */
+.ld-pick-c { position: relative; }
+.ld-pick-c::after {
+  content: ''; position: absolute; right: 16px; top: 50%; pointer-events: none;
+  width: 9px; height: 9px; margin-top: -6px;
+  border-right: 2.4px solid #6c5ce7; border-bottom: 2.4px solid #6c5ce7;
+  transform: rotate(45deg);
+}
+.ld-pick-sel {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  width: 100%; height: 48px; padding: 0 42px 0 16px;
+  background: #fff; border: 2px solid #6c5ce7; border-radius: 12px;
+  font-size: 14.5px; font-weight: 800; color: var(--sk-ink);
+  font-family: inherit; cursor: pointer;
+  box-shadow: 0 4px 14px -10px rgba(108, 92, 231, .8);
+}
+.ld-pick-sel:hover { background: #fbfaff; }
+.ld-pick-sel:focus-visible { outline: 3px solid rgba(108, 92, 231, .3); outline-offset: 1px; }
+
+.ld-pick-h { font-size: 11.5px; color: #8a8ba0; font-weight: 700; line-height: 1.5; }
+.ld-pick-h b { font-weight: 900; color: #5a4bd0; }
+
+@media (max-width: 1180px) {
+  .ld-pick { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .ld-pick-cur { max-width: none; }
+  .ld-pick-h { order: 3; }
+}
