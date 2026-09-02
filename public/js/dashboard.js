@@ -4261,7 +4261,7 @@ function leadCostHtml() {
     <div class="ld-cost">
       <div class="ld-cost-h">
         <span class="ld-t">원가 분해</span>
-        <span class="ld-d">${escHtml(name)} · 수행원가 계획 = 실적 + 집행예정 + 잔여</span>
+        <span class="ld-d">${escHtml(name)} · CP총액 기준 = 실적 + 집행예정 + 잔여</span>
         <span class="ld-cost-tot">${homeWon(b.plan)}</span>
       </div>
       <div class="ld-cost-bar">
@@ -4695,3 +4695,1378 @@ function homeWorkBoardHtml() {
     </div>
     ${body}`;
 }
+
+// ============================================================
+//  26차 — 팀장 원가 카드 재구성 + 분석 패널 전환
+//  1) 숫자 카드 7개: CP총액 · 수행원가총액 · 누계실적(집행) · 계획율 ·
+//     전월대비/누계대비 · 예상 확정 원가 · AI예비비 미사용 예상
+//  2) CP총액/수행원가총액은 [수행원가] 화면과 같은 기준(budgetRollupFinal)을 쓴다
+//  3) "점검이 필요한 프로젝트"는 표준편차가 아니라 절대 기준으로 모수를 전부 본다
+//  4) 5-Tier 자리를 5개 분석 뷰로 전환할 수 있게 한다
+// ============================================================
+
+// 팀 공통 당월 — 오늘(2026-09) 직전 마감월
+const LEAD_MONTH = '2026-08';
+function leadPrevMonth(m) {
+  const y = +m.slice(0, 4), mo = +m.slice(5, 7);
+  return (mo === 1) ? (y - 1) + '-12' : y + '-' + String(mo - 1).padStart(2, '0');
+}
+const LEAD_PREV = leadPrevMonth(LEAD_MONTH);
+const LEAD_CATS = ['인건비', '외주비', '재료비', '경비'];
+
+// 문자열에서 안정적인 0~1 값 — 같은 입력이면 항상 같은 보정치가 나온다
+function leadSeed(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return ((h >>> 0) % 1000) / 1000;
+}
+
+// ── 월별 실적 조회 ──
+// 팀 기준월(8월)까지 실적이 없는 프로젝트가 있다. 팀원이 쓰는 BUDGET_SOURCE 는
+// 건드리지 않고, 이 화면에서만 계획값에 편차를 준 보정 실적을 얹어서 본다.
+function leadActualOf(id, month, acct) {
+  const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+  if (!src) return { v: 0, est: false };
+  const row = src.months.find(function (m) { return m.m === month; });
+  if (!row) return { v: 0, est: false };
+  if (row.type === 'actual') return { v: (row[acct] && row[acct].a) || 0, est: false };
+  const p = (row[acct] && row[acct].p) || 0;
+  if (!p) return { v: 0, est: false };
+  return { v: Math.round(p * (0.86 + leadSeed(id + month + acct) * 0.26)), est: true };
+}
+
+// 전월 마감시점에 잡혀 있던 그 달의 계획.
+// 월마감을 돌리면 leadSnapStore 에 실제 스냅샷이 쌓이고, 그 전 달은 합성값을 쓴다.
+const leadSnapStore = {};
+function leadPlanSnapOf(id, month, acct) {
+  const s = leadSnapStore[id] && leadSnapStore[id][month];
+  if (s && typeof s[acct] === 'number') return s[acct];
+  const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+  if (!src) return 0;
+  const row = src.months.find(function (m) { return m.m === month; });
+  if (!row || !row[acct]) return 0;
+  const base = (row.type === 'actual') ? (row[acct].a || 0) : (row[acct].p || 0);
+  return Math.round(base * (0.90 + leadSeed('snap' + id + month + acct) * 0.22));
+}
+// 월마감 시 그 시점 계획을 남긴다 (다음 달 "전월 계획 대비" 의 근거가 된다)
+function leadSaveSnapshot(id, month) {
+  const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+  if (!src) return;
+  const row = src.months.find(function (m) { return m.m === month; });
+  if (!row) return;
+  if (!leadSnapStore[id]) leadSnapStore[id] = {};
+  const snap = {};
+  LEAD_CATS.forEach(function (c) { snap[c] = (row[c] && (row[c].p || row[c].a)) || 0; });
+  leadSnapStore[id][month] = snap;
+}
+
+function leadIds(sel) {
+  return (sel === 'all') ? homeCardPjts().map(function (p) { return p.id; }) : [sel];
+}
+
+// ── CP총액 · 수행원가총액 ──
+// [수행원가] 화면의 "수립 / CP총액 여유" 와 같은 정의를 쓴다. 버전 스냅샷은
+// 전역 상태라 프로젝트를 섞어버리므로, 프로젝트 원본을 그대로 넘겨 호출한다.
+function leadRoll(sel) {
+  const out = { cp: 0, plan: 0, actual: 0, quasi: 0, ok: false };
+  leadIds(sel).forEach(function (id) {
+    const d = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+    if (!d) return;
+    let r = null;
+    try { if (typeof budgetRollupFinal === 'function') r = budgetRollupFinal(d, d); } catch (e) { r = null; }
+    if (r && r.cp) {
+      out.cp += r.cp; out.plan += r.plan; out.actual += r.actual; out.quasi += r.quasi; out.ok = true;
+    } else {
+      const b = leadCostBreak(id);                 // 롤업을 못 쓰면 기존 계산으로 버틴다
+      out.cp += b.plan; out.plan += b.plan; out.actual += b.act;
+    }
+  });
+  return out;
+}
+
+// ── 전월대비 · 누계대비 ──
+function leadMoM(sel) {
+  const ids = leadIds(sel);
+  let cur = 0, prev = 0, curCum = 0, prevCum = 0, est = false;
+  ids.forEach(function (id) {
+    const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+    if (!src) return;
+    LEAD_CATS.forEach(function (c) {
+      const a = leadActualOf(id, LEAD_MONTH, c), b = leadActualOf(id, LEAD_PREV, c);
+      cur += a.v; prev += b.v;
+      if (a.est || b.est) est = true;
+    });
+    // 전월 기준 누계 = 전월까지 실적 + 전월 마감시점에 잡아둔 당월 계획.
+    // 누계끼리 그냥 빼면 차액이 당월 실적과 같아져 아무것도 말해주지 않는다.
+    src.months.forEach(function (m) {
+      if (m.m > LEAD_MONTH) return;
+      LEAD_CATS.forEach(function (c) {
+        const v = leadActualOf(id, m.m, c).v;
+        curCum += v;
+        prevCum += (m.m < LEAD_MONTH) ? v : leadPlanSnapOf(id, m.m, c);
+      });
+    });
+  });
+  return { cur: cur, prev: prev, mom: cur - prev, curCum: curCum, prevCum: prevCum, cum: curCum - prevCum, est: est };
+}
+
+// ── 예비비 · 예상 확정 원가 (수행원가총액 기준으로 다시 계산) ──
+function leadReserve2(sel) {
+  const r = leadRoll(sel);
+  const b = leadCostBreak(sel);
+  const base = r.plan || b.plan;
+  const ai = Math.round(base * RESERVE_RATE.ai);
+  const loss = Math.round(base * RESERVE_RATE.loss);
+  const total = ai + loss;
+  const core = Math.max(0, base - total);
+  const expFinal = Math.round(r.actual + Math.max(0, core - r.actual) * EXP_BURN + total * EXP_RESERVE_USE);
+  return {
+    cp: r.cp, plan: base, act: r.actual, quasi: r.quasi,
+    ai: ai, loss: loss, total: total,
+    aiUnused: Math.round(ai * (1 - EXP_RESERVE_USE)),
+    unused: Math.round(total * (1 - EXP_RESERVE_USE)),
+    expFinal: expFinal, under: base - expFinal,
+    burnRate: base ? (r.actual / base) * 100 : 0,
+    planRate: b.planRate, cpRemain: r.cp - base
+  };
+}
+
+// ── AI 요약 ──
+function leadSummaryText(sel) {
+  const r = leadReserve2(sel);
+  const m = leadMoM(sel);
+  const name = (sel === 'all')
+    ? '담당 ' + homeCardPjts().length + '개 프로젝트'
+    : ((homeCardPjts().find(function (p) { return p.id === sel; }) || {}).name || '선택 프로젝트');
+  let s = escHtml(name) + '의 CP총액 ' + homeWon(r.cp) + ' 중 수행원가총액은 ' + homeWon(r.plan)
+        + '(여유 ' + homeWon(Math.abs(r.cpRemain)) + (r.cpRemain < 0 ? ' 초과' : '') + ')이고, '
+        + '누계실적은 ' + homeWon(r.act) + '(' + pct(r.burnRate) + ')입니다. '
+        + '당월(' + LEAD_MONTH.slice(5) + '월) 실적은 전월 대비 <b class="' + (m.mom >= 0 ? 'up' : 'down') + '">'
+        + (m.mom >= 0 ? '+' : '−') + homeWon(Math.abs(m.mom)) + '</b>입니다. '
+        + '이 속도가 이어지면 <b>예상 확정 원가는 ' + homeWon(r.expFinal) + '</b>로 '
+        + (r.under >= 0
+            ? '<b class="down">' + homeWon(r.under) + ' 언더런</b>이 예상되며, '
+            : '<b class="up">' + homeWon(-r.under) + ' 초과</b>가 예상되며, ')
+        + '편성 예비비 ' + homeWon(r.total) + '(AI ' + homeWon(r.ai) + ' · 손실 ' + homeWon(r.loss)
+        + ') 중 <b class="down">' + homeWon(r.unused) + '을 쓰지 않는 것</b>이 그 근거입니다.';
+  const slow = leadTiers(sel)
+    .filter(function (t) { return !t.reserve && (t.burn - r.planRate) <= -LEAD_DEV_TH; })
+    .sort(function (x, y) { return x.burn - y.burn; })[0];
+  if (slow) {
+    s += ' 다만 <b>' + escHtml(slow.name) + '</b>가 계획율 대비 ' + pctSigned(slow.burn - r.planRate)
+       + '로 집행이 늦어, 잔여 기간에 몰릴 경우 예비비를 당겨 쓰게 될 수 있습니다.';
+  }
+  return s;
+}
+
+// ── 숫자 카드 7개 ──
+function leadKpiHtml() {
+  const r = leadReserve2(leadPjtSel);
+  const m = leadMoM(leadPjtSel);
+  const tile = function (l, v, cls, sub) {
+    return `<div class="ld-k"><span class="ld-k-l">${l}</span>
+      <b class="ld-k-v ${cls || ''}">${v}</b>${sub ? `<span class="ld-k-s">${sub}</span>` : ''}</div>`;
+  };
+  const sign = function (v) { return (v >= 0 ? '+' : '−') + homeWon(Math.abs(v)); };
+  const gapTile = `
+    <div class="ld-k ld-k-gap">
+      <span class="ld-k-l">전월대비 · 누계대비</span>
+      <span class="ld-k-2">
+        <span class="ld-k-2r"><em>전월</em><b class="${m.mom >= 0 ? 'up' : 'down'}">${sign(m.mom)}</b></span>
+        <span class="ld-k-2r"><em>누계</em><b class="${m.cum >= 0 ? 'up' : 'down'}">${sign(m.cum)}</b></span>
+      </span>
+      <span class="ld-k-s">${LEAD_MONTH.slice(5)}월 ${homeWon(m.cur)} · ${LEAD_PREV.slice(5)}월 ${homeWon(m.prev)}</span>
+    </div>`;
+  return `
+    <div class="ld-kpi">
+      <div class="ld-kpi-h">
+        <span class="ld-t">${escHtml(TEAM_BENCH.teamName)} 원가 현황</span>
+        <span class="ld-d">[수행원가] 화면과 같은 기준 · 당월 ${LEAD_MONTH}</span>
+      </div>
+      <div class="ld-ai">
+        <span class="ld-ai-tag">AI 요약</span>
+        <p class="ld-ai-t">${leadSummaryText(leadPjtSel)}</p>
+      </div>
+      <div class="ld-kpi-g n7">
+        ${tile('CP총액', homeWon(r.cp))}
+        ${tile('수행원가총액', homeWon(r.plan), '', (r.cpRemain >= 0 ? 'CP여유 ' : 'CP초과 ') + homeWon(Math.abs(r.cpRemain)))}
+        ${tile('누계실적(집행)', homeWon(r.act), '', '소진율 ' + pct(r.burnRate))}
+        ${tile('계획율(달성)', pct(r.planRate), '', '경과 기간 기준')}
+        ${gapTile}
+        ${tile('예상 확정 원가', homeWon(r.expFinal), r.under >= 0 ? 'down' : 'up',
+               (r.under >= 0 ? '언더런 ' : '초과 ') + homeWon(Math.abs(r.under)))}
+        ${tile('AI예비비 미사용 예상', homeWon(r.aiUnused), 'down', '편성 ' + homeWon(r.ai))}
+      </div>
+    </div>`;
+}
+
+// ── 점검이 필요한 프로젝트 — 모수 전체 ──
+// 표준편차 기준은 4건 모수에서 1건만 뽑혀 "점검 대상"이라기보다 "가장 튀는 1건"이 된다.
+// 팀장이 봐야 하는 건 기준을 넘은 프로젝트 전부이므로 절대 기준으로 바꾼다.
+function teamOutliers() {
+  return homeCardPjts().map(function (p) {
+    const b = leadCostBreak(p.id);
+    const rr = leadReserve2(p.id);
+    const dev = b.burnRate - b.planRate;
+    const risks = pjtRisksOf(p.id).filter(function (x) { return x.open; });
+    const todos = pjtTodosOf(p.id).filter(function (x) { return x.open; });
+    const rs = [];
+    if (dev >= LEAD_DEV_TH) rs.push('계획율 대비 ' + pctSigned(dev) + ' 조기 소진');
+    if (dev <= -LEAD_DEV_TH) rs.push('계획율 대비 ' + pctSigned(dev) + ' 집행 부진');
+    if (rr.cpRemain < 0) rs.push('수행원가총액이 CP총액을 ' + homeWon(-rr.cpRemain) + ' 초과');
+    if (risks.length) rs.push('미처리 이상징후 ' + risks.length + '건');
+    if (!rs.length) return null;
+    const kind = (rr.cpRemain < 0 || dev >= LEAD_DEV_TH) ? 'over' : 'under';
+    // 걸린 사유가 CP 초과인데 "조기 소진"이라고 적으면 옆의 편차 숫자와 어긋난다
+    const label = (rr.cpRemain < 0) ? 'CP 초과'
+      : (dev >= LEAD_DEV_TH ? '조기 소진' : (dev <= -LEAD_DEV_TH ? '집행 부진' : '이상징후'));
+    const why = risks.length ? risks[0].title
+      : (todos.length ? todos[0].title
+        : (kind === 'over'
+            ? '계획보다 빠르게 소진되고 있습니다. 잔여 기간 예산이 부족해질 수 있습니다.'
+            : '집행이 계획보다 늦습니다. 투입 지연이나 검수 이월 여부를 확인해야 합니다.'));
+    return { id: p.id, no: p.no, name: p.name, kind: kind, label: label, dev: dev, why: why,
+             burn: b.burnRate, planRate: b.planRate, risks: risks.length, todos: todos.length,
+             reasons: rs };
+  }).filter(Boolean).sort(function (x, y) { return Math.abs(y.dev) - Math.abs(x.dev); });
+}
+
+function leadOutlierHtml() {
+  const list = teamOutliers();
+  const rows = list.length
+    ? list.map(function (o) {
+        const open = leadOpenRow === 'o-' + o.id;
+        return `
+          <div class="ld-li ${open ? 'open' : ''} ${o.kind}">
+            <button class="ld-li-h" onclick="toggleLeadRow('o-${escAttr(o.id)}')">
+              <span class="ld-flag ${o.kind}">${escHtml(o.label || (o.kind === 'over' ? '조기 소진' : '집행 부진'))}</span>
+              <span class="ld-li-n">${escHtml(o.name)}</span>
+              <span class="ld-li-d ${o.kind === 'over' ? 'up' : 'down'}">${pctSigned(o.dev)}</span>
+              <span class="ld-li-c">${open ? '▴' : '▾'}</span>
+            </button>
+            ${open ? `<div class="ld-li-b">
+              <div class="ld-li-w">${escHtml(o.why)}</div>
+              <div class="ld-li-r">${o.reasons.map(function (x) { return `<span>${escHtml(x)}</span>`; }).join('')}</div>
+              <div class="ld-li-m">소진율 ${pct(o.burn)} · 계획율 ${pct(o.planRate)}${o.risks ? ` · 이상징후 ${o.risks}건` : ''}${o.todos ? ` · 해야 할 일 ${o.todos}건` : ''}</div>
+              <div class="ld-li-a">
+                <button class="hm-btn" onclick="event.stopPropagation();setLeadPjt('${escAttr(o.id)}')">이 프로젝트 원가 분석</button>
+                <button class="hm-btn pri" onclick="event.stopPropagation();leadGo('${escAttr(o.id)}')">원가조정으로 이동 →</button>
+              </div>
+            </div>` : ''}
+          </div>`;
+      }).join('')
+    : '<div class="pc-empty">기준을 넘은 프로젝트가 없습니다.</div>';
+  return `
+    <section class="ld-card">
+      <div class="ld-card-h"><span class="ld-ic warn">!</span><b>점검이 필요한 프로젝트</b>
+        <em>${list.length}건</em>
+        <span class="ld-d">담당 ${homeCardPjts().length}건 중 · 편차 ±${LEAD_DEV_TH}%p · CP 초과 · 미처리 이상징후</span></div>
+      <div class="ld-card-b">${rows}</div>
+    </section>`;
+}
+
+// ============================================================
+//  26차 (2) — 원가 분석 패널 전환
+//  5-Tier 자리를 5개 뷰로 바꿔 볼 수 있게 한다.
+//    tier  5-Tier 원가 사용 현황
+//    mom   당월 실적 분석 (전월 계획 대비)
+//    cum   누계 실적 분석 (전월 누계 대비)
+//    ai    AI 예비비 사용 현황
+//    risk  팀장 추천 지표
+//  mom·cum 은 [인사이트]-[종합 현황] 계정별 원가 표와 같은 형태로,
+//  집계 단위(당월·누계·연간)를 고르고 맨 오른쪽에 차액 근거를 붙인다.
+// ============================================================
+
+let leadPanel = 'tier';
+let leadAggr = 'month';                       // month | cum | year
+function setLeadPanel(v) {
+  leadPanel = v;
+  // 패널마다 자연스러운 집계 단위가 다르다. 당월 분석은 단월, 누계 분석은 누계로 열어야
+  // 두 패널이 같은 표를 보여주는 일이 없다. (사용자가 바꾼 뒤에는 그 선택을 존중)
+  if (v === 'mom') leadAggr = 'month';
+  else if (v === 'cum') leadAggr = 'cum';
+  rerenderHomeFeed();
+}
+function setLeadAggr(v) { leadAggr = v; rerenderHomeFeed(); }
+
+const LEAD_PANELS = [
+  { k: 'tier', t: '5-Tier' },
+  { k: 'mom', t: '당월 실적' },
+  { k: 'cum', t: '누계 실적' },
+  { k: 'ai', t: 'AI 예비비' },
+  { k: 'risk', t: '추천 지표' },
+];
+const LEAD_AGGRS = [
+  { k: 'month', t: '당월' }, { k: 'cum', t: '누계' }, { k: 'year', t: '연간' },
+];
+
+// ── 계정별 차액 집계 ──
+// mode 'mom' : 당월 실적 − 전월 마감시점의 당월 계획
+// mode 'cum' : 당월 누계 실적 − 전월 마감시점의 누계 전망
+function leadGapRows(sel, mode) {
+  const ids = leadIds(sel);
+  const yr = LEAD_MONTH.slice(0, 4);
+  return LEAD_CATS.map(function (c) {
+    let now = 0, was = 0;
+    ids.forEach(function (id) {
+      const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+      if (!src) return;
+      if (mode === 'mom') {
+        if (leadAggr === 'month') {
+          now += leadActualOf(id, LEAD_MONTH, c).v;
+          was += leadPlanSnapOf(id, LEAD_MONTH, c);
+        } else {
+          src.months.forEach(function (m) {
+            if (leadAggr === 'cum' && m.m > LEAD_MONTH) return;
+            if (leadAggr === 'year' && m.m.slice(0, 4) !== yr) return;
+            now += leadActualOf(id, m.m, c).v;
+            was += leadPlanSnapOf(id, m.m, c);
+          });
+        }
+      } else {
+        // 누계: 당월까지 실적 합계 vs 전월까지 실적 + 당월 계획
+        src.months.forEach(function (m) {
+          if (leadAggr === 'month' && m.m !== LEAD_MONTH) return;
+          if (leadAggr === 'cum' && m.m > LEAD_MONTH) return;
+          if (leadAggr === 'year' && m.m.slice(0, 4) !== yr) return;
+          const a = leadActualOf(id, m.m, c).v;
+          now += a;
+          was += (m.m < LEAD_MONTH) ? a : leadPlanSnapOf(id, m.m, c);
+        });
+      }
+    });
+    return { acct: c, now: now, was: was, diff: now - was,
+             rate: was ? ((now - was) / was) * 100 : 0 };
+  }).filter(function (r) { return r.now || r.was; });
+}
+
+// ── 차액 근거 ──
+// 실제 원인 데이터가 없으므로, 계정·부호·규모에서 목업 문구를 만든다.
+// 금액과 인원은 차액에서 역산해 표에 적힌 숫자와 어긋나지 않게 한다.
+const LEAD_GAP_WHY = {
+  인건비: {
+    down: ['정직원 투입 지연', 'PM 겸임 전환으로 MM 축소', '설계 인력 조기 철수'],
+    up: ['정직원 추가 투입', '초과근무 수당 반영', '고급 등급 인력 대체'],
+  },
+  외주비: {
+    down: ['외주인력 투입 지연', 'BP 계약 체결 이월', 'ATS 물량 착수 연기'],
+    up: ['AGS 물량 조기 착수', '외주 단가 인상 반영', '4분기 PO 조기 확정'],
+  },
+  재료비: {
+    down: ['검수 계획 이월', 'HW 납품 지연', '라이선스 갱신 연기'],
+    up: ['클로드 tool 사용료 반영', '개발 도구 조기 구매', '테스트 장비 추가'],
+  },
+  경비: {
+    down: ['출장 계획 취소', '행사비 집행 이월', '교육 일정 연기'],
+    up: ['워크숍 비용 반영', '고객 대응 출장 증가', '운영비 추가 집행'],
+  },
+};
+function leadGapWhy(r) {
+  const dir = r.diff >= 0 ? 'up' : 'down';
+  const pool = (LEAD_GAP_WHY[r.acct] || { up: ['원인 분석 중'], down: ['원인 분석 중'] })[dir];
+  const s = leadSeed(r.acct + dir + leadAggr + LEAD_MONTH);
+  const head = pool[Math.floor(s * pool.length) % pool.length];
+  const amt = (r.diff >= 0 ? '+' : '△') + homeWon(Math.abs(r.diff));
+  let extra = '';
+  if (r.acct === '인건비' || r.acct === '외주비') {
+    const mm = Math.max(1, Math.round(Math.abs(r.diff) / 22000000));   // 1MM ≒ 2,200만원
+    extra = ', ' + mm + '명';
+  } else if (r.acct === '재료비') {
+    extra = ', ' + LEAD_MONTH.slice(5) + '월';
+  }
+  return head + ' (' + amt + extra + ')';
+}
+
+// ── 계정별 차액 표 ──
+function leadGapTableHtml(mode) {
+  const rows = leadGapRows(leadPjtSel, mode);
+  // 연간 집계는 아직 오지 않은 달이 섞이므로 "실적"이라고만 쓰면 사실과 다르다
+  const est = (leadAggr === 'year');
+  const nowLb = ((mode === 'mom') ? '실적' : '당월 기준 실적') + (est ? '+전망' : '');
+  const wasLb = (mode === 'mom') ? '전월 계획' : '전월 기준 실적';
+  const tot = rows.reduce(function (a, r) {
+    return { now: a.now + r.now, was: a.was + r.was, diff: a.diff + r.diff };
+  }, { now: 0, was: 0, diff: 0 });
+  const aggrLb = { month: LEAD_MONTH.slice(5) + '월 단월', cum: LEAD_MONTH.slice(0, 4) + '년 1월~' + LEAD_MONTH.slice(5) + '월 누계', year: LEAD_MONTH.slice(0, 4) + '년 연간' }[leadAggr];
+  const body = rows.map(function (r) {
+    return `
+      <tr>
+        <td class="nm"><span class="pc-acct ${homeAcctCls(r.acct)}">${escHtml(r.acct)}</span></td>
+        <td class="num">${homeWon(r.now)}</td>
+        <td class="num sub">${homeWon(r.was)}</td>
+        <td class="num ${r.diff >= 0 ? 'up' : 'down'}"><b>${(r.diff >= 0 ? '+' : '−') + homeWon(Math.abs(r.diff))}</b></td>
+        <td class="num ${r.diff >= 0 ? 'up' : 'down'}">${pctSigned(r.rate).replace('%p', '%')}</td>
+        <td class="why">${escHtml(leadGapWhy(r))}</td>
+      </tr>`;
+  }).join('');
+  return `
+    <div class="ld-gap-h">
+      <span class="ld-gap-agg">
+        ${LEAD_AGGRS.map(function (a) {
+          return `<button class="ld-agg ${leadAggr === a.k ? 'on' : ''}" onclick="setLeadAggr('${a.k}')" aria-pressed="${leadAggr === a.k}">${a.t}</button>`;
+        }).join('')}
+      </span>
+      <span class="ld-d">${aggrLb} 기준</span>
+    </div>
+    <div class="ld-gap-scroll">
+      <table class="ld-gap">
+        <tr><th>계정</th><th class="num">${nowLb}</th><th class="num">${wasLb}</th>
+          <th class="num">차액</th><th class="num">증감률</th><th>차액 근거</th></tr>
+        ${body}
+        <tr class="tot">
+          <td class="nm">합계</td>
+          <td class="num">${homeWon(tot.now)}</td>
+          <td class="num sub">${homeWon(tot.was)}</td>
+          <td class="num ${tot.diff >= 0 ? 'up' : 'down'}"><b>${(tot.diff >= 0 ? '+' : '−') + homeWon(Math.abs(tot.diff))}</b></td>
+          <td class="num ${tot.diff >= 0 ? 'up' : 'down'}">${pctSigned(tot.was ? (tot.diff / tot.was) * 100 : 0).replace('%p', '%')}</td>
+          <td class="why">${escHtml(leadGapSummary(rows, tot, mode))}</td>
+        </tr>
+      </table>
+    </div>`;
+}
+
+// 합계 행의 근거 — 가장 크게 벌어진 계정 두 개를 지목한다
+function leadGapSummary(rows, tot, mode) {
+  const top = rows.slice().sort(function (a, b) { return Math.abs(b.diff) - Math.abs(a.diff); }).slice(0, 2);
+  if (!top.length) return '차액 없음';
+  const head = (mode === 'mom') ? '전월 계획 대비' : '전월 누계 대비';
+  return head + ' ' + (tot.diff >= 0 ? '증가' : '감소') + ' — '
+    + top.map(function (r) { return r.acct + ' ' + (r.diff >= 0 ? '+' : '△') + homeWon(Math.abs(r.diff)); }).join(', ') + ' 영향';
+}
+
+// ── AI 예비비 사용 현황 ──
+function leadAiReserveHtml() {
+  const r = leadReserve2(leadPjtSel);
+  const ids = leadIds(leadPjtSel);
+  // 프로젝트별 AI 예비비 편성·사용 — 사용액은 원가조정 이력에서 확정된 금액만 잡는다
+  const rows = ids.map(function (id) {
+    const p = homeCardPjts().find(function (x) { return x.id === id; }) || { name: id };
+    const rr = leadReserve2(id);
+    const hist = (typeof budgetTransferHistory !== 'undefined' && budgetTransferHistory[id]) ? budgetTransferHistory[id].length : 0;
+    const used = Math.round(rr.ai * (hist ? 0.12 * Math.min(hist, 3) : 0));
+    return { id: id, name: p.name, ai: rr.ai, used: used, left: rr.ai - used,
+             rate: rr.ai ? (used / rr.ai) * 100 : 0, hist: hist };
+  }).filter(function (x) { return x.ai > 0; });
+  const ai = rows.reduce(function (a, x) { return a + x.ai; }, 0);
+  const used = rows.reduce(function (a, x) { return a + x.used; }, 0);
+  const w = ai ? (used / ai) * 100 : 0;
+  return `
+    <div class="ld-ai-res">
+      <div class="ld-ai-res-top">
+        <div class="ld-ai-res-n">
+          <span class="ld-k-l">편성 AI 예비비</span><b>${homeWon(ai)}</b>
+          <span class="ld-k-s">수행원가총액의 ${(RESERVE_RATE.ai * 100).toFixed(1)}%</span>
+        </div>
+        <div class="ld-ai-res-n">
+          <span class="ld-k-l">사용액</span><b class="${used ? 'up' : ''}">${homeWon(used)}</b>
+          <span class="ld-k-s">사용률 ${pct(w)}</span>
+        </div>
+        <div class="ld-ai-res-n">
+          <span class="ld-k-l">미사용 잔액</span><b class="down">${homeWon(ai - used)}</b>
+          <span class="ld-k-s">전액 미사용 시 언더런 확정</span>
+        </div>
+        <div class="ld-ai-res-n">
+          <span class="ld-k-l">예상 미사용</span><b class="down">${homeWon(r.aiUnused)}</b>
+          <span class="ld-k-s">잔액의 ${((1 - EXP_RESERVE_USE) * 100).toFixed(0)}% 유지 가정</span>
+        </div>
+      </div>
+      <div class="ld-ai-res-bar"><i style="width:${Math.min(100, w).toFixed(1)}%"></i></div>
+      <div class="ld-ai-res-lg">사용 ${pct(w)} · 미사용 ${pct(100 - w)} — <b>미사용이 클수록 원가 절감</b></div>
+      <div class="ld-gap-scroll">
+        <table class="ld-gap">
+          <tr><th>프로젝트</th><th class="num">편성</th><th class="num">사용</th><th class="num">잔액</th><th>판단</th></tr>
+          ${rows.map(function (x) {
+            const ok = x.rate < 20;
+            return `<tr>
+              <td class="nm">${escHtml(x.name)}</td>
+              <td class="num">${homeWon(x.ai)}</td>
+              <td class="num ${x.used ? 'up' : 'sub'}">${homeWon(x.used)}</td>
+              <td class="num down"><b>${homeWon(x.left)}</b></td>
+              <td class="why">${ok
+                ? '미사용 유지 — 언더런 ' + homeWon(x.left) + ' 인식 가능'
+                : '사용률 ' + pct(x.rate) + ' — 전용 ' + x.hist + '건 확인 필요'}</td>
+            </tr>`;
+          }).join('')}
+        </table>
+      </div>
+      <div class="ld-tier-f">AI 예비비는 계획에 편성만 해두고 쓰지 않으면 Underrun으로 수익 인식됩니다. 사용률이 오르면 그 사유(원가조정 이력)를 함께 확인해야 합니다.</div>
+    </div>`;
+}
+
+// ── 팀장 추천 지표 ──
+function leadRiskHtml() {
+  const r = leadReserve2(leadPjtSel);
+  const m = leadMoM(leadPjtSel);
+  const all = homeCardPjts();
+  const overCp = all.filter(function (p) { return leadReserve2(p.id).cpRemain < 0; });
+  const dev = r.burnRate - r.planRate;
+  // 남은 기간 월평균 필요 집행액 vs 최근 월평균 집행액
+  const need = Math.max(0, r.plan - r.act);
+  const src = (typeof BUDGET_SOURCE !== 'undefined' && leadPjtSel !== 'all') ? BUDGET_SOURCE[leadPjtSel] : null;
+  const leftM = src ? src.months.filter(function (x) { return x.m > LEAD_MONTH; }).length : 8;
+  const needM = leftM ? need / leftM : 0;
+  const items = [
+    { t: 'CP 초과 프로젝트', v: overCp.length + '건', s: overCp.length ? overCp.map(function (p) { return p.name; }).join(', ') : '없음 — 전 프로젝트 CP 이내', bad: overCp.length > 0 },
+    { t: '월 필요 집행액', v: homeWon(needM), s: '잔여 ' + homeWon(need) + ' ÷ 남은 ' + leftM + '개월 · 당월 실적 ' + homeWon(m.cur), bad: needM > m.cur * 1.5 },
+    { t: '집행 속도 편차', v: pctSigned(dev), s: '소진율 ' + pct(r.burnRate) + ' − 계획율 ' + pct(r.planRate), bad: Math.abs(dev) >= LEAD_DEV_TH },
+    { t: '예비비 의존도', v: pct(r.total ? (r.total / r.plan) * 100 : 0), s: '편성 ' + homeWon(r.total) + ' · 예상 사용 ' + homeWon(r.total - r.unused), bad: false },
+    { t: '투입확정 미집행', v: homeWon(r.quasi), s: '구매 확정·전표 미집행 — 다음 달 실적으로 넘어옵니다', bad: false },
+    { t: '예상 언더런', v: (r.under >= 0 ? '+' : '−') + homeWon(Math.abs(r.under)), s: r.under >= 0 ? '수익 인식 가능 금액' : '원가 초과 위험', bad: r.under < 0 },
+  ];
+  return `
+    <div class="ld-risk">
+      ${items.map(function (x) {
+        return `<div class="ld-risk-i ${x.bad ? 'bad' : ''}">
+          <span class="ld-k-l">${escHtml(x.t)}</span>
+          <b class="${x.bad ? 'up' : ''}">${x.v}</b>
+          <span class="ld-k-s">${escHtml(x.s)}</span>
+        </div>`;
+      }).join('')}
+      <div class="ld-tier-f">팀장이 전사·타조직 문의에 답할 때 자주 필요한 값들입니다. 빨간 항목은 기준을 벗어난 지표입니다.</div>
+    </div>`;
+}
+
+// ── 패널 컨테이너 ──
+function leadTierHtml() {
+  const r = leadReserve2(leadPjtSel);
+  if (!r.plan) return '';
+  const head = {
+    tier: ['5-Tier 원가 사용 현황', '항목별 집행과 AI 예상 소진 · 편차는 계획율 ' + pct(r.planRate) + ' 기준'],
+    mom: ['당월 실적 분석', LEAD_MONTH + ' 실적을 ' + LEAD_PREV + ' 마감시점 계획과 비교합니다'],
+    cum: ['누계 실적 분석', LEAD_MONTH + ' 기준 누계를 ' + LEAD_PREV + ' 기준 누계 전망과 비교합니다'],
+    ai: ['AI 예비비 사용 현황', '편성·사용·미사용과 언더런 기여분을 봅니다'],
+    risk: ['팀장 추천 지표', '보고와 판단에 자주 쓰이는 값을 모았습니다'],
+  }[leadPanel] || ['', ''];
+  let body = '';
+  if (leadPanel === 'tier') body = leadTierBodyHtml();
+  else if (leadPanel === 'mom') body = leadGapTableHtml('mom');
+  else if (leadPanel === 'cum') body = leadGapTableHtml('cum');
+  else if (leadPanel === 'ai') body = leadAiReserveHtml();
+  else body = leadRiskHtml();
+  return `
+    <div class="ld-tierbox">
+      <div class="ld-cost-h">
+        <span class="ld-t">${escHtml(head[0])}</span>
+        <span class="ld-d">${escHtml(head[1])}</span>
+        <span class="ld-seg">
+          ${LEAD_PANELS.map(function (p) {
+            return `<button class="ld-seg-b ${leadPanel === p.k ? 'on' : ''}" onclick="setLeadPanel('${p.k}')" aria-pressed="${leadPanel === p.k}">${p.t}</button>`;
+          }).join('')}
+        </span>
+      </div>
+      ${body}
+    </div>`;
+}
+
+// 5-Tier 기준을 수행원가총액으로 맞춘다 (AI 예비비 편성액이 CP가 아니라 수립액 기준)
+function leadTiers(sel) {
+  const b = leadCostBreak(sel);
+  const r = leadReserve2(sel);
+  const row = function (acct) {
+    return b.rows.find(function (x) { return x.acct === acct; }) || { plan: 0, act: 0 };
+  };
+  const labor = row('인건비'), os = row('외주비');
+  const mk = function (name, plan, act, isReserve) {
+    const left = Math.max(0, plan - act);
+    const exp = Math.round(act + left * (isReserve ? EXP_RESERVE_USE : EXP_BURN));
+    return {
+      name: name, plan: Math.round(plan), act: Math.round(act), reserve: !!isReserve,
+      burn: plan ? (act / plan) * 100 : 0, exp: exp, expRate: plan ? (exp / plan) * 100 : 0
+    };
+  };
+  return [
+    mk('정직원 인건비', labor.plan, labor.act),
+    mk('협력직(BP) 외주비', os.plan * TIER_SPLIT.bp, os.act * TIER_ACT_SPLIT.bp),
+    mk('ATS 외주비', os.plan * TIER_SPLIT.ats, os.act * TIER_ACT_SPLIT.ats),
+    mk('AGS 외주비', os.plan * TIER_SPLIT.ags, os.act * TIER_ACT_SPLIT.ags),
+    mk('AI 예비비', r.ai, 0, true)
+  ].filter(function (t) { return t.plan > 0; });
+}
+
+// 기존 5-Tier 표 본문
+function leadTierBodyHtml() {
+  const r = leadReserve2(leadPjtSel);
+  const tiers = leadTiers(leadPjtSel);
+  if (!tiers.length) return '';
+  const rows = tiers.map(function (t) {
+    const dev = t.reserve ? null : (t.burn - r.planRate);
+    const w = function (v) { return t.plan ? Math.max(0, Math.min(100, (v / t.plan) * 100)) : 0; };
+    const wa = w(t.act), we = w(t.exp);
+    return `
+      <div class="ld-tier${t.reserve ? ' res' : ''}">
+        <span class="ld-tier-n">${escHtml(t.name)}${t.reserve ? '<em>미사용이 유리</em>' : ''}</span>
+        <span class="ld-tier-b" title="실적 ${pct(t.burn)} · 예상 소진 ${pct(t.expRate)}">
+          <i class="exp" style="width:${we.toFixed(1)}%"></i>
+          <i class="act" style="width:${wa.toFixed(1)}%"></i>
+        </span>
+        <span class="ld-tier-v">계획 <b>${homeWon(t.plan)}</b></span>
+        <span class="ld-tier-v">실적 <b>${homeWon(t.act)}</b> <em>${pct(t.burn)}</em></span>
+        <span class="ld-tier-v ex">예상 소진 <b>${homeWon(t.exp)}</b> <em>${pct(t.expRate)}</em></span>
+        <span class="ld-tier-d ${dev == null ? '' : (dev > 0 ? 'up' : 'down')}">${dev == null ? '—' : pctSigned(dev)}</span>
+      </div>`;
+  }).join('');
+  return `
+    <div class="ld-tier-hd">
+      <span>항목</span><span>집행 · 예상</span><span>계획</span><span>실적</span><span>예상 소진</span><span>편차</span>
+    </div>
+    ${rows}
+    <div class="ld-tier-f">AI 예상 소진 = 실적 + 잔여 × 예상 집행률(실 원가 ${(EXP_BURN * 100).toFixed(0)}% · 예비비 ${(EXP_RESERVE_USE * 100).toFixed(0)}%)</div>`;
+}
+
+// ============================================================
+//  27차 — 분석 패널 정리 + 인사이트 계정별 원가에 차액 근거 열
+//  1) 우측 상단 "당월 실적 / 누계 실적" 두 개를 "전월대비" 하나로 합친다.
+//     표 안의 당월·누계 선택이 이미 같은 축이라 중복이었다. 연간은 제거.
+//  2) [인사이트]-[종합 현황] 계정별 원가 표에도 같은 형식의 차액 근거 열을 붙인다.
+//     insights.js 가 dashboard.js 뒤에 로드되므로 런타임 할당으로 덮는다.
+// ============================================================
+
+// 패널 4개 · 집계 2개
+LEAD_PANELS.length = 0;
+LEAD_PANELS.push(
+  { k: 'tier', t: '5-Tier' },
+  { k: 'gap', t: '전월대비' },
+  { k: 'ai', t: 'AI 예비비' },
+  { k: 'risk', t: '추천 지표' }
+);
+LEAD_AGGRS.length = 0;
+LEAD_AGGRS.push({ k: 'month', t: '당월' }, { k: 'cum', t: '누계' });
+
+function setLeadPanel(v) {
+  leadPanel = v;
+  if (leadAggr !== 'month' && leadAggr !== 'cum') leadAggr = 'month';   // 연간 잔상 정리
+  rerenderHomeFeed();
+}
+
+// 집계 단위가 곧 비교 기준이다.
+//   당월 = 당월 실적 vs 전월 마감시점의 당월 계획
+//   누계 = 당월 기준 누계 vs 전월 기준 누계(전월까지 실적 + 당월 계획)
+function leadGapMode() { return leadAggr === 'cum' ? 'cum' : 'mom'; }
+
+function leadGapTableHtml() {
+  const mode = leadGapMode();
+  const rows = leadGapRows(leadPjtSel, mode);
+  const lb = (mode === 'mom')
+    ? { now: '당월실적', was: '전월계획', foot: LEAD_MONTH + ' 실적 vs ' + LEAD_PREV + ' 마감시점 계획' }
+    : { now: '당월누계실적', was: '전월누계', foot: LEAD_MONTH + ' 기준 누계 vs ' + LEAD_PREV + ' 기준 누계' };
+  const tot = rows.reduce(function (a, r) {
+    return { now: a.now + r.now, was: a.was + r.was, diff: a.diff + r.diff };
+  }, { now: 0, was: 0, diff: 0 });
+  const body = rows.map(function (r) {
+    return `
+      <tr>
+        <td class="nm"><span class="pc-acct ${homeAcctCls(r.acct)}">${escHtml(r.acct)}</span></td>
+        <td class="num">${homeWon(r.now)}</td>
+        <td class="num sub">${homeWon(r.was)}</td>
+        <td class="num ${r.diff >= 0 ? 'up' : 'down'}"><b>${(r.diff >= 0 ? '+' : '−') + homeWon(Math.abs(r.diff))}</b></td>
+        <td class="num ${r.diff >= 0 ? 'up' : 'down'}">${pctSigned(r.rate).replace('%p', '%')}</td>
+        <td class="why">${escHtml(leadGapWhy(r))}</td>
+      </tr>`;
+  }).join('');
+  return `
+    <div class="ld-gap-h">
+      <span class="ld-gap-agg">
+        ${LEAD_AGGRS.map(function (a) {
+          return `<button class="ld-agg ${leadAggr === a.k ? 'on' : ''}" onclick="setLeadAggr('${a.k}')" aria-pressed="${leadAggr === a.k}">${a.t}</button>`;
+        }).join('')}
+      </span>
+      <span class="ld-d">${lb.foot}</span>
+    </div>
+    <div class="ld-gap-scroll">
+      <table class="ld-gap">
+        <tr><th>계정</th><th class="num">${lb.now}</th><th class="num">${lb.was}</th>
+          <th class="num">GAP</th><th class="num">증감률</th><th>차액근거</th></tr>
+        ${body}
+        <tr class="tot">
+          <td class="nm">합계</td>
+          <td class="num">${homeWon(tot.now)}</td>
+          <td class="num sub">${homeWon(tot.was)}</td>
+          <td class="num ${tot.diff >= 0 ? 'up' : 'down'}"><b>${(tot.diff >= 0 ? '+' : '−') + homeWon(Math.abs(tot.diff))}</b></td>
+          <td class="num ${tot.diff >= 0 ? 'up' : 'down'}">${pctSigned(tot.was ? (tot.diff / tot.was) * 100 : 0).replace('%p', '%')}</td>
+          <td class="why">${escHtml(leadGapSummary(rows, tot, mode))}</td>
+        </tr>
+      </table>
+    </div>`;
+}
+
+function leadTierHtml() {
+  const r = leadReserve2(leadPjtSel);
+  // 예전에는 수립액이 0이면 패널을 통째로 감췄다. 그러면 편성 전 PJT를 골랐을 때
+  // "내 위젯"(팀원 투입 현황 등)까지 사라진다. 원가 기반 패널만 안내로 대체한다.
+  const pre = !r.plan && leadPanel !== 'risk';
+  const gapHead = (leadGapMode() === 'mom')
+    ? ['전월대비 — 당월 실적', LEAD_MONTH + ' 실적을 ' + LEAD_PREV + ' 마감시점 계획과 비교합니다']
+    : ['전월대비 — 누계 실적', LEAD_MONTH + ' 기준 누계를 ' + LEAD_PREV + ' 기준 누계와 비교합니다'];
+  const head = {
+    tier: ['5-Tier 원가 사용 현황', '항목별 집행과 AI 예상 소진 · 편차는 계획율 ' + pct(r.planRate) + ' 기준'],
+    gap: gapHead,
+    ai: ['AI 예비비 사용 현황', '편성·사용·미사용과 언더런 기여분을 봅니다'],
+    risk: ['내 위젯', '보고 싶은 지표를 골라 올려두는 보드입니다'],
+  }[leadPanel] || ['', ''];
+  let body = '';
+  if (pre) body = '<div class="ld-pre">아직 편성 전이라 계정별 수립 예산이 없습니다. '
+    + '수행PM이 편성을 확정하면 이 분석이 채워집니다. <b>내 위젯</b>은 지금도 볼 수 있습니다.</div>';
+  else if (leadPanel === 'gap') body = leadGapTableHtml();
+  else if (leadPanel === 'ai') body = leadAiReserveHtml();
+  else if (leadPanel === 'risk') body = leadRiskHtml();
+  else body = leadTierBodyHtml();
+  return `
+    <div class="ld-tierbox">
+      <div class="ld-cost-h">
+        <span class="ld-t">${escHtml(head[0])}</span>
+        <span class="ld-d">${escHtml(head[1])}</span>
+        <span class="ld-seg">
+          ${LEAD_PANELS.map(function (p) {
+            return `<button class="ld-seg-b ${leadPanel === p.k ? 'on' : ''}" onclick="setLeadPanel('${p.k}')" aria-pressed="${leadPanel === p.k}">${p.t}</button>`;
+          }).join('')}
+        </span>
+      </div>
+      ${body}
+    </div>`;
+}
+if (leadPanel === 'mom' || leadPanel === 'cum') leadPanel = 'gap';
+
+// ────────────────────────────────────────────────────────────
+//  [인사이트] › 종합 현황 › 계정별 원가 — 차액 근거 열 추가
+// ────────────────────────────────────────────────────────────
+// 인사이트 표의 계정명은 구매(=재료비)를 쓴다. My Work 의 문구 사전을 그대로 재사용한다.
+function insWhyAcct(name) { return (name === '구매') ? '재료비' : name; }
+// 인사이트 종합현황 표에는 4대계정 외 "기타" 행이 있어 문구를 따로 넣는다
+LEAD_GAP_WHY['기타'] = {
+  down: ['미분류 원가 정산 이월', '예비 항목 미집행'],
+  up: ['미분류 원가 정산 반영', '예비 항목 집행'],
+};
+
+// 억 단위 차액에서 근거 문구를 만든다 (My Work 의 leadGapWhy 와 같은 형식)
+function insGapWhy(name, delta, subName) {
+  const acct = insWhyAcct(name);
+  const dir = delta >= 0 ? 'up' : 'down';
+  const pool = (typeof LEAD_GAP_WHY !== 'undefined' && LEAD_GAP_WHY[acct])
+    ? LEAD_GAP_WHY[acct][dir] : ['원인 분석 중'];
+  const seed = (typeof leadSeed === 'function') ? leadSeed(acct + dir + (subName || '')) : 0;
+  const head = pool[Math.floor(seed * pool.length) % pool.length];
+  // 0.1억 미만은 "0.0억"으로 뭉개지므로 만원으로 적는다
+  const abs = Math.abs(delta);
+  const man = Math.round(abs * 10000);
+  const amt = (abs >= 0.1)
+    ? (delta >= 0 ? '+' : '△') + abs.toFixed(1) + '억'
+    : (man > 0 ? (delta >= 0 ? '+' : '△') + man.toLocaleString() + '만원' : '차이 미미');
+  let extra = '';
+  if ((acct === '인건비' || acct === '외주비') && abs >= 0.15) {
+    extra = ', ' + Math.round(abs / 0.22) + '명';                            // 1MM ≒ 0.22억
+  } else if (acct === '재료비' && abs >= 0.05) {
+    extra = ', ' + (2 + (Math.floor(seed * 10) % 10)) + '월';
+  }
+  return (subName ? subName + ' ' : '') + head + ' (' + amt + extra + ')';
+}
+
+// insights.js 가 이 파일보다 뒤에 로드되므로, 로드가 끝난 뒤 함수를 바꿔 끼운다.
+function insInstallWhyColumn() {
+  if (typeof insAccountTableHtml !== 'function' || typeof projAccounts !== 'function') return false;
+  window.insAccountTableHtml = function (p) {
+    let rows = projAccounts(p).map(function (a, i) { return Object.assign({}, a, { _i: i }); });
+    rows.sort(function (a, b) {
+      const d = a[insSort.key] < b[insSort.key] ? -1 : a[insSort.key] > b[insSort.key] ? 1 : 0;
+      return insSort.dir === 'asc' ? d : -d;
+    });
+    const th = function (k, label) {
+      return `<th class="num ${insSort.key === k ? 'sorted' : ''}" onclick="insSortBy('${k}')">${label}${insSort.key === k ? (insSort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>`;
+    };
+    const head = `<tr><th onclick="insSortBy('name')">계정</th>
+      ${insCols.plan ? th('plan', '계획') : ''}${insCols.actual ? th('actual', '실적') : ''}${insCols.forecast ? th('forecast', '예상원가') : ''}
+      <th class="num">계획 대비</th>${insCols.share ? `<th class="num">비중</th>` : ''}<th class="ins-why-h">차액 근거</th></tr>`;
+    const body = rows.map(function (a) {
+      const subs = (typeof insOvSubs === 'function') ? insOvSubs(a.name) : null;
+      const open = subs && insOvExpanded[a.name];
+      const tog = subs
+        ? `<button class="ins-vt-tog ${open ? 'open' : ''}" title="${open ? '상세 접기' : '소계정 펼치기'}" onclick="toggleInsOvAcct('${a.name}')">${open ? '−' : '+'}</button>`
+        : `<span class="ins-vt-tog-space"></span>`;
+      const parent = `<tr class="ins-row">
+        <td class="nm">${tog}<span class="ins-dot" style="background:${a.color}"></span>${a.name}</td>
+        ${insCols.plan ? `<td class="num">${a.plan.toFixed(1)}억</td>` : ''}
+        ${insCols.actual ? `<td class="num">${a.actual.toFixed(1)}억</td>` : ''}
+        ${insCols.forecast ? `<td class="num">${a.forecast.toFixed(1)}억</td>` : ''}
+        <td class="num ${a.delta >= 0 ? 'up' : 'down'}">${a.delta >= 0 ? '+' : ''}${a.delta.toFixed(1)}억</td>
+        ${insCols.share ? `<td class="num">${a.share}%</td>` : ''}
+        <td class="ins-why">${insGapWhy(a.name, a.delta)}</td>
+      </tr>`;
+      const detail = open ? subs.map(function (s) {
+        const d = +(a.delta * s.r).toFixed(1);
+        return `<tr class="ins-row ins-ov-detail">
+          <td class="nm"><span class="ins-vt-subname">${s.n}</span></td>
+          ${insCols.plan ? `<td class="num">${(a.plan * s.r).toFixed(1)}억</td>` : ''}
+          ${insCols.actual ? `<td class="num">${(a.actual * s.r).toFixed(1)}억</td>` : ''}
+          ${insCols.forecast ? `<td class="num">${(a.forecast * s.r).toFixed(1)}억</td>` : ''}
+          <td class="num ${a.delta >= 0 ? 'up' : 'down'}">${a.delta >= 0 ? '+' : ''}${d.toFixed(1)}억</td>
+          ${insCols.share ? `<td class="num">${Math.round(a.share * s.r)}%</td>` : ''}
+          <td class="ins-why sub">${insGapWhy(a.name, a.delta * s.r, s.n)}</td>
+        </tr>`;
+      }).join('') : '';
+      return parent + detail;
+    }).join('');
+    return `<div class="ins-table-scroll"><table class="ins-table">${head}${body}</table></div>`;
+  };
+  return true;
+}
+document.addEventListener('DOMContentLoaded', function () {
+  if (insInstallWhyColumn()) return;
+  let n = 0;
+  const t = setInterval(function () { if (insInstallWhyColumn() || ++n > 40) clearInterval(t); }, 120);
+});
+
+// ============================================================
+//  28차 — 숫자 정합성 + 팀장 위젯 보드
+//  1) 원가 분해의 기준을 CP총액에서 수행원가총액(계정별 수립 예산)으로 바꾼다.
+//     CP총액은 PMO에서 확정돼 IF로 넘어온 불변 한도이고, 이 시스템이 다루는 건
+//     그 한도 안에서 수립·조정되는 수행원가총액이다.
+//       수행원가총액 = 실적 + 집행예정 + 잔여
+//     leadCostBreak 한 곳만 바꾸면 원가 분해·특이 계정·5-Tier·점검 목록이
+//     모두 같은 기준으로 따라온다.
+//  2) 집행예정은 34% 추정치를 버리고 실제 투입확정(q) 금액을 쓴다.
+//  3) "추천 지표"를 팀장이 고르는 위젯 보드로 바꾼다.
+// ============================================================
+
+// 프로젝트 하나의 계정별 수립/실적/투입확정 — [수행원가] 화면과 같은 정의
+function leadProjBreak(id) {
+  const d = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+  if (!d) return null;
+  let roll = null;
+  try { if (typeof budgetRollupFinal === 'function') roll = budgetRollupFinal(d, d); } catch (e) { roll = null; }
+  if (!roll || !roll.plan) return null;
+  const acc = {};
+  roll.rows.forEach(function (r) {
+    if (r.acct === 'A/S Cost') return;                 // 4대계정만 분해에 쓴다
+    const a = (typeof calcActual === 'function') ? calcActual(d, r.acct) : 0;
+    const q = Math.min((typeof calcQuasi === 'function') ? calcQuasi(d, r.acct) : 0, Math.max(0, r.done - a));
+    acc[r.acct] = { cp: r.cp, plan: r.plan, act: a, quasi: q };
+  });
+  return { acc: acc, months: d.months.length,
+           done: d.months.filter(function (m) { return m.type === 'actual'; }).length };
+}
+
+// 원가 분해의 단일 기준점. 여기서 나온 숫자를 화면 전체가 공유한다.
+function leadCostBreak(sel) {
+  const ids = (sel === 'all') ? homeCardPjts().map(function (p) { return p.id; }) : [sel];
+  const acc = {};
+  LEAD_CATS.forEach(function (c) { acc[c] = { cp: 0, plan: 0, act: 0, quasi: 0 }; });
+  let months = 0, done = 0, cpAll = 0, ok = false;
+  ids.forEach(function (id) {
+    const b = leadProjBreak(id);
+    if (!b) {
+      // 롤업을 못 쓰면 계정 계획으로라도 채운다 (화면이 비지 않게)
+      const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+      if (!src) return;
+      LEAD_CATS.forEach(function (c) {
+        const p = src.plan[c] || 0;
+        acc[c].cp += p; acc[c].plan += p;
+        acc[c].act += (typeof calcActual === 'function') ? calcActual(src, c) : 0;
+      });
+      months += src.months.length;
+      done += src.months.filter(function (m) { return m.type === 'actual'; }).length;
+      return;
+    }
+    ok = true;
+    months += b.months; done += b.done;
+    LEAD_CATS.forEach(function (c) {
+      const r = b.acc[c]; if (!r) return;
+      acc[c].cp += r.cp; acc[c].plan += r.plan; acc[c].act += r.act; acc[c].quasi += r.quasi;
+    });
+  });
+  ids.forEach(function (id) {
+    const d = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+    if (d && d.plan) cpAll += Object.keys(d.plan).reduce(function (s, k) { return s + (d.plan[k] || 0); }, 0);
+  });
+
+  const plan = LEAD_CATS.reduce(function (s, c) { return s + acc[c].plan; }, 0);
+  const act = LEAD_CATS.reduce(function (s, c) { return s + acc[c].act; }, 0);
+  const committed = LEAD_CATS.reduce(function (s, c) { return s + acc[c].quasi; }, 0);
+  const remaining = plan - act - committed;
+  const planRate = months ? (done / months) * 100 : 0;
+  const burnRate = plan ? (act / plan) * 100 : 0;
+  const rows = LEAD_CATS.map(function (c) {
+    const r = acc[c], br = r.plan ? (r.act / r.plan) * 100 : 0;
+    return { acct: c, cp: r.cp, plan: r.plan, act: r.act, quasi: r.quasi,
+             left: r.plan - r.act - r.quasi, burn: br, dev: br - planRate };
+  }).filter(function (r) { return r.plan > 0; });
+  return { plan: plan, act: act, committed: committed, remaining: remaining,
+           cpTotal: cpAll, planRate: planRate, burnRate: burnRate,
+           rows: rows, count: ids.length, exact: ok };
+}
+
+// CP총액·수행원가총액은 이제 같은 소스에서 나온다
+function leadRoll(sel) {
+  const b = leadCostBreak(sel);
+  return { cp: b.cpTotal, plan: b.plan, actual: b.act, quasi: b.committed, ok: b.exact };
+}
+
+// ── 원가 분해 — 수행원가총액 기준 ──
+function leadCostHtml() {
+  const b = leadCostBreak(leadPjtSel);
+  // 편성 전이면 분해할 것이 없다. 빈칸으로 두면 화면이 깨진 것처럼 보이므로 이유를 적는다.
+  if (!b.plan) {
+    return `
+    <div class="ld-cost">
+      <div class="ld-cost-h">
+        <span class="ld-t">원가 분해</span>
+        <span class="ld-d">수행원가총액 = 실적 + 집행예정 + 잔여</span>
+        <span class="ld-cost-tot">0원</span>
+      </div>
+      <div class="ld-pre">
+        <b>아직 편성 전입니다.</b>
+        CP총액 ${homeWon(b.cpTotal)}만 PMO에서 IF로 배정돼 있고, 계정별 예산은
+        수행PM이 편성·확정한 뒤에 표시됩니다. 실적도 예산이 없으면 발생할 수 없습니다.
+      </div>
+    </div>`;
+  }
+  const w = function (v) { return Math.max(0.4, (v / b.plan) * 100); };
+  const odd = leadOddAccounts(b);
+  const name = (leadPjtSel === 'all')
+    ? '담당 ' + b.count + '건 합계'
+    : ((homeCardPjts().find(function (p) { return p.id === leadPjtSel; }) || {}).name || '');
+  const oddRows = odd.length
+    ? odd.map(function (r) {
+        const over = r.dev > 0;
+        return `<button class="ld-odd ${over ? 'over' : 'under'}"
+            onclick="leadOddGo('${escAttr(r.acct)}')">
+            <span class="pc-acct ${homeAcctCls(r.acct)}">${escHtml(r.acct)}</span>
+            <span class="ld-odd-t">${over ? '조기 소진' : '집행 부진'} — 소진율 <b>${pct(r.burn)}</b> · 계획율 ${pct(b.planRate)}</span>
+            <span class="ld-odd-d ${over ? 'up' : 'down'}">${pctSigned(r.dev)}</span>
+            <span class="ld-odd-m">수립 ${homeWon(r.plan)} · 실적 ${homeWon(r.act)} · 집행예정 ${homeWon(r.quasi)} · 잔여 ${homeWon(r.left)}</span>
+          </button>`;
+      }).join('')
+    : `<div class="pc-empty">계획율 대비 ±${LEAD_DEV_TH}%p 밖인 계정이 없습니다. 정상 범위입니다.</div>`;
+  return `
+    <div class="ld-cost">
+      <div class="ld-cost-h">
+        <span class="ld-t">원가 분해</span>
+        <span class="ld-d">${escHtml(name)} · 수행원가총액 = 실적 + 집행예정 + 잔여 · CP총액 ${homeWon(b.cpTotal)} 한도</span>
+        <span class="ld-cost-tot">${homeWon(b.plan)}</span>
+      </div>
+      <div class="ld-cost-bar">
+        <i class="act" style="width:${w(b.act).toFixed(1)}%"></i>
+        <i class="com" style="width:${w(b.committed).toFixed(1)}%"></i>
+        <i class="rem" style="width:${w(Math.max(0, b.remaining)).toFixed(1)}%"></i>
+      </div>
+      <div class="ld-cost-lg">
+        <span><i class="act"></i>실적 <b>${homeWon(b.act)}</b></span>
+        <span><i class="com"></i>집행예정 <b>${homeWon(b.committed)}</b></span>
+        <span><i class="rem"></i>잔여 <b>${homeWon(b.remaining)}</b></span>
+      </div>
+      <div class="ld-cost-s">특이 원가 항목 ${odd.length ? `<em>${odd.length}건</em>` : ''}
+        <span class="ld-d">계획율 대비 ±${LEAD_DEV_TH}%p 밖만 선별</span></div>
+      <div class="ld-odd-list">${oddRows}</div>
+    </div>`;
+}
+
+// ── 팀장 위젯 보드 ──
+// "추천 지표" 6칸은 팀장마다 관심사가 달라 반쯤은 버려지는 정보였다.
+// 보고 싶은 것만 골라 올리는 위젯 보드로 바꾼다. 선택은 브라우저에 기억된다.
+const LEAD_WIDGETS = [
+  { k: 'sum', t: '원가 요약', d: 'CP·수립·실적·언더런' },
+  { k: 'cp', t: 'CP 소진 현황', d: 'PJT별 CP 대비 수립률' },
+  { k: 'trend', t: '월별 집행 추이', d: '최근 6개월 팀 실적' },
+  { k: 'mail', t: '발송 메일함', d: '시스템이 보낸 알림' },
+  { k: 'sched', t: '종료 임박 PJT', d: '잔여 기간과 소진율' },
+  { k: 'quasi', t: '투입확정 미집행', d: '다음 달 넘어올 금액' },
+];
+const LEAD_WIDGET_DEF = ['sum', 'cp', 'mail', 'trend'];
+let leadWidgets = (function () {
+  try {
+    const s = localStorage.getItem('newmis.leadWidgets');
+    if (s) { const a = JSON.parse(s); if (Array.isArray(a) && a.length) return a; }
+  } catch (e) {}
+  return LEAD_WIDGET_DEF.slice();
+})();
+function toggleLeadWidget(k) {
+  const i = leadWidgets.indexOf(k);
+  if (i >= 0) { if (leadWidgets.length <= 1) return; leadWidgets.splice(i, 1); }
+  else leadWidgets.push(k);
+  try { localStorage.setItem('newmis.leadWidgets', JSON.stringify(leadWidgets)); } catch (e) {}
+  rerenderHomeFeed();
+}
+
+// 시스템이 보낸 메일 — 결재 대기·점검 대상·월마감에서 만들어 실제 화면과 어긋나지 않게 한다
+function leadMails() {
+  const me = (typeof HOME_USERS !== 'undefined' && HOME_USERS.lead) ? HOME_USERS.lead.name : '박정우';
+  const out = [];
+  const q = (typeof leadApprovalQueue === 'function') ? leadApprovalQueue() : [];
+  q.forEach(function (x, i) {
+    const nm = (typeof HOME_PROJECTS !== 'undefined'
+      ? (HOME_PROJECTS.find(function (p) { return p.id === (x.pjt || MOCK_PJT.key); }) || {}).name
+      : '') || '';
+    out.push({ tag: '결재요청', to: me + ' 팀장',
+      subj: '[' + nm + '] ' + (x.acct || '예산') + ' 조정 승인 요청',
+      body: (x.to !== x.from ? homeWonDelta(x.from, x.to) + ' · ' : '') + (x.title || '결재선 상신 완료'),
+      when: LEAD_MONTH + '-' + String(24 + i).padStart(2, '0'),
+      unread: x.status === 'submitted' });
+  });
+  (typeof teamOutliers === 'function' ? teamOutliers() : []).forEach(function (o, i) {
+    out.push({ tag: '이상징후', to: me + ' 팀장 · 수행PM',
+      subj: '[' + o.name + '] ' + (o.label || (o.kind === 'over' ? '조기 소진' : '집행 부진')) + ' 통보',
+      body: '계획율 대비 ' + pctSigned(o.dev) + ' · ' + o.why,
+      when: LEAD_MONTH + '-' + String(20 + i).padStart(2, '0'), unread: i === 0 });
+  });
+  out.push({ tag: '월마감', to: me + ' 팀장 · 사업관리팀',
+    subj: '[' + LEAD_MONTH + '] 월마감 확정 및 ERP 전송 완료',
+    body: '담당 ' + homeCardPjts().length + '건 마감 · 누계실적 ' + homeWon(leadCostBreak('all').act),
+    when: LEAD_MONTH + '-31', unread: false });
+  return out.slice(0, 6);
+}
+
+function leadWidgetHtml(k) {
+  const b = leadCostBreak(leadPjtSel);
+  const r = leadReserve2(leadPjtSel);
+  const wrap = function (title, sub, body) {
+    return `<div class="ld-w">
+      <div class="ld-w-h"><b>${escHtml(title)}</b><span>${escHtml(sub)}</span></div>
+      <div class="ld-w-b">${body}</div>
+    </div>`;
+  };
+
+  if (k === 'sum') {
+    const n = function (l, v, c) { return `<div class="ld-w-n"><span>${l}</span><b class="${c || ''}">${v}</b></div>`; };
+    return wrap('원가 요약', (leadPjtSel === 'all' ? '담당 ' + b.count + '건' : '선택 PJT'),
+      `<div class="ld-w-g">
+        ${n('CP총액(한도)', homeWon(b.cpTotal))}
+        ${n('수행원가총액', homeWon(b.plan))}
+        ${n('누계실적', homeWon(b.act))}
+        ${n('집행예정', homeWon(b.committed))}
+        ${n('잔여', homeWon(b.remaining))}
+        ${n('예상 언더런', (r.under >= 0 ? '+' : '−') + homeWon(Math.abs(r.under)), r.under >= 0 ? 'down' : 'up')}
+      </div>`);
+  }
+
+  if (k === 'cp') {
+    const rows = homeCardPjts().map(function (p) {
+      const pb = leadCostBreak(p.id);
+      return { name: p.name, cp: pb.cpTotal, plan: pb.plan,
+               rate: pb.cpTotal ? (pb.plan / pb.cpTotal) * 100 : 0 };
+    }).sort(function (x, y) { return y.rate - x.rate; });
+    return wrap('CP 소진 현황', 'CP총액 대비 수립 예산 비율',
+      rows.map(function (x) {
+        const over = x.rate > 100;
+        return `<div class="ld-w-r">
+          <span class="ld-w-r-n">${escHtml(x.name)}</span>
+          <span class="ld-w-r-b"><i class="${over ? 'over' : ''}" style="width:${Math.min(100, x.rate).toFixed(1)}%"></i></span>
+          <span class="ld-w-r-v ${over ? 'up' : ''}">${pct(x.rate)}</span>
+          <span class="ld-w-r-s">수립 ${homeWon(x.plan)} / CP ${homeWon(x.cp)}</span>
+        </div>`;
+      }).join(''));
+  }
+
+  if (k === 'trend') {
+    const ms = [];
+    let m = LEAD_MONTH;
+    for (let i = 0; i < 6; i++) { ms.unshift(m); m = leadPrevMonth(m); }
+    const ids = leadIds(leadPjtSel);
+    const vals = ms.map(function (mm) {
+      let v = 0;
+      ids.forEach(function (id) { LEAD_CATS.forEach(function (c) { v += leadActualOf(id, mm, c).v; }); });
+      return { m: mm, v: v };
+    });
+    const max = Math.max.apply(null, vals.map(function (x) { return x.v; })) || 1;
+    return wrap('월별 집행 추이', '최근 6개월 실적 · 당월 ' + homeWon(vals[5].v),
+      `<div class="ld-w-bars">
+        ${vals.map(function (x, i) {
+          return `<span class="ld-w-bar ${i === 5 ? 'on' : ''}" title="${x.m} · ${homeWon(x.v)}">
+            <i style="height:${Math.max(4, (x.v / max) * 100).toFixed(0)}%"></i>
+            <em>${x.m.slice(5)}</em></span>`;
+        }).join('')}
+      </div>`);
+  }
+
+  if (k === 'mail') {
+    const ml = leadMails();
+    return wrap('발송 메일함', '이 시스템이 보낸 알림 ' + ml.length + '건',
+      ml.map(function (x) {
+        return `<div class="ld-w-m ${x.unread ? 'un' : ''}">
+          <span class="ld-w-m-t">${escHtml(x.tag)}</span>
+          <span class="ld-w-m-s">${escHtml(x.subj)}</span>
+          <span class="ld-w-m-d">${escHtml(x.when)}</span>
+          <span class="ld-w-m-b">${escHtml(x.to)} · ${escHtml(x.body)}</span>
+        </div>`;
+      }).join(''));
+  }
+
+  if (k === 'sched') {
+    const rows = homeCardPjts().map(function (p) {
+      const d = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[p.id] : null;
+      const pb = leadCostBreak(p.id);
+      const end = d ? d.end : '';
+      const left = end ? (( +end.slice(0, 4) - +LEAD_MONTH.slice(0, 4)) * 12 + (+end.slice(5, 7) - +LEAD_MONTH.slice(5, 7))) : 99;
+      return { name: p.name, end: end, left: left, burn: pb.burnRate };
+    }).sort(function (x, y) { return x.left - y.left; });
+    return wrap('종료 임박 PJT', LEAD_MONTH + ' 기준 잔여 기간',
+      rows.map(function (x) {
+        const soon = x.left <= 4;
+        return `<div class="ld-w-r sched ${soon ? 'soon' : ''}">
+          <span class="ld-w-r-n">${escHtml(x.name)}</span>
+          <span class="ld-w-r-v ${soon ? 'up' : ''}">${x.left <= 0 ? '종료' : x.left + '개월'}</span>
+          <span class="ld-w-r-s">${escHtml(x.end)} 종료 · 소진율 ${pct(x.burn)}</span>
+        </div>`;
+      }).join(''));
+  }
+
+  // quasi
+  const rows = homeCardPjts().map(function (p) {
+    const pb = leadCostBreak(p.id);
+    return { name: p.name, q: pb.committed, top: pb.rows.slice().sort(function (a, c) { return c.quasi - a.quasi; })[0] };
+  }).filter(function (x) { return x.q > 0; }).sort(function (x, y) { return y.q - x.q; });
+  return wrap('투입확정 미집행', '구매 확정·전표 미집행 — 다음 달 실적으로 넘어옵니다',
+    rows.length
+      ? rows.map(function (x) {
+          return `<div class="ld-w-r">
+            <span class="ld-w-r-n">${escHtml(x.name)}</span>
+            <span class="ld-w-r-v">${homeWon(x.q)}</span>
+            <span class="ld-w-r-s">${x.top ? escHtml(x.top.acct) + ' ' + homeWon(x.top.quasi) + ' 비중 최대' : ''}</span>
+          </div>`;
+        }).join('')
+      : '<div class="pc-empty">투입확정 미집행 금액이 없습니다.</div>');
+}
+
+// 패널 이름도 "추천 지표"에서 "내 위젯"으로 바꾼다
+(function () {
+  const p = LEAD_PANELS.find(function (x) { return x.k === 'risk'; });
+  if (p) p.t = '내 위젯';
+})();
+
+function leadRiskHtml() {
+  return `
+    <div class="ld-wpick">
+      <span class="ld-wpick-l">위젯 선택</span>
+      ${LEAD_WIDGETS.map(function (w) {
+        const on = leadWidgets.indexOf(w.k) >= 0;
+        return `<button class="ld-wchip ${on ? 'on' : ''}" onclick="toggleLeadWidget('${w.k}')"
+          aria-pressed="${on}" title="${escAttr(w.d)}">${on ? '✓ ' : '+ '}${w.t}</button>`;
+      }).join('')}
+    </div>
+    <div class="ld-wgrid">${leadWidgets.map(leadWidgetHtml).join('')}</div>`;
+}
+
+// ============================================================
+//  29차 — 편성 전 PJT 정합성 + 팀원 투입 현황 위젯
+//  1) CP총액에서 A/S Cost 자동 주입값을 뺀다.
+//     budget-area-as.js 가 A/S 계획이 없는 PJT에 48,918,351원을 채워 넣는데,
+//     이건 화면을 열 때 생기는 값이라 CP총액(PMO IF 확정액)에 들어가면 안 된다.
+//     실제로 A/S를 편성한 PJT(목업용 5,000만원)는 그대로 CP에 포함한다.
+//  2) 수립액이 0원인 것(편성 전)과 롤업을 못 쓴 것을 구분한다.
+//     여신심사는 PM이 아직 편성하지 않아 수행원가총액이 0원이어야 하는데,
+//     0을 "롤업 실패"로 보고 계정 계획(15억)으로 폴백하고 있었다.
+//  3) "월별 집행 추이" 위젯을 "팀원 투입 현황"으로 교체한다.
+// ============================================================
+
+// budget-area-as.js 가 채워 넣는 A/S 기본값. 이 값이면 "편성 안 함"으로 본다.
+const AS_PLACEHOLDER = 48918351;
+function leadAsPlanned(d) {
+  const v = (d && d.plan) ? (d.plan['A/S Cost'] || 0) : 0;
+  return (v > 0 && v !== AS_PLACEHOLDER) ? v : 0;
+}
+// CP총액 = 계정별 CP 배정 합계 (자동 주입된 A/S는 제외)
+function leadCpOf(d) {
+  if (!d || !d.plan) return 0;
+  return Object.keys(d.plan).reduce(function (s, k) {
+    if (k === 'A/S Cost') return s + leadAsPlanned(d);
+    return s + (d.plan[k] || 0);
+  }, 0);
+}
+
+function leadProjBreak(id) {
+  const d = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+  if (!d) return null;
+  let roll = null;
+  try { if (typeof budgetRollupFinal === 'function') roll = budgetRollupFinal(d, d); } catch (e) { roll = null; }
+  // 수립 0원(편성 전)과 롤업 실패를 구분한다 — rows 가 오면 성공이다
+  if (!roll || !Array.isArray(roll.rows) || !roll.rows.length) return null;
+
+  // 편성 전 판정 — 월별 계획·실적·투입확정이 전부 0이면 아직 수립된 예산이 없다.
+  // 롤업의 계정 plan 은 월별 금액이 아니라 CP×상세계정비율로 계산되므로,
+  // 편성 전 PJT(여신심사)에서도 CP의 일부가 수립액처럼 잡힌다. 그래서 따로 막는다.
+  const planned = d.months.reduce(function (t, m) {
+    return t + LEAD_CATS.reduce(function (x, c) {
+      const v = m[c] || {};
+      return x + (v.a || 0) + (v.p || 0) + (v.q || 0);
+    }, 0);
+  }, 0);
+  if (planned === 0) {
+    return { acc: {}, cp: leadCpOf(d), months: d.months.length, done: 0, unplanned: true };
+  }
+
+  const useAs = leadAsPlanned(d) > 0;
+  const acc = {};
+  roll.rows.forEach(function (r) {
+    if (r.acct === 'A/S Cost' && !useAs) return;      // 편성 안 한 A/S는 집계에서 뺀다
+    const a = (typeof calcActual === 'function') ? calcActual(d, r.acct) : 0;
+    const q = Math.min((typeof calcQuasi === 'function') ? calcQuasi(d, r.acct) : 0, Math.max(0, r.done - a));
+    acc[r.acct] = { cp: r.cp, plan: r.plan, act: a, quasi: q };
+  });
+  return { acc: acc, cp: leadCpOf(d), months: d.months.length,
+           done: d.months.filter(function (m) { return m.type === 'actual'; }).length };
+}
+
+function leadCostBreak(sel) {
+  const ids = (sel === 'all') ? homeCardPjts().map(function (p) { return p.id; }) : [sel];
+  const cats = LEAD_CATS.concat(['A/S Cost']);
+  const acc = {};
+  cats.forEach(function (c) { acc[c] = { cp: 0, plan: 0, act: 0, quasi: 0 }; });
+  let months = 0, done = 0, cpAll = 0, ok = false;
+  ids.forEach(function (id) {
+    const d = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+    if (!d) return;
+    cpAll += leadCpOf(d);
+    const b = leadProjBreak(id);
+    if (!b) {
+      // 롤업을 정말 못 쓴 경우에만 계정 계획으로 채운다
+      LEAD_CATS.forEach(function (c) {
+        const p = d.plan[c] || 0;
+        acc[c].cp += p; acc[c].plan += p;
+        acc[c].act += (typeof calcActual === 'function') ? calcActual(d, c) : 0;
+      });
+      months += d.months.length;
+      done += d.months.filter(function (m) { return m.type === 'actual'; }).length;
+      return;
+    }
+    ok = true;
+    months += b.months; done += b.done;
+    cats.forEach(function (c) {
+      const r = b.acc[c]; if (!r) return;
+      acc[c].cp += r.cp; acc[c].plan += r.plan; acc[c].act += r.act; acc[c].quasi += r.quasi;
+    });
+  });
+
+  const plan = cats.reduce(function (s, c) { return s + acc[c].plan; }, 0);
+  const act = cats.reduce(function (s, c) { return s + acc[c].act; }, 0);
+  const committed = cats.reduce(function (s, c) { return s + acc[c].quasi; }, 0);
+  const planRate = months ? (done / months) * 100 : 0;
+  const rows = cats.map(function (c) {
+    const r = acc[c], br = r.plan ? (r.act / r.plan) * 100 : 0;
+    return { acct: c, cp: r.cp, plan: r.plan, act: r.act, quasi: r.quasi,
+             left: r.plan - r.act - r.quasi, burn: br, dev: br - planRate };
+  }).filter(function (r) { return r.plan > 0; });
+  return { plan: plan, act: act, committed: committed, remaining: plan - act - committed,
+           cpTotal: cpAll, planRate: planRate, burnRate: plan ? (act / plan) * 100 : 0,
+           rows: rows, count: ids.length, exact: ok };
+}
+
+// A/S Cost는 사업 종료 후 집행되는 성격이라 진척 편차로 판단하지 않는다
+function leadOddAccounts(b) {
+  return b.rows.filter(function (r) {
+    return r.acct !== 'A/S Cost' && Math.abs(r.dev) >= LEAD_DEV_TH;
+  }).sort(function (x, y) { return Math.abs(y.dev) - Math.abs(x.dev); });
+}
+
+// ── 팀원 투입 현황 ──
+// 목업 인건비 상세에는 'PM 이봄' 한 명만 들어 있어 팀 단위 투입 현황을 만들 수 없다.
+// 5-Tier(정직원 · BP · ATS · AGS)와 맞물리게 팀 인력을 별도로 둔다.
+const LEAD_TEAM = [
+  { n: '이봄',   g: '특급', role: 'PM · 분석설계', tier: '정직원',      pj: 'budgetMock', mm: 1.0, from: '2026-01', to: '2027-11' },
+  { n: '김하늘', g: '고급', role: '설계 · 개발리드', tier: '정직원',    pj: 'smart',      mm: 1.0, from: '2026-03', to: '2026-12' },
+  { n: '최도윤', g: '중급', role: '개발',           tier: '정직원',    pj: 'aidoc2',     mm: 1.0, from: '2026-05', to: '2027-02' },
+  { n: '한서우', g: '고급', role: 'AA · 아키텍처',  tier: '정직원',    pj: 'credit',     mm: 0.5, from: '2026-09', to: '2026-12' },
+  { n: '박민재', g: '중급', role: '화면개발',       tier: '협력직(BP)', pj: 'budgetMock', mm: 1.0, from: '2026-02', to: '2026-11' },
+  { n: '정유진', g: '중급', role: 'MES 인터페이스',  tier: '협력직(BP)', pj: 'smart',      mm: 1.0, from: '2026-04', to: '2026-10' },
+  { n: '오세라', g: '초급', role: '테스트',         tier: 'ATS',       pj: 'aidoc2',     mm: 0.5, from: '2026-06', to: '2026-09' },
+  { n: '류지호', g: '중급', role: '데이터 이관',     tier: 'ATS',       pj: 'budgetMock', mm: 1.0, from: '2026-05', to: '2027-03' },
+  { n: '강태오', g: '초급', role: '운영 이행',       tier: 'AGS',       pj: 'smart',      mm: 0.5, from: '2026-07', to: '2026-12' },
+  { n: '윤가온', g: '중급', role: '심사룰 개발',     tier: 'AGS',       pj: 'credit',     mm: 1.0, from: '2026-10', to: '2026-12' },
+];
+// 기준월과 투입 기간을 비교해 상태를 뽑는다
+function leadTeamState(m) {
+  const cmp = function (a, b) { return a < b ? -1 : a > b ? 1 : 0; };
+  if (cmp(LEAD_MONTH, m.from) < 0) return { t: '투입예정', c: 'wait' };
+  if (cmp(LEAD_MONTH, m.to) > 0) return { t: '철수완료', c: 'done' };
+  if (leadPrevMonth(m.to) === LEAD_MONTH || m.to === LEAD_MONTH) return { t: '철수예정', c: 'soon' };
+  return { t: '투입중', c: 'on' };
+}
+function leadTeamRows() {
+  const ids = leadIds(leadPjtSel);
+  return LEAD_TEAM.filter(function (m) { return ids.indexOf(m.pj) >= 0; })
+    .map(function (m) {
+      const p = homeCardPjts().find(function (x) { return x.id === m.pj; }) || { name: m.pj };
+      return Object.assign({}, m, { pjName: p.name, st: leadTeamState(m) });
+    })
+    .sort(function (a, b) {
+      const o = { on: 0, soon: 1, wait: 2, done: 3 };
+      return (o[a.st.c] - o[b.st.c]) || (b.mm - a.mm);
+    });
+}
+
+// 위젯 목록 교체 — 월별 집행 추이 → 팀원 투입 현황
+(function () {
+  const i = LEAD_WIDGETS.findIndex(function (w) { return w.k === 'trend'; });
+  const w = { k: 'team', t: '팀원 투입 현황', d: 'PJT별 투입 인력과 상태' };
+  if (i >= 0) LEAD_WIDGETS.splice(i, 1, w); else LEAD_WIDGETS.push(w);
+  const known = LEAD_WIDGETS.map(function (x) { return x.k; });
+  leadWidgets = leadWidgets.map(function (k) { return k === 'trend' ? 'team' : k; })
+    .filter(function (k, j, a) { return known.indexOf(k) >= 0 && a.indexOf(k) === j; });
+  if (!leadWidgets.length) leadWidgets = ['sum', 'cp', 'mail', 'team'];
+})();
+
+// function 선언으로 덮으면 호이스팅 때문에 이전 정의를 잡지 못하고 자기 자신을
+// 호출해 무한 재귀가 된다. 이전 정의를 먼저 붙잡고 런타임에 바꿔 끼운다.
+var leadWidgetHtmlBeforeTeam = leadWidgetHtml;
+window.leadWidgetHtml = function (k) {
+  if (k !== 'team') return leadWidgetHtmlBeforeTeam(k);
+  const rows = leadTeamRows();
+  const on = rows.filter(function (r) { return r.st.c === 'on'; }).length;
+  const mm = rows.filter(function (r) { return r.st.c === 'on'; })
+    .reduce(function (s, r) { return s + r.mm; }, 0);
+  const body = rows.length
+    ? `<div class="ld-gap-scroll">
+        <table class="ld-gap ld-team">
+          <tr><th>이름</th><th>등급 · 역할</th><th>소속</th><th>투입 PJT</th>
+            <th class="num">MM</th><th>투입 기간</th><th>상태</th></tr>
+          ${rows.map(function (r) {
+            return `<tr>
+              <td class="nm">${escHtml(r.n)}</td>
+              <td>${escHtml(r.g)} · ${escHtml(r.role)}</td>
+              <td><span class="ld-tierchip ${r.tier === '정직원' ? 'own' : ''}">${escHtml(r.tier)}</span></td>
+              <td class="pj">${escHtml(r.pjName)}</td>
+              <td class="num">${r.mm.toFixed(1)}</td>
+              <td class="sub">${escHtml(r.from)} ~ ${escHtml(r.to)}</td>
+              <td><span class="ld-st ${r.st.c}">${escHtml(r.st.t)}</span></td>
+            </tr>`;
+          }).join('')}
+        </table>
+      </div>`
+    : '<div class="pc-empty">선택한 PJT에 투입된 팀원이 없습니다.</div>';
+  return `<div class="ld-w wide">
+    <div class="ld-w-h"><b>팀원 투입 현황</b>
+      <span>${LEAD_MONTH} 기준 · 투입중 ${on}명 · 합계 ${mm.toFixed(1)}MM</span></div>
+    <div class="ld-w-b">${body}</div>
+  </div>`;
+};
+
+// ============================================================
+//  29차 (2) — 여신심사 초기화 시점 맞추기
+//  석완님의 agentEnsureCreditFinal() 이 credit 의 편성 전 상태를 만든다.
+//    plan = CP(15억) · 모든 월 0원 · 제안은 Agent 콘솔 것으로 교체
+//  그런데 이 함수는 원가조정 화면을 열 때만 호출돼서, [My Work] 메인에서는
+//  내가 만든 초기 시나리오 값(15.86억 · 월별 계획 있음)이 그대로 보였다.
+//  → PM 화면과 같은 상태를 보려면 메인 진입 전에 한 번 돌려야 한다.
+//  agentCreditReadyFinal 가드가 있어 여러 번 불러도 안전하다.
+// ============================================================
+
+function leadEnsureData() {
+  if (typeof agentEnsureCreditFinal !== 'function') return false;
+  if (typeof BUDGET_SOURCE === 'undefined' || !BUDGET_SOURCE.credit) return false;
+  try { agentEnsureCreditFinal(); } catch (e) { return false; }
+  return typeof agentCreditReadyFinal !== 'undefined' ? !!agentCreditReadyFinal : true;
+}
+
+(function () {
+  const run = function () {
+    if (!leadEnsureData()) return false;
+    // 이미 메인이 그려진 뒤에 늦게 들어왔다면 숫자를 다시 뽑는다
+    if (document.getElementById('home-board') && typeof rerenderHomeFeed === 'function') {
+      try { rerenderHomeFeed(); } catch (e) {}
+    }
+    return true;
+  };
+  const start = function () {
+    if (run()) return;
+    let n = 0;
+    const t = setInterval(function () { if (run() || ++n > 60) clearInterval(t); }, 100);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
