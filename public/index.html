@@ -138,6 +138,18 @@
         <p class="sg-hint" style="margin-top:7px">전역·문서는 <code>[공통]</code> · 한 줄로 간단히 (시간·유형은 생략)</p>
       </div>
 
+      <!-- 지니(Jinny) rawdata 룰 -->
+      <div class="sg-rule">
+        <div class="sg-rule-head"><span class="sg-rule-ic">📑</span>AI 적용을 위한 룰 (요구사항명세 자동생성)</div>
+        <p style="font-size:13px;color:#55606f;margin:0 0 9px;line-height:1.55">목업은 <b>지니(Jinny)</b>가 읽어 요구사항명세서·UI설계서를 자동 생성해요. <b>화면 1개 = 코드 + rawdata YAML + 컨셉 md 3종</b>을 함께 만들어야 산출물 품질이 올라가요.</p>
+        <ul class="sg-rule-list">
+          <li>버튼은 인라인 <code>onclick="handler()"</code> · <b>label에 CRUD 동사</b>(저장/수정/삭제/조회)</li>
+          <li>YAML <code>elements</code>에 버튼·입력·칩 <b>누락 0</b>, 각 요소에 <b><code>crud</code>(C/R/U/D/N) 필수</b></li>
+          <li><code>handler</code>·<code>api</code>는 <b>실제 코드와 일치</b>(지어내기 금지) · <code>requirements</code> FR 5~10개</li>
+        </ul>
+        <p class="sg-hint" style="margin-top:7px">바이브코딩 시작할 때 AI에게 <b><code>docs/rawdata/목업작성가이드.md</code> 읽고 그대로 지켜줘</b> 라고 전달하세요. (Claude Code는 <code>CLAUDE.md</code>로 자동 적용 · 표준 예시 <code>screens/ai-report.yaml</code>)</p>
+      </div>
+
       <!-- 시작 프롬프트: Claude에게 학습시킬 내용 -->
       <div class="sg-rule">
         <div class="sg-rule-head"><span class="sg-rule-ic">🤖</span>시작 프롬프트 (처음에 Claude에게 붙여넣기)</div>
@@ -148,7 +160,9 @@
 - 작업 시작 전 develop 최신을 내 브랜치로 받아줘
 - 커밋 메시지는 항상 "[화면경로] 요약 - 이름" 한 줄로 남겨줘
    (예: [프로젝트&gt;제안프로젝트] 화면 추가 - 수진)
-- 커밋·푸시·develop 머지는 내가 시킬 때만 해줘</pre>
+- 커밋·푸시·develop 머지는 내가 시킬 때만 해줘
+- 화면을 만들거나 크게 고칠 땐 docs/rawdata/목업작성가이드.md 를 읽고
+   그 규칙대로 rawdata YAML·컨셉 md 도 함께 만들어줘 (Jinny 요구사항명세용)</pre>
           <button class="sg-copy" onclick="copySetupCode(this)">복사</button>
         </div>
       </div>

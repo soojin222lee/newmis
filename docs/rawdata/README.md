@@ -6,6 +6,8 @@
 > - 산문 지식(사람용): 상위 `docs/*.md`, `docs/인사이트/`, `docs/수행원가/`
 > - **구조화 rawdata(AI 입력): 이 폴더** ← 이것으로 AI가 최종 산출물을 생성
 > - **표준 예시(canonical)**: [`screens/ai-report.yaml`](screens/ai-report.yaml) — 새 화면 YAML은 이 구조를 그대로 따른다.
+>
+> **📢 작성 가이드 원문**: [`목업작성가이드.md`](목업작성가이드.md) — 개발팀 공지(지니(Jinny) 규칙). 새 화면은 **코드+YAML+md 3종 세트**로 만들고, 아래 스키마의 **`crud` 필드는 필수**다.
 
 ## 파일 규칙
 - 화면 1개당 YAML 1개 (`screens/<화면>.yaml`). 탭/계정은 별도 파일.
@@ -26,15 +28,16 @@ screen:            # 화면 메타
 
 states: []         # 화면 상태: {id, when(조건), shows[], effect/note}
 
-elements:          # ★ 버튼/입력/링크/칩 인벤토리 (요소 단위 로직)
-  - id:            # 요소 식별자
-    label:         # 표시 라벨
-    type:          # button/input/link/chip/toggle 등
+elements:          # ★ 버튼/입력/링크/칩 인벤토리 (요소 단위 로직) — 하나도 빠짐없이(그리드 컬럼까지)
+  - id:            # 요소 식별자 (예: btn-save-budget)
+    label:         # 표시 라벨 — CRUD 동사 명확히(저장/등록/수정/삭제/조회/검색)
+    type:          # button/input/link/chip/toggle/grid 등
+    crud:          # ★ 필수: C(등록) / R(조회·검색·다운로드) / U(수정·편집·저장변경) / D(삭제) / N(이동·팝업·토글)
     area:          # 화면 영역
     dom_id:        # (선택) DOM id
-    event:         # onclick / onkeydown(Enter) 등
+    event:         # onclick / onkeydown(Enter) 등  ← 버튼은 인라인 onclick="handler()"로 연결(CRUD 감지)
     front:         # 프론트 로직
-      handler:     #   호출 함수(인자 포함)
+      handler:     #   호출 함수(인자 포함) — 실제 함수명만(코드에 없는 함수 지어내기 금지)
       file:        #   소스 파일
       logic:       #   동작 요약
       validation:  #   검증 규칙
