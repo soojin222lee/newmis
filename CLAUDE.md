@@ -120,6 +120,30 @@ renderX = function(data, account) {
 
 ---
 
+## 📢 목업 = 지니(Jinny) 근거 데이터 (화면당 3종 세트)
+
+이 목업은 **지니**가 읽어 요구사항명세서·UI설계서를 자동 생성하는 근거가 됩니다.
+지니는 화면 소스가 아니라 **rawdata(YAML) + 컨셉(md)** 를 근거로 산출물을 만들므로,
+**화면 1개를 만들거나 크게 고칠 때는 아래 3종을 함께** 작성/갱신합니다.
+
+1. 화면 코드 `public/js/<screen>.js`
+2. rawdata YAML `docs/rawdata/screens/<screen>.yaml`
+3. 화면 컨셉 md `docs/<번호>-<화면>.md`
+
+**필수 규칙 (자세한 내용·스키마는 [`docs/rawdata/목업작성가이드.md`](docs/rawdata/목업작성가이드.md) — 공지 원문):**
+
+- **버튼은 인라인 `onclick="handler()"`** (addEventListener 금지) — 지니 CRUD 감지용.
+- **버튼 `label`에 CRUD 동사** 명확히(저장/등록/수정/삭제/조회/검색).
+- YAML `elements`에 **버튼·입력·칩·토글·그리드 컬럼까지 누락 0**, 각 요소에 **`crud`(C/R/U/D/N) 필수**.
+  - C=등록, R=조회·검색·다운로드, U=수정·편집·저장(변경), D=삭제, N=이동·팝업·토글.
+- `handler`·`api`는 **실제 코드와 일치**(지어내기 금지). 목업 스텁이면 `logic: "목업 스텁, 동작 없음"`.
+- `requirements`에 **`FR-<화면약자>-NN` 5~10개**, "~할 수 있어야 한다" 톤.
+- 영문 key + 한국어 value, 로직은 `file:function` 근거 인용. 표준 예시: `docs/rawdata/screens/ai-report.yaml`.
+
+> 공지 원문이 바뀌면 `docs/rawdata/목업작성가이드.md` · `docs/rawdata/README.md` · 이 섹션을 함께 갱신하세요.
+
+---
+
 ## 실행 · 확인
 
 ```bash
