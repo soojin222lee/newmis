@@ -6070,3 +6070,76 @@ function leadEnsureData() {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
 })();
+
+// ============================================================
+//  30차 — 원가 분해가 PJT 선택을 따라가지 않던 문제
+//
+//  증상: 여신심사 상세 화면을 한 번 다녀오면, 그 뒤로는 어떤 PJT를 골라도
+//        원가 분해·5-Tier·전월대비·AI예비비가 전부 "0원 / 편성 전"으로 보였다.
+//
+//  원인: 수립액을 석완님 budgetRollupFinal() 로 구했는데, 이 함수가 타고 들어가는
+//        getMonthlyBudgetRows/getAccountDetailRows 계열이 전역 상태를 물고 있다.
+//        편성 전(월별 0원)인 여신심사 화면을 열면 그 상태가 남아, 이후 어떤
+//        프로젝트를 넣어도 계정 수립액이 0으로 나온다.
+//
+//  해결: 수립액을 프로젝트 데이터(BUDGET_SOURCE[id].months)만으로 직접 계산한다.
+//        계정별 수립 예산 = 실적월의 실적 + 계획월의 계획.
+//        전역 상태를 전혀 타지 않으므로 어느 화면을 다녀와도 값이 흔들리지 않고,
+//        편성 전 PJT는 월이 전부 0원이라 자연히 수립액 0이 된다.
+// ============================================================
+
+function leadProjBreak(id) {
+  const d = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+  if (!d || !Array.isArray(d.months)) return null;
+  const useAs = leadAsPlanned(d) > 0;                    // 자동 주입된 A/S는 편성으로 보지 않는다
+  const cats = LEAD_CATS.concat(useAs ? ['A/S Cost'] : []);
+  const acc = {};
+  cats.forEach(function (c) { acc[c] = { cp: d.plan[c] || 0, plan: 0, act: 0, quasi: 0 }; });
+  let months = 0, done = 0;
+  d.months.forEach(function (m) {
+    months += 1;
+    if (m.type === 'actual') done += 1;
+    cats.forEach(function (c) {
+      const v = m[c] || {};
+      if (m.type === 'actual') {
+        const a = v.a || 0;
+        acc[c].act += a;
+        acc[c].plan += a;                                // 지나간 달은 실적이 곧 수립분이다
+      } else {
+        acc[c].plan += v.p || 0;
+        acc[c].quasi += Math.min(v.q || 0, v.p || 0);    // 투입확정은 계획 안에 든 금액
+      }
+    });
+  });
+  return { acc: acc, cp: leadCpOf(d), months: months, done: done };
+}
+
+function leadCostBreak(sel) {
+  const ids = (sel === 'all') ? homeCardPjts().map(function (p) { return p.id; }) : [sel];
+  const cats = LEAD_CATS.concat(['A/S Cost']);
+  const acc = {};
+  cats.forEach(function (c) { acc[c] = { cp: 0, plan: 0, act: 0, quasi: 0 }; });
+  let months = 0, done = 0, cpAll = 0;
+  ids.forEach(function (id) {
+    const b = leadProjBreak(id);
+    if (!b) return;
+    cpAll += b.cp; months += b.months; done += b.done;
+    cats.forEach(function (c) {
+      const r = b.acc[c]; if (!r) return;
+      acc[c].cp += r.cp; acc[c].plan += r.plan; acc[c].act += r.act; acc[c].quasi += r.quasi;
+    });
+  });
+
+  const plan = cats.reduce(function (s, c) { return s + acc[c].plan; }, 0);
+  const act = cats.reduce(function (s, c) { return s + acc[c].act; }, 0);
+  const committed = cats.reduce(function (s, c) { return s + acc[c].quasi; }, 0);
+  const planRate = months ? (done / months) * 100 : 0;
+  const rows = cats.map(function (c) {
+    const r = acc[c], br = r.plan ? (r.act / r.plan) * 100 : 0;
+    return { acct: c, cp: r.cp, plan: r.plan, act: r.act, quasi: r.quasi,
+             left: r.plan - r.act - r.quasi, burn: br, dev: br - planRate };
+  }).filter(function (r) { return r.plan > 0; });
+  return { plan: plan, act: act, committed: committed, remaining: plan - act - committed,
+           cpTotal: cpAll, planRate: planRate, burnRate: plan ? (act / plan) * 100 : 0,
+           rows: rows, count: ids.length, exact: true };
+}
