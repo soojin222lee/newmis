@@ -1,0 +1,371 @@
+# rawdata: 메인 홈 버전2 (AxgenticWire 셸) — 스토리보드/SRS/버튼로직 생성용 원천 데이터
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# ⚠ override 규칙: dashboard.js 는 동일 함수를 여러 번 재정의한다(뒤가 앞을 이김).
+#   버전2는 파일 맨 끝(31차 블록)에서 initDashboard 를 런타임 교체하므로 이 문서가 실제 동작 기준.
+#   initDashboard 는 function 선언이 아니라 window.initDashboard = ... 로 덮는다(호이스팅 회피).
+
+screen:
+  id: s-main-home-v2
+  name: 메인 홈 버전2 (AxgenticWire 통일 셸)
+  menu_path: 홈 (메인화면 우측 상단 "버전2" 버튼)
+  route: "해시 라우팅 없음 · showMain() 진입 후 homeVer 상태로 분기"
+  entry: "showMain() → setScreen('s-main') → initDashboard() → homeVer==='v2' ? renderHomeV2() : initDashboardV1()"
+  container: "#s-main (initDashboard 가 innerHTML 렌더)"
+  source_files:
+    - public/js/dashboard.js        # 31차 블록: homeVer/setHomeVer/renderHomeV2/homeV2RailHtml/homeV2Hero
+    - public/js/app.js              # showMain·askFromHome·openAiChat·openSetupGuide·toggleAgentGrid
+    - public/css/home.css           # 31차 블록: .v2-* 전용 스타일 (버전1 스타일 무영향)
+  purpose: >
+    선행 시스템 AiTeaming(인력추천 teaming)·AiPMO(CP금액 산정)가 AxgenticWire 브랜드로 디자인을
+    통일해 오픈했다. 실행예산도 같은 셸(상단 바 없음 · 좌측 레일 브랜드/메뉴 · 중앙 한 문장 히어로)
+    로 맞추기 위한 신규 구성이다. 기존 화면은 "버전1"로 그대로 보존하고, 우측 상단 버튼으로
+    두 버전을 번갈아 비교한다. 버전1에 쌓인 지시사항(카드 그리드 · 상세/간소 토글 · KPI 7종 ·
+    원가 분해 · 5-Tier · 위젯)은 버전2에 가져오지 않는다. 중앙은 히어로 하나만 두고,
+    업무는 좌측 레일에서 처리하고 상세 진입은 프롬프트 → AI 네비게이터가 담당한다.
+  design_reference:
+    brand_lockup: "AXGENTIC WIRE(워드마크) + AiBudget(서비스 서브타이틀)"
+    siblings: [AiTeaming, AiPMO]
+    rules:
+      - "상단 바 없음 — 브랜드·사용자·유틸 내비가 좌측 레일로 이동"
+      - "연회색 배경 + 흰 라운드 카드(14~20px), 섹션 라벨 → 카드 안 행 + 카운트 배지 + chevron"
+      - "히어로: ✦ → 인사말(작게) → 현재 상태 한 문장(핵심어만 파랑) → 안내 필 → 질문 바"
+      - "색: 배경 #eef1f6 · 카드 #fff/#e6eaf1 · 강조 #2f6bed · AI #7b61ff (SK 레드 미사용)"
+      - "파랑=강조 문장 / 보라=AI·채팅"
+
+# ── 화면 상태 ──
+states:
+  - id: ver_v1
+    when: "homeVer === 'v1' (기본값 · localStorage 'newmis.homeVer')"
+    render: "initDashboardV1() = 31차 이전의 initDashboard(renderPmDashboard)"
+    shows: ["기존 버전1 화면 원형", "우측 상단 버전 토글(homeVerMount 로 주입)"]
+    note: "버전1 렌더 경로·스타일은 한 줄도 변경하지 않는다."
+  - id: ver_v2_pm
+    when: "homeVer === 'v2' && homeUser === 'pm'"
+    render: "renderHomeV2()"
+    shows: ["좌측 레일(담당 프로젝트 아코디언 + 유틸 + 사용자)", "히어로: '해야 할 일 N건, 이상징후 N건이 있습니다'", "안내 필", "질문 바", "한 줄 안내"]
+    note: "중앙에는 히어로만 둔다. 버전1의 카드 그리드·상세/간소 토글·KPI·원가 분해·5-Tier·위젯은 버전2에 가져오지 않는다(유관시스템 디자인 철학 유지)."
+  - id: ver_v2_lead
+    when: "homeVer === 'v2' && homeUser === 'lead'"
+    render: "renderHomeV2()"
+    shows: ["좌측 레일(팀 프로젝트 아코디언)", "히어로: '결재 대기 N건, 점검 항목 N건이 있습니다'", "안내 필에 CP총액·수행원가총액"]
+    note: "팀장도 중앙은 히어로만. 원가 분석은 레일 펼침 또는 AI 네비게이터로 들어간다."
+  - id: rail_pjt_expanded
+    when: "homeV2Open === <프로젝트 id> (toggleHomeV2Pjt 로 1개만 열림)"
+    effect: "그 프로젝트 행이 제자리에서 펼쳐져 수행원가총액·소진율과 해야 할 일·이상징후 항목이 보인다. 항목을 누르면 해당 계정 화면으로 이동(homePjtGo)."
+    note: "내 업무는 별도 섹션이 아니라 프로젝트 안으로 병합됐다. 모든 조작이 레일 안에서 끝난다."
+  - id: ver_v2_clear
+    when: "homeVer === 'v2' && 처리할 항목이 0건"
+    effect: "히어로 문장이 '결재와 점검이 모두 정리된 상태입니다' / '지금 처리할 일이 없습니다' 로 바뀐다"
+  - id: topbar_hidden
+    when: "body.home-v2 && #s-main.active"
+    effect: "CSS `body.home-v2 .shell:has(#s-main.active) .topbar { display:none }` 로 상단 바만 숨김. 다른 화면으로 이동하면 상단 바가 그대로 복귀한다."
+
+# ── 요소(버튼/입력/칩) 인벤토리 ──
+elements:
+  - id: btn-ver-v1
+    label: 버전1
+    kind: button
+    crud: N
+    where: "메인화면 우측 상단 .v2-vertabs"
+    handler: "setHomeVer('v1')"
+    logic: "homeVer='v1' → localStorage 'newmis.homeVer' 저장 → body.home-v2 해제 → initDashboard() 재렌더"
+    api: 없음 (로컬 상태)
+  - id: btn-ver-v2
+    label: 버전2
+    kind: button
+    crud: N
+    where: "메인화면 우측 상단 .v2-vertabs"
+    handler: "setHomeVer('v2')"
+    logic: "homeVer='v2' → localStorage 저장 → body.home-v2 부여 → initDashboard() 가 renderHomeV2() 렌더"
+    api: 없음 (로컬 상태)
+  - id: btn-brand-home
+    label: AXGENTIC WIRE / AiBudget (브랜드 락업)
+    kind: button
+    crud: N
+    where: "좌측 레일 최상단 .v2-lock"
+    handler: "showMain()"
+    logic: "메인 홈으로 복귀. app.js:showMain 재사용."
+    api: 없음
+  - id: btn-rail-collapse
+    label: 좌측 메뉴 접기/펴기
+    kind: button
+    crud: N
+    where: "좌측 레일 최상단 우측 .v2-collapse"
+    handler: "toggleV2Rail()"
+    logic: >
+      homeV2Rail('open'|'min')을 뒤집고 localStorage 'newmis.v2Rail' 에 저장한 뒤
+      v2ApplyRail() 로 폭을 적용한다(268px ↔ 60px). 접히면 글자·프로젝트 목록이 숨고
+      마크·유틸 아이콘·아바타만 남는다. aria-expanded 와 title 도 함께 바꾼다.
+      1100px 이하에서는 1열이라 버튼 자체를 숨기고 폭 지정을 해제한다.
+    api: 없음 (로컬 상태)
+  - id: btn-rail-pjt-toggle
+    label: 담당 프로젝트 행 펼치기/접기 (조회)
+    kind: button
+    crud: R
+    where: "좌측 레일 '담당 프로젝트' 카드 .v2-pjt-h"
+    handler: "toggleHomeV2Pjt(id)"
+    logic: >
+      homeV2Open 을 해당 id 로 바꿔 한 번에 하나만 펼친다(같은 id 재클릭 시 접힘).
+      #v2-rail-body 만 부분 렌더한다(중앙은 다시 그리지 않는다).
+      행 우측 배지 = v2TodosOf(id).open + v2RisksOf(id).open 건수(역할별로 다름),
+      0건이면 leadCostBreak(id).plan 유무에 따라 '정상' 또는 '편성 전' 태그.
+    api: 없음 (AGENT_PROPOSALS_FINAL · SCEN_RISKS_BY_PJT · BUDGET_SOURCE 집계)
+  - id: btn-rail-item
+    label: 해야 할 일 · 이상징후 항목 조회
+    kind: button
+    crud: R
+    where: "펼쳐진 프로젝트 안 .v2-item"
+    handler: "homePjtGo(pjtId, acct)"
+    logic: >
+      해당 계정의 원가조정 화면으로 이동한다. 사용자가 팀장이면 agentPersonaFinal='exec',
+      PM이면 'pm' 으로 맞춘 뒤 openCostArea(acct, pjtId) 를 호출한다.
+      항목 상태(pjtItemState)에 따라 [재기안]/[결재중]/[처리완료] 라벨이 붙고, 처리완료는 취소선.
+    api: 없음 (해시 라우팅 #/budget-adjust/<slug>?pj=<key>)
+  - id: btn-chat-item
+    label: 채팅 답변의 업무 항목 조회
+    kind: button
+    crud: R
+    where: "AI 채팅 답변 안 .v2-ci"
+    handler: "homePjtGo(pjtId, acct)"
+    logic: >
+      레일 항목과 같은 핸들러를 쓴다. 답변은 chatIssueListHtml(33차 재정의)이 만들며
+      v2TodosOf/v2RisksOf 를 읽어 레일·히어로와 같은 건수를 보여준다.
+    api: 없음 (해시 라우팅 #/budget-adjust/<slug>?pj=<key>)
+  - id: input-ai-query
+    label: 원가 관련 질문 입력
+    kind: input
+    crud: R
+    where: "히어로 .v2-ask #ai-main-query"
+    handler: "Enter → askFromHome()"
+    logic: "app.js:askFromHome 재사용. 버전1과 동일한 id 를 써서 AI 채팅 진입 동선을 공유한다."
+    api: "POST /api/chat (server.js:handleChat) · 키 미설정 시 규칙 기반 폴백"
+  - id: btn-ai-send
+    label: 질문하기 (조회)
+    kind: button
+    crud: R
+    where: "히어로 .v2-ask-send"
+    handler: "askFromHome()"
+    logic: "입력값으로 AI 채팅 오버레이를 열고 인텐트 라우팅(routeIntents)에 따라 담당 AI가 답한다."
+    api: "POST /api/chat"
+  - id: btn-hero-notice
+    label: 담당 프로젝트 업무 펼치기 (조회)
+    kind: button
+    crud: R
+    where: "히어로 안내 필 .v2-notice"
+    handler: "homeV2GoBoard()"
+    logic: "중앙에 블록이 없으므로 스크롤 대신 레일의 첫 프로젝트(또는 이미 열린 것)를 펼친다."
+    api: 없음
+  - id: btn-util-groundrule
+    label: 그라운드 룰 조회
+    kind: button
+    crud: R
+    where: "좌측 레일 하단 .v2-util"
+    handler: "openSetupGuide()"
+    logic: "app.js:openSetupGuide — 팀 그라운드 룰·개발 셋업 오버레이."
+    api: 없음
+  - id: btn-util-navi
+    label: AI 네비게이터 열기
+    kind: button
+    crud: N
+    where: "좌측 레일 하단 .v2-util"
+    handler: "openAiChat('navi')"
+    logic: "app.js:openAiChat — 화면 이동 담당 AI 로 채팅 오버레이를 연다."
+    api: 없음
+  - id: btn-util-agents
+    label: AI개발 Agent 목록 조회
+    kind: button
+    crud: N
+    where: "좌측 레일 하단 .v2-util"
+    handler: "openAgentModal()"
+    logic: >
+      AGENT_APPS 를 중앙 모달(.v2-modal)로 띄운다. 타일 클릭 시 window.open 으로 새 창.
+      상단바용 toggleAgentGrid 는 .tb-agents 좌표로 위치를 잡고 바깥 클릭 예외도 .tb-agents 만
+      두어, 상단바가 숨겨진 버전2에서는 열리는 즉시 닫혀 버린다. 그래서 전용 모달을 만들었다.
+      ✕ · Esc · 배경 클릭으로 닫힌다.
+    api: 없음
+  - id: btn-agent-tile
+    label: Agent 새 창으로 열기
+    kind: button
+    crud: N
+    where: "AI개발 Agent 모달 .v2-agent"
+    handler: "window.open(url,'_blank','noopener')"
+    logic: "AGENT_APPS[].url 로 사내 Agent 를 새 창에 연다."
+    api: 없음 (외부 링크)
+  - id: btn-agent-close
+    label: AI개발 Agent 팝업 닫기
+    kind: button
+    crud: N
+    where: "AI개발 Agent 모달 .v2-modal-x"
+    handler: "closeAgentModal()"
+    logic: "open 클래스를 제거해 페이드아웃. Esc·배경 클릭도 같은 함수를 부른다."
+    api: 없음
+  - id: btn-user-switch
+    label: 사용자 전환 (이봄 PM ↔ 박정우 팀장)
+    kind: button
+    crud: N
+    where: "좌측 레일 최하단 .v2-me"
+    handler: "homeV2SwitchUser()"
+    logic: "switchHomeUser(homeUser==='lead' ? 'pm' : 'lead') → 레일 배지·히어로 문장·하단 블록이 모두 해당 관점으로 재렌더."
+    api: 없음
+
+# ── 데이터 ──
+data:
+  homeVer: "'v1' | 'v2' · localStorage 'newmis.homeVer' 에 보존(새로고침 유지)"
+  homeV2Open: "레일에서 펼친 프로젝트 id (1개만, 세션 내 메모리)"
+  hero_source:
+    pm: "v2TodosOf(id).open 합계(pending·returned) / v2RisksOf(id).open 합계"
+    lead: "v2TodosOf(id).open 합계(approved·submitted = leadApprovalQueue 와 동일) / v2RisksOf(id).open 합계"
+  rail_badge_source: "히어로와 같은 함수를 쓴다 — 두 곳 숫자가 어긋날 수 없다"
+  chat_source: "chatIssueListHtml 도 같은 v2TodosOf/v2RisksOf 를 쓴다(33차) — 채팅·레일·히어로가 한 소스"
+
+# ── 요구사항 ──
+requirements:
+  - { id: FR-HOME2-01, text: "담당자는 메인화면 우측 상단 버튼으로 버전1과 버전2를 번갈아 비교할 수 있어야 하고, 선택한 버전은 새로고침 후에도 유지되어야 한다" }
+  - { id: FR-HOME2-02, text: "버전1 화면은 버전2 도입과 무관하게 기존 구성·스타일이 그대로 유지되어야 한다" }
+  - { id: FR-HOME2-03, text: "버전2는 상단 메뉴 바 없이 좌측 레일에서 브랜드·프로젝트·사용자를 제공하고, 메인화면을 벗어나면 상단 바가 복귀해야 한다" }
+  - { id: FR-HOME2-04, text: "버전2 중앙에는 현재 처리해야 할 일을 한 문장으로 요약해 보여주고 핵심 건수를 강조해야 한다" }
+  - { id: FR-HOME2-05, text: "히어로 문장·안내·레일 배지는 사용자 역할(PM/팀장)에 따라 각자 처리할 업무만 보여야 한다" }
+  - { id: FR-HOME2-06, text: "버전2 중앙에는 카드 그리드·상세/간소 토글·원가 분해 등 버전1의 상세 블록을 표시하지 않아야 한다" }
+  - { id: FR-HOME2-07, text: "담당자는 좌측 레일에서 프로젝트를 선택해 그 프로젝트의 업무를 펼쳐 볼 수 있어야 하며, 한 번에 하나만 펼쳐져야 한다" }
+  - { id: FR-HOME2-08, text: "업무 항목을 클릭하면 해당 계정의 원가조정 화면으로 이동해야 하고, 처리된 항목은 처리완료로 구분되어야 한다" }
+  - { id: FR-HOME2-09, text: "AI 채팅의 업무 답변은 화면(레일·히어로)과 동일한 건수를 보여야 하고, 질문에 프로젝트명이 있으면 그 프로젝트로 범위를 좁혀 답해야 한다" }
+  - { id: FR-HOME2-10, text: "버전2 색상은 선행 시스템(AiTeaming·AiPMO)과 동일한 계열을 사용해야 하며 버전1 스타일에 영향을 주지 않아야 한다" }
+
+# ── 확인 시나리오 ──
+verification:
+  - "버전2 전환 → 상단 바 사라짐 · 레일 브랜드 'AXGENTIC WIRE / AiBudget' 표시"
+  - "중앙에 #home-board·.v2-below·.v2-cta 없음 (히어로만)"
+  - "PM: 히어로 '확인이 필요한 원가 조정이 11건, 이상징후 3건 있습니다'"
+  - "팀장 전환: 히어로 '결재 대기 2건, 점검이 필요한 프로젝트 2건이 있습니다' · 안내 필에 CP총액 54.54억 · 수행원가총액 37.80억 · 섹션명 '팀 프로젝트'"
+  - "레일 아코디언: 목업용 펼침 → '수행원가총액 21.36억 · 소진율 19.6%' + 해야 할 일 5 / 이상징후 2, 다른 프로젝트 클릭 시 이전 것 자동 접힘"
+  - "프롬프트 '인사이트 종합현황 화면으로 이동' → 화면 길잡이 담당 → '지금 이동 →' → s-insights 전환"
+  - "색상: 배경 rgb(238,241,246) · 강조 rgb(47,107,237) · 배지 파랑(SK 레드 미사용)"
+  - "버전1 복귀 → .home2-search 존재 · 상단 바 복귀 · .main 배경 투명(SK 테마 원형) · 팀장 KPI 블록 유지"
+  - "버전2에서 인사이트 이동 → 상단 바 display:block, 메인 복귀 → display:none"
+  - "새로고침 → localStorage 'newmis.homeVer'='v2' 유지"
+
+# ── 33차 추가: 채팅-화면 데이터 일원화 · 역할별 업무 분리 ──
+data_flow:
+  problem: >
+    채팅 답변(app.js:chatIssueListHtml)은 1차 데이터 HOME_FEED + homeFeedState 를 읽고,
+    레일·메인 화면은 AGENT_PROPOSALS_FINAL(pjtTodosOf) + SCEN_RISKS_BY_PJT 를 읽었다.
+    소스가 갈려 왼쪽에 5건이 있어도 채팅은 "해야 할 일이 없습니다"로 답했다.
+  fix:
+    - "chatIssueListHtml 을 dashboard.js 에서 재정의해 화면과 같은 소스를 쓰게 한다 (app.js 316 < dashboard.js 317 이므로 뒤가 이김)"
+    - "v2PjtFromText(text): 질문에서 프로젝트 이름·번호를 찾아 범위를 좁힌다 (이름 앞부분만 말해도 매칭)"
+    - "routeIntents 를 런타임 교체해 질문에서 찾은 프로젝트를 homeSelectedProject·homeV2Open·leadPjtSel 에 반영"
+    - "HOME_TO_BUDGET 에 credit/budgetMock/smart/aidoc2 를 매핑해 navGo 딥링크에 ?pj= 가 붙게 한다"
+  note: >
+    homeSelectedProject 는 let 선언이라 window 프로퍼티가 아니다. window.homeSelectedProject = ...
+    로는 값이 바뀌지 않아 같은 파일 스코프에서 직접 대입해야 한다.
+    HOME_TO_BUDGET 매핑은 시나리오 PJT 생성 전에 실행되면 비므로 DOMContentLoaded 에서 한 번 더 채운다.
+
+role_work_split:
+  source: "제안 상태(budget-agent-console.js) 기준"
+  pm:   { open: [pending, returned], progress: [approved, submitted], todo_label: 해야 할 일, risk_label: 이상징후 }
+  lead: { open: [approved, submitted], progress: [], todo_label: 결재 대기, risk_label: 점검 항목 }
+  note: >
+    팀장의 open 은 leadApprovalQueue() 와 같은 조건이라 히어로 문장과 레일 배지가 일치한다.
+    이상징후는 두 역할 모두 보되 팀장에게는 "점검 항목"으로 부른다(감독 대상이므로 감추지 않는다).
+  verified:
+    - "PM 스마트팩토리: 해야 할 일 1(재료비 pending) + [결재중] 외주비(흐리게) + 이상징후 1"
+    - "팀장 스마트팩토리: 결재 대기 1(외주비 submitted) + 점검 항목 1"
+    - "PM 히어로 '해야 할 일 11건, 이상징후 3건' / 팀장 히어로 '결재 대기 2건, 점검 항목 3건'"
+    - "레일 배지 PM [5,7,2,정상] / 팀장 [편성 전,2,2,1]"
+
+navigation_verified:
+  - "레일 항목 클릭 → #/budget-adjust/outsource?pj=smart · currentBudgetProj=smart · agentPersonaFinal=exec(팀장)"
+  - "채팅 항목 클릭 → #/budget-adjust/outsource?pj=budgetMock · agentPersonaFinal=pm(PM)"
+  - "채팅 '스마트팩토리 원가조정 화면으로 이동해줘' → 지금 이동 → #/budget-adjust?pj=smart"
+  - "채팅 '예산관리시스템 목업용 해야 할 일이 뭐야?' → 5건(레일과 동일) 표시"
+
+# ── 34차: 펼침 애니메이션 · 채팅 도킹 전환 · Agent 모달 ──
+interactions:
+  rail_expand:
+    problem: ".v2-rail 에 max-height + overflow-y:auto 가 걸려 내용이 많으면 내부 스크롤이 생겼다"
+    fix:
+      - "max-height:none · overflow:visible · position:static → 내용만큼 아래로 자란다"
+      - ".v2-exp-w 를 grid-template-rows 0fr → 1fr 로 전환해 auto 높이를 부드럽게 애니메이션"
+      - "항목마다 animation-delay 45ms 씩 주어 순차로 떠오르게(v2Rise) — AI가 하나씩 꺼내는 느낌"
+      - "화살표는 문자 교체 대신 transform:rotate(90deg)"
+      - "prefers-reduced-motion 에서는 애니메이션을 끈다"
+    verified: "레일 729px → 1374px 로 확장 · 내부 스크롤 없음 · 지연 135/180/225ms"
+  chat_dock_on_nav:
+    problem: >
+      chatNavigate 는 답변 850ms 뒤 자동으로 navGo + dockAiChat 을 실행한다. 그보다 먼저
+      사용자가 "지금 이동 →" 을 누르면 navGo 만 실행돼 중앙 팝업이 상세 화면을 덮은 채 남았다.
+    fix: >
+      navGo 를 런타임 교체해 .v2-navout 로 팝업을 먼저 접고, 300ms 뒤 dockAiChat() 으로
+      우측 레일에 붙인다. 대화 DOM(#ai-chat-body)은 건드리지 않으므로 내용이 그대로 유지된다.
+      key==='dashboard' 는 도킹하지 않는다(메인 복귀 관찰자가 닫는다).
+    verified: "팝업(open) → v2-navout → s-budget 전환 → docked · 대화 2건 유지 · '메인으로' 버튼 생성"
+  agent_modal:
+    problem: "레일에서 toggleAgentGrid(this) 를 부르면 아무것도 보이지 않았다"
+    cause: "위치를 .tb-agents 좌표로 잡고, 바깥 클릭 감지도 .tb-agents 만 예외 → 버전2에서는 즉시 닫힘"
+    fix: "openAgentModal() 로 중앙 모달을 따로 만든다 (그라운드 룰·AI 네비게이터와 같은 결)"
+    note: >
+      트랜지션 시작 프레임을 requestAnimationFrame 으로 잡았더니 탭이 백그라운드일 때 rAF 가
+      멈춰 모달이 영원히 보이지 않았다. setTimeout 20ms 로 바꿨다.
+    verified: "중앙 정렬 · z-index 400 · 타일 2개 · ✕/Esc/배경 클릭 닫힘"
+
+# ── 35차: 레일 접기/펴기 · 브랜드 락업 ──
+brand_lockup:
+  source: "36차에 받은 공식 로고 양식(기본 표기 / 하위 브랜드 병기 표기 + Construction 시트)"
+  spec: "마크 + AXGENTIC(굵게) + WIRE(같은 검정·얇게·윗줄) + 하위 명칭(AXGENTIC 좌측 정렬)"
+  sub_name: AiBudget
+  mark: >
+    v2BrandMarkSvg() — 노드가 이어진 분자형 점 묶음 7개, 시안(#22c1f0) → 블루(#1f7ae0)
+    → 딥블루(#1b2fc8) 대각 그라데이션. 24px.
+  wordmark: "AXGENTIC 900 #111820 · WIRE 500 #111820 + border-top 1.4px #111820"
+  sub: "AXGENTIC 과 같은 #111820 · 800 · max(10.5px, 0.62A)"
+  construction: >
+    가이드의 "하위 브랜드 배치는 알파벳 A 높이 기준"을 --v2a(=15px) 변수로 옮겼다.
+    하위 명칭 크기 0.62A · 위 여백 0.4A · WIRE 윗줄 간격 0.16A.
+    0.62A 를 13px 기준에 그대로 쓰면 8px 라 읽히지 않아 최소 10.5px 를 보장한다.
+  approximation_note: >
+    마크는 이미지에서 읽은 근사 SVG다. 원본 SVG/PNG 를 받으면 v2BrandMarkSvg() 만
+    교체하면 된다(다른 곳에서 마크를 참조하지 않는다).
+rail_collapse:
+  state: "homeV2Rail 'open'|'min' · localStorage 'newmis.v2Rail'"
+  widths: { open: 268px, min: 60px }
+  apply: "v2ApplyRail() — .v2-wrap 의 grid-template-columns 와 .v2-rail 의 width/maxWidth 를 인라인으로 지정"
+  why_inline: >
+    (1) grid-template-columns 는 minmax() 트랙이 섞이면 transition 이 보간되지 않아 값이 그대로 남는다.
+    (2) 트랙을 auto 로 두면 레일 내용의 기여분(268px)이 잡혀 width 가 먹지 않는다.
+    (3) 그리드 아이템의 min-width:auto 는 min-content 로 풀려 width 를 누른다 → min-width:0 필요.
+    (4) width 만으로는 박스가 268px 로 남는 경우가 있어 max-width 도 함께 고정.
+    (5) index.html 의 ?v= 가 고정돼 있어 새로 추가한 CSS 규칙이 캐시 때문에 적용되지 않을 수 있다.
+    인라인 지정은 위 다섯 가지를 모두 비켜간다.
+  motion: "폭은 즉시 바뀌고(트랙은 보간 불가) 내용만 v2RailFade 로 페이드"
+  verified: "268px ↔ 60px · main 1041 ↔ 1249 · 겹침 없음 · 재렌더 후에도 접힘 유지 · 팀장 동일"
+
+# ── 36차: 사용자 영역(AiPMO 동일) ──
+user_area:
+  spec: "AiPMO 처럼 테두리 카드가 아니라 위쪽 구분선만 있는 평평한 행"
+  layout: "32px 원형 아바타(이름 첫 글자) + 이름(12.5px/800) + 역할·조직(10.5px/700 회색) + chevron"
+  colors: { avatar_bg: '#eef1f6', avatar_fg: '#55606f', name: '#1b2437', sub: '#98a2b3', divider: '#e6eaf1' }
+  behavior: "행 전체가 사용자 전환 버튼(homeV2SwitchUser) · hover 시 이름만 파랑"
+  collapsed: "아바타만 남고 이름·역할·chevron 은 숨긴다"
+  verified: "이봄/PM · NOVA PMO팀 ↔ 박정우/팀장 · NOVA PMO팀 전환 · 아바타 글자 이/박 · 배경 투명 · 구분선만"
+
+# ── 39차: 용어 통일 'AI 어시스턴트' → 'AI 에이전트' ──
+terminology:
+  from: AI 어시스턴트
+  to: AI 에이전트
+  affected_ui:
+    - '대화창 제목 #ai-chat-title (app.js 475·725·847·2003·2197)'
+    - '오케스트레이터 칩 라벨 ORCH.name (app.js 1860)'
+    - '답변 본문 "…가 유형을 판단해 담당 AI에게 넘깁니다" (app.js 2021·2215)'
+    - 'FAB 라벨 title·aria-label "AI 에이전트 열기" (app.js 1611)'
+  how: >
+    문구가 모두 공유 파일 app.js 안에 있어 기존 줄을 고치지 않고 우회했다.
+    ORCH 는 const 객체라 name 속성만 바꿔 끼우고, 나머지는 #ai-chat-overlay 와 FAB 를
+    MutationObserver 로 관찰해 옛 문구가 들어오는 순간 텍스트 노드와 title·aria-label 만
+    치환한다(v2FixTerm). 바꾼 뒤에는 옛 문구가 없어 관찰이 다시 돌아도 루프가 되지 않는다.
+  not_changed:
+    - 'app.js 주석 34·1400·1830 (화면 비노출)'
+    - 'css/ai-agent.css:410 주석'
+    - 'budget-agent-console.js:4 주석 (석완)'
+    - 'server.js 185·451·490 LLM system 프롬프트의 "어시스턴트" 단독 표현'
+    - 'docs/00-README-개요.md · docs/02-채팅AI-네비게이터.md · docs/rawdata/screens/chat-navigator.yaml (수진 담당 채팅 화면 문서)'
+  verified: '대화창 제목·칩·본문·FAB 두 분기 모두 "AI 에이전트" · 화면 전체 옛 용어 0건 · 버전1에서도 동일'
