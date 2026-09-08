@@ -6143,3 +6143,1330 @@ function leadCostBreak(sel) {
            cpTotal: cpAll, planRate: planRate, burnRate: plan ? (act / plan) * 100 : 0,
            rows: rows, count: ids.length, exact: true };
 }
+
+// ============================================================
+//  31차 — AxgenticWire 디자인 통일 (버전1 / 버전2 비교)
+//
+//  선행 시스템 AiTeaming(인력추천)·AiPMO(CP산정)가 같은 디자인으로 오픈했다.
+//  그 셸을 실행예산에도 맞춰보기 위해 메인화면에 버전 토글을 둔다.
+//
+//    버전1  지금까지 만든 화면 — 절대 손대지 않는다 (renderPmDashboard 그대로)
+//    버전2  AxgenticWire 셸 — 좌측 레일 / 중앙 히어로 / 기존 블록은 히어로 아래
+//
+//  레퍼런스에서 가져온 것
+//    · 상단 바 없음 → 브랜드(AXGENTIC WIRE + AiBudget)가 레일 최상단
+//    · 레일: 섹션 라벨 → 흰 카드 안에 행 + 카운트 배지 + chevron, 하단 유틸·사용자
+//    · 히어로: ✦ → "안녕하세요, OO님." → 현재 상태 한 문장(핵심어만 파랑) → 안내 필 → 점선 CTA
+//    · 두 레퍼런스는 모두 빈 상태 화면이라, 데이터가 있는 우리 블록은
+//      히어로 아래에 같은 카드 언어로 이어 붙인다 (B안)
+//
+//  index.html 은 공유 파일이라 한 줄도 건드리지 않고 여기서 주입한다.
+// ============================================================
+
+let homeVer = (function () {
+  try { const v = localStorage.getItem('newmis.homeVer'); if (v === 'v1' || v === 'v2') return v; } catch (e) {}
+  return 'v1';                                    // 기본은 현재 디자인
+})();
+
+function setHomeVer(v) {                          // crud N — 화면 버전 토글
+  homeVer = (v === 'v2') ? 'v2' : 'v1';
+  try { localStorage.setItem('newmis.homeVer', homeVer); } catch (e) {}
+  document.body.classList.toggle('home-v2', homeVer === 'v2');
+  if (typeof initDashboard === 'function') initDashboard();
+}
+
+// ── 히어로 문안 ── 사용자별로 "지금 가장 중요한 한 가지"를 문장으로 만든다
+function homeV2Hero() {
+  const u = homeUserNow();
+  const pjts = homeCardPjts();
+  if (homeUser === 'lead') {
+    const q = (typeof leadApprovalQueue === 'function') ? leadApprovalQueue().length : 0;
+    const o = (typeof teamOutliers === 'function') ? teamOutliers().length : 0;
+    const b = leadCostBreak('all');
+    if (!q && !o) {
+      return { greet: '안녕하세요, ' + u.greet + '.',
+        head: '결재와 점검이 모두 <b>정리된 상태</b>입니다.',
+        note: '담당 ' + pjts.length + '건 · CP총액 ' + homeWon(b.cpTotal) + ' · 수행원가총액 ' + homeWon(b.plan),
+        cta: '팀 원가 현황 보기', act: 'homeV2GoBoard()' };
+    }
+    const parts = [];
+    if (q) parts.push('결재 대기 <b>' + q + '건</b>');
+    if (o) parts.push('점검이 필요한 프로젝트 <b>' + o + '건</b>');
+    return { greet: '안녕하세요, ' + u.greet + '.',
+      head: parts.join(', ') + '이 있습니다.',
+      note: '담당 ' + pjts.length + '건 · CP총액 ' + homeWon(b.cpTotal) + ' · 수행원가총액 ' + homeWon(b.plan),
+      cta: q ? '결재 대기 확인하기' : '점검 프로젝트 보기', act: 'homeV2GoBoard()' };
+  }
+  const todo = pjts.reduce(function (s, p) {
+    return s + pjtTodosOf(p.id).filter(function (x) { return x.open; }).length;
+  }, 0);
+  const risk = pjts.reduce(function (s, p) {
+    return s + pjtRisksOf(p.id).filter(function (x) { return x.open; }).length;
+  }, 0);
+  if (!todo && !risk) {
+    return { greet: '안녕하세요, ' + u.greet + '.',
+      head: '지금 처리할 일이 <b>없습니다</b>.',
+      note: '담당 ' + pjts.length + '건 · 모든 원가 조정이 반영되었습니다',
+      cta: '담당 프로젝트 보기', act: 'homeV2GoBoard()' };
+  }
+  const parts = [];
+  if (todo) parts.push('확인이 필요한 원가 조정이 <b>' + todo + '건</b>');
+  if (risk) parts.push('이상징후 <b>' + risk + '건</b>');
+  return { greet: '안녕하세요, ' + u.greet + '.',
+    head: parts.join(', ') + ' 있습니다.',
+    note: '담당 ' + pjts.length + '건 · 항목을 누르면 해당 계정 화면으로 이동합니다',
+    cta: '원가 조정 확인하기', act: 'homeV2GoBoard()' };
+}
+
+function homeV2GoBoard() {                        // crud N — 히어로 아래 블록으로 이동
+  const el = document.getElementById('home-board');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── 좌측 레일 ──
+function homeV2RailHtml() {
+  const u = homeUserNow();
+  const pjts = homeCardPjts();
+  const lead = homeUser === 'lead';
+  const q = (lead && typeof leadApprovalQueue === 'function') ? leadApprovalQueue().length : 0;
+  const o = (lead && typeof teamOutliers === 'function') ? teamOutliers().length : 0;
+  const todo = pjts.reduce(function (s, p) {
+    return s + pjtTodosOf(p.id).filter(function (x) { return x.open; }).length;
+  }, 0);
+  const risk = pjts.reduce(function (s, p) {
+    return s + pjtRisksOf(p.id).filter(function (x) { return x.open; }).length;
+  }, 0);
+
+  const workRows = lead
+    ? [{ t: '내 결재 대기', n: q, a: 'homeV2GoBoard()' },
+       { t: '점검 필요 프로젝트', n: o, a: 'homeV2GoBoard()' }]
+    : [{ t: '해야 할 일', n: todo, a: 'homeV2GoBoard()' },
+       { t: '이상징후', n: risk, a: 'homeV2GoBoard()' }];
+
+  const pjtRows = pjts.map(function (p) {
+    const b = leadCostBreak(p.id);
+    const tag = b.plan ? pct(b.burnRate) : '편성 전';
+    return `<button class="v2-row" onclick="homeV2PickPjt('${escAttr(p.id)}')">
+        <span class="v2-row-t">${escHtml(p.name)}</span>
+        <em class="v2-row-tag${b.plan ? '' : ' pre'}">${escHtml(tag)}</em>
+        <i>›</i></button>`;
+  }).join('');
+
+  return `
+    <aside class="v2-rail">
+      <div class="v2-brand">
+        <button class="v2-lock" onclick="showMain()" aria-label="AiBudget 홈">
+          <span class="v2-wm">AXGENTIC<b>WIRE</b></span>
+          <span class="v2-sub">AiBudget</span>
+        </button>
+        <button class="v2-collapse" onclick="setHomeVer('v1')" title="버전1로 돌아가기" aria-label="버전1로 돌아가기">◧</button>
+      </div>
+
+      <div class="v2-sec"><i>◳</i>${lead ? '팀 업무' : '내 업무'}</div>
+      <div class="v2-card">
+        ${workRows.map(function (r) {
+          return `<button class="v2-row" onclick="${r.a}">
+            <span class="v2-row-t">${escHtml(r.t)}</span>
+            <em class="v2-row-n${r.n ? ' on' : ''}">${r.n}</em>
+            <i>›</i></button>`;
+        }).join('')}
+      </div>
+
+      <div class="v2-sec"><i>▤</i>담당 프로젝트</div>
+      <div class="v2-card">${pjtRows || '<div class="v2-empty">담당 프로젝트가 없습니다.</div>'}</div>
+
+      <div class="v2-sec"><i>◷</i>최근 조회 목록</div>
+      <div class="v2-card"><div class="v2-empty">${homeV2RecentHtml()}</div></div>
+
+      <div class="v2-util">
+        <button onclick="openSetupGuide()"><span>▤</span>그라운드 룰<i>›</i></button>
+        <button onclick="openAiChat('navi')"><span>◈</span>AI 네비게이터<i>›</i></button>
+        <button onclick="toggleAgentGrid(this)"><span>◉</span>AI개발 Agent<i>›</i></button>
+      </div>
+
+      <button class="v2-me" onclick="homeV2SwitchUser()" title="사용자 전환">
+        <span class="v2-me-av">${escHtml(u.name.slice(0, 1))}</span>
+        <span class="v2-me-t"><b>${escHtml(u.name)}</b><em>${escHtml(u.role)} · NOVA PMO팀</em></span>
+        <i>›</i>
+      </button>
+    </aside>`;
+}
+
+// 최근 조회 — 실제로 열어본 PJT를 기억해서 보여준다
+let homeV2Recent = [];
+function homeV2RecentHtml() {
+  if (!homeV2Recent.length) return '최근 조회한 프로젝트가 없습니다.';
+  return homeV2Recent.slice(0, 3).map(function (id) {
+    const p = homeCardPjts().find(function (x) { return x.id === id; });
+    return p ? '<span class="v2-recent">' + escHtml(p.name) + '</span>' : '';
+  }).join('');
+}
+function homeV2PickPjt(id) {                      // crud N — 선택 PJT 원가 분석으로 이동
+  homeV2Recent = [id].concat(homeV2Recent.filter(function (x) { return x !== id; }));
+  if (homeUser === 'lead' && typeof setLeadPjt === 'function') setLeadPjt(id);
+  else if (typeof previewPjt === 'function') previewPjt(id);
+  if (typeof initDashboard === 'function') initDashboard();
+  homeV2GoBoard();
+}
+function homeV2SwitchUser() {                     // crud N — PM ↔ 팀장 전환
+  if (typeof switchHomeUser === 'function') switchHomeUser(homeUser === 'lead' ? 'pm' : 'lead');
+}
+
+// ── 버전 토글 (메인화면 상단 우측) ──
+function homeVerTabsHtml() {
+  return `
+    <div class="v2-vertabs" role="group" aria-label="화면 버전 선택">
+      <button class="v2-vt ${homeVer === 'v1' ? 'on' : ''}" onclick="setHomeVer('v1')" aria-pressed="${homeVer === 'v1'}">버전1</button>
+      <button class="v2-vt ${homeVer === 'v2' ? 'on' : ''}" onclick="setHomeVer('v2')" aria-pressed="${homeVer === 'v2'}">버전2</button>
+    </div>`;
+}
+
+// ── 버전2 렌더 ──
+function renderHomeV2() {
+  const h = homeV2Hero();
+  return `
+    <div class="v2-wrap">
+      ${homeVerTabsHtml()}
+      ${homeV2RailHtml()}
+      <main class="v2-main">
+        <section class="v2-hero">
+          <span class="v2-mark" aria-hidden="true">✦</span>
+          <p class="v2-greet">${escHtml(h.greet)}</p>
+          <h1 class="v2-head">${h.head}</h1>
+          <button class="v2-notice" onclick="${h.act}">
+            <span class="v2-notice-ic">◔</span>${escHtml(h.note)}<i>›</i>
+          </button>
+          <div class="v2-ask">
+            <span class="v2-ask-ic" aria-hidden="true">✦</span>
+            <input id="ai-main-query" type="text" placeholder="원가 관련 궁금한 점을 자연어로 질문해 주세요."
+              onkeydown="if(event.key==='Enter') askFromHome()">
+            <button class="v2-ask-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+          </div>
+          <button class="v2-cta" onclick="${h.act}">
+            <span>+</span>${escHtml(h.cta)}
+          </button>
+        </section>
+        <div class="v2-below">
+          <div id="home-board">${homeWorkBoardHtml()}</div>
+        </div>
+      </main>
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
+    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}
+
+// ── 진입점 교체 ──
+// function 선언으로 덮으면 호이스팅 때문에 이전 정의를 못 잡는다. 붙잡고 런타임에 바꾼다.
+var initDashboardV1 = initDashboard;
+window.initDashboard = function () {
+  document.body.classList.toggle('home-v2', homeVer === 'v2');
+  if (homeVer !== 'v2') { initDashboardV1(); homeVerMount(); return; }
+  document.getElementById('s-main').innerHTML = renderHomeV2();
+  if (typeof v2ApplyRail === 'function') v2ApplyRail();
+  if (typeof syncTopUser === 'function') syncTopUser();
+  if (typeof updateKpiMain === 'function') updateKpiMain();
+};
+
+// 버전1 화면에도 토글이 보여야 비교가 된다 — 렌더 뒤에 얹는다
+function homeVerMount() {
+  const host = document.getElementById('s-main');
+  if (!host || host.querySelector('.v2-vertabs')) return;
+  const box = document.createElement('div');
+  box.innerHTML = homeVerTabsHtml();
+  const tabs = box.firstElementChild;
+  if (tabs) host.insertBefore(tabs, host.firstChild);
+}
+
+(function () {
+  const start = function () {
+    document.body.classList.toggle('home-v2', homeVer === 'v2');
+    if (document.getElementById('s-main') && typeof initDashboard === 'function') initDashboard();
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+
+// ============================================================
+//  32차 — 버전2를 유관시스템 디자인 철학에 맞춘다
+//
+//  버전1에 쌓인 지시사항(카드 그리드 · 상세/간소 토글 · KPI 7종 · 원가 분해 ·
+//  5-Tier · 위젯)은 버전2에 가져오지 않는다. AiTeaming·AiPMO 처럼
+//  중앙은 히어로 하나만 두고, 업무는 좌측 레일에서 전부 처리한다.
+//
+//  1) 중앙에서 #home-board 제거 — PM·팀장 모두 히어로만
+//  2) 레일의 "내 업무"를 "담당 프로젝트"에 병합.
+//     프로젝트를 누르면 그 자리에서 펼쳐져 해야 할 일·이상징후가 보인다.
+//     (모든 동작이 레일 안에서 끝난다)
+//  3) 상세 진입은 프롬프트 창 → AI 네비게이터로만. askFromHome 동선 유지.
+// ============================================================
+
+let homeV2Open = '';                              // 레일에서 펼친 프로젝트 (1개만)
+
+function toggleHomeV2Pjt(id) {                    // crud N — 프로젝트 업무 펼치기/접기
+  homeV2Open = (homeV2Open === id) ? '' : id;
+  homeV2Recent = [id].concat(homeV2Recent.filter(function (x) { return x !== id; }));
+  const el = document.getElementById('v2-rail-body');
+  if (el) el.innerHTML = homeV2PjtListHtml();
+  const rc = document.getElementById('v2-recent');
+  if (rc) rc.innerHTML = homeV2RecentHtml();
+}
+
+// 프로젝트 한 건 — 접힘/펼침
+function homeV2PjtRowHtml(p) {
+  const todos = pjtTodosOf(p.id);
+  const risks = pjtRisksOf(p.id);
+  const openTodo = todos.filter(function (t) { return t.open; });
+  const openRisk = risks.filter(function (r) { return r.open; });
+  const n = openTodo.length + openRisk.length;
+  const b = leadCostBreak(p.id);
+  const open = homeV2Open === p.id;
+
+  const item = function (it, isRisk) {
+    return `<button class="v2-item${isRisk ? ' risk' : ''}${it.cls ? ' ' + it.cls : ''}"
+        onclick="homePjtGo('${escAttr(p.id)}','${escAttr(it.acct)}')">
+        <span class="v2-item-a">${escHtml(it.acct)}</span>
+        <span class="v2-item-t">${it.label ? `<em>${escHtml(it.label)}</em>` : ''}${escHtml(it.title)}</span>
+      </button>`;
+  };
+  const sortOpen = function (a, b2) { return (b2.open ? 1 : 0) - (a.open ? 1 : 0); };
+  const tRows = todos.slice().sort(sortOpen).map(function (t) { return item(t, false); }).join('');
+  const rRows = risks.slice().sort(sortOpen).map(function (r) { return item(r, true); }).join('');
+
+  const body = open ? `
+    <div class="v2-exp">
+      <div class="v2-exp-m">${b.plan
+        ? '수행원가총액 ' + homeWon(b.plan) + ' · 소진율 ' + pct(b.burnRate)
+        : 'CP총액 ' + homeWon(b.cpTotal) + ' · 아직 편성 전'}</div>
+      ${todos.length ? `<div class="v2-exp-h">해야 할 일 <em>${openTodo.length}</em></div>${tRows}` : ''}
+      ${risks.length ? `<div class="v2-exp-h">이상징후 <em>${openRisk.length}</em></div>${rRows}` : ''}
+      ${(!todos.length && !risks.length) ? '<div class="v2-exp-e">처리할 항목이 없습니다.</div>' : ''}
+    </div>` : '';
+
+  return `
+    <div class="v2-pjt${open ? ' open' : ''}">
+      <button class="v2-pjt-h" onclick="toggleHomeV2Pjt('${escAttr(p.id)}')" aria-expanded="${open}">
+        <span class="v2-pjt-ic">${open ? '▾' : '▸'}</span>
+        <span class="v2-row-t">${escHtml(p.name)}</span>
+        ${n ? `<em class="v2-row-n on">${n}</em>`
+            : `<em class="v2-row-tag${b.plan ? '' : ' pre'}">${b.plan ? '정상' : '편성 전'}</em>`}
+      </button>
+      ${body}
+    </div>`;
+}
+
+function homeV2PjtListHtml() {
+  const list = homeCardPjts();
+  if (!list.length) return '<div class="v2-empty">담당 프로젝트가 없습니다.</div>';
+  return list.map(homeV2PjtRowHtml).join('');
+}
+
+// ── 좌측 레일 — 내 업무를 담당 프로젝트로 병합 ──
+function homeV2RailHtml() {
+  const u = homeUserNow();
+  const list = homeCardPjts();
+  const lead = homeUser === 'lead';
+  return `
+    <aside class="v2-rail">
+      <div class="v2-brand">
+        <button class="v2-lock" onclick="showMain()" aria-label="AiBudget 홈">
+          <span class="v2-wm">AXGENTIC<b>WIRE</b></span>
+          <span class="v2-sub">AiBudget</span>
+        </button>
+        <button class="v2-collapse" onclick="setHomeVer('v1')" title="버전1로 돌아가기" aria-label="버전1로 돌아가기">◧</button>
+      </div>
+
+      <div class="v2-sec"><i>▤</i>${lead ? '팀 프로젝트' : '담당 프로젝트'}<em>${list.length}</em></div>
+      <div class="v2-card" id="v2-rail-body">${homeV2PjtListHtml()}</div>
+
+      <div class="v2-sec"><i>◷</i>최근 조회 목록</div>
+      <div class="v2-card"><div class="v2-empty" id="v2-recent">${homeV2RecentHtml()}</div></div>
+
+      <div class="v2-util">
+        <button onclick="openSetupGuide()"><span>▤</span>그라운드 룰<i>›</i></button>
+        <button onclick="openAiChat('navi')"><span>◈</span>AI 네비게이터<i>›</i></button>
+        <button onclick="toggleAgentGrid(this)"><span>◉</span>AI개발 Agent<i>›</i></button>
+      </div>
+
+      <button class="v2-me" onclick="homeV2SwitchUser()" title="사용자 전환">
+        <span class="v2-me-av">${escHtml(u.name.slice(0, 1))}</span>
+        <span class="v2-me-t"><b>${escHtml(u.name)}</b><em>${escHtml(u.role)} · NOVA PMO팀</em></span>
+        <i>›</i>
+      </button>
+    </aside>`;
+}
+
+// 프로젝트를 눌렀을 때도 레일에서만 처리한다 (중앙 블록이 없으므로 스크롤 이동도 없다)
+function homeV2GoBoard() {                        // crud N — 첫 프로젝트 업무 펼치기
+  const first = homeCardPjts()[0];
+  if (first) toggleHomeV2Pjt(homeV2Open ? homeV2Open : first.id);
+}
+
+// ── 버전2 렌더 — 중앙은 히어로만 ──
+function renderHomeV2() {
+  const h = homeV2Hero();
+  return `
+    <div class="v2-wrap">
+      ${homeVerTabsHtml()}
+      ${homeV2RailHtml()}
+      <main class="v2-main">
+        <section class="v2-hero">
+          <span class="v2-mark" aria-hidden="true">✦</span>
+          <p class="v2-greet">${escHtml(h.greet)}</p>
+          <h1 class="v2-head">${h.head}</h1>
+          <button class="v2-notice" onclick="homeV2GoBoard()">
+            <span class="v2-notice-ic">◔</span>${escHtml(h.note)}<i>›</i>
+          </button>
+          <div class="v2-ask">
+            <span class="v2-ask-ic" aria-hidden="true">✦</span>
+            <input id="ai-main-query" type="text" placeholder="원가 관련 궁금한 점을 자연어로 질문해 주세요."
+              onkeydown="if(event.key==='Enter') askFromHome()">
+            <button class="v2-ask-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+          </div>
+          <p class="v2-foot">원하는 화면 이동·원가 분석·이상징후 확인을 자연어로 요청하면 AI가 처리합니다.</p>
+        </section>
+      </main>
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
+    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}
+
+// 히어로 안내 문구도 중앙 블록이 없어진 것에 맞춘다
+function homeV2Hero() {
+  const u = homeUserNow();
+  const pjts = homeCardPjts();
+  const mk = function (head, note, extra) {
+    return { greet: '안녕하세요, ' + u.greet + '.', head: head, note: note, extra: extra };
+  };
+  if (homeUser === 'lead') {
+    const q = (typeof leadApprovalQueue === 'function') ? leadApprovalQueue().length : 0;
+    const o = (typeof teamOutliers === 'function') ? teamOutliers().length : 0;
+    const b = leadCostBreak('all');
+    const money = '담당 ' + pjts.length + '건 · CP총액 ' + homeWon(b.cpTotal) + ' · 수행원가총액 ' + homeWon(b.plan);
+    if (!q && !o) return mk('결재와 점검이 모두 <b>정리된 상태</b>입니다.', money);
+    const parts = [];
+    if (q) parts.push('결재 대기 <b>' + q + '건</b>');
+    if (o) parts.push('점검이 필요한 프로젝트 <b>' + o + '건</b>');
+    return mk(parts.join(', ') + '이 있습니다.', money);
+  }
+  const todo = pjts.reduce(function (s, p) {
+    return s + pjtTodosOf(p.id).filter(function (x) { return x.open; }).length;
+  }, 0);
+  const risk = pjts.reduce(function (s, p) {
+    return s + pjtRisksOf(p.id).filter(function (x) { return x.open; }).length;
+  }, 0);
+  const note = '담당 ' + pjts.length + '건 · 왼쪽에서 프로젝트를 누르면 업무가 펼쳐집니다';
+  if (!todo && !risk) return mk('지금 처리할 일이 <b>없습니다</b>.', note);
+  const parts = [];
+  if (todo) parts.push('확인이 필요한 원가 조정이 <b>' + todo + '건</b>');
+  if (risk) parts.push('이상징후 <b>' + risk + '건</b>');
+  return mk(parts.join(', ') + ' 있습니다.', note);
+}
+
+// ============================================================
+//  33차 — 채팅 답변을 화면과 같은 데이터로 연결 + 역할별 업무 분리
+//
+//  [1] 채팅이 "해야 할 일이 없습니다"라고 답한 원인
+//      채팅 답변(app.js:chatIssueListHtml)은 1차 데이터인 HOME_FEED + homeFeedState 를
+//      읽고, 레일·메인 화면은 AGENT_PROPOSALS_FINAL(pjtTodosOf) + SCEN_RISKS_BY_PJT 를 읽는다.
+//      소스가 갈려 있어 왼쪽에 5건이 있어도 채팅은 0건이라고 답했다.
+//      → chatIssueListHtml 을 화면과 같은 소스로 다시 만든다.
+//      → 질문에서 프로젝트 이름·번호를 찾아 그 프로젝트로 범위를 좁힌다.
+//      app.js(316)가 dashboard.js(317)보다 먼저 로드되므로 여기서 덮으면 이긴다.
+//
+//  [3] 역할별 업무 분리
+//      제안 상태(budget-agent-console.js) 기준으로 나눈다.
+//        PM   pending·returned      = 검토/재기안해야 할 일
+//             approved·submitted    = 진행 중(결재중)
+//        팀장 approved·submitted    = 내가 결재할 일  (leadApprovalQueue 와 동일)
+//             pending·returned      = PM이 아직 들고 있는 것 → 팀장 목록에서 제외
+//      이상징후는 두 역할 모두 보되 팀장에게는 "점검 항목"으로 부른다.
+//
+//  [2] 최근 조회 목록 제거
+//  [4] 항목 클릭 → 해당 계정 화면 전환은 레일·채팅 모두 homePjtGo 로 통일
+// ============================================================
+
+const V2_WORK = {
+  pm:   { open: ['pending', 'returned'], prog: ['approved', 'submitted'],
+          todo: '해야 할 일', risk: '이상징후' },
+  lead: { open: ['approved', 'submitted'], prog: [],
+          todo: '결재 대기', risk: '점검 항목' },
+};
+function v2WorkCfg() { return V2_WORK[homeUser] || V2_WORK.pm; }
+
+// 역할에 맞는 업무만 남긴다 (처리완료는 흐리게 함께 보여 흐름을 알 수 있게)
+function v2TodosOf(pj) {
+  const cfg = v2WorkCfg();
+  return pjtTodosOf(pj).filter(function (t) {
+    return cfg.open.indexOf(t.status) >= 0
+        || cfg.prog.indexOf(t.status) >= 0
+        || t.status === 'confirmed';
+  }).map(function (t) {
+    return Object.assign({}, t, { open: cfg.open.indexOf(t.status) >= 0 });
+  });
+}
+function v2RisksOf(pj) { return pjtRisksOf(pj); }
+
+// 질문 문장에서 대상 프로젝트를 찾는다
+function v2PjtFromText(text) {
+  const t = String(text || '').replace(/\s/g, '');
+  const list = homeCardPjts();
+  let best = null, score = 0;
+  list.forEach(function (p) {
+    const n = String(p.name || '').replace(/\s/g, '');
+    const no = String(p.no || '').replace(/\s/g, '');
+    if (no && t.indexOf(no) >= 0) { best = p.id; score = 999; }
+    if (n && t.indexOf(n) >= 0 && n.length > score) { best = p.id; score = n.length; }
+  });
+  if (best) return best;
+  // 이름 앞부분만 말한 경우 ("예산관리시스템", "스마트팩토리" 등)
+  list.forEach(function (p) {
+    const n = String(p.name || '').replace(/\s/g, '');
+    for (let len = n.length; len >= 4; len--) {
+      const head = n.slice(0, len);
+      if (t.indexOf(head) >= 0 && len > score) { best = p.id; score = len; break; }
+    }
+  });
+  if (best) return best;
+  if (typeof homeV2Open !== 'undefined' && homeV2Open) return homeV2Open;      // 레일에서 펼쳐 둔 것
+  if (typeof leadPjtSel !== 'undefined' && leadPjtSel && leadPjtSel !== 'all') return leadPjtSel;
+  return 'all';
+}
+
+// ── 채팅 답변 — 화면과 같은 데이터 ──
+function chatIssueListHtml(id, cat) {
+  const cfg = v2WorkCfg();
+  const isRisk = cat === 'budget';
+  const label = cat ? (isRisk ? cfg.risk : cfg.todo) : '확인이 필요한 것';
+  const ids = (!id || id === 'all') ? homeCardPjts().map(function (p) { return p.id; }) : [id];
+  const who = (!id || id === 'all') ? '담당 전체 프로젝트'
+    : ((homeCardPjts().find(function (p) { return p.id === id; }) || {}).name || '');
+
+  const groups = ids.map(function (pj) {
+    const p = homeCardPjts().find(function (x) { return x.id === pj; }) || { id: pj, name: pj };
+    const todos = cat && isRisk ? [] : v2TodosOf(pj);
+    const risks = cat && !isRisk ? [] : v2RisksOf(pj);
+    return { p: p, todos: todos, risks: risks,
+             open: todos.filter(function (t) { return t.open; }).length
+                 + risks.filter(function (r) { return r.open; }).length,
+             total: todos.length + risks.length };
+  }).filter(function (g) { return g.total > 0; });
+
+  if (!groups.length) {
+    const b = (ids.length === 1) ? leadCostBreak(ids[0]) : null;
+    const why = (b && !b.plan)
+      ? '이 프로젝트는 아직 <b>편성 전</b>입니다. CP총액 ' + homeWon(b.cpTotal)
+        + '만 배정돼 있어 조정할 계정 예산이 없습니다. 실행예산 편성을 먼저 확정해야 합니다.'
+      : '지금 ' + escHtml(label) + '이 없습니다. 모두 처리되었거나 정상 범위입니다.';
+    return `<div class="ai-result">
+        <div class="ai-r-lead"><span class="ai-r-tag ink">${escHtml(label)}</span> ${escHtml(who)}</div>
+        <div class="ai-r-cause">${why}</div>
+      </div>`;
+  }
+
+  const item = function (pj, it, risk) {
+    return `<button class="v2-ci${risk ? ' risk' : ''}${it.open ? '' : ' done'}"
+        onclick="homePjtGo('${escAttr(pj)}','${escAttr(it.acct)}')">
+        <span class="v2-ci-a">${escHtml(it.acct)}</span>
+        <span class="v2-ci-t">${it.label ? `<em>${escHtml(it.label)}</em>` : ''}${escHtml(it.title)}</span>
+        <span class="v2-ci-go">이동 →</span>
+      </button>`;
+  };
+  const sortOpen = function (a, b) { return (b.open ? 1 : 0) - (a.open ? 1 : 0); };
+
+  const body = groups.map(function (g) {
+    const b = leadCostBreak(g.p.id);
+    return `
+      <div class="v2-cg">
+        <div class="v2-cg-h">
+          <b>${escHtml(g.p.name)}</b>
+          <em>${g.open}건</em>
+          <span>${b.plan ? '수행원가총액 ' + homeWon(b.plan) + ' · 소진율 ' + pct(b.burnRate) : '편성 전 · CP총액 ' + homeWon(b.cpTotal)}</span>
+        </div>
+        ${g.todos.length ? `<div class="v2-cg-s">${escHtml(cfg.todo)} ${g.todos.filter(function (t) { return t.open; }).length}</div>`
+          + g.todos.slice().sort(sortOpen).map(function (t) { return item(g.p.id, t, false); }).join('') : ''}
+        ${g.risks.length ? `<div class="v2-cg-s">${escHtml(cfg.risk)} ${g.risks.filter(function (r) { return r.open; }).length}</div>`
+          + g.risks.slice().sort(sortOpen).map(function (r) { return item(g.p.id, r, true); }).join('') : ''}
+      </div>`;
+  }).join('');
+
+  const totOpen = groups.reduce(function (s, g) { return s + g.open; }, 0);
+  return `<div class="ai-result">
+      <div class="ai-r-lead"><span class="ai-r-tag ink">${escHtml(label)}</span> ${escHtml(who)} · <b>${totOpen}건</b></div>
+      <div class="v2-clist">${body}</div>
+      <div class="ai-r-cause">항목을 누르면 해당 계정의 원가조정 화면으로 이동합니다.</div>
+    </div>`;
+}
+
+// 질문 텍스트를 받아 대상 프로젝트로 좁힌다
+function chatOpenTodos(text) {
+  aiAgentMsg('todo', chatIssueListHtml(v2PjtFromText(text), 'work'));
+}
+function chatOpenRisks(text) {
+  aiAgentMsg('risk', chatIssueListHtml(v2PjtFromText(text), 'budget'));
+}
+function chatOpenPjtIssues(text) {
+  aiAgentMsg('risk', chatIssueListHtml(v2PjtFromText(text), null));
+}
+
+// INTENT_RULES 의 render 를 질문 텍스트가 넘어가도록 바꿔 끼운다 (const 배열이라 원소만 교체)
+(function () {
+  if (typeof INTENT_RULES === 'undefined') return;
+  INTENT_RULES.forEach(function (r) {
+    if (r.key === 'todo') r.render = function (text) { chatOpenTodos(text); };
+    else if (r.key === 'risk') r.render = function (text) { chatOpenRisks(text); };
+  });
+})();
+
+// ── [2] 최근 조회 목록 제거 · [3] 역할별 라벨 ──
+function homeV2RailHtml() {
+  const u = homeUserNow();
+  const list = homeCardPjts();
+  const lead = homeUser === 'lead';
+  return `
+    <aside class="v2-rail">
+      <div class="v2-brand">
+        <button class="v2-lock" onclick="showMain()" aria-label="AiBudget 홈">
+          <span class="v2-wm">AXGENTIC<b>WIRE</b></span>
+          <span class="v2-sub">AiBudget</span>
+        </button>
+        <button class="v2-collapse" onclick="setHomeVer('v1')" title="버전1로 돌아가기" aria-label="버전1로 돌아가기">◧</button>
+      </div>
+
+      <div class="v2-sec"><i>▤</i>${lead ? '팀 프로젝트' : '담당 프로젝트'}<em>${list.length}</em></div>
+      <div class="v2-card" id="v2-rail-body">${homeV2PjtListHtml()}</div>
+
+      <div class="v2-util">
+        <button onclick="openSetupGuide()"><span>▤</span>그라운드 룰<i>›</i></button>
+        <button onclick="openAiChat('navi')"><span>◈</span>AI 네비게이터<i>›</i></button>
+        <button onclick="toggleAgentGrid(this)"><span>◉</span>AI개발 Agent<i>›</i></button>
+      </div>
+
+      <button class="v2-me" onclick="homeV2SwitchUser()" title="사용자 전환">
+        <span class="v2-me-av">${escHtml(u.name.slice(0, 1))}</span>
+        <span class="v2-me-t"><b>${escHtml(u.name)}</b><em>${escHtml(u.role)} · NOVA PMO팀</em></span>
+        <i>›</i>
+      </button>
+    </aside>`;
+}
+
+function toggleHomeV2Pjt(id) {                    // crud N — 프로젝트 업무 펼치기/접기
+  homeV2Open = (homeV2Open === id) ? '' : id;
+  const el = document.getElementById('v2-rail-body');
+  if (el) el.innerHTML = homeV2PjtListHtml();
+}
+
+// 역할에 맞는 업무를 보여준다
+function homeV2PjtRowHtml(p) {
+  const cfg = v2WorkCfg();
+  const todos = v2TodosOf(p.id);
+  const risks = v2RisksOf(p.id);
+  const openTodo = todos.filter(function (t) { return t.open; });
+  const openRisk = risks.filter(function (r) { return r.open; });
+  const n = openTodo.length + openRisk.length;
+  const b = leadCostBreak(p.id);
+  const open = homeV2Open === p.id;
+
+  const item = function (it, risk) {
+    return `<button class="v2-item${risk ? ' risk' : ''}${it.open ? '' : ' done'}"
+        onclick="homePjtGo('${escAttr(p.id)}','${escAttr(it.acct)}')">
+        <span class="v2-item-a">${escHtml(it.acct)}</span>
+        <span class="v2-item-t">${it.label ? `<em>${escHtml(it.label)}</em>` : ''}${escHtml(it.title)}</span>
+      </button>`;
+  };
+  const sortOpen = function (a, b2) { return (b2.open ? 1 : 0) - (a.open ? 1 : 0); };
+  const tRows = todos.slice().sort(sortOpen).map(function (t) { return item(t, false); }).join('');
+  const rRows = risks.slice().sort(sortOpen).map(function (r) { return item(r, true); }).join('');
+
+  const body = open ? `
+    <div class="v2-exp">
+      <div class="v2-exp-m">${b.plan
+        ? '수행원가총액 ' + homeWon(b.plan) + ' · 소진율 ' + pct(b.burnRate)
+        : 'CP총액 ' + homeWon(b.cpTotal) + ' · 아직 편성 전'}</div>
+      ${todos.length ? `<div class="v2-exp-h">${escHtml(cfg.todo)} <em>${openTodo.length}</em></div>${tRows}` : ''}
+      ${risks.length ? `<div class="v2-exp-h">${escHtml(cfg.risk)} <em>${openRisk.length}</em></div>${rRows}` : ''}
+      ${(!todos.length && !risks.length) ? `<div class="v2-exp-e">${b.plan ? '처리할 항목이 없습니다.' : '편성 전이라 조정할 예산이 없습니다.'}</div>` : ''}
+    </div>` : '';
+
+  return `
+    <div class="v2-pjt${open ? ' open' : ''}">
+      <button class="v2-pjt-h" onclick="toggleHomeV2Pjt('${escAttr(p.id)}')" aria-expanded="${open}">
+        <span class="v2-pjt-ic">${open ? '▾' : '▸'}</span>
+        <span class="v2-row-t">${escHtml(p.name)}</span>
+        ${n ? `<em class="v2-row-n on">${n}</em>`
+            : `<em class="v2-row-tag${b.plan ? '' : ' pre'}">${b.plan ? '정상' : '편성 전'}</em>`}
+      </button>
+      ${body}
+    </div>`;
+}
+
+// 히어로 문장도 역할별 업무 기준으로 맞춘다
+function homeV2Hero() {
+  const u = homeUserNow();
+  const cfg = v2WorkCfg();
+  const pjts = homeCardPjts();
+  const todo = pjts.reduce(function (s, p) {
+    return s + v2TodosOf(p.id).filter(function (x) { return x.open; }).length;
+  }, 0);
+  const risk = pjts.reduce(function (s, p) {
+    return s + v2RisksOf(p.id).filter(function (x) { return x.open; }).length;
+  }, 0);
+  const greet = '안녕하세요, ' + u.greet + '.';
+  let note = '담당 ' + pjts.length + '건 · 왼쪽에서 프로젝트를 누르면 업무가 펼쳐집니다';
+  if (homeUser === 'lead') {
+    const b = leadCostBreak('all');
+    note = '담당 ' + pjts.length + '건 · CP총액 ' + homeWon(b.cpTotal) + ' · 수행원가총액 ' + homeWon(b.plan);
+  }
+  if (!todo && !risk) {
+    return { greet: greet, head: (homeUser === 'lead' ? '결재와 점검이 모두 <b>정리된 상태</b>입니다.' : '지금 처리할 일이 <b>없습니다</b>.'), note: note };
+  }
+  const parts = [];
+  if (todo) parts.push(escHtml(cfg.todo) + ' <b>' + todo + '건</b>');
+  if (risk) parts.push(escHtml(cfg.risk) + ' <b>' + risk + '건</b>');
+  return { greet: greet, head: parts.join(', ') + '이 있습니다.', note: note };
+}
+
+// ============================================================
+//  33차 (2) — 질문의 프로젝트를 화면 상태에 반영
+//  app.js 의 네비게이터·LLM 컨텍스트·딥링크는 모두 homeSelectedProject 를 본다.
+//  질문에서 찾은 프로젝트를 여기에 먼저 넣어주면
+//    "스마트팩토리 원가조정 화면으로 이동해줘"
+//  같은 요청이 그 프로젝트 기준 딥링크(?pj=smart)로 이어진다.
+//  레일(homeV2Open)·팀장 선택(leadPjtSel)도 같이 맞춰 양방향으로 흐름이 보이게 한다.
+//
+//  function 선언으로 덮으면 호이스팅 때문에 app.js 정의를 잡지 못한다 → 런타임 교체.
+// ============================================================
+
+var routeIntentsBeforeV2 = (typeof routeIntents === 'function') ? routeIntents : null;
+if (routeIntentsBeforeV2) {
+  window.routeIntents = function (text) {
+    try {
+      const pj = v2PjtFromText(text);
+      if (pj && pj !== 'all') {
+        // let 로 선언된 변수는 window 프로퍼티가 아니다 → 같은 파일 스코프에서 직접 대입
+        if (typeof homeSelectedProject !== 'undefined') homeSelectedProject = pj;
+        if (typeof homeV2Open !== 'undefined') homeV2Open = pj;
+        if (typeof leadPjtSel !== 'undefined') leadPjtSel = pj;
+        const el = document.getElementById('v2-rail-body');
+        if (el && typeof homeV2PjtListHtml === 'function') el.innerHTML = homeV2PjtListHtml();
+      }
+    } catch (e) {}
+    return routeIntentsBeforeV2(text);
+  };
+}
+
+// ============================================================
+//  33차 (3) — 네비게이터 딥링크에 내 프로젝트를 태운다
+//  navGo 는 homeSelBudgetKey() → HOME_TO_BUDGET[홈 프로젝트 id] 로 ?pj= 를 붙인다.
+//  내가 만든 프로젝트(credit/smart/aidoc2)와 budgetMock 이 이 표에 없어서
+//  "스마트팩토리 원가조정 화면으로 이동해줘" 가 프로젝트 없는 목록으로 떨어졌다.
+//  이 id 들은 BUDGET_SOURCE 키와 같으므로 그대로 매핑한다 (const 객체 속성 추가).
+// ============================================================
+// 이 블록이 실행될 때는 시나리오 PJT가 아직 생성되기 전이라 BUDGET_SOURCE 를 확인해봐야
+// 소용이 없다. id 는 고정이므로 그대로 넣고, 로드 후 한 번 더 채운다.
+const V2_PJT_KEYS = ['credit', 'budgetMock', 'smart', 'aidoc2'];
+function v2SyncBudgetMap() {
+  if (typeof HOME_TO_BUDGET === 'undefined') return;
+  V2_PJT_KEYS.forEach(function (k) { HOME_TO_BUDGET[k] = k; });
+}
+v2SyncBudgetMap();
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', v2SyncBudgetMap);
+else v2SyncBudgetMap();
+
+// ============================================================
+//  34차 — 레일 펼침 애니메이션 · 채팅 팝업 → 우측 도킹 · Agent 중앙 모달
+//
+//  [1] 레일이 max-height + overflow-y:auto 로 잘려 내부 스크롤이 생겼다.
+//      캡을 없애 내용만큼 아래로 자라게 하고, 펼칠 때 항목이 순차로 떠오르게 한다.
+//  [2] 채팅에서 "지금 이동 →" 을 눌러도 중앙 팝업이 화면을 덮고 있었다.
+//      navGo 뒤에 dockAiChat() 을 붙여 팝업이 우측 레일로 접혀 들어가게 한다.
+//      (이미 agentGoto 가 쓰던 방식 — 대화 내용은 그대로 남는다)
+//  [3] AI개발 Agent 를 레일에서 누르면 아무것도 안 보였다.
+//      toggleAgentGrid 는 상단바 버튼(.tb-agents)의 좌표로 위치를 잡고, 바깥 클릭
+//      감지도 .tb-agents 만 예외로 둔다. 상단바가 숨겨진 버전2에서는 열리는 즉시
+//      "바깥 클릭"으로 판정돼 닫힌다. → 중앙 모달을 따로 만든다.
+// ============================================================
+
+// ── [3] AI개발 Agent 중앙 모달 ──
+function openAgentModal() {                       // crud N — AI개발 Agent 목록 팝업 열기
+  let ov = document.getElementById('v2-agent-modal');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'v2-agent-modal';
+    ov.className = 'v2-modal';
+    ov.onclick = function (e) { if (e.target === ov) closeAgentModal(); };
+    document.body.appendChild(ov);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeAgentModal();
+    });
+  }
+  const tiles = (typeof AGENT_APPS !== 'undefined' ? AGENT_APPS : []).map(function (a) {
+    return `<button class="v2-agent" onclick="window.open('${escAttr(a.url)}','_blank','noopener')"
+        title="${escAttr(a.name)} · ${escAttr(a.url)}">
+        <span class="v2-agent-ic">${a.icon || '◉'}</span>
+        <span class="v2-agent-n">${escHtml(a.name)}</span>
+        <span class="v2-agent-s">${escHtml(a.sub || '')}</span>
+        <span class="v2-agent-go">열기 →</span>
+      </button>`;
+  }).join('');
+  ov.innerHTML = `
+    <div class="v2-modal-box" role="dialog" aria-modal="true" aria-label="AI개발 Agent">
+      <div class="v2-modal-h">
+        <span class="v2-modal-ic">◉</span>
+        <b>AI개발 Agent</b>
+        <span>바이브코딩에 쓰는 사내 Agent — 새 창으로 열립니다</span>
+        <button class="v2-modal-x" onclick="closeAgentModal()" aria-label="닫기">✕</button>
+      </div>
+      <div class="v2-agent-grid">${tiles || '<div class="v2-empty">등록된 Agent가 없습니다.</div>'}</div>
+    </div>`;
+  // requestAnimationFrame 은 탭이 백그라운드면 멈춘다 → 그 사이에 열면 영원히 안 보인다.
+  // 트랜지션 시작 프레임만 필요하므로 짧은 타이머로 바꾼다.
+  setTimeout(function () { ov.classList.add('open'); }, 20);
+}
+function closeAgentModal() {                      // crud N — 팝업 닫기
+  const ov = document.getElementById('v2-agent-modal');
+  if (ov) ov.classList.remove('open');
+}
+
+// ── [2] 채팅 팝업 → 화면 전환 시 우측 레일로 접기 ──
+// function 선언으로 덮으면 호이스팅 때문에 app.js 정의를 못 잡는다 → 런타임 교체.
+var navGoBeforeV2 = (typeof navGo === 'function') ? navGo : null;
+if (navGoBeforeV2) {
+  window.navGo = function (key) {
+    const ov = document.getElementById('ai-chat-overlay');
+    const wasModal = ov && ov.classList.contains('open') && !ov.classList.contains('docked');
+    if (wasModal) ov.classList.add('v2-navout');   // 팝업을 먼저 살짝 접는다
+    navGoBeforeV2(key);
+    if (key === 'dashboard') {                     // 메인 복귀는 관찰자가 알아서 닫는다
+      if (ov) ov.classList.remove('v2-navout');
+      return;
+    }
+    setTimeout(function () {
+      if (ov) ov.classList.remove('v2-navout');
+      if (typeof dockAiChat === 'function') dockAiChat();   // 대화 내용 그대로 우측 레일로
+    }, 300);
+  };
+}
+
+// ── [1] 레일 펼침 — 항목이 순차로 떠오르게 ──
+function homeV2PjtRowHtml(p) {
+  const cfg = v2WorkCfg();
+  const todos = v2TodosOf(p.id);
+  const risks = v2RisksOf(p.id);
+  const openTodo = todos.filter(function (t) { return t.open; });
+  const openRisk = risks.filter(function (r) { return r.open; });
+  const n = openTodo.length + openRisk.length;
+  const b = leadCostBreak(p.id);
+  const open = homeV2Open === p.id;
+
+  let seq = 0;                                     // 등장 순서 (staggered reveal)
+  const item = function (it, risk) {
+    const d = (seq++ * 45) + 90;
+    return `<button class="v2-item${risk ? ' risk' : ''}${it.open ? '' : ' done'}"
+        style="animation-delay:${d}ms"
+        onclick="homePjtGo('${escAttr(p.id)}','${escAttr(it.acct)}')">
+        <span class="v2-item-a">${escHtml(it.acct)}</span>
+        <span class="v2-item-t">${it.label ? `<em>${escHtml(it.label)}</em>` : ''}${escHtml(it.title)}</span>
+      </button>`;
+  };
+  const head = function (label, cnt) {
+    const d = (seq++ * 45) + 90;
+    return `<div class="v2-exp-h" style="animation-delay:${d}ms">${escHtml(label)} <em>${cnt}</em></div>`;
+  };
+  const sortOpen = function (a, b2) { return (b2.open ? 1 : 0) - (a.open ? 1 : 0); };
+
+  const body = open ? `
+    <div class="v2-exp-w">
+      <div class="v2-exp">
+        <div class="v2-exp-m" style="animation-delay:40ms">${b.plan
+          ? '수행원가총액 ' + homeWon(b.plan) + ' · 소진율 ' + pct(b.burnRate)
+          : 'CP총액 ' + homeWon(b.cpTotal) + ' · 아직 편성 전'}</div>
+        ${todos.length ? head(cfg.todo, openTodo.length)
+          + todos.slice().sort(sortOpen).map(function (t) { return item(t, false); }).join('') : ''}
+        ${risks.length ? head(cfg.risk, openRisk.length)
+          + risks.slice().sort(sortOpen).map(function (r) { return item(r, true); }).join('') : ''}
+        ${(!todos.length && !risks.length) ? `<div class="v2-exp-e" style="animation-delay:90ms">${b.plan ? '처리할 항목이 없습니다.' : '편성 전이라 조정할 예산이 없습니다.'}</div>` : ''}
+      </div>
+    </div>` : '';
+
+  return `
+    <div class="v2-pjt${open ? ' open' : ''}">
+      <button class="v2-pjt-h" onclick="toggleHomeV2Pjt('${escAttr(p.id)}')" aria-expanded="${open}">
+        <span class="v2-pjt-ic">▸</span>
+        <span class="v2-row-t">${escHtml(p.name)}</span>
+        ${n ? `<em class="v2-row-n on">${n}</em>`
+            : `<em class="v2-row-tag${b.plan ? '' : ' pre'}">${b.plan ? '정상' : '편성 전'}</em>`}
+      </button>
+      ${body}
+    </div>`;
+}
+
+// 레일 유틸 — Agent 는 중앙 모달로
+function homeV2RailHtml() {
+  const u = homeUserNow();
+  const list = homeCardPjts();
+  const lead = homeUser === 'lead';
+  return `
+    <aside class="v2-rail">
+      <div class="v2-brand">
+        <button class="v2-lock" onclick="showMain()" aria-label="AiBudget 홈">
+          <span class="v2-wm">AXGENTIC<b>WIRE</b></span>
+          <span class="v2-sub">AiBudget</span>
+        </button>
+        <button class="v2-collapse" onclick="setHomeVer('v1')" title="버전1로 돌아가기" aria-label="버전1로 돌아가기">◧</button>
+      </div>
+
+      <div class="v2-sec"><i>▤</i>${lead ? '팀 프로젝트' : '담당 프로젝트'}<em>${list.length}</em></div>
+      <div class="v2-card" id="v2-rail-body">${homeV2PjtListHtml()}</div>
+
+      <div class="v2-util">
+        <button onclick="openSetupGuide()"><span>▤</span>그라운드 룰<i>›</i></button>
+        <button onclick="openAiChat('navi')"><span>◈</span>AI 네비게이터<i>›</i></button>
+        <button onclick="openAgentModal()"><span>◉</span>AI개발 Agent<i>›</i></button>
+      </div>
+
+      <button class="v2-me" onclick="homeV2SwitchUser()" title="사용자 전환">
+        <span class="v2-me-av">${escHtml(u.name.slice(0, 1))}</span>
+        <span class="v2-me-t"><b>${escHtml(u.name)}</b><em>${escHtml(u.role)} · NOVA PMO팀</em></span>
+        <i>›</i>
+      </button>
+    </aside>`;
+}
+
+// ============================================================
+//  35차 — 레일 접기/펴기 + 브랜드 락업을 AiPMO 와 동일하게
+//
+//  [1] 브랜드 오른쪽 ◧ 버튼이 접기가 아니라 setHomeVer('v1') 이었다.
+//      레퍼런스의 그 자리는 사이드바 접기이므로 진짜 접기로 바꾼다.
+//      버전1 복귀는 우측 상단 "버전1" 탭이 이미 담당한다.
+//      접힘은 .v2-wrap 의 클래스만 바꿔 CSS 로 전환한다(재렌더 없이 부드럽게).
+//
+//  [2] 브랜드 락업을 AiPMO·AiTeaming 과 같은 구성으로 맞춘다.
+//      마크(점 8개 별) + AXGENTIC(굵게) + WIRE(윗줄 + 회색) + 하위 명칭.
+//      하위 명칭만 AiBudget 으로 바꾼다.
+// ============================================================
+
+let homeV2Rail = (function () {
+  try { if (localStorage.getItem('newmis.v2Rail') === 'min') return 'min'; } catch (e) {}
+  return 'open';
+})();
+
+// 접힘 폭은 인라인 스타일로 준다.
+// 이유: (1) grid-template-columns 는 minmax() 트랙이 섞이면 transition 이 보간되지 않아
+//       값이 그대로 남는다. (2) home.css 는 index.html 의 ?v= 가 고정돼 있어 브라우저가
+//       구버전을 캐시하면 새로 추가한 규칙이 아예 적용되지 않는다(하드 리로드 전까지).
+//       인라인은 두 문제를 모두 비켜간다 — 트랙은 auto 로 두고 레일 width 만 전환한다.
+const V2_RAIL_W = { open: '268px', min: '60px' };
+function v2ApplyRail() {
+  const w = document.querySelector('.v2-wrap');
+  if (!w) return;
+  const min = homeV2Rail === 'min';
+  const narrow = window.matchMedia('(max-width: 1100px)').matches;
+  w.classList.toggle('rail-min', min);
+  const rail = w.querySelector('.v2-rail');
+  if (narrow) {                                   // 좁은 화면은 1열이라 접기가 의미 없다
+    w.style.gridTemplateColumns = '';
+    if (rail) { rail.style.width = ''; rail.style.maxWidth = ''; rail.style.overflow = ''; }
+    return;
+  }
+  // 트랙을 auto 로 두면 레일 내용의 기여분(268px)이 그대로 잡혀 width 가 먹지 않는다.
+  // → 트랙 폭을 직접 지정한다. 그리드 트랙은 transition 이 보간되지 않으므로
+  //   폭은 즉시 바뀌고, 내용은 아래 CSS 의 페이드로 부드럽게 넘긴다.
+  const wpx = min ? V2_RAIL_W.min : V2_RAIL_W.open;
+  w.style.gridTemplateColumns = wpx + ' minmax(0, 1fr)';
+  if (rail) {
+    rail.style.width = wpx;
+    rail.style.maxWidth = wpx;                    // width 만으로는 268px 로 남는 경우가 있어 함께 고정
+    // 그리드 아이템의 min-width:auto 는 min-content 로 풀려 폭을 눌러버린다 → 0 으로 풀고 자른다.
+    rail.style.minWidth = '0';
+    rail.style.overflow = min ? 'hidden' : 'visible';
+  }
+}
+window.addEventListener('resize', function () { if (homeVer === 'v2') v2ApplyRail(); });
+
+function toggleV2Rail() {                         // crud N — 좌측 레일 접기/펴기
+  homeV2Rail = (homeV2Rail === 'min') ? 'open' : 'min';
+  try { localStorage.setItem('newmis.v2Rail', homeV2Rail); } catch (e) {}
+  v2ApplyRail();
+  const b = document.querySelector('.v2-collapse');
+  if (b) {
+    const min = homeV2Rail === 'min';
+    b.setAttribute('aria-expanded', String(!min));
+    b.setAttribute('aria-label', min ? '메뉴 펴기' : '메뉴 접기');
+    b.title = min ? '메뉴 펴기' : '메뉴 접기';
+  }
+}
+
+// AiPMO·AiTeaming 과 같은 마크 — 점 8개로 만든 별
+function v2BrandMarkSvg() {
+  return `<svg class="v2-mk" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <circle cx="12" cy="4.1"  r="2.05" fill="#2f6bed"/>
+      <circle cx="12" cy="19.9" r="2.05" fill="#5b8cf5"/>
+      <circle cx="4.1"  cy="12" r="2.05" fill="#7b61ff"/>
+      <circle cx="19.9" cy="12" r="2.05" fill="#4a7bf0"/>
+      <circle cx="6.4"  cy="6.4"  r="1.75" fill="#9a86ff"/>
+      <circle cx="17.6" cy="17.6" r="1.75" fill="#6fa0f7"/>
+      <circle cx="17.6" cy="6.4"  r="1.75" fill="#3f74ee"/>
+      <circle cx="6.4"  cy="17.6" r="1.75" fill="#8a72ff"/>
+    </svg>`;
+}
+
+function v2BrandHtml() {
+  const min = homeV2Rail === 'min';
+  return `
+    <div class="v2-brand">
+      <button class="v2-lock" onclick="showMain()" aria-label="AiBudget 홈">
+        ${v2BrandMarkSvg()}
+        <span class="v2-lock-t">
+          <span class="v2-wm"><b>AXGENTIC</b><i>WIRE</i></span>
+          <span class="v2-sub">AiBudget</span>
+        </span>
+      </button>
+      <button class="v2-collapse" onclick="toggleV2Rail()"
+        aria-expanded="${!min}" aria-label="${min ? '메뉴 펴기' : '메뉴 접기'}"
+        title="${min ? '메뉴 펴기' : '메뉴 접기'}">
+        <span class="v2-collapse-ic" aria-hidden="true"></span>
+      </button>
+    </div>`;
+}
+
+function homeV2RailHtml() {
+  const u = homeUserNow();
+  const list = homeCardPjts();
+  const lead = homeUser === 'lead';
+  return `
+    <aside class="v2-rail">
+      ${v2BrandHtml()}
+
+      <div class="v2-sec"><i>▤</i>${lead ? '팀 프로젝트' : '담당 프로젝트'}<em>${list.length}</em></div>
+      <div class="v2-card" id="v2-rail-body">${homeV2PjtListHtml()}</div>
+
+      <div class="v2-util">
+        <button onclick="openSetupGuide()" title="그라운드 룰"><span>▤</span>그라운드 룰<i>›</i></button>
+        <button onclick="openAiChat('navi')" title="AI 네비게이터"><span>◈</span>AI 네비게이터<i>›</i></button>
+        <button onclick="openAgentModal()" title="AI개발 Agent"><span>◉</span>AI개발 Agent<i>›</i></button>
+      </div>
+
+      <button class="v2-me" onclick="homeV2SwitchUser()" title="사용자 전환 (${escAttr(u.name)} ${escAttr(u.role)})">
+        <span class="v2-me-av">${escHtml(u.name.slice(0, 1))}</span>
+        <span class="v2-me-t"><b>${escHtml(u.name)}</b><em>${escHtml(u.role)} · NOVA PMO팀</em></span>
+        <i>›</i>
+      </button>
+    </aside>`;
+}
+
+// 접힘 상태를 렌더 결과에 반영한다
+function renderHomeV2() {
+  const h = homeV2Hero();
+  return `
+    <div class="v2-wrap${homeV2Rail === 'min' ? ' rail-min' : ''}">
+      ${homeVerTabsHtml()}
+      ${homeV2RailHtml()}
+      <main class="v2-main">
+        <section class="v2-hero">
+          <span class="v2-mark" aria-hidden="true">✦</span>
+          <p class="v2-greet">${escHtml(h.greet)}</p>
+          <h1 class="v2-head">${h.head}</h1>
+          <button class="v2-notice" onclick="homeV2GoBoard()">
+            <span class="v2-notice-ic">◔</span>${escHtml(h.note)}<i>›</i>
+          </button>
+          <div class="v2-ask">
+            <span class="v2-ask-ic" aria-hidden="true">✦</span>
+            <input id="ai-main-query" type="text" placeholder="원가 관련 궁금한 점을 자연어로 질문해 주세요."
+              onkeydown="if(event.key==='Enter') askFromHome()">
+            <button class="v2-ask-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+          </div>
+          <p class="v2-foot">원하는 화면 이동·원가 분석·이상징후 확인을 자연어로 요청하면 AI가 처리합니다.</p>
+        </section>
+      </main>
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
+    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}
+
+// 접힌 상태에서 프로젝트를 누르면 자동으로 펴서 보여준다
+function toggleHomeV2Pjt(id) {                    // crud N — 프로젝트 업무 펼치기/접기
+  if (homeV2Rail === 'min') toggleV2Rail();
+  homeV2Open = (homeV2Open === id) ? '' : id;
+  const el = document.getElementById('v2-rail-body');
+  if (el) el.innerHTML = homeV2PjtListHtml();
+}
+function homeV2GoBoard() {                        // crud N — 첫 프로젝트 업무 펼치기
+  if (homeV2Rail === 'min') toggleV2Rail();
+  const first = homeCardPjts()[0];
+  if (first) toggleHomeV2Pjt(homeV2Open ? homeV2Open : first.id);
+}
+
+// ============================================================
+//  36차 — 로고 가이드 반영 + 사용자 영역을 AiPMO 와 동일하게
+//
+//  받은 로고 양식에서 고칠 점
+//    · 마크: 대칭 별 8개 → 실제는 노드가 이어진 분자형 점 묶음(시안→블루 그라데이션)
+//    · WIRE: 회색이 아니라 AXGENTIC 과 같은 검정, 두께만 얇고 위에 가로줄
+//    · 하위 브랜드: 회색 파랑이 아니라 진한 검정 볼드, AXGENTIC 좌측에 맞춰 정렬
+//      ("하위 브랜드 그래픽 배치는 알파벳 'A'의 높이를 사용" → A 높이 기준 비율로 배치)
+//
+//  사용자 영역(AiPMO)
+//    · 테두리 있는 흰 카드가 아니라, 위쪽 구분선만 있는 평평한 행
+//    · 아바타는 중성 회색 원 + 이름 첫 글자
+// ============================================================
+
+// A 높이 기준 비율 — 가이드의 2.5A / 2.75A / 0.4A 를 CSS 변수로 옮긴다
+const V2_LOGO = { a: 13, subRatio: 0.62, gapRatio: 0.4 };
+
+function v2BrandMarkSvg() {
+  // 실제 마크에 가깝게: 가운데 큰 노드 + 크기가 다른 위성 점들, 시안→블루
+  return `<svg class="v2-mk" viewBox="0 0 32 32" width="24" height="24" aria-hidden="true">
+      <defs>
+        <linearGradient id="v2mkG" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#22c1f0"/>
+          <stop offset=".55" stop-color="#1f7ae0"/>
+          <stop offset="1" stop-color="#1b2fc8"/>
+        </linearGradient>
+      </defs>
+      <g fill="url(#v2mkG)">
+        <circle cx="16.6" cy="16.2" r="4.5"/>
+        <circle cx="7.4"  cy="9.6"  r="3.0"/>
+        <circle cx="25.2" cy="8.2"  r="2.5"/>
+        <circle cx="6.2"  cy="21.4" r="2.4"/>
+        <circle cx="24.4" cy="24.6" r="3.3"/>
+        <circle cx="14.8" cy="5.4"  r="1.9"/>
+        <circle cx="13.6" cy="27.0" r="1.7"/>
+      </g>
+    </svg>`;
+}
+
+function v2BrandHtml() {
+  const min = homeV2Rail === 'min';
+  return `
+    <div class="v2-brand">
+      <button class="v2-lock" onclick="showMain()" aria-label="AXGENTIC WIRE AiBudget 홈">
+        ${v2BrandMarkSvg()}
+        <span class="v2-lock-t">
+          <span class="v2-wm"><b>AXGENTIC</b><i>WIRE</i></span>
+          <span class="v2-sub">AiBudget</span>
+        </span>
+      </button>
+      <button class="v2-collapse" onclick="toggleV2Rail()"
+        aria-expanded="${!min}" aria-label="${min ? '메뉴 펴기' : '메뉴 접기'}"
+        title="${min ? '메뉴 펴기' : '메뉴 접기'}">
+        <span class="v2-collapse-ic" aria-hidden="true"></span>
+      </button>
+    </div>`;
+}
+
+// 사용자 영역 — AiPMO 와 같은 평평한 행 (테두리 카드 아님)
+function v2MeHtml() {
+  const u = homeUserNow();
+  return `
+    <button class="v2-me" onclick="homeV2SwitchUser()"
+      title="사용자 전환 · 현재 ${escAttr(u.name)} ${escAttr(u.role)}"
+      aria-label="사용자 전환">
+      <span class="v2-me-av">${escHtml(u.name.slice(0, 1))}</span>
+      <span class="v2-me-t">
+        <b>${escHtml(u.name)}</b>
+        <em>${escHtml(u.role)} · NOVA PMO팀</em>
+      </span>
+      <span class="v2-me-go" aria-hidden="true">›</span>
+    </button>`;
+}
+
+function homeV2RailHtml() {
+  const list = homeCardPjts();
+  const lead = homeUser === 'lead';
+  return `
+    <aside class="v2-rail">
+      ${v2BrandHtml()}
+
+      <div class="v2-sec"><i>▤</i>${lead ? '팀 프로젝트' : '담당 프로젝트'}<em>${list.length}</em></div>
+      <div class="v2-card" id="v2-rail-body">${homeV2PjtListHtml()}</div>
+
+      <div class="v2-util">
+        <button onclick="openSetupGuide()" title="그라운드 룰"><span>▤</span>그라운드 룰<i>›</i></button>
+        <button onclick="openAiChat('navi')" title="AI 네비게이터"><span>◈</span>AI 네비게이터<i>›</i></button>
+        <button onclick="openAgentModal()" title="AI개발 Agent"><span>◉</span>AI개발 Agent<i>›</i></button>
+      </div>
+
+      ${v2MeHtml()}
+    </aside>`;
+}
+
+// ============================================================
+//  37차 — 로고 규격 재작업
+//
+//  36차 마크가 틀렸다. 지적받은 4가지를 반영한다.
+//    (1) 점 7개가 아니라 일부는 연결선으로 이어져 있다 (노드 그래프)
+//    (2) 메인 브랜드와 하위 브랜드 사이 간격이 더 넓다
+//    (3) WIRE 위 가로줄은 없다 → 제거
+//    (4) 마크 높이가 메인+하위 브랜드를 통째로 포괄한다
+//        Construction 시트: 마크 높이 = 2.5A, 전체 = 2.75A (A = 대문자 A 높이)
+//
+//  마크는 두 줄 전체 높이에 맞춰 세로로 서고, 텍스트 블록과 세로 중앙을 맞춘다.
+// ============================================================
+
+// A = 대문자 A 높이. 워드마크 font-size ≒ A / 0.72
+const V2_A = 11;                                  // px
+const V2_MARK_H = Math.round(V2_A * 2.5);         // 마크 높이 = 2.5A
+
+function v2BrandMarkSvg() {
+  // 이어진 노드 그래프 — 중심 노드에서 뻗은 연결선 + 끝점 노드.
+  // 시안 → 딥블루 대각 그라데이션.
+  // width/height 속성을 두면 그 값이 flex 아이템의 내재 크기가 되어 CSS 의 stretch 를 막는다.
+  // 크기는 CSS(.v2-mk)가 텍스트 블록 높이에 맞춰 잡는다.
+  return `<svg class="v2-mk" viewBox="0 0 40 40" preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="v2mkG2" x1="3" y1="2" x2="37" y2="38" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#2ec8f5"/>
+          <stop offset=".45" stop-color="#1f86e6"/>
+          <stop offset="1" stop-color="#141fb4"/>
+        </linearGradient>
+      </defs>
+      <g stroke="url(#v2mkG2)" stroke-width="4.6" stroke-linecap="round" fill="none">
+        <path d="M19.8 20.2 L8.6 10.4"/>
+        <path d="M19.8 20.2 L31.6 30.6"/>
+        <path d="M19.8 20.2 L9.4 30.2"/>
+      </g>
+      <g fill="url(#v2mkG2)">
+        <circle cx="19.8" cy="20.2" r="6.4"/>
+        <circle cx="8.6"  cy="10.4" r="4.4"/>
+        <circle cx="31.6" cy="30.6" r="4.9"/>
+        <circle cx="9.4"  cy="30.2" r="4.1"/>
+        <circle cx="31.4" cy="9.2"  r="3.4"/>
+        <circle cx="21.2" cy="4.6"  r="2.6"/>
+      </g>
+    </svg>`;
+}
+
+function v2BrandHtml() {
+  const min = homeV2Rail === 'min';
+  return `
+    <div class="v2-brand">
+      <button class="v2-lock" onclick="showMain()" aria-label="AXGENTIC WIRE AiBudget 홈">
+        ${v2BrandMarkSvg()}
+        <span class="v2-lock-t">
+          <span class="v2-wm"><b>AXGENTIC</b><i>WIRE</i></span>
+          <span class="v2-sub">AiBudget</span>
+        </span>
+      </button>
+      <button class="v2-collapse" onclick="toggleV2Rail()"
+        aria-expanded="${!min}" aria-label="${min ? '메뉴 펴기' : '메뉴 접기'}"
+        title="${min ? '메뉴 펴기' : '메뉴 접기'}">
+        <span class="v2-collapse-ic" aria-hidden="true"></span>
+      </button>
+    </div>`;
+}
+
+// ============================================================
+//  38차 — 히어로 안내 필 제거
+//  "담당 4건 · 왼쪽에서 프로젝트를 누르면 업무가 펼쳐집니다" 안내를 없앤다.
+//  PM·팀장 공통 요소라 팀장의 CP총액·수행원가총액 요약도 함께 빠진다.
+//  homeV2Hero() 는 note 를 계속 계산하지만 화면에는 쓰지 않는다(다른 곳에서 참조 가능).
+// ============================================================
+
+function renderHomeV2() {
+  const h = homeV2Hero();
+  return `
+    <div class="v2-wrap${homeV2Rail === 'min' ? ' rail-min' : ''}">
+      ${homeVerTabsHtml()}
+      ${homeV2RailHtml()}
+      <main class="v2-main">
+        <section class="v2-hero">
+          <span class="v2-mark" aria-hidden="true">✦</span>
+          <p class="v2-greet">${escHtml(h.greet)}</p>
+          <h1 class="v2-head">${h.head}</h1>
+          <div class="v2-ask">
+            <span class="v2-ask-ic" aria-hidden="true">✦</span>
+            <input id="ai-main-query" type="text" placeholder="원가 관련 궁금한 점을 자연어로 질문해 주세요."
+              onkeydown="if(event.key==='Enter') askFromHome()">
+            <button class="v2-ask-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
+          </div>
+          <p class="v2-foot">원하는 화면 이동·원가 분석·이상징후 확인을 자연어로 요청하면 AI가 처리합니다.</p>
+        </section>
+      </main>
+    </div>
+    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
+    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
+}
+
+// ============================================================
+//  39차 — "AI 어시스턴트" → "AI 에이전트" 용어 통일
+//
+//  화면에 보이는 문구는 전부 app.js(공유 파일) 안에 있다.
+//    ai-chat-title textContent  (475 · 725 · 847 · 2003 · 2197)
+//    const ORCH = { name: 'AI 어시스턴트' }  (1860 → 칩 라벨)
+//    답변 본문 "AI 어시스턴트가 유형을 판단해…"  (2021 · 2215)
+//    FAB 라벨 'AI 어시스턴트 열기'  (1611)
+//
+//  팀 룰: 공유 파일의 기존 줄은 고치지 않고 전용 파일로 우회한다.
+//    · ORCH 는 const 객체라 속성만 바꿔 끼운다.
+//    · 나머지는 대화창·FAB 를 관찰해 문구가 들어오는 순간 바꾼다.
+//      바꾼 뒤에는 옛 문구가 없으니 관찰이 다시 돌아도 무한 루프가 되지 않는다.
+// ============================================================
+
+const V2_TERM_OLD = 'AI 어시스턴트';
+const V2_TERM_NEW = 'AI 에이전트';
+
+// ORCH 는 const 객체 — 속성 대입은 된다
+(function () {
+  try { if (typeof ORCH !== 'undefined' && ORCH && ORCH.name === V2_TERM_OLD) ORCH.name = V2_TERM_NEW; } catch (e) {}
+})();
+
+// 텍스트 노드와 title·aria-label 만 바꾼다 (구조·핸들러는 손대지 않는다)
+function v2FixTerm(root) {
+  if (!root) return;
+  if (root.nodeType === 3) {
+    if (root.nodeValue && root.nodeValue.indexOf(V2_TERM_OLD) >= 0) {
+      root.nodeValue = root.nodeValue.split(V2_TERM_OLD).join(V2_TERM_NEW);
+    }
+    return;
+  }
+  if (root.nodeType !== 1) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  const hits = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (n.nodeValue && n.nodeValue.indexOf(V2_TERM_OLD) >= 0) hits.push(n);
+  }
+  hits.forEach(function (n) { n.nodeValue = n.nodeValue.split(V2_TERM_OLD).join(V2_TERM_NEW); });
+
+  const els = [root].concat(Array.prototype.slice.call(root.querySelectorAll('[title],[aria-label],[placeholder]')));
+  els.forEach(function (el) {
+    if (!el.getAttribute) return;
+    ['title', 'aria-label', 'placeholder'].forEach(function (a) {
+      const v = el.getAttribute(a);
+      if (v && v.indexOf(V2_TERM_OLD) >= 0) el.setAttribute(a, v.split(V2_TERM_OLD).join(V2_TERM_NEW));
+    });
+  });
+}
+
+(function watchTerm() {
+  const obs = new MutationObserver(function (recs) {
+    recs.forEach(function (r) {
+      if (r.type === 'characterData') v2FixTerm(r.target);
+      else if (r.type === 'attributes') v2FixTerm(r.target);
+      else Array.prototype.forEach.call(r.addedNodes, v2FixTerm);
+    });
+  });
+  const opts = { childList: true, subtree: true, characterData: true,
+                 attributes: true, attributeFilter: ['title', 'aria-label'] };
+
+  function bind() {
+    const ov = document.getElementById('ai-chat-overlay');
+    if (!ov) { setTimeout(bind, 300); return; }
+    v2FixTerm(ov);
+    obs.observe(ov, opts);
+    // FAB 은 나중에 생성되므로 body 에서 그 노드만 걸러 관찰한다
+    const fabObs = new MutationObserver(function () {
+      const f = document.getElementById('ai-chat-fab');
+      if (f && !f.dataset.termWatched) {
+        f.dataset.termWatched = '1';
+        v2FixTerm(f);
+        obs.observe(f, opts);
+      }
+    });
+    fabObs.observe(document.body, { childList: true });
+    const f0 = document.getElementById('ai-chat-fab');
+    if (f0) { f0.dataset.termWatched = '1'; v2FixTerm(f0); obs.observe(f0, opts); }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
