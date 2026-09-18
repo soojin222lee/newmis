@@ -796,14 +796,34 @@ BUDGET_SOURCE.budgetMock = {
   ],
 };
 
-function catVal(mo, cat) {
-  const c = mo[cat]; if (!c) return { a:0, q:0, p:0 };
-  return mo.type === 'actual' ? { a: c.a||0, q: c.q||0, p:0 } : { a:0, q: c.q||0, p: c.p||0 };
+// ── STAC(기준월) 집계 규칙 ──────────────────────────────────────────
+// 레거시 이식: its-biz-project TotalExecutionBudgetCalcLogic / StacLogic
+// [STAC-01/02] 기준월(data.current = lastStacYm/planDcidDt 대응) 이하 월 = ERP 실적(actual),
+//   기준월 초과 월 = 실행예산 계획(plan)으로 수행비용을 구성한다.
+//   → 실적/계획 경계를 데이터의 하드코딩 type이 아니라 '기준월'에서 도출(단일 기준).
+function getBudgetStacYm(data) { return data && data.current ? String(data.current) : ''; }
+// [STAC-01] 기준월(current) 이하 월 = 실적, 초과 = 계획.
+//   원칙은 기준월에서 도출하는 것이나, 목업 데이터가 월별 type을 명시하면 그 값을 권위로 둔다
+//   (일부 프로젝트는 기준월 자체를 계획으로 태깅해 두었으므로 데이터 태그를 존중해 회귀를 막는다).
+function stacDerivedActual(data, mo) {
+  const stac = getBudgetStacYm(data);
+  return stac ? (String(mo.m).replace(/-/g, '') <= stac.replace(/-/g, '')) : false;
 }
-function calcActual(data, cat)    { return data.months.reduce((s,m)=>s+catVal(m,cat).a, 0); }
-function calcQuasi(data, cat)     { return data.months.reduce((s,m)=>s+catVal(m,cat).q, 0); }
-function calcPlanTotal(data, cat) { return data.months.filter(m=>m.type==='plan').reduce((s,m)=>s+(m[cat]?m[cat].p||0:0), 0); }
-function calcPlanQuasi(data, cat) { return data.months.filter(m=>m.type==='plan').reduce((s,m)=>s+(m[cat]?m[cat].q||0:0), 0); }
+function isBudgetActualMonth(data, mo) {
+  if (mo.type) return mo.type === 'actual';     // 데이터 명시 우선(권위)
+  return stacDerivedActual(data, mo);           // 미명시 시 기준월에서 도출
+}
+
+function catVal(mo, cat, data) {
+  const c = mo[cat]; if (!c) return { a:0, q:0, p:0 };
+  // [STAC-01] 실적/계획 구분은 기준월에서 도출. data 미전달 시 mo.type 폴백(하위호환).
+  const isActual = data ? isBudgetActualMonth(data, mo) : (mo.type === 'actual');
+  return isActual ? { a: c.a||0, q: c.q||0, p:0 } : { a:0, q: c.q||0, p: c.p||0 };
+}
+function calcActual(data, cat)    { return data.months.reduce((s,m)=>s+catVal(m,cat,data).a, 0); }
+function calcQuasi(data, cat)     { return data.months.reduce((s,m)=>s+catVal(m,cat,data).q, 0); }
+function calcPlanTotal(data, cat) { return data.months.filter(m=>!isBudgetActualMonth(data,m)).reduce((s,m)=>s+(m[cat]?m[cat].p||0:0), 0); }
+function calcPlanQuasi(data, cat) { return data.months.filter(m=>!isBudgetActualMonth(data,m)).reduce((s,m)=>s+(m[cat]?m[cat].q||0:0), 0); }
 function calcRemain(data, cat)    { return (data.plan[cat]||0) - calcActual(data,cat) - calcQuasi(data,cat); }
 
 // ════════════════════════════════════════
