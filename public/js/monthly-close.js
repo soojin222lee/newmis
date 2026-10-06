@@ -326,8 +326,12 @@ function renderMcListView() {
     </div>`;
 
   document.getElementById('mc-list-view').innerHTML = `
-    <div class="page-header-row" style="margin-bottom:16px;align-items:center">
+    <div class="page-header-row" style="margin-bottom:16px;align-items:center;display:flex;justify-content:space-between">
       <button class="back-btn" onclick="closeMcMonths()">← 목록으로</button>
+      <div style="display:flex;gap:8px">
+        <button class="mc-run-btn" onclick="mcRunClose('${mcProj}')">📅 당월 마감 실행</button>
+        <button class="mc-run-btn ghost" onclick="mcCancelClose('${mcProj}')">마감 취소</button>
+      </div>
     </div>
     <div class="page-header" style="margin-bottom:20px">
       <div class="page-title">${PROJ_NAMES[mcProj]}</div>
@@ -590,4 +594,20 @@ function toggleMcGungbi() {
   document.querySelectorAll('.mc-sub-row').forEach(r => r.classList.toggle('mc-sub-hidden'));
   const btn = document.querySelector('.mc-toggle-btn');
   if (btn) btn.textContent = mcGungbiOpen ? '−' : '＋';
+}
+
+// ── 월마감 실행/취소 핸들러 (목업 스텁) ──
+(function mcRunInjectStyle() {
+  if (typeof document === 'undefined' || document.getElementById('mc-run-style')) return;
+  var st = document.createElement('style'); st.id = 'mc-run-style';
+  st.textContent = '.mc-run-btn{font-size:13px;font-weight:700;border-radius:8px;padding:7px 14px;cursor:pointer;border:1px solid #0B6E55;background:#0B6E55;color:#fff}.mc-run-btn.ghost{background:#fff;color:#6b7280;border-color:#d1d5db}.mc-run-btn:hover{filter:brightness(0.97)}';
+  document.head.appendChild(st);
+})();
+function mcRunClose(proj) {
+  if (!confirm('당월 마감을 실행하시겠습니까? 실행 시 ERP로 실적이 전송됩니다.')) return;
+  if (typeof showToast === 'function') showToast('당월 마감을 실행했습니다. ERP 전송이 요청되었습니다. (목업)');
+}
+function mcCancelClose(proj) {
+  if (!confirm('당월 마감을 취소하시겠습니까?')) return;
+  if (typeof showToast === 'function') showToast('당월 마감을 취소했습니다. (목업)');
 }

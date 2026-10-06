@@ -104,8 +104,27 @@ function renderWGProject() {
   else renderWGDetail();
 }
 
+// ── C/U/D 액션 (일반 SI 방식) ──
+let wgEditId = null;
+function wgEditRow(id, ev) { if (ev) ev.stopPropagation(); wgEditId = id; wgView = 'register'; renderWGRegister(); }
+function wgDeleteRow(id, ev) {
+  if (ev) ev.stopPropagation();
+  const p = WG_PROJECTS[id]; if (!p) return;
+  if (!confirm(`W/G 프로젝트 "${p.name}"을(를) 삭제하시겠습니까?`)) return;
+  delete WG_PROJECTS[id];
+  if (typeof showToast === 'function') showToast('W/G 프로젝트를 삭제했습니다.');
+  renderWGList();
+}
+function projCrudStyleInject() {
+  if (document.getElementById('proj-crud-style')) return;
+  const st = document.createElement('style'); st.id = 'proj-crud-style';
+  st.textContent = '.row-act-btn{font-size:12px;font-weight:700;border:1px solid #d1d5db;background:#fff;color:#374151;border-radius:7px;padding:3px 8px;margin:0 2px;cursor:pointer}.row-act-btn:hover{border-color:#0B6E55;color:#0B6E55}.row-act-btn.del:hover{border-color:#d92d20;color:#d92d20}';
+  document.head.appendChild(st);
+}
+
 // ── 목록 뷰 ──
 function renderWGList() {
+  projCrudStyleInject();
   const el = document.getElementById('s-wg-project');
   const q  = wgSearchQuery.toLowerCase();
 
@@ -149,8 +168,12 @@ function renderWGList() {
             <span style="font-size:13px;color:#64748b;white-space:nowrap">${done}/${total}</span>
           </div>
         </td>
+        <td class="pt-center" style="white-space:nowrap">
+          <button class="row-act-btn" onclick="wgEditRow('${id}', event)" title="수정">✏️ 수정</button>
+          <button class="row-act-btn del" onclick="wgDeleteRow('${id}', event)" title="삭제">🗑 삭제</button>
+        </td>
       </tr>`;
-  }).join('') : `<tr><td colspan="8" class="proj-no-result">🔍 검색 결과가 없습니다.</td></tr>`;
+  }).join('') : `<tr><td colspan="9" class="proj-no-result">🔍 검색 결과가 없습니다.</td></tr>`;
 
   el.innerHTML = `
     <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
@@ -184,6 +207,7 @@ function renderWGList() {
             <th>기간</th>
             <th class="pt-center">상태</th>
             <th>결재 진행</th>
+            <th class="pt-center">관리</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>

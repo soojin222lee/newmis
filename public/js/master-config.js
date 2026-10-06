@@ -77,7 +77,7 @@ function buildBudgetRateSection() {
         </div>
       </td>
       <td class="mc-note">${r.note}</td>
-      <td><button class="mc-edit-btn" disabled>수정</button></td>
+      <td><button class="mc-edit-btn" onclick="mcEditItem(this)">수정</button> <button class="mc-del-btn" onclick="mcDeleteItem(this)">삭제</button></td>
     </tr>`).join('');
 
   return `
@@ -99,7 +99,7 @@ function buildBudgetRateSection() {
       <tbody>${trs}</tbody>
     </table>
     <div class="mc-table-foot">
-      <button class="mc-add-btn" disabled>+ 유형 추가</button>
+      <button class="mc-add-btn" onclick="mcAddItem(this)">+ 유형 추가</button>
       <span class="mc-readonly-note">※ 수정은 시스템 관리자 계정으로 로그인 후 가능합니다.</span>
     </div>
   </div>
@@ -186,7 +186,7 @@ function buildReportLayoutSection() {
         </tbody>
       </table>
       <div class="mc-layout-foot">
-        <button class="mc-edit-btn" disabled>항목 편집</button>
+        <button class="mc-edit-btn" onclick="mcEditItem(this)">항목 편집</button>
       </div>
     </div>`).join('');
 
@@ -227,7 +227,7 @@ function buildMethodologySection() {
         </div>
       </td>
       <td><span class="mc-status-dot ${m.active ? 'active' : 'inactive'}">${m.active ? '사용' : '미사용'}</span></td>
-      <td><button class="mc-edit-btn" disabled>수정</button></td>
+      <td><button class="mc-edit-btn" onclick="mcEditItem(this)">수정</button> <button class="mc-del-btn" onclick="mcDeleteItem(this)">삭제</button></td>
     </tr>`).join('');
 
   return `
@@ -250,7 +250,7 @@ function buildMethodologySection() {
       <tbody>${rows}</tbody>
     </table>
     <div class="mc-table-foot">
-      <button class="mc-add-btn" disabled>+ 방법론 추가</button>
+      <button class="mc-add-btn" onclick="mcAddItem(this)">+ 방법론 추가</button>
       <span class="mc-readonly-note">※ 수정은 시스템 관리자 계정으로 로그인 후 가능합니다.</span>
     </div>
   </div>`;
@@ -306,7 +306,7 @@ function buildDevEnvSection() {
               <td><span class="mc-env-name">${e.name}</span></td>
               <td class="mc-method-desc">${e.desc}</td>
               <td class="mc-note">${e.useCase}</td>
-              <td><button class="mc-edit-btn" disabled>수정</button></td>
+              <td><button class="mc-edit-btn" onclick="mcEditItem(this)">수정</button> <button class="mc-del-btn" onclick="mcDeleteItem(this)">삭제</button></td>
             </tr>`).join('')}
         </tbody>
       </table>
@@ -320,7 +320,7 @@ function buildDevEnvSection() {
     </div>
     ${sections}
     <div class="mc-table-foot">
-      <button class="mc-add-btn" disabled>+ 환경 추가</button>
+      <button class="mc-add-btn" onclick="mcAddItem(this)">+ 환경 추가</button>
       <span class="mc-readonly-note">※ 수정은 시스템 관리자 계정으로 로그인 후 가능합니다.</span>
     </div>
   </div>`;
@@ -365,7 +365,7 @@ function buildMMRateSection() {
         <td class="mc-rate-num">${fmt(r.monthly)}</td>
         <td class="mc-rate-num">${fmt(r.direct)}</td>
         <td class="mc-rate-num mc-rate-indirect">${fmt(r.indirect)}</td>
-        <td><button class="mc-edit-btn" disabled>수정</button></td>
+        <td><button class="mc-edit-btn" onclick="mcEditItem(this)">수정</button> <button class="mc-del-btn" onclick="mcDeleteItem(this)">삭제</button></td>
       </tr>`).join('');
   }
 
@@ -408,7 +408,7 @@ function buildMMRateSection() {
       </div>
     </div>
     <div class="mc-table-foot">
-      <button class="mc-add-btn" disabled>+ 레벨 추가</button>
+      <button class="mc-add-btn" onclick="mcAddItem(this)">+ 레벨 추가</button>
       <span class="mc-readonly-note">※ 단가 변경은 회계연도 기준으로 경영관리AX 승인 후 적용됩니다.</span>
     </div>
   </div>
@@ -533,7 +533,7 @@ function buildPhaseDefSection() {
         </td>
         <td style="text-align:center;font-size:13px;font-weight:700;color:${t.color};white-space:nowrap;width:100px">${p.cumMin}% ~ ${p.cumMax}%</td>
         <td class="mc-note">${p.note}</td>
-        <td><button class="mc-edit-btn" disabled>수정</button></td>
+        <td><button class="mc-edit-btn" onclick="mcEditItem(this)">수정</button> <button class="mc-del-btn" onclick="mcDeleteItem(this)">삭제</button></td>
       </tr>`).join('');
 
     return `
@@ -571,7 +571,7 @@ function buildPhaseDefSection() {
       ${subtypes.map(buildCard).join('')}
     </div>
     <div class="mc-table-foot">
-      <button class="mc-add-btn" disabled>+ 유형 추가</button>
+      <button class="mc-add-btn" onclick="mcAddItem(this)">+ 유형 추가</button>
       <span class="mc-readonly-note">※ 기준값은 스텝 부서 협의 후 경영관리AX 승인을 거쳐 확정됩니다.</span>
     </div>
   </div>`;
@@ -614,7 +614,7 @@ function buildRiskCriteriaSection() {
       <td>
         ${c.rules.map(r=>`<div class="mc-risk-cond">· ${r}</div>`).join('')}
       </td>
-      <td><button class="mc-edit-btn" disabled>수정</button></td>
+      <td><button class="mc-edit-btn" onclick="mcEditItem(this)">수정</button> <button class="mc-del-btn" onclick="mcDeleteItem(this)">삭제</button></td>
     </tr>`).join('');
 
   return `
@@ -637,8 +637,34 @@ function buildRiskCriteriaSection() {
       <tbody>${catRows}</tbody>
     </table>
     <div class="mc-table-foot">
-      <button class="mc-add-btn" disabled>+ 규칙 추가</button>
+      <button class="mc-add-btn" onclick="mcAddItem(this)">+ 규칙 추가</button>
       <span class="mc-readonly-note">※ 감지 규칙 변경은 AI 모델 재학습이 필요할 수 있습니다.</span>
     </div>
   </div>`;
+}
+
+// ── 기준정보 C/U/D 핸들러 (일반 SI 방식 — 목업 스텁) ──
+(function mcInjectCrudStyle() {
+  if (document.getElementById('mc-crud-style')) return;
+  var st = document.createElement('style'); st.id = 'mc-crud-style';
+  st.textContent = '.mc-edit-btn,.mc-add-btn,.mc-del-btn{cursor:pointer}.mc-del-btn{font-size:12px;font-weight:700;border:1px solid #f6c9c6;background:#fff;color:#d92d20;border-radius:7px;padding:3px 10px;margin-left:4px}.mc-del-btn:hover{background:#fdeceb}.mc-edit-btn:not([disabled]):hover{border-color:#0B6E55;color:#0B6E55}';
+  document.head.appendChild(st);
+})();
+function mcRowLabel(btn) {
+  var tr = btn.closest('tr');
+  var cell = tr && tr.querySelector('td');
+  return (cell ? cell.textContent.trim().slice(0, 30) : '항목');
+}
+function mcEditItem(btn) {
+  if (typeof showToast === 'function') showToast('[' + mcRowLabel(btn) + '] 수정 화면을 엽니다. (목업)');
+}
+function mcDeleteItem(btn) {
+  var label = mcRowLabel(btn);
+  if (!confirm('"' + label + '" 항목을 삭제하시겠습니까?')) return;
+  var tr = btn.closest('tr'); if (tr) tr.remove();
+  if (typeof showToast === 'function') showToast('[' + label + '] 항목을 삭제했습니다.');
+}
+function mcAddItem(btn) {
+  var label = (btn.textContent || '').replace(/[+＋]/g, '').trim();
+  if (typeof showToast === 'function') showToast(label + ' 입력 폼을 엽니다. (목업)');
 }
