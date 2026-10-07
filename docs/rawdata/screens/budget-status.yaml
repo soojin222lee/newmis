@@ -178,3 +178,4 @@ requirements:
   - { id: FR-BST-06, text: 과거월 실적 금액은 클릭 시 계정별 상세 실적 내역(항목·금액·합계)을 모달로 드릴다운 조회할 수 있어야 한다 }
   - { id: FR-BST-07, text: 인건비 계획월 금액 클릭 시 투입계획(조직·성명·MM·단가·상태) 조회를 제공해야 한다 }
   - { id: FR-BST-08, text: 원가현황은 읽기 위주이며 예산 확정 단계로 이동할 수 있어야 한다(편집은 원가조정 소메뉴 소관) }
+  - { id: FR-BST-09, text: "[AS-IS] 실적/계획 경계는 기준월(STAC, data.current = 레거시 lastStacYm/planDcidDt 대응)에서 도출한다 — 기준월 이하 월은 실적(actual), 초과 월은 계획(plan). 목업은 isBudgetActualMonth/getBudgetStacYm 헬퍼로 이 경계를 명시하며, 월별 type이 명시된 경우 데이터 값을 권위로 둔다. (근거: TotalExecutionBudgetCalcLogic STAC-01/02, budget-status.js:catVal/calcActual/calcPlanTotal)" }

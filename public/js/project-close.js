@@ -205,8 +205,33 @@ function renderProjectCloseDetail() {
       <section class="pcd-box pcd-report-box">
         <div class="pcd-section-title"><i></i>사후점검 결과보고서(${p.reportStatus || '계획'})</div>
         <div class="pcd-report-line"></div>
+        <div style="margin-top:10px"><button class="pc-action-btn" onclick="pcWriteReport()">📝 결과보고서 작성</button></div>
       </section>
+
+      <div class="pcd-foot" style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="pc-action-btn ghost" onclick="closeProjectCloseDetail()">취소</button>
+        <button class="pc-action-btn primary" onclick="pcDeclareClose('${p.no || ''}')">💾 종료 신청</button>
+      </div>
     </div>`;
+}
+
+// ── 프로젝트 종료 C/U/D 핸들러 (목업 스텁) ──
+(function pcInjectStyle() {
+  if (typeof document === 'undefined' || document.getElementById('pc-crud-style')) return;
+  var st = document.createElement('style'); st.id = 'pc-crud-style';
+  st.textContent = '.pc-action-btn{font-size:14px;font-weight:700;border-radius:8px;padding:8px 16px;cursor:pointer;border:1px solid #d1d5db;background:#fff;color:#374151}.pc-action-btn.primary{background:#0B6E55;border-color:#0B6E55;color:#fff}.pc-action-btn.ghost{color:#6b7280}.pc-action-btn:hover{filter:brightness(0.97)}';
+  document.head.appendChild(st);
+})();
+function pcDeclareClose(no) {
+  if (!confirm('프로젝트 ' + (no || '') + ' 종료를 신청하시겠습니까?')) return;
+  if (typeof showToast === 'function') showToast('프로젝트 종료를 신청했습니다. 결재 승인 후 종료 처리됩니다.');
+}
+function pcWriteReport() {
+  if (typeof showToast === 'function') showToast('사후점검 결과보고서 작성 화면을 엽니다. (목업)');
+}
+function pcFieldAction(btn) {
+  var label = (btn.textContent || '').trim();
+  if (typeof showToast === 'function') showToast(label + ' — 화면을 엽니다. (목업)');
 }
 
 function renderProjectCloseField(label, value, buttonLabel) {
@@ -215,7 +240,7 @@ function renderProjectCloseField(label, value, buttonLabel) {
       <span>${label}</span>
       <div>
         <strong>${value || ''}</strong>
-        ${buttonLabel ? `<button>${buttonLabel}</button>` : ''}
+        ${buttonLabel ? `<button onclick="pcFieldAction(this)">${buttonLabel}</button>` : ''}
       </div>
     </div>`;
 }

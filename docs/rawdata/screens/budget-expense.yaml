@@ -228,3 +228,20 @@ requirements:
   - { id: FR-EXP-10, text: "가용예산조회 모달은 통제 중계정별 이전예산·현재계획·ERP 가용예산·계획합계·잔액을 통 단위로 병합 표시하고, 초과 통은 잔액을 위험색으로 강조한다" }
   - { id: FR-EXP-11, text: "계정별 예산 이관에서 경비 조정배분을 변경할 때도 동일한 ERP 가용예산 한도를 체크한다" }
   - { id: FR-EXP-12, text: "진입은 딥링크 #/budget-adjust/expense?pj=<프로젝트키>를 지원하며, pj 미지정 시 기본 프로젝트로 진입한다" }
+
+  # ── AS-IS(레거시) 참조 요구사항 — its-biz-project(백) + its-front(프론트) 근거. [AS-IS] 태그는 실제 운영시스템 요구사항이며 목업은 근사·미구현일 수 있음(각 항목 명시). ──
+  - { id: FR-EXP-13, text: "[AS-IS] 경비통 계정은 ERP 계정그룹 ACC_GP 중 타 파트에서 관리하는 계정(800007 사내인건비-OT·725910 기타용역외주비(간접)·725913 A/S비·725915 사업관리비·725918 기타용역외주비(경비))을 제외하고, 감가상각(713801~713806)은 재료비에서 관리하여 경비통에서 분리한다. (근거: ExecutionBudgetPublicCostLogic EXP-01/02)" }
+  - { id: FR-EXP-14, text: "[AS-IS] ERP 가용예산은 매출귀속부서 기준으로 조회하며, 프로젝트번호에 '-P'(제안)가 있으면 조직별, 없으면 개인별로 조회 구분(projDivCd B/D)한다. (근거: AvailableBudgetLogic AVL-01)" }
+  - { id: FR-EXP-15, text: "[AS-IS] 가용예산 초과 판정 기준은 절대 계획액이 아니라 '중계정별 차이금액(현재계획 − 직전 승인완료 계획 = 증가분)'이 가용예산을 넘지 않아야 한다는 것이다. 프론트는 조회 안내문으로만 표시(하드 차단 아님)하고 실제 한도 enforcement는 서버 상신 검증(isSubmitValid)에서 한다. ※ 현재 목업은 '절대 계획 합계 > 가용'으로 근사. (근거: 프론트 AvailableBudget.vue)" }
+  - { id: FR-EXP-16, text: "[AS-IS] ERP 실적 반영은 기준월(STAC/planDcidDt) 이하 월까지만 실적으로 잠그고, 이관실적(tsfYn='Y')은 제외한다(버전 tsfApltYn=true면 포함). ※ 목업 미구현(월별 실적 목업 배분). (근거: ExecutionBudgetPublicCostLogic EXP-03/AVL-02)" }
+  - { id: FR-EXP-17, text: "[AS-IS] 이전예산(비교 기준)은 '직전 승인완료 버전'의 계정별 계획합으로 산정한다. (근거: EXP-04)" }
+  - { id: FR-EXP-18, text: "[AS-IS·경고] 가이드 금액 초과 시 저장을 막지 않고 직책자 안내메일을 발송한다: 조직운영비 인원MM당 월 120,000원(회의비735901·의욕관리비705501·잡비743901·캔미팅723103), 소모품비 8,000원(710301·710901), WLB 석식대 30,000원(705904). (근거: 프론트 expensePlan/BodyContent.vue)" }
+  - { id: FR-EXP-19, text: "[AS-IS·차단] 무상 AS 프로젝트(A001/A002)의 인비례성 경비(회의비·의욕관리비·잡비·캔미팅·석식대) 합계가 인원MM당 150,000원 초과 시 저장을 차단한다. (근거: 프론트 _main/GridSaveAsCost.ts)" }
+  - { id: FR-EXP-20, text: "[AS-IS·차단] 제안(PR99) 프로젝트는 인비례성/WLB 계정(705501·705904·710301·710901·723103·735901·743901)의 계획 수립·계정 추가를 할 수 없다. (근거: 프론트 expensePlan/popup/Account.vue, _main/Index.vue)" }
+  - { id: FR-EXP-21, text: "[AS-IS·안내] 리스회계처리 대상 계정(706901·711101·706904·711150·625105·720150·726301) 추가 시 '리스회계처리 대상 여부 확인' 안내를 표시한다(판매단가 500만원 초과 & 계약기간 1년 초과 시 대상). (근거: 프론트 LeaseAccountingInfo.vue)" }
+  - { id: FR-EXP-22, text: "[AS-IS·차단] 세미나개최비 계정은 2024-01 이후 계획할 수 없다(계정 폐지). (근거: ExecutionBudgetLogic SUBMIT-02)" }
+  - { id: FR-EXP-23, text: "[AS-IS·차단] 실적 발생 행·월(acrsBgtAmt>0인 과거월)은 삭제·수정할 수 없고, 당월 이전 월 계획은 읽기전용이며, 월 추가는 프로젝트 기간 이내여야 한다. (근거: 프론트 expensePlan/BodyContent.vue)" }
+  - { id: FR-EXP-24, text: "[AS-IS·차단] 경비 금액은 정수만 입력 가능하다('정수만 입력 가능합니다'). (근거: 프론트 _main/Index.vue)" }
+  - { id: FR-EXP-25, text: "[AS-IS] 경비 총계획 금액은 반올림(Math.round)하여 산출한다(레거시상 유일한 명시적 반올림). (근거: TotalExecutionBudgetCalcLogic CALC-EXP-03)" }
+  - { id: FR-EXP-26, text: "[AS-IS·차단] 실행예산 편집은 상태 New(39904)/등록중(39905)에서만 가능하고 승인요청(39906) 이후 편집·삭제가 불가하며, 상신은 서버 검증(isSubmitValid)과 유형별 Cost 총액 초과 게이트를 통과해야 한다. 변경금액 1억 초과는 부문장 전결, 환율 현행화는 금액 무관 팀장 전결. (근거: ExecutionBudgetLogic SUBMIT-01, 프론트 _main/Index.vue)" }
+  - { id: FR-EXP-27, text: "[AS-IS·연동] 경비 화면은 ERP와 연동한다: 실적조회(/erpPrjAcrses, tsfYn='N'), 가용예산 차이조회(/budget/findAvailableBudgetDiffDtoByPrjNoAndBgtVerNo) — 조회 전용이며 가용예산 ERP 전송(external/erp/budgetExecutionOrganization·Individual)은 현재 비활성(주석). (근거: its-front apiUrl/Index.ts, AvailableBudget.vue)" }

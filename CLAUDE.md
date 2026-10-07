@@ -134,8 +134,14 @@ renderX = function(data, account) {
 
 - **버튼은 인라인 `onclick="handler()"`** (addEventListener 금지) — 지니 CRUD 감지용.
 - **버튼 `label`에 CRUD 동사** 명확히(저장/등록/수정/삭제/조회/검색).
-- YAML `elements`에 **버튼·입력·칩·토글·그리드 컬럼까지 누락 0**, 각 요소에 **`crud`(C/R/U/D/N) 필수**.
-  - C=등록, R=조회·검색·다운로드, U=수정·편집·저장(변경), D=삭제, N=이동·팝업·토글.
+- YAML `elements`에 **버튼·입력·칩·토글·그리드 컬럼까지 누락 0**, **모든 요소에 `crud` 값 필수**
+  (하나라도 빠지면 지니가 그 요소를 CRUD 미분류로 처리해 명세에서 빠짐).
+  - **C**=등록·추가, **R**=조회·검색·다운로드, **U**=수정·편집·저장(변경), **D**=삭제,
+    **N**=이벤트(이동·팝업·토글·실행 등 CRUD 아닌 동작).
+  - **N(이벤트) 요소도 반드시 명시**: 무슨 이벤트인지 `label`·`handler`로 분명히
+    (예: 팝업 열기 `openSetupGuide`, 탭 전환 `switchTab`, 토글 `toggleAgentGrid`). 누락하면 "기타"로만 잡힙니다.
+  - 화면의 **CRUD 박스는 목업 실제 버튼(DOM)에서 감지**되고, **명세의 CRUD 분류는 이 YAML `crud` 값**에서
+    나옵니다 — 둘이 어긋나지 않게 **버튼을 고치면 YAML `crud`도 함께** 갱신하세요.
 - `handler`·`api`는 **실제 코드와 일치**(지어내기 금지). 목업 스텁이면 `logic: "목업 스텁, 동작 없음"`.
 - `requirements`에 **`FR-<화면약자>-NN` 5~10개**, "~할 수 있어야 한다" 톤.
 - 영문 key + 한국어 value, 로직은 `file:function` 근거 인용. 표준 예시: `docs/rawdata/screens/ai-report.yaml`.

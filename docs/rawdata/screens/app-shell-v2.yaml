@@ -1,0 +1,278 @@
+# rawdata: 버전2 앱 셸 (전 화면 공통 틀) — 스토리보드/SRS/버튼로직 생성용 원천 데이터
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# ⚠ override 규칙: shell-v2.js 는 index.html 맨 마지막에 로드되어 dashboard.js 의 같은 이름
+#   정의(renderHomeV2 · setHomeVer · v2ApplyRail)를 덮는다. initDashboard 는 이미 런타임 교체된
+#   것(dashboard.js 31차)을 붙잡고 다시 감싼다(window.initDashboard = …).
+
+screen:
+  id: app-shell-v2
+  name: 버전2 앱 셸 (전 화면 공통 — 좌측 레일 · 흰 패널 · 공통 부품 · 대화 화면)
+  menu_path: 전 화면 공통 (메뉴 화면 12개 + 내부 진입 화면 11개)
+  route: "라우트 없음 — 모든 해시 라우트(#/dashboard · #/budget-* · #/insights/* · #/ai-report …)에 공통 적용"
+  entry: "DOMContentLoaded → v2Watch.bind() → v2ApplyShell() · 이후 .screen class 변화 / hashchange 마다 v2RefreshActive()"
+  container: "document.body 직속 <aside id='v2-app-rail'> (주입) + 기존 .shell/.main/.content 를 CSS 로 재배치"
+  source_files:
+    - public/js/shell-v2.js     # 레일 마크업·활성 표시·버전 전환·대화창 문구 (신규)
+    - public/css/shell-v2.css   # body.app-v2 범위의 틀·공통 부품·대화 화면 스타일 (신규)
+    - public/index.html         # 위 두 파일 로드 줄만 추가 (기존 줄 수정 없음)
+    - public/js/dashboard.js    # 재사용: v2BrandHtml · v2MeHtml · homeV2PjtListHtml · toggleHomeV2Pjt · toggleV2Rail · homeV2Hero
+  purpose: >
+    선행 오픈 시스템 AiPMO · Talent AX (AXGENTIC WIRE 브랜드)의 UI 사상을 실행예산 전 화면에 적용해
+    개발자 전달용 확정 UI 를 만든다. 메인화면 버전2(main-home-v2.yaml)를 앱 전체로 넓힌 것이다.
+    기존 기능·버튼·배치는 그대로 두고 바깥 틀과 공통 부품의 모양만 바꾼다. 버전1 은 토글로 언제든 볼 수 있다.
+  decisions_2026_10_07:
+    rail_menu: "(10-07 1차 결정을 2차에서 정정) 레일에 메뉴를 두지 않는다 — 로고·담당 프로젝트·유틸·화면 버전·사용자만"
+    top_bar: "전 화면에서 숨김. 화면 설명 · 그라운드 룰 · AI 네비게이터 · AI개발 Agent · 구매시스템 참고 · 사용자를 레일 하단으로 이동"
+    depth: "틀 + 공통 부품(제목·검색 패널·버튼·표·탭·배지) + 대화 화면(AI 채팅 · AI 레포트)"
+    version_toggle: "앱 전체 토글, 기본값 버전2 (localStorage 'newmis.homeVer' 가 없을 때)"
+  decisions_2026_10_07_rev2:
+    principle: "버전2 기조 — 메뉴를 드러내지 않는다. 화면 이동은 ① AI 에이전트 질의·응답(네비게이터) ② 담당 프로젝트 항목 클릭"
+    why_corrected: "10-07 질문이 '메뉴를 레일로 옮겨야 한다'는 전제로 방식만 물어 메뉴 타일이 들어갔다. 사용자 확인 후 제거"
+    top_menu_dev: "개발 테스트용으로만 레일 '상단 메뉴 보기' 버튼이 상단 바(메뉴 포함)를 켜고 끈다. 선택은 localStorage 'newmis.v2TopMenu'"
+    rail_auto_collapse: "메인 외 화면에 들어가거나 다른 프로젝트로 넘어가면 레일 자동 축소(64px). 메인 복귀 시 메인에서 고른 상태로 복원"
+    agent_default: "버전2 에서 예산관리 Agent 기본 ON(agentViewFinal='agent'). 버전1 은 수진 기본값 'draft' 그대로. budget-agent-console.js 는 수정하지 않음"
+    my_work_removed: "상단 메뉴였던 My Work 도 레일에서 제외 — 메인 복귀는 로고 클릭(AiPMO 와 같음)"
+  design_reference:
+    AiPMO:
+      - "회청색 바탕(#eef1f6) 위 큰 흰 패널(라운드 18px). 상단 바 없음"
+      - "레일: 로고 → 섹션 라벨 → 흰 카드 안 아이콘 타일 3개(선택 시 연파랑 바탕 + 파랑 아이콘·글자) → 하단 링크 → 구분선 → 사용자"
+      - "목록 화면: 제목(굵게 20px) → 검색 패널(연회청 박스, 라벨 위·입력 아래, 정사각 ↻ + 파랑 '검색') → '목록 | 총 N건'(숫자만 파랑) → 표"
+    TalentAX:
+      - "대화: 사용자 말풍선은 오른쪽 흰 박스, AI 는 그라데이션 구슬 아이콘 + 이름, 본문은 흰 카드"
+      - "입력창: 보라 테두리 큰 라운드 상자 + 원형 전송 버튼, 아래 면책 문구"
+      - "상세(성장보드): '‹ 제목' 뒤로 가기, 밑줄형 탭, 카드 그리드"
+      - "우하단 구슬 FAB"
+    color_roles: "파랑(#3b6cf6) = 탐색·주요 행동(검색·등록·상신·탭) / 보라(#7b61ff) = AI·대화 (AiPMO 와 Talent AX 의 강조색을 역할로 나눔)"
+
+# ── 화면 상태 ──
+states:
+  - id: ver_v2
+    when: "homeVer === 'v2' (기본값)"
+    effect: "body.app-v2 + body.home-v2 부여 → 상단 바 숨김 · #v2-app-rail 주입 · .shell padding-left = 레일 폭 · .content 를 흰 패널로"
+    note: "메인화면은 renderHomeV2()(shell-v2.js) 가 히어로만 그린다 — 레일이 앱 셸로 나갔기 때문"
+  - id: ver_v1
+    when: "homeVer === 'v1'"
+    effect: "body 클래스 제거 → 상단 바 복귀 · 레일 제거 · 모든 화면이 버전1 원형. 메인 외 화면 좌하단에 전환 버튼(#v2-v1-pill)"
+    note: "버전1 렌더 경로·스타일은 한 줄도 바꾸지 않는다. 메인은 기존 우측 상단 탭(homeVerMount)을 그대로 쓴다"
+  - id: rail_min
+    when: "메인: homeV2Rail === 'min'(localStorage 'newmis.v2Rail') / 상세: v2DetailMin === true"
+    effect: "body.v2-rail-min → 레일 64px. 글자·섹션·담당 프로젝트를 숨기고 마크·유틸 아이콘·아바타만. 버전 토글은 'V2' 한 칸"
+    note: "폭은 즉시 전환(트랜지션 없음) — 애니메이션이 멈추면 본문이 레일 밑으로 들어가는 문제를 피한다"
+  - id: rail_auto_collapse
+    when: "화면 전환 또는 다른 프로젝트(pj) 진입 — v2PlaceKey() = 화면 id + pj 가 바뀔 때 (.screen class 변화 · hashchange 관찰)"
+    effect: "메인 외 화면이면 v2DetailMin = true → 자동 축소. 메인으로 돌아오면 메인 저장값(homeV2Rail)으로 복원"
+    note: "같은 프로젝트 안에서 계정만 바꾸는 이동(#/budget-adjust/labor → /outsource)은 진입으로 보지 않는다 — 상세에서 직접 편 레일을 다시 접지 않음"
+  - id: top_menu_dev
+    when: "v2TopMenu === true (localStorage 'newmis.v2TopMenu' = '1')"
+    effect: "body.v2-topmenu → 상단 바와 메뉴(My Work·프로젝트·수행원가·인사이트)가 레일 오른쪽에 표시. 화면 설명 패널은 원래 위치(64px)로"
+    note: "개발 테스트용. 메인에서는 home.css 의 :has(#s-main.active) 규칙(ID 수준 우선순위)이 숨기므로 같은 형태의 선택자로 이긴다"
+  - id: agent_on_default
+    when: "homeVer === 'v2'"
+    effect: "수행원가 상세(원가조정)가 예산관리 Agent ON(대화형 Agent)으로 열린다. 버전1 로 바꾸면 'draft'(전통 편집)로 돌아간다"
+    note: "로드 시점에는 값만 바꾸고(렌더 전), 수행원가 화면이 열린 상태에서 버전을 바꿀 때만 agentSetViewFinal 로 다시 그린다"
+  - id: chat_thread
+    when: "버전2 · 수행원가 원가조정이 Agent ON(대화형) 으로 떠 있을 때"
+    effect: "메인 대화창(AI 에이전트)의 대화를 가운데 'Agent와 대화하기' 앞에 시간 순서대로 이어 붙이고 오른쪽 창·우하단 대화 버튼은 감춘다. 이어진 곳에 '📍 프로젝트 · 계정 원가조정' 한 줄이 붙고, Agent 가 대화를 끊지 않고 바로 잇는다 — ① 메인에서 고른 할 일·이상징후 항목이 조정안이면 그 금액·근거 ② 아니면 그 계정의 검토할 조정안(제목·금액) ③ 계정이 없으면 계정별 조정안 건수와 '어느 계정부터 볼까요?' ④ 메인 AI 답이 아직 오는 중이면 그 답이 그대로 이어짐"
+    stay: "같은 화면·같은 프로젝트에서 이어지는 말은 장소 줄 없이 그대로 잇는다. 가운데 대화 속 항목을 눌러 계정을 옮기면 그 항목 이야기를 잇는다"
+    back: "다른 화면으로 나가면 가운데에서 나눈 대화가 메인 대화 뒤에 이어진다. 메인에서 다시 물어도 대화를 지우지 않고 이어서 묻는다"
+    note: "두 에이전트를 구분하지 않는다 — 같은 업무의 질의 흐름 하나로 본다(사용자 결정). 담당 배정 줄·첫 안내 문구·이미 마친 '지금 이동 →' 버튼은 넘기지 않는다. 버전1 은 기존처럼 오른쪽 창"
+    code: "shell-v2.js: v2ThreadAbsorb · v2CaptureMain · v2ThreadMerge(renderAgentGaChatFinal 감쌈) · v2ThreadMirrorBack · openAiChat 감쌈(이어 묻기)"
+  - id: center_route
+    when: "버전2 · 가운데 'Agent와 대화하기'에 입력(보내기·Enter·추천 문구)했을 때"
+    effect: "질문 유형으로 나눈다 — ① 예산관리 Agent: 금액 조정·계정 이동·기안·상신·반영·해제·되돌리기·방안 저장·CP 여유·근거(견적 계획) 등 Agent 해석기(agentSimReadFinal·agentReadEvidenceFinal)가 알아듣는 말과 그 밖의 자유 질문 ② 메인 AI(sendAiChat): 메인 질문 분류기(routeIntents)가 화면 이동·이상징후·할 일 또는 데이터 분석 규칙으로 판정한 질문"
+    after: "메인 AI 의 답은 같은 대화 줄기에 바로 이어지고, 기다리는 동안 '…' 말풍선을 보인다. 분석 질문은 답만 하고 화면을 옮기지 않는다. 이상징후·할 일은 질문에 프로젝트 이름이 없으면 지금 화면의 프로젝트 기준"
+    nav: "화면 이동을 물으면 그 화면으로 가고, 대화는 오른쪽 창에서 같은 순서로 이어진다"
+    code: "shell-v2.js: agentChatSendFinal 감쌈 · v2IsBudgetAsk · v2IsMainAsk · v2AskMain · v2CenterPull · navToRelevant·v2PjtFromText 감쌈"
+  - id: main_budget_act
+    when: "버전2 · 메인(또는 오른쪽 창)에서 프로젝트 이름과 금액 조정을 함께 말했을 때 — 예) '예산관리시스템 목업용 경비 300만원 줄여줘'"
+    effect: "글로 답하지 않고 그 프로젝트의 해당 계정 원가조정으로 이동해 예산관리 Agent 가 바로 계산(시뮬레이션)한다 — 위 금액이 바로 바뀐다"
+    note: "Agent 해석기(agentSimReadFinal)가 금액 조정(delta)·계정 간 이동(move)·세부 항목(sub)으로 읽은 말만. 프로젝트를 특정할 수 없으면 기존처럼 메인 AI 가 답한다"
+  - id: nav_account
+    when: "버전2 · 화면 길잡이가 원가조정을 고르고 질문에 계정명(인건비·외주비·재료비·경비·A/S)이 있을 때"
+    effect: "원가조정 첫 화면이 아니라 그 프로젝트의 해당 계정 화면으로 바로 이동 (homePjtGo 와 같은 경로)"
+  - id: chat_v2
+    when: "homeVer === 'v2'"
+    effect: "AI 대화창 입력 안내문 '질문은 자유롭게 입력해 주세요.' · 입력창 아래 면책 문구(.v2-chat-disc) 추가. 버전1 로 돌아가면 원래 문구로 복원"
+  - id: narrow
+    when: "화면 폭 960px 이하"
+    effect: "레일을 자동으로 64px 로 접고 접기 버튼을 숨김"
+
+# ── 요소 인벤토리 ── (모든 요소 crud 명시. N = 이동·팝업·토글 이벤트)
+elements:
+  - id: btn-rail-brand
+    label: AXGENTIC WIRE / AiBudget (메인으로 이동)
+    kind: button
+    crud: N
+    where: "레일 최상단 .v2-lock"
+    handler: "showMain()"
+    logic: "dashboard.js:v2BrandHtml 재사용. 메인 홈으로 이동"
+    api: 없음
+  - id: btn-rail-collapse
+    label: 메뉴 접기/펴기
+    kind: toggle
+    crud: N
+    where: "레일 최상단 우측 .v2-collapse"
+    handler: "toggleV2Rail()"
+    logic: "shell-v2.js:toggleV2Rail — 메인이면 homeV2Rail 뒤집고 저장, 상세 화면이면 v2DetailMin 만 뒤집음(저장 안 함) → v2ApplyRail 가 body.v2-rail-min 토글"
+    api: 없음 (localStorage)
+  - id: rail-assigned-projects
+    label: 담당 프로젝트 아코디언 (업무 펼쳐 조회)
+    kind: button
+    crud: R
+    where: "레일 '담당 프로젝트'/'팀 프로젝트' 카드 #v2-rail-body"
+    handler: "toggleHomeV2Pjt(id) · 항목 homePjtGo(pjtId, acct)"
+    logic: "main-home-v2.yaml 의 btn-rail-pjt-toggle / btn-rail-item 과 동일. 버전2 의 주 이동 경로 — 항목 클릭 시 해당 계정 원가조정 화면으로 가고 레일이 자동 축소된다"
+    api: 없음
+  - id: btn-util-screen-desc
+    label: 화면 설명 열기
+    kind: button
+    crud: N
+    where: "레일 하단 유틸 1"
+    handler: "toggleScreenDesc(this)"
+    logic: "screen-desc.js:toggleScreenDesc (수진) — 현재 활성 화면 설명 패널. 버전2 에서는 패널을 위쪽(16px)에 붙인다"
+    api: 없음
+  - id: btn-util-groundrule
+    label: 그라운드 룰 조회
+    kind: button
+    crud: R
+    where: "레일 하단 유틸 2"
+    handler: "openSetupGuide()"
+    logic: "app.js:openSetupGuide — 팀 그라운드 룰 오버레이"
+    api: 없음
+  - id: btn-util-navi
+    label: AI 네비게이터 열기
+    kind: button
+    crud: N
+    where: "레일 하단 유틸 3"
+    handler: "openAiChat('navi')"
+    logic: "app.js:openAiChat — 화면 길잡이 AI 로 대화창 열기"
+    api: 없음
+  - id: btn-util-agents
+    label: AI개발 Agent 목록 열기
+    kind: button
+    crud: N
+    where: "레일 하단 유틸 4"
+    handler: "openAgentModal()"
+    logic: "dashboard.js:openAgentModal — AGENT_APPS 중앙 모달"
+    api: 없음
+  - id: btn-util-purchase
+    label: 구매시스템 참고 화면 열기
+    kind: button
+    crud: N
+    where: "레일 하단 유틸 5"
+    handler: "openPurchaseReference()"
+    logic: "상단 바 ▦ 버튼과 같은 함수(상단 바가 숨겨져 레일로 이동)"
+    api: 없음
+  - id: btn-dev-topmenu
+    label: 상단 메뉴 보기/숨기기 (개발용)
+    kind: toggle
+    crud: N
+    where: "레일 하단 유틸 맨 아래 .v2-dev-topmenu ('개발용' 표시)"
+    handler: "toggleV2TopMenu()"
+    logic: "v2TopMenu 뒤집고 localStorage 'newmis.v2TopMenu' 저장 → v2ApplyTopMenu() 가 body.v2-topmenu 토글 · 버튼 문구를 '상단 메뉴 보기'/'숨기기'로 바꿈"
+    api: 없음 (localStorage)
+  - id: btn-ver-v1
+    label: 버전1로 전환
+    kind: toggle
+    crud: N
+    where: "레일 하단 '화면 버전' .v2-vtoggle 왼쪽 버튼"
+    handler: "setHomeVer('v1')"
+    logic: "shell-v2.js:setHomeVer — homeVer 저장 → v2ApplyShell(레일 제거·상단 바 복귀) → 메인이면 initDashboard() 재렌더"
+    api: 없음 (localStorage 'newmis.homeVer')
+  - id: btn-ver-v2
+    label: 버전2로 전환
+    kind: toggle
+    crud: N
+    where: "레일 하단 '화면 버전' .v2-vtoggle 오른쪽 버튼 (현재 선택)"
+    handler: "setHomeVer('v2')"
+    logic: "버전2 유지(현재 상태)"
+    api: 없음
+  - id: btn-ver-mini
+    label: 버전1로 전환 (접힌 레일)
+    kind: toggle
+    crud: N
+    where: "레일이 접혔을 때만 보이는 'V2' 한 칸 .v2-vt-mini"
+    handler: "setHomeVer('v1')"
+    logic: "접힌 레일에서도 버전을 바꿀 수 있게 한 축약 버튼"
+    api: 없음
+  - id: btn-user-switch
+    label: 사용자 전환 (이봄 PM ↔ 박정우 팀장)
+    kind: toggle
+    crud: N
+    where: "레일 최하단 .v2-me"
+    handler: "homeV2SwitchUser()"
+    logic: "dashboard.js:switchHomeUser → initDashboard(shell-v2 가 감쌈) → 레일 다시 그림(담당/팀 프로젝트 라벨·배지·이름)"
+    api: 없음
+  - id: btn-v1pill-v1
+    label: 버전1 (현재 선택)
+    kind: toggle
+    crud: N
+    where: "버전1 상태에서 메인 외 화면 좌하단 #v2-v1-pill 왼쪽"
+    handler: "setHomeVer('v1')"
+    logic: "버전1 유지(현재 상태)"
+    api: 없음
+  - id: btn-v1pill-v2
+    label: 버전2로 전환
+    kind: toggle
+    crud: N
+    where: "버전1 상태에서 메인 외 화면 좌하단 #v2-v1-pill 오른쪽"
+    handler: "setHomeVer('v2')"
+    logic: "버전2 로 전환 — 레일 주입·상단 바 숨김"
+    api: 없음
+
+# ── 공통 부품 스타일 매핑 (shell-v2.css · 각 화면 파일은 수정하지 않음) ──
+component_map:
+  page_title: { classes: [page-title, exec-budget-title, setup-title, ins-title], style: "20px · 900 · #1b2437 (AiPMO 'PRB 관리')" }
+  primary_button: { classes: [save-btn, exec-search-btn, exec-primary-btn, labor-main-btn], style: "파랑 #3b6cf6 · 흰 글자 · 라운드 8 (SK 빨강·검정 → 파랑)" }
+  secondary_button: { classes: [exec-text-btn, labor-sub-btn, row-act-btn], style: "흰 바탕 · 회색 테두리 · hover 시 파랑. 삭제(row-act-btn.del)는 주황 글자" }
+  refresh_button: { classes: [exec-reset-btn, exec-icon-btn], style: "AiPMO 정사각 ↻ — 흰 바탕 · 회색 테두리" }
+  search_panel: { classes: [exec-filter-panel, proj-list-toolbar], style: "연회청 #f5f7fb 박스 · 라벨 위(12px 800) · 흰 입력(38px)" }
+  list_count: { classes: [exec-total, proj-count-tag], style: "바탕 없음 · 숫자만 파랑 (AiPMO '총 0건')" }
+  table: { classes: [proj-table, ins-table, custom-report-table, proj-table-card], style: "머리줄 #f7f9fc · 12px 800 회색 · 행 hover #f7faff · 넘치면 표 안에서 가로 스크롤" }
+  tabs: { classes: [bfs-step, ins-tab], style: "밑줄형(Talent AX) · 활성 파랑 밑줄" }
+  badge: { classes: [ipc-status-badge, exec-chip], style: "알약형 모양만 — 상태별 색 의미는 각 화면 그대로" }
+  back_button: { classes: [mc-back-btn], style: "테두리 없는 글자 버튼(Talent AX '‹ 성장보드')" }
+  chat: { classes: [ai-chat-modal, ai-chat-avatar, ai-bubble.me, ai-agent-chip, ai-chat-input, ai-chat-send, "#ai-chat-fab"], style: "Talent AX — 구슬 아이콘 · 흰 말풍선 · 보라 테두리 입력창 · 면책 문구 · 구슬 FAB" }
+  ai_report: { classes: [custom-report-hero, cr-ai-panel, cr-ai-chip, cr-cond-chip, cr-ai-inputrow], style: "Talent AX 리포트 카드 · '✦ AI' 보라 테두리 칩 · 보라 테두리 입력줄" }
+  per_screen_fix: "#s-budget(좌96/우44px) · #s-insights(26px) 의 자체 좌우 여백 제거, .exec-budget-page 바깥 카드 제거 — 흰 패널 안 이중 여백 방지"
+
+# ── 요구사항 ──
+requirements:
+  - { id: FR-SHELL-01, text: "버전2 는 메뉴를 드러내지 않아야 하며, 사용자는 AI 에이전트 질의·응답과 담당 프로젝트 항목 클릭으로 화면을 이동할 수 있어야 한다" }
+  - { id: FR-SHELL-02, text: "개발 테스트를 위해 레일의 버튼으로 숨겨진 상단 메뉴 바를 보이거나 숨길 수 있어야 하고, 그 선택은 유지되어야 한다" }
+  - { id: FR-SHELL-03, text: "버전2 에서는 상단 메뉴 바 없이 화면 설명·그라운드 룰·AI 네비게이터·AI개발 Agent·구매시스템 참고·사용자 전환을 레일 하단에서 제공해야 한다" }
+  - { id: FR-SHELL-04, text: "상세 화면에 들어가거나 다른 프로젝트로 넘어가면 레일이 자동으로 축소되어야 하고, 메인으로 돌아오면 메인에서 고른 상태로 돌아와야 한다" }
+  - { id: FR-SHELL-05, text: "사용자는 어느 화면에서든 버전1과 버전2를 전환할 수 있어야 하며, 저장된 선택이 없으면 버전2로 열려야 한다" }
+  - { id: FR-SHELL-06, text: "버전1 로 전환하면 모든 화면이 기존 구성·스타일 그대로 보여야 한다" }
+  - { id: FR-SHELL-07, text: "버전2 의 수행원가 상세 화면은 예산관리 Agent ON 을 기준으로 열려야 하며, 조정안 시뮬레이션 → 기안·결재 → 확정 흐름은 버전1 과 같아야 하며, 메인에서 나눈 대화가 그 화면의 Agent 대화 하나로 이어지고, 그 입력창에서 화면 이동·이상징후·할 일도 물을 수 있어야 한다" }
+  - { id: FR-SHELL-08, text: "목록 화면의 검색 패널·주요 버튼·건수·표는 선행 시스템(AiPMO)과 같은 형태로 보여야 하되 기존 기능과 버튼은 모두 유지되어야 한다" }
+  - { id: FR-SHELL-09, text: "AI 대화창과 AI 레포트는 선행 시스템(Talent AX)과 같은 대화 형태(말풍선·구슬 아이콘·보라 테두리 입력창·면책 문구)로 보여야 한다" }
+  - { id: FR-SHELL-10, text: "표가 화면 폭보다 넓으면 버튼이 잘리지 않고 표 안에서 가로로 스크롤되어야 한다" }
+
+# ── 확인 시나리오 (2026-10-07) ──
+verification:
+  - "[5차] 메인 '예산관리시스템 목업용 경비 300만원 줄여줘' → #/budget-adjust/expense · 📍 → PM 질문 → Agent 계산(수립 1,503,800,000 → 1,500,800,000) · 경비 25,000,000 → 22,000,000"
+  - "[5차] 메인 '해야 할 일' → 재료비 이관 항목 클릭 → 📍 재료비 → '고르신 … 건은 재료비 −10,000,000원 조정안…' / 가운데 대화 속 SCM 항목 클릭 → 인건비로 옮기며 '+70,000,000원 조정안…' 이어짐"
+  - "[5차] 메인 분석 질문(답이 늦게 옴) → 📍 다음에 답이 그대로 이어짐 · 안내 문구 중복 0 · 버전1 은 기존 그대로 · 콘솔 오류 0"
+  - "[4차] 가운데 입력 분류 20문장 — Agent 12(금액 조정 3·기안·저장·되돌리기·전부 반영/해제·CP 여유·인건비 상세·견적 근거·'외주비 건은 왜…') / 메인 AI 8(인사이트 이동·메인 이동·변경 이력 열기·이상징후·할 일·외주비 왜 늘었어·원가율·투입하면)"
+  - "[4차] 가운데에서 경비 조정 → 이상징후 → 할 일 → 외주비 분석 순서로 물음: 한 대화에 순서대로 · 답 대기 '…' 표시 · 화면 이동 없음 · 이상징후는 목업용 2건(현재 프로젝트)"
+  - "[4차] 가운데에서 '인사이트 종합 현황 화면으로 가줘' → #/insights/overview · 오른쪽 창에 [메인 질문 → 📍 → 경비 → 이상징후 → 인사이트 이동] 순서 · 콘솔 오류 0 · 버전1 은 모두 Agent 로(기존 그대로)"
+  - "[3차] 레일 담당 프로젝트 펼침 잘림 — 1440×800 에서 '목업용'(7건) 펼침: 수정 전 카드 아래 25px 잘림 → 수정 후 마지막 항목·아래 프로젝트 2개까지 보이고 레일 스크롤"
+  - "[3차] 메인 '외주비 원가조정 화면으로 가줘' → #/budget-adjust/outsource · 오른쪽 창 닫힘 · 가운데에 메인 질문/답 → 📍 장소 → 외주비 조정안 2건 안내 순서"
+  - "[3차] 메인 '해야 할 일 알려줘' → 답변의 '이동 →'(homePjtGo) → 팝업이 화면을 덮지 않고 가운데로 이어짐 · 끝까지 스크롤됨"
+  - "[3차] 가운데 '경비 300만원 줄여줘' → 메인 복귀 후 다시 질문 → 메인 대화에 [이전 대화 → 📍 → 경비 대화 → 새 질문] 순서 · 다시 상세 진입 시 중복 0"
+  - "[3차] 조정안 동작 버튼(해야 할 일로 반영·바로 기안·되돌리기)·칩 유지 / 버전1 은 오른쪽 창 도킹 그대로 · 버전 전환 왕복 정상 · 콘솔 오류 0"
+  - "[2차] 레일 섹션은 '담당 프로젝트' 하나 · 메뉴 타일/행 0개 · 유틸 6개(개발용 상단 메뉴 포함)"
+  - "[2차] 개발용 토글 ON → 메인·목록 모두 상단 바 block · 메뉴 flex · 레일 오른쪽(left 264px) / OFF → none"
+  - "[2차] 담당 프로젝트 항목 클릭 → 원가조정(budgetMock) · 레일 64px · Agent ON / 상세에서 편 뒤 같은 프로젝트 계정 이동 264px 유지 / 다른 프로젝트(smart) 64px / 메인 복귀 264px"
+  - "[2차] Agent ON 화면 v1·v2 비교: 버튼 30개 모두 보임 · 입력 1개 · 동작 14종 동일"
+  - "[2차] v1·v2 동일 절차: '경비 300만원 줄여줘' 보내기 → 조정안 25,000,000→22,000,000 → 바로 기안 → 결재선 → 결재 상신(submitted) → 직책자 '기안 전체 승인'(confirmed) → 버전 이력 'v4.0 확정 — Agent 제안 1건 반영'. 단계별 결과 완전히 같음"
+  - "저장값 없이 첫 진입 → homeVer 'v2' · 상단 바 none · 레일 264px · 메인은 히어로만"
+  - "레일 타일·행 클릭 → 해당 화면 이동 + 활성 표시 (원가현황/원가조정/변경이력은 costMode 로 구분 확인)"
+  - "메뉴 12개 + 내부 진입 11개(착수·중간·종료보고·월마감·프로젝트종료·단계이력·CP 브리핑·리스크이력·마스터설정·시스템설명) 모두 레일과 겹침 없음 · 오류 0"
+  - "1900px: 프로젝트 6종 목록 삭제 버튼 3/3 모두 보임 · 1280px: 수주형·제안은 표 안 가로 스크롤(잘림 없음)"
+  - "레일 접기 64px ↔ 펴기 264px · 본문 시작점이 함께 이동"
+  - "팀장 전환 → 레일 '팀 프로젝트' · 박정우로 다시 그려짐"
+  - "레일 '화면 설명' → 수주형 프로젝트 설명 패널(top 16px)"
+  - "대화창 → 지금 이동 → 상세 화면 도킹, 레일(0~264)·패널(~1021)·대화창(1051~) 겹침 없음"
+  - "버전1 전환 → 상단 바 block · 레일 제거 · 원래 메인(.home2-search) · SK 검정 등록 버튼 · #s-budget 96px 여백 · 원래 채팅 문구 · 메인 외 화면 좌하단 전환 버튼"

@@ -78,7 +78,18 @@ function renderAdvanceProject() {
 }
 
 // ── 목록 뷰 ──
+let advEditId = null;
+function advEditRow(id, ev) { if (ev) ev.stopPropagation(); advEditId = id; advBudgetRows = [{ name: '', materials: 0, labor: 0, outsource: 0, expense: 0 }]; advView = 'register'; renderAdvRegister(); }
+function advDeleteRow(id, ev) {
+  if (ev) ev.stopPropagation();
+  const p = ADVANCE_PROJECTS[id]; if (!p) return;
+  if (!confirm(`선투입 프로젝트 "${p.name}"을(를) 삭제하시겠습니까?`)) return;
+  delete ADVANCE_PROJECTS[id];
+  if (typeof showToast === 'function') showToast('선투입 프로젝트를 삭제했습니다.');
+  renderAdvList();
+}
 function renderAdvList() {
+  if (typeof projCrudStyleInject === 'function') projCrudStyleInject();
   const el = document.getElementById('s-advance-project');
   const q  = advSearchQuery.toLowerCase();
 
@@ -122,8 +133,12 @@ function renderAdvList() {
             <span style="font-size:13px;color:#64748b;white-space:nowrap">${done}/${p.approval.length}</span>
           </div>
         </td>
+        <td class="pt-center" style="white-space:nowrap">
+          <button class="row-act-btn" onclick="advEditRow('${id}', event)" title="수정">✏️ 수정</button>
+          <button class="row-act-btn del" onclick="advDeleteRow('${id}', event)" title="삭제">🗑 삭제</button>
+        </td>
       </tr>`;
-  }).join('') : `<tr><td colspan="8" class="proj-no-result">🔍 검색 결과가 없습니다.</td></tr>`;
+  }).join('') : `<tr><td colspan="9" class="proj-no-result">🔍 검색 결과가 없습니다.</td></tr>`;
 
   el.innerHTML = `
     <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
@@ -157,6 +172,7 @@ function renderAdvList() {
             <th>기간</th>
             <th class="pt-center">상태</th>
             <th>결재 진행</th>
+            <th class="pt-center">관리</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>

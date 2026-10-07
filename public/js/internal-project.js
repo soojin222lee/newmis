@@ -78,7 +78,18 @@ function renderInternalProject() {
 }
 
 // ── 목록 뷰 ──
+let ipEditId = null;
+function ipEditRow(id, ev) { if (ev) ev.stopPropagation(); ipEditId = id; ipBudgetRows = [{ name: '', materials: 0, labor: 0, outsource: 0, expense: 0 }]; ipView = 'register'; renderIPRegister(); }
+function ipDeleteRow(id, ev) {
+  if (ev) ev.stopPropagation();
+  const p = INTERNAL_PROJECTS[id]; if (!p) return;
+  if (!confirm(`사내 프로젝트 "${p.name}"을(를) 삭제하시겠습니까?`)) return;
+  delete INTERNAL_PROJECTS[id];
+  if (typeof showToast === 'function') showToast('사내 프로젝트를 삭제했습니다.');
+  renderIPList();
+}
 function renderIPList() {
+  if (typeof projCrudStyleInject === 'function') projCrudStyleInject();
   const el = document.getElementById('s-internal-project');
   const q  = ipSearchQuery.toLowerCase();
 
@@ -122,8 +133,12 @@ function renderIPList() {
             <span style="font-size:13px;color:#64748b;white-space:nowrap">${done}/${p.approval.length}</span>
           </div>
         </td>
+        <td class="pt-center" style="white-space:nowrap">
+          <button class="row-act-btn" onclick="ipEditRow('${id}', event)" title="수정">✏️ 수정</button>
+          <button class="row-act-btn del" onclick="ipDeleteRow('${id}', event)" title="삭제">🗑 삭제</button>
+        </td>
       </tr>`;
-  }).join('') : `<tr><td colspan="8" class="proj-no-result">🔍 검색 결과가 없습니다.</td></tr>`;
+  }).join('') : `<tr><td colspan="9" class="proj-no-result">🔍 검색 결과가 없습니다.</td></tr>`;
 
   el.innerHTML = `
     <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
@@ -157,6 +172,7 @@ function renderIPList() {
             <th>기간</th>
             <th class="pt-center">상태</th>
             <th>결재 진행</th>
+            <th class="pt-center">관리</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>

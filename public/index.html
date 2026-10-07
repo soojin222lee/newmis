@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="/css/ai-agent.css?v=20260827-merge2" />
 <link rel="stylesheet" href="/css/si-project.css?v=20260819-ifredesign4" />
 <link rel="stylesheet" href="/css/insights.css?v=20260825-ovsub" />
+<link rel="stylesheet" href="/css/shell-v2.css?v=20261007-r2" />
 </head>
 <body>
 
@@ -59,6 +60,9 @@
         </nav>
       </div>
       <div class="tb-right">
+        <button class="tb-guide" onclick="toggleScreenDesc(this)" title="현재 화면 설명">
+          <span class="tb-guide-ic">📖</span>화면 설명
+        </button>
         <button class="tb-guide" onclick="openSetupGuide()" title="팀 그라운드 룰 · 개발 셋업">
           <span class="tb-guide-ic">📋</span>그라운드 룰
         </button>
@@ -352,5 +356,8 @@
 <script src="/js/master-config.js?v=20260814-fontbump"></script>
 <script src="/js/checkpoint-extra.js?v=20260814-fontbump"></script>
 <script src="/js/screen-guide-chatbot.js?v=20260814-dev"></script>
+<script src="/js/screen-desc.js?v=20260918-desc"></script>
+<!-- 버전2 앱 셸(전 화면 공통) — 반드시 맨 마지막에 로드: dashboard.js 의 같은 이름 정의를 덮는다 -->
+<script src="/js/shell-v2.js?v=20261007-r6"></script>
 </body>
 </html>
