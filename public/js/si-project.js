@@ -156,7 +156,18 @@ function renderSIProject() {
 }
 
 // ── 목록 뷰 ─────────────────────────────
+let siEditId = null;
+function siEditRow(id, ev) { if (ev) ev.stopPropagation(); siEditId = id; siView = 'register'; renderSIProject(); }
+function siDeleteRow(id, ev) {
+  if (ev) ev.stopPropagation();
+  const p = SI_PROJECTS[id]; if (!p) return;
+  if (!confirm(`수주형 프로젝트 "${p.name}"을(를) 삭제하시겠습니까?`)) return;
+  delete SI_PROJECTS[id];
+  if (typeof showToast === 'function') showToast('수주형 프로젝트를 삭제했습니다.');
+  renderSIList();
+}
 function renderSIList() {
+  if (typeof projCrudStyleInject === 'function') projCrudStyleInject();
   const el = document.getElementById('s-si-project');
   const q  = siSearchQuery.toLowerCase();
 
@@ -188,8 +199,12 @@ function renderSIList() {
           <span class="ipc-status-badge" style="background:${st.bg};color:${st.color}">${p.stage}</span>
         </td>
         <td style="font-size:13px;color:#94a3b8;white-space:nowrap">🔄 ${p.lastSync}</td>
+        <td class="pt-center" style="white-space:nowrap">
+          <button class="row-act-btn" onclick="siEditRow('${id}', event)" title="수정">✏️ 수정</button>
+          <button class="row-act-btn del" onclick="siDeleteRow('${id}', event)" title="삭제">🗑 삭제</button>
+        </td>
       </tr>`;
-  }).join('') : `<tr><td colspan="8" class="proj-no-result">🔍 검색 결과가 없습니다.</td></tr>`;
+  }).join('') : `<tr><td colspan="9" class="proj-no-result">🔍 검색 결과가 없습니다.</td></tr>`;
 
   el.innerHTML = `
     <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
@@ -223,6 +238,7 @@ function renderSIList() {
             <th>기간</th>
             <th class="pt-center">단계</th>
             <th>마지막 IF</th>
+            <th class="pt-center">관리</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>

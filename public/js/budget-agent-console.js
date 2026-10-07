@@ -194,7 +194,7 @@ var AGENT_QA_FINAL = [
    ========================================================================== */
 
 // [2026.08.31] 기본 화면은 ⑤ 간소화(검토자 화면). 다른 안은 상단 스위치로 전환합니다.
-var agentViewFinal = 'agent';          // 'draft' | 'tabs' | 'console' | 'legacy' | 'split' | 'mini' | 'sim' | 'ai' | 'agent'
+var agentViewFinal = 'draft';          // 기본=전통 편집(등록/저장 버튼 노출). Agent는 ON/OFF 토글로 전환  // 'draft' | 'tabs' | 'console' | 'legacy' | 'split' | 'mini' | 'sim' | 'ai' | 'agent'
 var agentSimEnteredFinal = false;      // 6안 첫 진입에 한 번 계정 선택을 비웁니다
 var agentSimPjtSeenFinal = '';         // 6안에서 마지막으로 본 프로젝트
 var agentSimAcctPickedFinal = false;   // 계정 행을 사용자가 직접 눌렀는지
@@ -720,12 +720,44 @@ function agentCreateDraftFinal() {
 var agentDevOpenFinal = false;      // 화면안·PERSONA 전환 줄 (테스트용)
 function agentDevToggleFinal() { agentDevOpenFinal = !agentDevOpenFinal; renderBudgetPage(); }
 
+// Agent ON/OFF 토글 — OFF=전통 편집(draft, 등록/저장 버튼), ON=대화형 Agent. 기능은 둘 다 유지.
+function agentToggleOnOffFinal() {
+  agentSetViewFinal(agentViewFinal === 'agent' ? 'draft' : 'agent');
+  if (typeof showToast === 'function') {
+    showToast(agentViewFinal === 'agent'
+      ? '예산관리 Agent를 켰습니다. Agent가 변경을 제안하고 PM은 확인만 합니다.'
+      : 'Agent를 껐습니다. 직접 등록·저장하는 일반 편집 모드입니다.');
+  }
+}
+function agentOnOffStyleInject() {
+  if (document.getElementById('agent-onoff-style')) return;
+  var st = document.createElement('style'); st.id = 'agent-onoff-style';
+  st.textContent = `
+   .agent-onoff{display:inline-flex;align-items:center;gap:8px;border:1px solid #d1d5db;background:#fff;border-radius:999px;padding:5px 12px 5px 10px;font-size:13px;font-weight:800;color:#6b7280;cursor:pointer}
+   .agent-onoff .ao-track{width:34px;height:18px;border-radius:999px;background:#cbd5e1;position:relative;transition:background .15s}
+   .agent-onoff .ao-track::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s}
+   .agent-onoff.on{border-color:#1d4ed8;color:#1d4ed8}
+   .agent-onoff.on .ao-track{background:#1d4ed8}
+   .agent-onoff.on .ao-track::after{left:18px}
+   .agent-onoff .ao-state{min-width:30px;text-align:left}
+  `;
+  document.head.appendChild(st);
+}
+
 function renderAgentViewSwitchFinal() {
   const opt = (k, label) =>
     `<button class="agv-btn ${agentViewFinal === k ? 'on' : ''}" onclick="agentSetViewFinal('${k}')">${label}</button>`;
   const open = agentDevOpenFinal;
+  agentOnOffStyleInject();
+  const isAgent = agentViewFinal === 'agent';
+  const onoff = `
+      <button class="agent-onoff ${isAgent ? 'on' : ''}" onclick="agentToggleOnOffFinal()"
+        title="${isAgent ? 'Agent 끄기 — 직접 등록·저장하는 일반 편집' : 'Agent 켜기 — Agent가 제안, PM은 확인만'}">
+        🤖 예산관리 Agent<span class="ao-track"></span><span class="ao-state">${isAgent ? 'ON' : 'OFF'}</span>
+      </button>`;
   return `
     <div class="agent-view-switch ${open ? 'open' : ''}">
+      ${onoff}
       <button class="agv-dev ${open ? 'on' : ''}" onclick="agentDevToggleFinal()"
         title="${open ? '테스트 설정 접기' : '테스트 설정 — 화면안·PERSONA 전환'}"
         aria-expanded="${open}" aria-label="테스트 설정">${open ? '⚙ 접기' : '⚙'}</button>
