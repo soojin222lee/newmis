@@ -369,3 +369,18 @@ terminology:
     - 'server.js 185·451·490 LLM system 프롬프트의 "어시스턴트" 단독 표현'
     - 'docs/00-README-개요.md · docs/02-채팅AI-네비게이터.md · docs/rawdata/screens/chat-navigator.yaml (수진 담당 채팅 화면 문서)'
   verified: '대화창 제목·칩·본문·FAB 두 분기 모두 "AI 에이전트" · 화면 전체 옛 용어 0건 · 버전1에서도 동일'
+
+# ── 2026-10-07: 앱 셸 확장 (app-shell-v2.yaml) ──
+app_shell_migration:
+  summary: >
+    버전2를 전 화면으로 넓히면서 좌측 레일이 메인화면 안(#s-main .v2-wrap)에서 앱 셸
+    (document.body 직속 #v2-app-rail, shell-v2.js)로 나갔다. 메인화면은 이제 히어로만 그린다.
+  changes:
+    - "renderHomeV2() 는 shell-v2.js 가 덮어 히어로만 반환 (.v2-home > .v2-hero)"
+    - "레일의 담당 프로젝트 아코디언·브랜드·사용자 마크업은 dashboard.js 함수를 그대로 재사용 (v2BrandHtml · homeV2PjtListHtml · v2MeHtml)"
+    - "버전 토글이 메인 우측 상단에서 레일 하단 '화면 버전'으로 이동 (버전1 상태의 메인은 기존 우측 상단 탭 유지)"
+    - "기본값이 버전1 → 버전2 로 바뀜 (저장된 선택이 없을 때)"
+    - "레일 접기는 body.v2-rail-min 으로 동작 (이전: .v2-wrap 인라인 폭)"
+    - "(2차) 레일에 메뉴를 두지 않음 — 담당 프로젝트 아코디언이 메인 외 화면에서도 주 이동 경로. 상단 메뉴는 개발용 '상단 메뉴 보기' 버튼으로만 표시"
+    - "(2차) 메인의 레일 접기 선택(newmis.v2Rail)은 유지. 담당 프로젝트 항목으로 상세에 들어가면 레일 자동 축소, 메인 복귀 시 이 선택으로 복원"
+  see: docs/rawdata/screens/app-shell-v2.yaml
