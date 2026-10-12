@@ -137,6 +137,69 @@ elements:
         - "통당 1회만 검증(checked 배열 중복 방지)"
     result: "성공 시 '경비 연도별 계획이 저장되었습니다. 통제 중계정의 ERP 가용예산도 확인했습니다.' 토스트 + 재렌더"
 
+  # ── [2026.10.12] 예산관리 Agent ON · 경비 상세 — 중분류 단위 연간 예산 + 미사용 이월 제안 ──
+  #   경비는 중분류 단위로 그 해 예산을 쓰는 구조. 재수립 때 마감된 달은 실적으로 확정되어,
+  #   쓰지 않은 계획이 미래월에 다시 편성되지 않으면 감액된 채 기안된다 → Agent가 이월안(ap-06, ±0원)을 먼저 제안.
+  - id: tab-agent-exp-year
+    label: "2026년 예산 / 2027년 예산"
+    type: button
+    crud: R
+    area: "Agent 콘솔 경비 상세 · 상단"
+    event: onclick
+    front:
+      handler: "agentExpYearSetFinal('2026'|'2027')"
+      file: "budget-agent-console.js:3979"
+      logic: "연도 전환. 기본은 마감 기준월(AGENT_EXP_CLOSED_THRU_FINAL = 2026-08)이 있는 해"
+      validation: null
+      state_writes: [agentExpYearFinal]
+    backend: null
+    result: "해당 연도 중분류 표"
+
+  - id: grid-agent-exp-middle
+    label: "중분류 표 — 중분류 · 연간 예산(실적 진행바) · 실적(7~8월) · 미사용(7~8월) · 남은 달(9~12월) 계획 · 상태"
+    type: grid
+    crud: R
+    area: "경비 상세 본문"
+    event: null
+    front:
+      handler: "renderAgentExpenseDetailFinal()"
+      file: "budget-agent-console.js:4033 (집계 agentExpStatFinal:3993)"
+      logic: "연간 예산 = 그 해 월별 계획 합계, 미사용 = 마감월 계획 − 실적. 상태 = 정상 / 감액 예정 −금액 / 이월 +금액. 이월 반영 시 남은 달 계획을 옛 값(취소선) → 새 값으로 표시. 편성 없는 중분류는 표 아래 한 줄로 묶는다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "중분류 단위 연간 예산이 한눈에 보임"
+
+  - id: row-agent-exp-middle
+    label: "중분류 행 펼침(세부계정)"
+    type: row(click)
+    crud: N
+    area: "중분류 표 행"
+    event: onclick
+    front:
+      handler: "agentExpToggleFinal(middleName)"
+      file: "budget-agent-console.js:3980"
+      logic: "세부계정 · 계정코드 · 연간 예산 · 실적 · 미사용 · 남은 달 계획 · ERP 가용을 펼쳐 보여 줌"
+      validation: null
+      state_writes: [agentExpOpenFinal]
+    backend: null
+    result: "세부계정 표"
+
+  - id: btn-agent-exp-carry
+    label: "이월 반영 / 반영 해제"
+    type: button
+    crud: N
+    area: "경비 상세 상단 경고/안내 띠"
+    event: onclick
+    front:
+      handler: "agentAiPickFinal('ap-06', true|false)"
+      file: "budget-agent-console.js:4033 (상태 agentExpCarryStateFinal:4024)"
+      logic: "미사용이 있고 이월안을 고르지 않았으면 주황 띠 재수립 기안 시 N원 감액 예정 + [이월 반영]. 고르면 초록 띠 이월 반영(결재전) — 연간 예산 그대로 기안 + [반영 해제]. 결재중/승인도 띠에 표시. 예산 조정안 카드의 [반영]과 같은 상태를 쓴다"
+      validation: null
+      state_writes: [agentMiniSelFinal]
+    backend: null
+    result: "이월안 반영 여부 전환"
+
 # ── 백엔드/외부 연동 (현재 목업, SRS 승격 후보) ──
 apis:
   - name: ERP 가용예산
@@ -245,3 +308,6 @@ requirements:
   - { id: FR-EXP-25, text: "[AS-IS] 경비 총계획 금액은 반올림(Math.round)하여 산출한다(레거시상 유일한 명시적 반올림). (근거: TotalExecutionBudgetCalcLogic CALC-EXP-03)" }
   - { id: FR-EXP-26, text: "[AS-IS·차단] 실행예산 편집은 상태 New(39904)/등록중(39905)에서만 가능하고 승인요청(39906) 이후 편집·삭제가 불가하며, 상신은 서버 검증(isSubmitValid)과 유형별 Cost 총액 초과 게이트를 통과해야 한다. 변경금액 1억 초과는 부문장 전결, 환율 현행화는 금액 무관 팀장 전결. (근거: ExecutionBudgetLogic SUBMIT-01, 프론트 _main/Index.vue)" }
   - { id: FR-EXP-27, text: "[AS-IS·연동] 경비 화면은 ERP와 연동한다: 실적조회(/erpPrjAcrses, tsfYn='N'), 가용예산 차이조회(/budget/findAvailableBudgetDiffDtoByPrjNoAndBgtVerNo) — 조회 전용이며 가용예산 ERP 전송(external/erp/budgetExecutionOrganization·Individual)은 현재 비활성(주석). (근거: its-front apiUrl/Index.ts, AvailableBudget.vue)" }
+  - { id: FR-EXP-28, text: "Agent 화면 경비 상세는 중분류 단위 연간 예산(연도별)으로 보여 주고, 월별 금액은 집행 예상 시점이며 같은 해 안에서는 미사용분이 남은 달로 넘어간다는 것을 화면에서 안내해야 한다" }
+  - { id: FR-EXP-29, text: "마감된 달의 계획 − 실적(미사용)을 중분류·세부계정별로 보여 주고, 재수립 시 감액될 금액을 경고해야 한다" }
+  - { id: FR-EXP-30, text: "시스템(Agent)은 미사용분이 감액되지 않도록 같은 해 남은 달로 이월하는 조정안(연간 예산 ±0원)을 예산 조정안으로 먼저 제안해야 하며, PM은 경비 상세에서도 바로 반영·해제할 수 있어야 한다" }
