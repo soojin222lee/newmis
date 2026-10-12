@@ -1521,6 +1521,9 @@ function agentChatSendFinal() {
   AGENT_CHAT_FINAL.push({ who: 'pm', text: q });
   if (el) el.value = '';
 
+  // [2026.10.12] "요구사항 작성" — 화면에서 기능을 골라 대화로 요구사항을 씁니다(req-notes.js).
+  if (typeof rqnChatHandleFinal === 'function' && rqnChatHandleFinal(q)) { renderBudgetPage(); return; }
+
   // [2026.09.04] 외주비 필수값(업체·기간)을 묻는 중이면 그 답변부터 받습니다.
   if (agentSlotFinal && agentSlotFillFinal(q)) { renderBudgetPage(); return; }
 
@@ -1650,7 +1653,7 @@ function renderAgentChatActionFinal(d) {
   if (typeof agentSimActiveFinal === 'function' && !agentSimActiveFinal()) return '';
   return `
     <div class="agc-act">
-      <button class="agc-act-go" onclick="agentSimCommitFinal()">해야 할 일로 반영</button>
+      <button class="agc-act-go" onclick="agentSimCommitFinal()">예산 조정안으로</button>
       <button onclick="agentSimDraftFinal()">바로 기안 →</button>
       <button onclick="agentSimClearFinal()">되돌리기</button>
     </div>`;
@@ -4269,6 +4272,8 @@ function renderAgentGaChatFinal(roll) {
       ? [['기안해줘', 1], ['외주비 3천만원 늘려줘', 0], ['재료비에서 외주비로 1천만원 옮겨줘', 0], ['지금 CP 여유 얼마야?', 1]]
       : [['전부 반영해줘', 1], ['외주비 3천만원 늘려줘', 0], ['경비 300만원 줄여줘', 0], ['인건비 상세 보여줘', 1]];
   if (n) items.splice(1, 0, ['전부 해제해줘', 1]);
+  // [2026.10.12] 요구사항 노트 — 대화로 기능별 요구사항을 씁니다(req-notes.js)
+  if (typeof rqnChatHandleFinal === 'function' && !window.REQ_NOTES_EXPORT) items.push(['요구사항 작성', 1]);
   return `
     <div class="agga-col chat">
       <div class="agga-col-head">
@@ -5231,7 +5236,7 @@ function agentSimCommitFinal() {
     `확정했습니다. ${n}건을 [${agentTodoLabelFinal()}]에 올려 두었고 반영으로 체크해 두었습니다 — `
     + `[기안 ${n}건 →]을 누르면 결재선 지정으로 넘어갑니다. `
     + `확정 기준 수립 예산 ${fmt(c.after)}원 · CP총액 여유 ${fmt(c.remain)}원입니다.` });
-  showToast(`대화 시뮬레이션 ${n}건을 확정해 [해야 할 일]에 올렸습니다.`);
+  showToast(`대화 시뮬레이션 ${n}건을 확정해 [예산 조정안]에 올렸습니다.`);
   renderBudgetPage();
   return true;
 }
@@ -5451,7 +5456,7 @@ function renderAgentSimBannerFinal() {
         <p class="agsim-warn big">⚠ 합계가 CP총액을 ${fmt(-c.remain)}원 초과해 확정할 수 없습니다. 대화로 금액을 줄이거나 계정 간 이관으로 바꿔 주세요.</p>` : ''}
       <div class="agsim-acts">
         ${keys.length ? `
-          <button class="agsim-commit" ${c.overTotal ? 'disabled' : ''} onclick="agentSimCommitBtnFinal()">해야 할 일로 반영</button>
+          <button class="agsim-commit" ${c.overTotal ? 'disabled' : ''} onclick="agentSimCommitBtnFinal()">예산 조정안으로</button>
           <button class="agsim-draft" ${c.overTotal ? 'disabled' : ''} onclick="agentSimDraftBtnFinal()">바로 기안 →</button>
           <button onclick="agentSimSaveBtnFinal()">방안 저장</button>
           <button onclick="agentSimClearFinal()">초기화</button>` : ''}
@@ -10402,4 +10407,15 @@ if (typeof getMonthlyBudgetRows === 'function') {
     monthly,
     impact: `총액 변동이 없어 CP한도에 영향이 없습니다. 반영하지 않으면 재수립 기안에서 경비 ${fmt(u)}원이 감액됩니다.`,
   });
+})();
+
+/* [2026.10.12] 요구사항 노트(전 화면 공통, req-notes.js) 불러오기 ─────────────────────
+   index.html 편집이 막혀 있어(.claude/settings.local.json) 전 화면에서 항상 로드되는 이 파일이 불러옵니다.
+   공유용 HTML(내보낸 파일)에는 req-notes.js 가 이미 들어 있어 다시 부르지 않습니다(REQ_NOTES_INLINE). */
+(function agentLoadReqNotesFinal() {
+  if (window.REQ_NOTES_INLINE || window.REQ_NOTES_LOADED || document.getElementById('rqn-script')) return;
+  const s = document.createElement('script');
+  s.id = 'rqn-script';
+  s.src = '/js/req-notes.js?v=20261012-1';
+  document.body.appendChild(s);
 })();
