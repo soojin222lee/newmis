@@ -305,6 +305,112 @@ elements:
       - "금액 0 → '이관재료비 금액을 입력해 주세요.'"
     result: 이관 리스트 갱신, 계정 월예산 '이관재료비' 행 반영
 
+  # ── [2026.10.12] 예산관리 Agent ON · 재료비 상세 — 외주비와 같은 기조(소계정별 등록/수정/삭제 · 간트 제거 · 이관 받을/보낼) ──
+  - id: btn-agent-mat-add
+    label: "＋ 품목 등록 / ＋ 자산 등록 / ＋ 이관재료비 등록"
+    type: button
+    crud: N
+    area: "Agent 콘솔 재료비 상세 · 각 소계정 탭 표 상단 우측"
+    event: onclick
+    front:
+      handler: "agentMatEdOpenFinal(subIndex, '')"
+      file: "budget-agent-console.js:3660 (팝업 renderAgentMatEdPopFinal:3743)"
+      logic: "소계정별 입력 팝업. 상품재료비 = 품목명·대/중분류·모델·수량/단위·납품 시작/종료·금액, 감가상각비 = 자산명·취득일·내용연수·상각 시작/종료월·월 상각액, 이관재료비 = 이관 구분(받을/보낼)·발생 예정월·금액·내용. 직책자·과거 확정 버전 조회 중에는 숨김"
+      validation: null
+      state_writes: [agentMatEdFinal]
+    backend: null
+    result: "등록 팝업"
+
+  - id: btn-agent-mat-edit
+    label: "수정"
+    type: button
+    crud: N
+    area: "재료비 소계정 표 관리 열"
+    event: onclick
+    front:
+      handler: "agentMatEdOpenFinal(subIndex, id)"
+      file: "budget-agent-console.js:3660"
+      logic: "해당 건 값을 채운 수정 팝업. 실적이 생긴 품목(actualized)·집행완료 이관 건은 조회 전용"
+      validation: "잠긴 건이면 '실적이 생긴 건은 조회만 가능합니다.' 토스트"
+      state_writes: [agentMatEdFinal]
+    backend: null
+    result: "수정 팝업"
+
+  - id: btn-agent-mat-update
+    label: "수정 저장"
+    type: button
+    crud: U
+    area: "재료비 수정 팝업 하단"
+    event: onclick
+    front:
+      handler: "agentMatEdSaveFinal()"
+      file: "budget-agent-console.js:3669"
+      logic: "수정 중인 건에 입력값을 덮어쓰고, 바뀐 월별 금액(새 값 − 옛 값)을 소계정 변동분에 더한다(agentMatDeltaAddFinal:3592)"
+      validation: "필수값 누락 · 종료<시작 · 금액 0 이면 저장 거부"
+      state_writes: [getMaterialRows, AGENT_MAT_SUB_FINAL, AGENT_MAT_DELTA_FINAL]
+    backend: null
+    result: "표 · 탭 금액 · 재료비 합계 갱신 + 토스트"
+
+  - id: btn-agent-mat-save
+    label: "등록"
+    type: button
+    crud: C
+    area: "재료비 등록 팝업 하단"
+    event: onclick
+    front:
+      handler: "agentMatEdSaveFinal()"
+      file: "budget-agent-console.js:3669"
+      logic: "상품재료비 = getMaterialRows()에 품목 추가(견적번호 없음 · 상태 계획), 감가상각비 = 금액 = 월 상각액 × 상각 개월 수, 이관재료비 = 받을 +금액(Receiver) / 보낼 −금액(Sender). 소계정 계획 = 처음 목업 금액 + 등록 변동분(getMonthlyBudgetRows 재정의:10374, 품목은 납품 기간 · 자산은 상각 기간 균등, 이관은 발생 예정월)"
+      validation: "필수값 누락 · 종료<시작 · 금액 0 이면 저장 거부 + 토스트"
+      state_writes: [getMaterialRows, AGENT_MAT_SUB_FINAL, AGENT_MAT_DELTA_FINAL, agentMatEdFinal]
+    backend: null
+    result: "표 · 탭 금액 · 재료비 합계 증가 + 토스트"
+
+  - id: btn-agent-mat-delete
+    label: "삭제"
+    type: button
+    crud: D
+    area: "재료비 소계정 표 관리 열"
+    event: onclick
+    front:
+      handler: "agentMatDelFinal(subIndex, id)"
+      file: "budget-agent-console.js:3724"
+      logic: "confirm 후 제거하고 그 금액만큼 소계정 계획에서 뺀다"
+      validation: "실적이 생긴 품목 · 집행완료 이관 · 상각이 시작된 자산은 삭제 불가(버튼 숨김 + 토스트)"
+      state_writes: [getMaterialRows, AGENT_MAT_SUB_FINAL, AGENT_MAT_DELTA_FINAL]
+    backend: null
+    result: "표 · 탭 금액 · 재료비 합계 감소 + 토스트"
+
+  - id: sum-agent-mat-transfer
+    label: "이관재료비 요약 — 계획(받을·보낼·순 이관) / 실적(받은·보낸·순 이관)"
+    type: summary
+    crud: R
+    area: "이관재료비 탭 상단"
+    event: null
+    front:
+      handler: "renderAgentMaterialDetailFinal() 이관 분기"
+      file: "budget-agent-console.js:3806"
+      logic: "이관인건비 · 이관외주비와 같은 규칙. 표에도 계획 열과 실적 열을 따로 둔다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "계획과 실적을 나눠 보여 줌"
+
+  - id: btn-agent-mat-close
+    label: "닫음"
+    type: button
+    crud: N
+    area: "재료비 팝업 하단 / ✕ / 바깥 영역"
+    event: onclick
+    front:
+      handler: "agentMatEdCloseFinal()"
+      file: "budget-agent-console.js:3668"
+      logic: "팝업 닫기(입력값 버림)"
+      validation: null
+      state_writes: [agentMatEdFinal]
+    backend: null
+    result: "팝업 닫힘"
+
 # ── 백엔드/외부 연동 (현재 목업, SRS 승격 후보) ──
 apis:
   - name: 구매시스템 견적
@@ -385,3 +491,7 @@ requirements:
   - { id: FR-MAT-12, text: "이관금액은 월별 예산내역의 '이관재료비' 행(및 실적)으로 반영되어야 한다" }
   - { id: FR-MAT-13, text: "재료비 계정 월예산은 상품재료비/감가상각비/이관재료비 3행으로 분해되며, 상품재료비=계정 월계획-감가상각-이관(음수 방지)으로 산출한다(상품재료비 상세 계획의 월예산 직접 반영 여부는 정책 확정 필요)" }
   - { id: FR-MAT-14, text: "목업으로 처리된 견적/검수 실적/감가상각 원장/이관 인터페이스는 실제 외부 시스템 연동으로 정의해야 한다" }
+  - { id: FR-MAT-15, text: "Agent 화면 재료비 상세의 각 소계정(상품재료비·감가상각비·이관재료비)에서 신규 등록·수정·삭제할 수 있어야 하며, 실적이 생긴 건은 조회 전용이어야 한다" }
+  - { id: FR-MAT-16, text: "소계정 등록·수정·삭제 결과는 해당 소계정 계획·재료비 합계·월별 금액에 즉시 반영되어야 한다(변경하지 않은 금액은 그대로)" }
+  - { id: FR-MAT-17, text: "Agent 화면의 이관재료비 계획은 '받을 재료비(+)'와 '보낼 재료비(−)' 두 구분으로 수립하고, 실적은 계획과 따로 표시해야 한다" }
+  - { id: FR-MAT-18, text: "Agent 화면 재료비 상세에는 간트(납품·검수 일정, 상각 기간)를 표시하지 않아야 한다" }

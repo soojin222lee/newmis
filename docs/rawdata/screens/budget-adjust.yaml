@@ -168,6 +168,109 @@ elements:
     front: { handler: "showBudgetCostGuide", file: "budget-status-3.js:2275" }
     result: "총액 자체 변경은 이 화면 불가 — Cost 재산정으로 안내(이관은 총액 내에서만)"
 
+
+  # ── [2026.10.12] 예산관리 Agent ON · 계정 상세(5대 계정 공통) — 양옆 칸 접기/펼치기 ──
+  - id: btn-agent-detail-chat-fold
+    label: "접기 ›(Agent와 대화하기)"
+    type: button
+    crud: N
+    area: "계정 상세 화면 · Agent와 대화하기 칸 머리 우측"
+    event: onclick
+    front:
+      handler: agentGaChatFoldSetFinal(true)
+      file: "budget-agent-console.js:3311 (그리드 조합 renderAgentGaViewFinal:3423)"
+      logic: "대화하기 칸을 빼고 계정 상세를 넓힌다. 계정 상세에 들어갔을 때만 버튼이 보인다(첫 화면은 그대로). 메인에서 계정 상세로 들어가면 기본으로 접혀 있다(agentAiSheetOpenFinal:4364)"
+      validation: null
+      state_writes: [agentGaChatFoldFinal]
+    backend: null
+    result: 대화하기 접힘 · 상세 머리 우측에 [💬 대화] 버튼 표시
+
+  - id: btn-agent-detail-chat-open
+    label: "💬 대화"
+    type: button
+    crud: N
+    area: "계정 상세 칸 머리 우측(대화하기를 접었을 때만)"
+    event: onclick
+    front:
+      handler: agentGaChatFoldSetFinal(false)
+      file: "budget-agent-console.js:3311"
+      logic: "대화하기 칸을 다시 열고 최신 대화로 스크롤(agentChatSeenFinal 초기화)"
+      validation: null
+      state_writes: [agentGaChatFoldFinal, agentChatSeenFinal]
+    backend: null
+    result: 대화하기 펼침
+
+  - id: btn-agent-detail-todo-open
+    label: "› 예산 조정안 (검토 대기 건수 배지)"
+    type: button
+    crud: N
+    area: "계정 상세 칸 머리 좌측(예산 조정안이 접혀 있을 때)"
+    event: onclick
+    front:
+      handler: agentGaTodoOpenSetFinal(true)
+      file: "budget-agent-console.js:3316 (건수 agentGaPendingCntFinal)"
+      logic: >
+        계정 상세 왼쪽에 예산 조정안(renderAgentGaTodoFinal)을 그대로 펼친다(메인에서 들어오면 기본 접힘, 계정끼리 옮길 때는 상태 유지).
+        펼친 상태에서 [반영]·[전부 반영]·[기안]을 누르면 옆 계정 상세 표가 바로 바뀐다. 직책자는 '결재할 일'로 표기.
+      validation: null
+      state_writes: [agentGaTodoOpenFinal]
+    backend: null
+    result: "조정안 | 계정 상세 | 대화하기 3칸(대화 접힘 시 2칸)"
+
+  - id: btn-agent-detail-todo-fold
+    label: "‹ 접기(예산 조정안)"
+    type: button
+    crud: N
+    area: "계정 상세 화면 · 예산 조정안 칸 머리 우측"
+    event: onclick
+    front:
+      handler: agentGaTodoOpenSetFinal(false)
+      file: "budget-agent-console.js:3316"
+      logic: 예산 조정안 칸을 접는다. 계정을 바꿔도 접기/펼치기 상태는 유지된다
+      validation: null
+      state_writes: [agentGaTodoOpenFinal]
+    backend: null
+    result: 예산 조정안 접힘
+
+
+  # ── [2026.10.12] 계정 상세 진입 표시 — 첫 화면(조정안+대화)과 구분 ──
+  #   경로 줄을 따로 두던 안은 상세 머리와 내용이 겹치고 표 높이를 잡아먹어, 상세 칸 머리로 합쳤다.
+  - id: btn-agent-detail-home
+    label: "← 프로젝트 메인"
+    type: button
+    crud: N
+    area: "계정 상세 칸 머리 좌측(예산 조정안 펼치기 버튼 다음)"
+    event: onclick
+    front:
+      handler: "agentAiSheetOpenFinal('')"
+      file: "budget-agent-console.js:3350"
+      logic: >
+        계정 상세를 닫고 프로젝트 메인(예산 조정안 + Agent와 대화하기)으로 돌아간다.
+        상세 칸은 계정색(AGENT_ACCT_TONE_FINAL) 테두리·머리 배경·제목으로 칠하고, 상단 계정 칩은 보고 있는 계정만
+        계정색으로 채워 '상세 보는 중' 배지를 붙이며 나머지는 흐리게 표시한다(칩 툴팁: 다른 계정 이동 / 다시 누르면 메인).
+      validation: null
+      state_writes: [agentAiSheetFinal]
+    backend: null
+    result: 프로젝트 메인 화면
+
+
+  - id: btn-agent-detail-monthly
+    label: 월별 계획/실적 보기
+    type: button
+    crud: R
+    area: "계정 상세 칸 머리 우측(5개 계정 공통 · [💬 대화] 버튼 앞)"
+    event: onclick
+    front:
+      handler: "agentAcctMonthlySetFinal(acct)"
+      file: "budget-agent-console.js:2128 (팝업 renderAgentAcctMonthlyPopFinal:2136)"
+      logic: >
+        계정별 기존 예산내역 표(renderAccountMonthlyBudgetTable)를 팝업으로 연다 — 상세계정 × 계획(전체) · 실적(확정) ·
+        계획(미집행) · 월별 금액. 인건비 · 외주비처럼 합계 1줄로 접히는 표는 펼친 상태로 연다. 화면에는 기본 노출하지 않는다.
+      validation: null
+      state_writes: [agentAcctMonthlyFinal, laborBudgetTreeOpenFinal, outsourceBudgetTreeOpenV3]
+    backend: null
+    result: "{계정} 월별 계획 / 실적 팝업"
+
 # ── 비즈니스 로직 & 규칙 ──
 rules:
   transfer_total_invariant: "이관 저장은 총액 불변 — 조정배분 합계 = 총액(plan 합)"
@@ -219,3 +322,8 @@ requirements:
   - { id: FR-BAD-07, text: 예산 이관 저장 시 변경 내역(계정별 변경 전/후/증감)을 버전으로 기록하고 로컬 영속화해야 한다 }
   - { id: FR-BAD-08, text: 총 Cost 변경은 이 화면에서 불가하며 AI PMO Cost 재산정으로 안내해야 한다 }
   - { id: FR-BAD-09, text: 작성중 버전만 결재요청이 가능하며, 결재라인(기안자→팀장)과 버전 diff 써머리를 제공해야 한다 }
+  - { id: FR-BAD-10, text: "Agent ON 화면에서 계정 상세에 들어가면 Agent와 대화하기 칸을 접고 펼칠 수 있어야 한다" }
+  - { id: FR-BAD-11, text: "Agent ON 화면의 계정 상세에서도 예산 조정안을 펼쳐 보며 반영·기안할 수 있어야 한다" }
+  - { id: FR-BAD-12, text: "Agent ON 화면에서 계정 상세에 들어가면 계정색 강조로 프로젝트 메인 화면과 구분되어야 하며, [← 프로젝트 메인]으로 한 번에 돌아갈 수 있어야 한다" }
+  - { id: FR-BAD-13, text: "Agent ON 화면의 모든 계정 상세에서 [월별 계획/실적 보기] 팝업으로 상세계정별 계획·실적·미집행과 월별 금액을 볼 수 있어야 한다" }
+  - { id: FR-BAD-14, text: "메인에서 계정 상세로 들어가면 예산 조정안과 Agent와 대화하기가 모두 접힌 상태로 열려야 한다(계정 상세를 넓게)" }
