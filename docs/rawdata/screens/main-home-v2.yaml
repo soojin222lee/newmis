@@ -383,4 +383,12 @@ app_shell_migration:
     - "레일 접기는 body.v2-rail-min 으로 동작 (이전: .v2-wrap 인라인 폭)"
     - "(2차) 레일에 메뉴를 두지 않음 — 담당 프로젝트 아코디언이 메인 외 화면에서도 주 이동 경로. 상단 메뉴는 개발용 '상단 메뉴 보기' 버튼으로만 표시"
     - "(2차) 메인의 레일 접기 선택(newmis.v2Rail)은 유지. 담당 프로젝트 항목으로 상세에 들어가면 레일 자동 축소, 메인 복귀 시 이 선택으로 복원"
+    - "(8차) 브랜드 'AXGENTIC WIRE' → '예산관리 시스템'(+AiBudget), 마크는 B 노드형 — shell-v2.js 가 v2BrandHtml·v2BrandMarkSvg 를 덮는다"
+  main_review_2026_10_13:
+    approval_queue: "담당임원 '결재 대기' = 실제 상신된 기안만(status 'submitted'). 예전엔 'approved'(예전 화면의 PM 승인 상태)까지 세어, 눌러도 결재할 기안이 없었다 — V2_WORK.lead.open · leadApprovalQueue"
+    sample_drafts: "시나리오 PJT 시드 상신 2건(스마트팩토리 외주비 D101 · AI 문서심사 인건비 D102)에 draftId·draftNo·결재자(박정우 담당임원)·legs 를 달아 상세 결재함에 실제 기안으로 보이고 승인·반려된다 — seedSubmitted · createExtraProjects"
+    scenario_versions: "스마트팩토리·AI 문서심사는 자기 실행예산 버전(v2.0 작성중 · v1.0 확정)을 갖는다. 없으면 목업용 PJT 버전을 빌려 CP총액이 2,310,000,000원으로 보였다 — AGENT_VERSIONS_FINAL[key] 등록"
+    titles: "박정우 = 담당임원(원가조정 결재선과 같게). 화면의 '팀장'(결재자 역할) 표기를 '담당임원'으로. 호칭은 성+이름 — '안녕하세요, 이봄님.' / '박정우님.'"
+    rail_badge: "프로젝트 오른쪽 = 처리할 건수만(0건이면 비움). 상태는 이름 아래 작은 회색 글자 — '편성 전' / '정상 · 처리할 일 없음'"
+    not_done: "질문 예시 버튼(H)은 이번에 넣지 않음(사용자 선택)"
   see: docs/rawdata/screens/app-shell-v2.yaml

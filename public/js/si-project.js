@@ -6,7 +6,7 @@
 // - CRM/IF에서 받은 수주형 프로젝트 기본정보를 목록, 등록, 상세 형태로 보여줍니다.
 // - 현재 화면에서는 단계별 기간 정보는 제거하고 기본정보와 IF 변경이력만 남기는 방향입니다.
 // - AI 화면 가이드는 프로젝트 코드, 고객사, 매출귀속조직, 계약유형, IF 변경이력 의미를 우선 설명해야 합니다.
-// - 신규 등록은 외부 시스템에서 계약 완료 프로젝트를 조회한 뒤 선택 등록하는 목업 흐름입니다.
+// - IF 등록은 외부 시스템(CRM)에서 계약 완료 프로젝트를 조회한 뒤 선택 등록하는 목업 흐름입니다.
 
 let siView = 'list';   // 'list' | 'detail' | 'register'
 let siSelectedId = null;
@@ -212,7 +212,7 @@ function renderSIList() {
         <div class="page-title">수주형 프로젝트</div>
         <div class="page-sub">CRM 연동 프로젝트 기본정보 등록 및 변경이력 조회</div>
       </div>
-      <button class="save-btn" onclick="siView='register';renderSIProject()" style="margin-top:4px;font-size:14px;padding:6px 14px">+ 신규 등록</button>
+      <button class="save-btn" onclick="siView='register';renderSIProject()" style="margin-top:4px;font-size:14px;padding:6px 14px">+ IF 등록</button>
     </div>
 
     <div class="proj-list-toolbar">
@@ -246,7 +246,7 @@ function renderSIList() {
     </div>`;
 }
 
-// ── 신규 등록 뷰 ─────────────────────────
+// ── IF 등록 뷰 ───────────────────────────
 function renderSIRegister() {
   siRegResults  = [];
   siRegSelected = null;
@@ -255,7 +255,7 @@ function renderSIRegister() {
     <div class="wg-detail-topbar">
       <button class="mc-back-btn" onclick="siView='list';renderSIList()">← 목록</button>
       <div>
-        <div style="font-size:20px;font-weight:800;color:#1e293b">수주형 프로젝트 신규 등록</div>
+        <div style="font-size:20px;font-weight:800;color:#1e293b">수주형 프로젝트 IF 등록</div>
         <div style="font-size:15px;color:#64748b;margin-top:2px">CRM 계약완료 프로젝트를 조회하여 등록합니다.</div>
       </div>
     </div>

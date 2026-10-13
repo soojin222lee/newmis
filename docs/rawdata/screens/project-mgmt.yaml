@@ -94,7 +94,7 @@ elements:
     backend: null
 
   - id: si-btn-new
-    label: "+ 신규 등록"
+    label: "+ IF 등록"
     type: button
     area: 수주형 목록 헤더
     event: onclick
@@ -102,14 +102,14 @@ elements:
       handler: "siView='register'; renderSIProject()"
       state_writes: [siView]
     backend: null
-    result: 수주형 신규 등록(CRM 조회) 화면으로 전환
+    result: 수주형 IF 등록(CRM 조회) 화면으로 전환
 
-  # ----- 수주형 신규 등록(목업 흐름) -----
+  # ----- 수주형 IF 등록(목업 흐름) -----
   - id: si-crm-fetch
     label: "CRM 조회(코드/PM 입력)"
     type: input+button
     dom_id: si-reg-code
-    area: 신규 등록 CRM 조회 카드
+    area: IF 등록 CRM 조회 카드
     event: "onclick / onkeydown(Enter)"
     front:
       handler: "siMockFetch() (si-project.js:271)"
@@ -124,7 +124,7 @@ elements:
   - id: si-reg-select
     label: 조회 결과 프로젝트 선택
     type: list-item
-    area: 신규 등록 결과 목록
+    area: IF 등록 결과 목록
     event: onclick
     front:
       handler: "siRegSelectProject(idx) (si-project.js:318)"
@@ -135,7 +135,7 @@ elements:
   - id: si-confirm-register
     label: "✅ 등록 완료"
     type: button
-    area: 신규 등록 가져온 기본정보
+    area: IF 등록 가져온 기본정보
     event: onclick
     front:
       handler: "siConfirmRegister() (si-project.js:350)"
@@ -171,7 +171,20 @@ elements:
       logic: "검색 대상 = name·code·pm·revOrg·customer·parent·parentName 부분일치(OR) (proposal-project.js:80-81)"
       state_writes: [ppSearchQuery]
     backend: null
-    note: "제안 목록에는 신규 등록 버튼 없음 — 제안은 수주형에서 P00N 채번되는 개념"
+    note: "제안은 수주형에서 P00N 채번되는 개념 — IF 수신 쪽(연동 프로젝트)으로 분류(2026-10-13)"
+
+  - id: pp-btn-new
+    label: "＋ IF 등록"
+    type: button
+    crud: C
+    area: 제안 목록 헤더
+    event: onclick
+    front:
+      handler: "ppStartRegister()"
+      logic: "제안 등록 양식 열기 → ppSaveRegister() 로 저장 (proposal-project.js). 용어는 IF 수신 쪽 '등록'으로 통일 — 양식은 아직 직접 입력(수주형처럼 CRM 조회·선택으로 바꿀지는 수진 논의 과제)"
+      state_writes: [ppView]
+    backend: null
+    result: 제안 프로젝트 IF 등록 화면으로 전환
 
   # ----- 상세 대시보드 구성요소(수주형·제안 공용, siDetailHtml si-project.js:750) -----
   - id: detail-back
@@ -314,9 +327,9 @@ data:
 
 # ── 대표 플로우 ──
 flows:
-  - name: 수주형 신규 등록(목업)
+  - name: 수주형 IF 등록(목업)
     steps:
-      - "목록 #/si-project → [+ 신규 등록] (siView='register')"
+      - "목록 #/si-project → [+ IF 등록] (siView='register')"
       - "CRM 코드/PM 입력 → 조회(siMockFetch): CRM_PROJECTS_POOL 필터 (0건 경고/1건 자동선택/복수 목록)"
       - "프로젝트 선택(siRegSelectProject) → CRM 기본정보 읽기전용 확인"
       - "[등록 완료](siConfirmRegister) → SI-00N 키로 SI_PROJECTS 추가(stage='등록완료') → 상세 전환 + 토스트"
@@ -332,7 +345,7 @@ requirements:
   - { id: FR-PJ-01, text: 사용자는 수주형/제안 프로젝트를 목록에서 검색어·단계로 필터링해 조회할 수 있다 }
   - { id: FR-PJ-02, text: 사용자는 목록 행을 클릭해 프로젝트 상세 IF 대시보드로 진입할 수 있다(수주형·제안 동일 대시보드) }
   - { id: FR-PJ-03, text: 사용자는 CRM 최종계약완료 프로젝트를 조회하여 수주형 프로젝트로 선택 등록할 수 있다(D 시리즈 코드 승계) }
-  - { id: FR-PJ-04, text: 제안 프로젝트는 원 수주 프로젝트 base 코드에 P00N을 채번하며 신규 등록 UI 없이 관리된다 }
+  - { id: FR-PJ-04, text: 제안 프로젝트는 원 수주 프로젝트 base 코드에 P00N을 채번하며, 사용자는 [＋ IF 등록]으로 제안 프로젝트를 등록할 수 있다 }
   - { id: FR-PJ-05, text: 상세 화면은 선행 시스템(ERP·AI SCM·AI CRM·구매)별 동기화 상태(방향·마지막 교환시각·변경건수·지연)를 표시한다 }
   - { id: FR-PJ-06, text: 사용자는 동기화 카드를 클릭해 해당 시스템의 IF 변경이력을 날짜별 타임라인 팝업으로 확인할 수 있다 }
   - { id: FR-PJ-07, text: 기본정보 각 필드는 출처 시스템 배지와 최근 변경 강조를 함께 제공한다 }

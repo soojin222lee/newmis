@@ -446,7 +446,7 @@ function renderRoleSwitch() {
   return `
     <div class="role-switch">
       <button class="${dashboardRole === 'pm' ? 'active' : ''}" onclick="switchDashboardRole('pm')">PM</button>
-      <button class="${dashboardRole === 'lead' ? 'active' : ''}" onclick="switchDashboardRole('lead')">팀장</button>
+      <button class="${dashboardRole === 'lead' ? 'active' : ''}" onclick="switchDashboardRole('lead')">담당임원</button>
     </div>`;
 }
 
@@ -586,7 +586,7 @@ const HOME_RAIL = [
   { at:55, d:'8/25', l:'검수 마감',      kind:'human' },
   { at:74, d:'8/31', l:'월마감',         kind:'done'  },
   { at:86, d:'9/1',  l:'자동 현행화',    kind:'auto'  },
-  { at:97, d:'9/3',  l:'팀장 승인',      kind:'human' },
+  { at:97, d:'9/3',  l:'담당임원 승인',      kind:'human' },
 ];
 
 // 프로젝트별 신호등 + 원가 소진률
@@ -714,14 +714,14 @@ const HOME_AI = {
     plan:[ ['외주비 8~11월 계획','2.30억','2.72억','+4,200만원'],
            ['AI 예비비 상계','3,200만원','0','-3,200만원'],
            ['연말 예상원가','27.20억','27.74억','+5,400만원'] ],
-    guard:[ ['ok','CP 한도 내 · 여유 2.61억'], ['warn','결재 경로 · 팀장 승인 필요'] ],
+    guard:[ ['ok','CP 한도 내 · 여유 2.61억'], ['warn','결재 경로 · 담당임원 승인 필요'] ],
     evidence:[ ['원천 IF 데이터','구매시스템 PO 확정분 3건 · 2026-08-17 09:12 수신 · 협력사 A/B/C'],
                ['적용 규칙 · 산식','월별 계획 = 확정 PO 금액 × 검수월 배분율 (검수월 미확정분은 균등 배분)'],
                ['계산 과정','① 확정 PO 4,200만원 인식 → ② 8~11월 배분 → ③ AI 예비비 3,200만원 상계 → ④ 연말 예상원가 재산정'],
                ['참조한 유사 PJT','3건 · 동일 사업유형 · 평균 외주비 초과율 14.2% (본 건 18.0%는 상위 25% 구간)'],
                ['데이터 등급','R · 규칙기반 — 산식 공개, 확정 후 ERP 전송 가능'],
                ['신뢰도','92% · 표본 24건 · 최근 6개월 무수정 채택률 95.8%'],
-               ['후행 전송','전송 대기 · 팀장 승인 후 ERP 연계 큐 등재'] ] },
+               ['후행 전송','전송 대기 · 담당임원 승인 후 ERP 연계 큐 등재'] ] },
 
   'skon|승인 이후 계약금액이 변경됐어요': {
     grade:'D', src:'CRM', impact:'+1.2억', impactWon:12000, dueDays:2, dueNote:'월마감 전',
@@ -1220,7 +1220,7 @@ function renderLeadDashboard() {
     <div class="ai-workspace lead-workspace">
       <div class="ai-home-top">
         <div class="ai-brand">
-          <strong>팀장 원가관리 뷰</strong>
+          <strong>담당임원 원가관리 뷰</strong>
           <span>팀 내 프로젝트 이슈 · 승인 지연 · 마감 위험 확인</span>
         </div>
         <div class="top-actions">
@@ -1233,7 +1233,7 @@ function renderLeadDashboard() {
       <section class="lead-dashboard">
         <div class="lead-headline">
           <div>
-            <div class="ai-greeting">팀장 화면</div>
+            <div class="ai-greeting">담당임원 화면</div>
             <h1>팀 내 프로젝트에서<br>지금 봐야 할 문제를 모았습니다.</h1>
           </div>
           <div class="lead-summary-grid">
@@ -1431,9 +1431,9 @@ const HOME_CYCLE = [
   { n:'검수·확정',      d:'8/25',  st:'wait',   own:'PM',   note:'확인 필요', cnt:2, go:'status' },
   { n:'월마감 대사',    d:'8/31',  st:'wait',   own:'시스템', note:'계획-실적 gap 보전' },
   { n:'자동 현행화',    d:'9/1',   st:'wait',   own:'AI',   note:'AI 자동 반영' },
-  { n:'팀장 승인',      d:'9/3',   st:'wait',   own:'팀장', note:'승인 대기' },
+  { n:'담당임원 승인',      d:'9/3',   st:'wait',   own:'담당임원', note:'승인 대기' },
 ];
-const HOME_CYCLE_OWN = { 'PM':'pm', 'AI':'ai', '팀장':'lead', '시스템':'sys' };
+const HOME_CYCLE_OWN = { 'PM':'pm', 'AI':'ai', '담당임원':'lead', '시스템':'sys' };
 
 function homeCycleHtml() {
   const f = homeFinOf(homeSelectedProject);
@@ -2009,7 +2009,7 @@ function rerenderHomeFeed() {
 // ============================================================
 
 const HOME_USERS = {
-  pm: { key:'pm', name:'이봄', role:'PM', greet:'봄님', desc:'편성하고 조정할 일' },
+  pm: { key:'pm', name:'이봄', role:'PM', greet:'이봄님', desc:'편성하고 조정할 일' },
 };
 let homeUser = 'pm';
 
@@ -2304,7 +2304,7 @@ const CLOSE_STAGES = [
   { id:'inspect', n:'검수·확정',     own:'PM' },
   { id:'recon',   n:'월마감 대사',   own:'시스템' },
   { id:'auto',    n:'자동 현행화',   own:'AI' },
-  { id:'approve', n:'팀장 승인',     own:'팀장' },
+  { id:'approve', n:'담당임원 승인',     own:'담당임원' },
 ];
 
 // 현재 월 기준 단계 일자 — 마감을 넘기면 자동으로 다음 달 날짜가 된다
@@ -2356,8 +2356,8 @@ const CLOSE_WORK = {
     { acct:'전 계정', title:'월마감 D+1 자동 현행화',  note:'AI가 확정 실적을 자동 반영합니다 (사람 개입 없음)', st:'next' },
   ],
   approve: [
-    { acct:'외주비', title:'외주비 증액 결재',        note:'PM 상신 건을 팀장이 승인합니다', st:'next' },
-    { acct:'인건비', title:'인건비 추가 편성 결재',   note:'PM 상신 건을 팀장이 승인합니다', st:'next' },
+    { acct:'외주비', title:'외주비 증액 결재',        note:'PM 상신 건을 담당임원이 승인합니다', st:'next' },
+    { acct:'인건비', title:'인건비 추가 편성 결재',   note:'PM 상신 건을 담당임원이 승인합니다', st:'next' },
   ],
 };
 
@@ -3008,7 +3008,7 @@ const CLOSE_RUN_STEPS = [
   { t:'실적 수신 (계정별 구분)', d:'인건비 SCM Teaming · 외주비 실투입/검수 · 재료비·경비 구분 수신' },
   { t:'실적 I/F 방향 확인',      d:'외주비·재료비 ERP 수신 / 인건비·경비 ERP 전송 · 변경 PO 재수신' },
   { t:'추정 Rawdata 제공',       d:'계획+실적 Rawdata를 추정 시스템·BIX로 이관' },
-  { t:'현행화 조정안 자동 확정', d:'실적 반영 조정 · 팀장 승인 없이 자동 확정 (Process MAP)' },
+  { t:'현행화 조정안 자동 확정', d:'실적 반영 조정 · 담당임원 승인 없이 자동 확정 (Process MAP)' },
 ];
 
 const SCEN_CP = 1850000000;          // PMO에서 넘어온 CP 총액 (이 금액 이하로 편성해야 한다)
@@ -3058,7 +3058,7 @@ const SCEN_BY_MONTH = {
           do:'[SCM 확정 인력 불러오기]에서 8명을 선택해 계획에 반영합니다',
           decide:'등급·단가가 SCM 확정값과 같은지 대조한 뒤 확정합니다' } },
       { stage:'approve', acct:'전 계정', trigger:'4대계정 편성 완료',
-        title:'실행예산 최초 편성안을 팀장에게 상신해야 합니다',
+        title:'실행예산 최초 편성안을 담당임원에게 상신해야 합니다',
         why:'승인을 받아야 Baseline이 확정되고 ERP로 전송됩니다. 승인 전에는 Draft 상태로만 남습니다.',
         from:0, to:1586000000,
         guide:{ where:'수행원가 › 원가조정',
@@ -3256,7 +3256,7 @@ function closeRunHtml() {
         ${openTodo ? `<div class="cr-warn">아직 처리하지 않은 항목이 <b>${openTodo}건</b> 있습니다. 마감하면 이 달 계획이 실적으로 확정되고 다음 달로 넘어갑니다.</div>` : ''}
         <div class="cr-sec">마감 처리 순서</div>
         ${steps}
-        <div class="cr-note">현행화 조정안은 Process MAP상 <b>팀장 승인 없이 자동 확정</b>됩니다.
+        <div class="cr-note">현행화 조정안은 Process MAP상 <b>담당임원 승인 없이 자동 확정</b>됩니다.
           원가 계획·반영 규칙은 현재 목업(수행원가 &gt; 원가조정) 기준을 따릅니다.</div>
       </div>
       <div class="cr-foot">
@@ -3423,12 +3423,25 @@ const EXTRA_PJTS = [
         months: x.months.map(function (m) { return budgetMockMonth(m[0], m[1], m[2]); }),
       };
       if (typeof budgetTransferHistory !== 'undefined' && !budgetTransferHistory[x.key]) budgetTransferHistory[x.key] = [];
+      // 실행예산 버전 — 상세 화면의 CP총액·수립 예산은 버전 금액에서 나온다(budget-agent-console.js agentVersionsFinal)
+      if (typeof AGENT_VERSIONS_FINAL !== 'undefined' && !AGENT_VERSIONS_FINAL[x.key]) {
+        const budgets = Object.assign({ 'A/S Cost': 0 }, x.plan);
+        AGENT_VERSIONS_FINAL[x.key] = [
+          { key: 'v2.0', label: 'v2.0', date: '2026-08-20', status: '작성중', owner: x.pm,
+            memo: 'Agent 감지 건 검토 중 — 결재를 받으면 확정됩니다', budgets: Object.assign({}, budgets), live: true },
+          { key: 'v1.0', label: 'v1.0', date: '2026-03-10', status: '확정', owner: x.pm,
+            approver: '박정우(직책자)', decidedAt: '2026-03-10 17:00', memo: '최초 편성 — 현재 확정 실행예산',
+            budgets: Object.assign({}, budgets), approvals: [], changes: [] },
+        ];
+      }
       // 상세 화면(Agent 콘솔)에도 같은 건이 보이도록 제안으로 등록
       if (typeof AGENT_PROPOSALS_FINAL !== 'undefined') {
         x.todos.forEach(function (t, i) {
           AGENT_PROPOSALS_FINAL.push({ id:'ex-' + x.key + '-' + i, pjt:x.key, stage:'input', acct:t.acct,
             status:'pending', confidence:0.9, detectedAt:'2026-08-20 09:00', trigger:'I/F 수신',
-            title:t.title, why:t.why, guide:t.guide, from:t.from, to:t.to, impact:'CP 한도 이내입니다.' });
+            title:t.title, why:t.why, guide:t.guide, from:t.from, to:t.to, impact:'CP 한도 이내입니다.',
+            // 계정별 변경 전/후 — 기안 금액·CP 영향은 legs 로 계산된다(budget-agent-console.js)
+            legs:[{ acct:t.acct, delta:t.to - t.from, from:t.from, to:t.to }] });
         });
       }
       if (typeof SCEN_RISKS_BY_PJT !== 'undefined') SCEN_RISKS_BY_PJT[x.key] = x.risks.slice();
@@ -3836,7 +3849,7 @@ function renderPmDashboard() {
 // ============================================================
 
 // 사용자 복원 — 팀장 추가
-HOME_USERS.lead = { key:'lead', name:'김여름', role:'팀장', greet:'여름님', desc:'팀 원가 현황과 결재' };
+HOME_USERS.lead = { key:'lead', name:'김여름', role:'담당임원', greet:'김여름님', desc:'팀 원가 현황과 결재' };
 
 // 전사 비교 기준 (팀 평균과 대조하는 참고값)
 const TEAM_BENCH = { corpBurn: 58.2, corpDev: 1.4, teamName: 'NOVA PMO팀' };
@@ -3906,7 +3919,7 @@ function leadApprovalQueue() {
   if (typeof AGENT_PROPOSALS_FINAL === 'undefined') return [];
   const known = homeCardPjts().map(function (p) { return p.id; });
   return AGENT_PROPOSALS_FINAL.filter(function (p) {
-    return (p.status === 'submitted' || p.status === 'approved')
+    return p.status === 'submitted'
       && known.indexOf(p.pjt || MOCK_PJT.key) >= 0;
   });
 }
@@ -3921,9 +3934,16 @@ function leadApprovalQueue() {
         return x.pjt === t[0] && x.acct === t[1] && x.status === 'pending';
       });
       if (!p) return;
+      // 상세 화면 결재함(agentDraftsFinal)은 draftId 로 기안을 묶는다 — 실제 상신과 같은 모양으로 둔다
+      const apv = (typeof AGENT_APPROVERS_FINAL !== 'undefined' && AGENT_APPROVERS_FINAL[0])
+        || { id: 'apv-1', name: '박정우', title: '담당임원' };
       p.status = 'submitted';
-      p.approver = { title: '팀장', name: '김여름' };
-      p.draftNote = 'PM 이봄 상신 · 직책자 결재 대기';
+      p.draftId = 'dr-ex-' + t[0];
+      p.draftNo = t[0] === 'smart' ? 'D101' : 'D102';
+      p.approver = apv;
+      p.submittedAt = '2026-08-30 15:10';
+      p.draftNote = 'PM 이봄 상신 · ' + apv.title + ' 결재 대기';
+      p.returnReason = '';
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
@@ -4158,7 +4178,7 @@ function pjtPreviewHtml() {
 // ============================================================
 
 // 팀장 이름을 수행원가 Agent 콘솔의 직책자와 통일
-HOME_USERS.lead = { key:'lead', name:'박정우', role:'팀장', greet:'정우님', desc:'팀 원가 현황과 결재' };
+HOME_USERS.lead = { key:'lead', name:'박정우', role:'담당임원', greet:'박정우님', desc:'팀 원가 현황과 결재' };
 
 let leadPjtSel = 'all';        // 원가 분석 대상 (전체 | 프로젝트 id)
 let leadOpenRow = '';          // 펼쳐진 목록 행
@@ -5222,7 +5242,7 @@ function leadRiskHtml() {
           <span class="ld-k-s">${escHtml(x.s)}</span>
         </div>`;
       }).join('')}
-      <div class="ld-tier-f">팀장이 전사·타조직 문의에 답할 때 자주 필요한 값들입니다. 빨간 항목은 기준을 벗어난 지표입니다.</div>
+      <div class="ld-tier-f">담당임원이 전사·타조직 문의에 답할 때 자주 필요한 값들입니다. 빨간 항목은 기준을 벗어난 지표입니다.</div>
     </div>`;
 }
 
@@ -5235,7 +5255,7 @@ function leadTierHtml() {
     mom: ['당월 실적 분석', LEAD_MONTH + ' 실적을 ' + LEAD_PREV + ' 마감시점 계획과 비교합니다'],
     cum: ['누계 실적 분석', LEAD_MONTH + ' 기준 누계를 ' + LEAD_PREV + ' 기준 누계 전망과 비교합니다'],
     ai: ['AI 예비비 사용 현황', '편성·사용·미사용과 언더런 기여분을 봅니다'],
-    risk: ['팀장 추천 지표', '보고와 판단에 자주 쓰이는 값을 모았습니다'],
+    risk: ['담당임원 추천 지표', '보고와 판단에 자주 쓰이는 값을 모았습니다'],
   }[leadPanel] || ['', ''];
   let body = '';
   if (leadPanel === 'tier') body = leadTierBodyHtml();
@@ -5694,19 +5714,19 @@ function leadMails() {
     const nm = (typeof HOME_PROJECTS !== 'undefined'
       ? (HOME_PROJECTS.find(function (p) { return p.id === (x.pjt || MOCK_PJT.key); }) || {}).name
       : '') || '';
-    out.push({ tag: '결재요청', to: me + ' 팀장',
+    out.push({ tag: '결재요청', to: me + ' 담당임원',
       subj: '[' + nm + '] ' + (x.acct || '예산') + ' 조정 승인 요청',
       body: (x.to !== x.from ? homeWonDelta(x.from, x.to) + ' · ' : '') + (x.title || '결재선 상신 완료'),
       when: LEAD_MONTH + '-' + String(24 + i).padStart(2, '0'),
       unread: x.status === 'submitted' });
   });
   (typeof teamOutliers === 'function' ? teamOutliers() : []).forEach(function (o, i) {
-    out.push({ tag: '이상징후', to: me + ' 팀장 · 수행PM',
+    out.push({ tag: '이상징후', to: me + ' 담당임원 · 수행PM',
       subj: '[' + o.name + '] ' + (o.label || (o.kind === 'over' ? '조기 소진' : '집행 부진')) + ' 통보',
       body: '계획율 대비 ' + pctSigned(o.dev) + ' · ' + o.why,
       when: LEAD_MONTH + '-' + String(20 + i).padStart(2, '0'), unread: i === 0 });
   });
-  out.push({ tag: '월마감', to: me + ' 팀장 · 사업관리팀',
+  out.push({ tag: '월마감', to: me + ' 담당임원 · 사업관리팀',
     subj: '[' + LEAD_MONTH + '] 월마감 확정 및 ERP 전송 완료',
     body: '담당 ' + homeCardPjts().length + '건 마감 · 누계실적 ' + homeWon(leadCostBreak('all').act),
     when: LEAD_MONTH + '-31', unread: false });
@@ -6588,7 +6608,7 @@ function homeV2Hero() {
 const V2_WORK = {
   pm:   { open: ['pending', 'returned'], prog: ['approved', 'submitted'],
           todo: '해야 할 일', risk: '이상징후' },
-  lead: { open: ['approved', 'submitted'], prog: [],
+  lead: { open: ['submitted'], prog: [],
           todo: '결재 대기', risk: '점검 항목' },
 };
 function v2WorkCfg() { return V2_WORK[homeUser] || V2_WORK.pm; }
@@ -6992,9 +7012,10 @@ function homeV2PjtRowHtml(p) {
     <div class="v2-pjt${open ? ' open' : ''}">
       <button class="v2-pjt-h" onclick="toggleHomeV2Pjt('${escAttr(p.id)}')" aria-expanded="${open}">
         <span class="v2-pjt-ic">▸</span>
-        <span class="v2-row-t">${escHtml(p.name)}</span>
-        ${n ? `<em class="v2-row-n on">${n}</em>`
-            : `<em class="v2-row-tag${b.plan ? '' : ' pre'}">${b.plan ? '정상' : '편성 전'}</em>`}
+        <span class="v2-row-t">${escHtml(p.name)}${!b.plan
+            ? '<small class="v2-row-st pre">편성 전</small>'
+            : (n ? '' : '<small class="v2-row-st">정상 · 처리할 일 없음</small>')}</span>
+        ${n ? `<em class="v2-row-n on">${n}</em>` : ''}
       </button>
       ${body}
     </div>`;
