@@ -3585,34 +3585,6 @@ function homeWorkBoardHtml() {
     ${body}`;
 }
 
-// ── 메인화면 — 타이틀 제거, 입력창을 위로 ──
-function renderPmDashboard() {
-  return `
-    <div class="ai-workspace home2 home-simple home-cards">
-      <section class="home2-main centered">
-        <div class="home2-search">
-          <span class="home2-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
-              <path d="M12 4.4V8"/>
-              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
-              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <path d="M2 13v3M22 13v3"/>
-            </svg>
-          </span>
-          <input id="ai-main-query" type="text" placeholder=""
-            onkeydown="if(event.key==='Enter') askFromHome()">
-          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
-        </div>
-
-        <div id="home-board">${homeWorkBoardHtml()}</div>
-      </section>
-    </div>
-    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
-    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
-}
-
 // ============================================================
 //  22차 — 사용자 전환 복원 + 팀장용 메인화면
 //
@@ -5933,13 +5905,11 @@ function leadCostBreak(sel) {
 }
 
 // ============================================================
-//  31차 — AxgenticWire 디자인 통일 (버전1 / 버전2 비교)
+//  31차 — AxgenticWire 디자인 통일 (버전2 셸)
 //
 //  선행 시스템 AiTeaming(인력추천)·AiPMO(CP산정)가 같은 디자인으로 오픈했다.
-//  그 셸을 실행예산에도 맞춰보기 위해 메인화면에 버전 토글을 둔다.
-//
-//    버전1  지금까지 만든 화면 — 절대 손대지 않는다 (renderPmDashboard 그대로)
-//    버전2  AxgenticWire 셸 — 좌측 레일 / 중앙 히어로 / 기존 블록은 히어로 아래
+//  그 셸을 실행예산 메인화면에도 맞춘다.
+//    AxgenticWire 셸 — 좌측 레일 / 중앙 히어로 / 기존 블록은 히어로 아래
 //
 //  레퍼런스에서 가져온 것
 //    · 상단 바 없음 → 브랜드(AXGENTIC WIRE + AiBudget)가 레일 최상단
@@ -5955,13 +5925,6 @@ let homeVer = (function () {
   try { const v = localStorage.getItem('newmis.homeVer'); if (v === 'v1' || v === 'v2') return v; } catch (e) {}
   return 'v1';                                    // 기본은 현재 디자인
 })();
-
-function setHomeVer(v) {                          // crud N — 화면 버전 토글
-  homeVer = (v === 'v2') ? 'v2' : 'v1';
-  try { localStorage.setItem('newmis.homeVer', homeVer); } catch (e) {}
-  document.body.classList.toggle('home-v2', homeVer === 'v2');
-  if (typeof initDashboard === 'function') initDashboard();
-}
 
 // ── 히어로 문안 ── 사용자별로 "지금 가장 중요한 한 가지"를 문장으로 만든다
 function homeV2Hero() {
@@ -6047,7 +6010,6 @@ function homeV2RailHtml() {
           <span class="v2-wm">AXGENTIC<b>WIRE</b></span>
           <span class="v2-sub">AiBudget</span>
         </button>
-        <button class="v2-collapse" onclick="setHomeVer('v1')" title="버전1로 돌아가기" aria-label="버전1로 돌아가기">◧</button>
       </div>
 
       <div class="v2-sec"><i>◳</i>${lead ? '팀 업무' : '내 업무'}</div>
@@ -6100,70 +6062,16 @@ function homeV2SwitchUser() {                     // crud N — PM ↔ 팀장 �
   if (typeof switchHomeUser === 'function') switchHomeUser(homeUser === 'lead' ? 'pm' : 'lead');
 }
 
-// ── 버전 토글 (메인화면 상단 우측) ──
-function homeVerTabsHtml() {
-  return `
-    <div class="v2-vertabs" role="group" aria-label="화면 버전 선택">
-      <button class="v2-vt ${homeVer === 'v1' ? 'on' : ''}" onclick="setHomeVer('v1')" aria-pressed="${homeVer === 'v1'}">버전1</button>
-      <button class="v2-vt ${homeVer === 'v2' ? 'on' : ''}" onclick="setHomeVer('v2')" aria-pressed="${homeVer === 'v2'}">버전2</button>
-    </div>`;
-}
-
-// ── 버전2 렌더 ──
-function renderHomeV2() {
-  const h = homeV2Hero();
-  return `
-    <div class="v2-wrap">
-      ${homeVerTabsHtml()}
-      ${homeV2RailHtml()}
-      <main class="v2-main">
-        <section class="v2-hero">
-          <span class="v2-mark" aria-hidden="true">✦</span>
-          <p class="v2-greet">${escHtml(h.greet)}</p>
-          <h1 class="v2-head">${h.head}</h1>
-          <button class="v2-notice" onclick="${h.act}">
-            <span class="v2-notice-ic">◔</span>${escHtml(h.note)}<i>›</i>
-          </button>
-          <div class="v2-ask">
-            <span class="v2-ask-ic" aria-hidden="true">✦</span>
-            <input id="ai-main-query" type="text" placeholder="원가 관련 궁금한 점을 자연어로 질문해 주세요."
-              onkeydown="if(event.key==='Enter') askFromHome()">
-            <button class="v2-ask-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
-          </div>
-          <button class="v2-cta" onclick="${h.act}">
-            <span>+</span>${escHtml(h.cta)}
-          </button>
-        </section>
-        <div class="v2-below">
-          <div id="home-board">${homeWorkBoardHtml()}</div>
-        </div>
-      </main>
-    </div>
-    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
-    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
-}
-
 // ── 진입점 교체 ──
-// function 선언으로 덮으면 호이스팅 때문에 이전 정의를 못 잡는다. 붙잡고 런타임에 바꾼다.
-var initDashboardV1 = initDashboard;
+// function 선언으로 덮으면 호이스팅 때문에 이전 정의를 못 잡는다 → 런타임에 바꾼다.
+// (버전2 렌더 함수 renderHomeV2 는 shell-v2.js 가 최종 정의한다.)
 window.initDashboard = function () {
   document.body.classList.toggle('home-v2', homeVer === 'v2');
-  if (homeVer !== 'v2') { initDashboardV1(); homeVerMount(); return; }
   document.getElementById('s-main').innerHTML = renderHomeV2();
   if (typeof v2ApplyRail === 'function') v2ApplyRail();
   if (typeof syncTopUser === 'function') syncTopUser();
   if (typeof updateKpiMain === 'function') updateKpiMain();
 };
-
-// 버전1 화면에도 토글이 보여야 비교가 된다 — 렌더 뒤에 얹는다
-function homeVerMount() {
-  const host = document.getElementById('s-main');
-  if (!host || host.querySelector('.v2-vertabs')) return;
-  const box = document.createElement('div');
-  box.innerHTML = homeVerTabsHtml();
-  const tabs = box.firstElementChild;
-  if (tabs) host.insertBefore(tabs, host.firstChild);
-}
 
 (function () {
   const start = function () {
@@ -6260,7 +6168,6 @@ function homeV2RailHtml() {
           <span class="v2-wm">AXGENTIC<b>WIRE</b></span>
           <span class="v2-sub">AiBudget</span>
         </button>
-        <button class="v2-collapse" onclick="setHomeVer('v1')" title="버전1로 돌아가기" aria-label="버전1로 돌아가기">◧</button>
       </div>
 
       <div class="v2-sec"><i>▤</i>${lead ? '팀 프로젝트' : '담당 프로젝트'}<em>${list.length}</em></div>
@@ -6287,35 +6194,6 @@ function homeV2RailHtml() {
 function homeV2GoBoard() {                        // crud N — 첫 프로젝트 업무 펼치기
   const first = homeCardPjts()[0];
   if (first) toggleHomeV2Pjt(homeV2Open ? homeV2Open : first.id);
-}
-
-// ── 버전2 렌더 — 중앙은 히어로만 ──
-function renderHomeV2() {
-  const h = homeV2Hero();
-  return `
-    <div class="v2-wrap">
-      ${homeVerTabsHtml()}
-      ${homeV2RailHtml()}
-      <main class="v2-main">
-        <section class="v2-hero">
-          <span class="v2-mark" aria-hidden="true">✦</span>
-          <p class="v2-greet">${escHtml(h.greet)}</p>
-          <h1 class="v2-head">${h.head}</h1>
-          <button class="v2-notice" onclick="homeV2GoBoard()">
-            <span class="v2-notice-ic">◔</span>${escHtml(h.note)}<i>›</i>
-          </button>
-          <div class="v2-ask">
-            <span class="v2-ask-ic" aria-hidden="true">✦</span>
-            <input id="ai-main-query" type="text" placeholder="원가 관련 궁금한 점을 자연어로 질문해 주세요."
-              onkeydown="if(event.key==='Enter') askFromHome()">
-            <button class="v2-ask-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
-          </div>
-          <p class="v2-foot">원하는 화면 이동·원가 분석·이상징후 확인을 자연어로 요청하면 AI가 처리합니다.</p>
-        </section>
-      </main>
-    </div>
-    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
-    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
 }
 
 // 히어로 안내 문구도 중앙 블록이 없어진 것에 맞춘다
@@ -6517,7 +6395,6 @@ function homeV2RailHtml() {
           <span class="v2-wm">AXGENTIC<b>WIRE</b></span>
           <span class="v2-sub">AiBudget</span>
         </button>
-        <button class="v2-collapse" onclick="setHomeVer('v1')" title="버전1로 돌아가기" aria-label="버전1로 돌아가기">◧</button>
       </div>
 
       <div class="v2-sec"><i>▤</i>${lead ? '팀 프로젝트' : '담당 프로젝트'}<em>${list.length}</em></div>
@@ -6800,7 +6677,6 @@ function homeV2RailHtml() {
           <span class="v2-wm">AXGENTIC<b>WIRE</b></span>
           <span class="v2-sub">AiBudget</span>
         </button>
-        <button class="v2-collapse" onclick="setHomeVer('v1')" title="버전1로 돌아가기" aria-label="버전1로 돌아가기">◧</button>
       </div>
 
       <div class="v2-sec"><i>▤</i>${lead ? '팀 프로젝트' : '담당 프로젝트'}<em>${list.length}</em></div>
@@ -6940,35 +6816,6 @@ function homeV2RailHtml() {
         <i>›</i>
       </button>
     </aside>`;
-}
-
-// 접힘 상태를 렌더 결과에 반영한다
-function renderHomeV2() {
-  const h = homeV2Hero();
-  return `
-    <div class="v2-wrap${homeV2Rail === 'min' ? ' rail-min' : ''}">
-      ${homeVerTabsHtml()}
-      ${homeV2RailHtml()}
-      <main class="v2-main">
-        <section class="v2-hero">
-          <span class="v2-mark" aria-hidden="true">✦</span>
-          <p class="v2-greet">${escHtml(h.greet)}</p>
-          <h1 class="v2-head">${h.head}</h1>
-          <button class="v2-notice" onclick="homeV2GoBoard()">
-            <span class="v2-notice-ic">◔</span>${escHtml(h.note)}<i>›</i>
-          </button>
-          <div class="v2-ask">
-            <span class="v2-ask-ic" aria-hidden="true">✦</span>
-            <input id="ai-main-query" type="text" placeholder="원가 관련 궁금한 점을 자연어로 질문해 주세요."
-              onkeydown="if(event.key==='Enter') askFromHome()">
-            <button class="v2-ask-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
-          </div>
-          <p class="v2-foot">원하는 화면 이동·원가 분석·이상징후 확인을 자연어로 요청하면 AI가 처리합니다.</p>
-        </section>
-      </main>
-    </div>
-    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
-    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
 }
 
 // 접힌 상태에서 프로젝트를 누르면 자동으로 펴서 보여준다
@@ -7142,38 +6989,6 @@ function v2BrandHtml() {
         <span class="v2-collapse-ic" aria-hidden="true"></span>
       </button>
     </div>`;
-}
-
-// ============================================================
-//  38차 — 히어로 안내 필 제거
-//  "담당 4건 · 왼쪽에서 프로젝트를 누르면 업무가 펼쳐집니다" 안내를 없앤다.
-//  PM·팀장 공통 요소라 팀장의 CP총액·수행원가총액 요약도 함께 빠진다.
-//  homeV2Hero() 는 note 를 계속 계산하지만 화면에는 쓰지 않는다(다른 곳에서 참조 가능).
-// ============================================================
-
-function renderHomeV2() {
-  const h = homeV2Hero();
-  return `
-    <div class="v2-wrap${homeV2Rail === 'min' ? ' rail-min' : ''}">
-      ${homeVerTabsHtml()}
-      ${homeV2RailHtml()}
-      <main class="v2-main">
-        <section class="v2-hero">
-          <span class="v2-mark" aria-hidden="true">✦</span>
-          <p class="v2-greet">${escHtml(h.greet)}</p>
-          <h1 class="v2-head">${h.head}</h1>
-          <div class="v2-ask">
-            <span class="v2-ask-ic" aria-hidden="true">✦</span>
-            <input id="ai-main-query" type="text" placeholder="원가 관련 궁금한 점을 자연어로 질문해 주세요."
-              onkeydown="if(event.key==='Enter') askFromHome()">
-            <button class="v2-ask-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
-          </div>
-          <p class="v2-foot">원하는 화면 이동·원가 분석·이상징후 확인을 자연어로 요청하면 AI가 처리합니다.</p>
-        </section>
-      </main>
-    </div>
-    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
-    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
 }
 
 // ============================================================

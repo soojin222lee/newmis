@@ -31,13 +31,12 @@
 // ── 예산관리 Agent 기본값 ──
 // budget-agent-console.js 의 기본은 'draft'(전통 편집, 수진 2026-10). 버전2 는 Agent 가 조정안을
 // 시뮬레이션해 제안하고 PM 이 확정·결재하는 흐름이 기준이므로 'agent'(ON)로 시작한다.
-// 버전1 은 수진님 기본값('draft') 그대로 둔다. 원본 파일은 수정하지 않는다.
 // agentSetViewFinal 은 곧바로 renderBudgetPage() 를 부른다. 로드 시점에는 데이터가 준비되기 전일 수
 // 있어 값만 바꾸고, 수행원가 화면이 열려 있을 때(버전 전환 등)만 세터로 바꿔 다시 그린다.
 // 'draft' → 'agent' 전환에서 세터가 추가로 하는 일(mini/sim 진입 플래그 초기화)은 기본값과 같다.
 function v2ApplyAgentDefault(render) {
   if (typeof agentViewFinal === 'undefined') return;
-  const want = (homeVer === 'v2') ? 'agent' : 'draft';
+  const want = 'agent';
   if (agentViewFinal === want) return;
   if (render && document.querySelector('#s-budget.active') && typeof agentSetViewFinal === 'function') {
     agentSetViewFinal(want);
@@ -119,7 +118,6 @@ function v2AppRailHtml() {
 // ── 레일 붙이기 / 갱신 ──
 function v2MountRail() {
   let r = document.getElementById('v2-app-rail');
-  if (homeVer !== 'v2') { if (r) r.remove(); return; }
   if (!r) {
     r = document.createElement('aside');
     r.id = 'v2-app-rail';
@@ -179,22 +177,6 @@ function v2OnPlaceChange() {
   v2ThreadOnPlace();
 }
 
-// ── 버전1 화면에서 쓰는 전환 버튼 ──
-// 메인은 기존 우측 상단 탭(homeVerMount)을 그대로 두고, 다른 화면에만 좌하단에 띄운다.
-function v2MountV1Pill() {
-  let p = document.getElementById('v2-v1-pill');
-  if (homeVer === 'v2' || v2OnMain()) { if (p) p.remove(); return; }
-  if (p) return;
-  p = document.createElement('div');
-  p.id = 'v2-v1-pill';
-  p.className = 'v2-v1-pill';
-  p.setAttribute('role', 'group');
-  p.setAttribute('aria-label', '화면 버전 선택');
-  p.innerHTML = '<button class="v2-vt on" onclick="setHomeVer(\'v1\')" aria-pressed="true">버전1</button>'
-              + '<button class="v2-vt" onclick="setHomeVer(\'v2\')" aria-pressed="false">버전2</button>';
-  document.body.appendChild(p);
-}
-
 // ── 대화 화면 (Talent AX) — 입력창 안내 문구와 면책 문구 ──
 const V2_CHAT_PH = '질문은 자유롭게 입력해 주세요.';
 const V2_CHAT_DISC = 'AiBudget는 실수를 할 수 있습니다. 중요한 정보는 재차 확인하세요.';
@@ -214,10 +196,6 @@ function v2ChatDecorate() {
       d.textContent = V2_CHAT_DISC;
       box.insertAdjacentElement('afterend', d);
     }
-  } else {
-    if (inp && inp.dataset.v1ph !== undefined) inp.setAttribute('placeholder', inp.dataset.v1ph);
-    const d = ov.querySelector('.v2-chat-disc');
-    if (d) d.remove();
   }
 }
 
@@ -228,7 +206,6 @@ function v2ChatDecorate() {
 //   · 나갈 때   — 가운데에서 나눈 대화를 메인 대화 뒤에 이어 붙인다
 //   · 메인에서 다시 물을 때 — 대화를 지우지 않고 이어서 묻는다
 // 수행원가 Agent(budget-agent-console.js)는 고치지 않는다. 대화 칸을 그리는 함수만 감싼다.
-// 버전1 은 이 구간이 하나도 동작하지 않는다.
 let v2Thread = [];                                 // 메인에서 넘어온 대화 묶음 [{ at, place, items }]
 let v2AgentSeen = (typeof AGENT_CHAT_FINAL !== 'undefined') ? AGENT_CHAT_FINAL.length : 0;  // 메인으로 넘긴 데까지
 let v2WasCenter = false;                           // 직전에 가운데 대화가 떠 있었는지
@@ -349,7 +326,7 @@ function v2FollowText(acct, picked) {
 let v2PickedItem = null;
 document.addEventListener('click', function (e) {
   const b = e.target && e.target.closest && e.target.closest('.v2-ci');
-  if (!b || homeVer !== 'v2') return;
+  if (!b) return;
   const t = b.querySelector('.v2-ci-t');
   if (!t) return;
   const c = t.cloneNode(true);
@@ -391,7 +368,6 @@ function v2ThreadMirrorBack(place) {
 
 // 화면이 바뀔 때 — 들어오면 접어 넣고, 나가면 메인 대화에 잇는다
 function v2ThreadOnPlace() {
-  if (homeVer !== 'v2') return;
   setTimeout(function () {
     if (v2CenterChatOn()) { v2ThreadAbsorb(); return; }
     if (v2WasCenter) {
@@ -447,7 +423,6 @@ var renderAgentGaChatFinalBeforeShell = (typeof renderAgentGaChatFinal === 'func
 if (renderAgentGaChatFinalBeforeShell) {
   window.renderAgentGaChatFinal = function (roll) {
     const html = renderAgentGaChatFinalBeforeShell(roll);
-    if (homeVer !== 'v2') return html;
     const ov = document.getElementById('ai-chat-overlay');
     if (ov && ov.classList.contains('docked')) setTimeout(v2ThreadAbsorb, 0);
     if (!v2Thread.length) return html;
@@ -469,7 +444,6 @@ var dockAiChatBeforeShell = (typeof dockAiChat === 'function') ? dockAiChat : nu
 if (dockAiChatBeforeShell) {
   window.dockAiChat = function () {
     dockAiChatBeforeShell.apply(this, arguments);
-    if (homeVer !== 'v2') return;
     setTimeout(v2ThreadAbsorb, 80);
     setTimeout(v2ThreadAbsorb, 400);
   };
@@ -673,7 +647,6 @@ function v2ApplyShell() {
   v2MountRail();
   v2ApplyRail();
   v2ApplyTopMenu();
-  v2MountV1Pill();
   v2ChatDecorate();
 }
 
@@ -686,11 +659,7 @@ function setHomeVer(v) {                          // crud N — 화면 버전 �
   v2ApplyShell();
   if (v2OnMain() && typeof initDashboard === 'function') initDashboard();
   if (document.querySelector('#s-budget.active') && typeof renderBudgetPage === 'function') renderBudgetPage();  // 이어 붙인 대화 넣기/빼기
-  if (homeVer === 'v2') v2ThreadOnPlace();
-  else if (v2Absorbed) {                           // 버전1 은 원래대로 오른쪽 창에서 이어감
-    v2Absorbed = false; v2WasCenter = false;
-    if (!v2OnMain() && typeof dockAiChat === 'function') dockAiChat();
-  }
+  v2ThreadOnPlace();
   window.scrollTo(0, 0);
 }
 
@@ -732,7 +701,6 @@ window.initDashboard = function () {
     clearTimeout(t);
     t = setTimeout(function () {
       if (homeVer === 'v2') v2OnPlaceChange();
-      v2MountV1Pill();
     }, 30);
   };
   function bind() {
