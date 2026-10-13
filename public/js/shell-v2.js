@@ -24,7 +24,8 @@
 // ── 기본값 버전2 — 저장된 선택이 없을 때만 ──
 // homeVer 는 dashboard.js 의 최상위 let 이라 다른 스크립트에서도 같은 바인딩을 쓴다.
 (function () {
-  try { if (!localStorage.getItem('newmis.homeVer')) homeVer = 'v2'; } catch (e) {}
+  homeVer = 'v2';                               // [정리] 버전2 전용 — 버전1 제거
+  try { localStorage.setItem('newmis.homeVer', 'v2'); } catch (e) {}
 })();
 
 // ── 예산관리 Agent 기본값 ──
@@ -110,12 +111,6 @@ function v2AppRailHtml() {
           aria-pressed="${v2TopMenu}" title="개발 테스트용 — 숨겨진 상단 메뉴 바를 보이거나 숨깁니다">
           <span>${V2_IC.topmenu}</span><span class="v2-dev-t">${v2TopMenu ? '상단 메뉴 숨기기' : '상단 메뉴 보기'}</span><em>개발용</em>
         </button>
-      </div>
-      <div class="v2-vtoggle" role="group" aria-label="화면 버전 선택">
-        <span class="v2-vtoggle-l">화면 버전</span>
-        <button class="v2-vt" onclick="setHomeVer('v1')" aria-pressed="false">버전1</button>
-        <button class="v2-vt on" onclick="setHomeVer('v2')" aria-pressed="true">버전2</button>
-        <button class="v2-vt-mini" onclick="setHomeVer('v1')" title="버전1로 전환" aria-label="버전1로 전환">V2</button>
       </div>
       ${(typeof v2MeHtml === 'function') ? v2MeHtml() : ''}
     </div>`;
@@ -684,7 +679,7 @@ function v2ApplyShell() {
 
 // ── 버전 전환 — 앱 전체 ──
 function setHomeVer(v) {                          // crud N — 화면 버전 전환
-  homeVer = (v === 'v2') ? 'v2' : 'v1';
+  homeVer = 'v2';                              // [정리] 버전2 전용 — v1 전환 무력화
   try { localStorage.setItem('newmis.homeVer', homeVer); } catch (e) {}
   v2ThreadSig = '';                                // 다시 그리면 대화 끝으로 내려 준다
   v2ApplyAgentDefault(true);                       // 수행원가 화면이 열려 있으면 그 자리에서 다시 그림
