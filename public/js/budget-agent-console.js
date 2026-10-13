@@ -1170,20 +1170,8 @@ renderBudgetSetupOverview = function (data, actual, quasi) {
   agentSyncProposalsFinal(roll);          // 제안 금액을 상세 내역과 맞춥니다
   const projInfo = renderBudgetProjectInfoFinal(data);
 
-  // 초안 = 2026-08-27 오후 개편 이전의 원가조정 화면(Agent 요소 없음).
-  // 개편분이 전부 override 로 덧붙여져 있어, 원본 함수를 그대로 호출하면 그 화면이 복원됩니다.
-  if (agentViewFinal === 'draft') {
-    return renderAgentViewSwitchFinal()
-      + renderBudgetSetupOverviewBeforeAgentFinal(data, actual, quasi);
-  }
-  if (agentViewFinal === 'legacy') return renderAgentLegacyViewFinal(viewData, data, roll);
-  if (agentViewFinal === 'console') return renderAgentConsoleViewFinal(viewData, data, projInfo, roll);
-  if (agentViewFinal === 'agent') return renderAgentGaViewFinal(viewData, data, projInfo, roll);
-  if (agentViewFinal === 'ai') return renderAgentAiViewFinal(viewData, data, projInfo, roll);
-  if (agentViewFinal === 'sim') return renderAgentSimViewFinal(viewData, data, projInfo, roll);
-  if (agentViewFinal === 'split') return renderAgentSplitViewFinal(viewData, data, projInfo, roll);
-  if (agentViewFinal === 'mini') return renderAgentMiniViewFinal(viewData, data, projInfo, roll);
-  return renderAgentTabsViewFinal(viewData, data, projInfo, roll);
+  // [정리] Agent 전용 — 실험 뷰(draft/legacy/console/ai/sim/split/mini/tabs) 분기 제거
+  return renderAgentGaViewFinal(viewData, data, projInfo, roll);
 };
 
 /* [2026.09.02] 이 계정에서 Agent 제안으로 바뀔 항목을 계정 내역 맨 위에 알려 줍니다.
