@@ -101,8 +101,6 @@ function v2AppRailHtml() {
 
     <div class="v2-rail-bottom">
       <div class="v2-util">
-        ${util('book', '화면 설명', 'toggleScreenDesc(this)')}
-        ${util('rule', '그라운드 룰', 'openSetupGuide()')}
         ${util('compass', 'AI 네비게이터', "openAiChat('navi')")}
         ${util('chip', 'AI개발 Agent', 'openAgentModal()')}
         ${util('apps', '구매시스템 참고', 'openPurchaseReference()')}
