@@ -721,23 +721,7 @@ var agentDevOpenFinal = false;      // 화면안·PERSONA 전환 줄 (테스트�
 function agentDevToggleFinal() { agentDevOpenFinal = !agentDevOpenFinal; renderBudgetPage(); }
 
 function renderAgentViewSwitchFinal() {
-  const opt = (k, label) =>
-    `<button class="agv-btn ${agentViewFinal === k ? 'on' : ''}" onclick="agentSetViewFinal('${k}')">${label}</button>`;
-  const open = agentDevOpenFinal;
-  return `
-    <div class="agent-view-switch ${open ? 'open' : ''}">
-      <button class="agv-dev ${open ? 'on' : ''}" onclick="agentDevToggleFinal()"
-        title="${open ? '테스트 설정 접기' : '테스트 설정 — 화면안·PERSONA 전환'}"
-        aria-expanded="${open}" aria-label="테스트 설정">${open ? '⚙ 접기' : '⚙'}</button>
-      ${open ? `
-        ${opt('draft', '초안 (8/27 이전)')}
-        ${opt('split', '3분할 화면')}
-        ${opt('mini', '간소화 화면')}
-        ${opt('sim', '3분할 간소화')}
-        ${opt('ai', 'AI구상안')}
-        ${opt('agent', '대화형 Agent')}
-        <div class="agv-right">${renderAgentPersonaSwitchFinal()}</div>` : ''}
-    </div>`;
+  return '';   // [정리] Agent 전용 — 실험 뷰 전환 UI(⚙ draft/split/mini/sim/ai) 제거
 }
 
 // 항목 1)·7) Agent가 예산을 보고 있음을 알리는 한 줄 — KPI 타일은 중복이라 제거했습니다.
