@@ -100,6 +100,11 @@ function v2AppRailHtml() {
     </div>
 
     <div class="v2-rail-bottom">
+      <button class="v2-procbar" onclick="openProcessMap()" title="업무 프로세스 맵 — 단계를 누르면 해당 화면으로 이동">
+        <span class="v2-procbar-t">🗺 업무 프로세스</span>
+        <span class="v2-procbar-track"><i class="p-reg"></i><i class="p-bgt"></i><i class="p-act"></i></span>
+        <span class="v2-procbar-lab"><em>등록</em><em>예산</em><em>실적</em></span>
+      </button>
       <div class="v2-util">
         ${util('compass', 'AI 네비게이터', "openAiChat('navi')")}
         ${util('chip', 'AI개발 Agent', 'openAgentModal()')}

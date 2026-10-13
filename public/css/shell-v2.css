@@ -431,3 +431,23 @@ body.app-v2 .agai-say.agent.v2-th .agai-bubble { max-width: 92%; }
 body.app-v2 .agai-say.v2-th .ai-result { gap: 8px; }
 /* 이미 이동을 마친 "지금 이동 →" 버튼은 이어 붙인 대화에서 감춘다 (다른 계정으로 가는 버튼은 유지) */
 body.app-v2 .agai-say.v2-th .ai-act[onclick^="navGo("] { display: none; }
+
+/* 업무 프로세스 바 (레일 하단, AI 네비게이터 위) */
+.v2-app-rail .v2-procbar {
+  display: flex; flex-direction: column; gap: 5px; width: 100%;
+  border: 1px solid #e6eaf1; background: #fff; border-radius: 10px;
+  padding: 9px 10px; margin: 2px 0 8px; cursor: pointer; font-family: inherit; text-align: left;
+}
+.v2-app-rail .v2-procbar:hover { border-color: var(--v2-blue); box-shadow: 0 4px 12px -8px rgba(29,78,216,.45); }
+.v2-app-rail .v2-procbar-t { font-size: 11.5px; font-weight: 800; color: var(--v2-ink, #1b2437); }
+.v2-app-rail .v2-procbar-track { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; }
+.v2-app-rail .v2-procbar-track i { height: 6px; border-radius: 999px; display: block; }
+.v2-app-rail .v2-procbar-track .p-reg { background: #f08a8a; }
+.v2-app-rail .v2-procbar-track .p-bgt { background: #f0b86a; }
+.v2-app-rail .v2-procbar-track .p-act { background: #6fcf97; }
+.v2-app-rail .v2-procbar-lab { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; }
+.v2-app-rail .v2-procbar-lab em { font-size: 9px; color: var(--v2-mute, #6b7484); font-style: normal; text-align: center; }
+/* 레일 접힘 시 라벨/타이틀 숨기고 바만 */
+body.app-v2.v2-rail-min .v2-app-rail .v2-procbar-t,
+body.app-v2.v2-rail-min .v2-app-rail .v2-procbar-lab { display: none; }
+body.app-v2.v2-rail-min .v2-app-rail .v2-procbar { padding: 7px 6px; }
