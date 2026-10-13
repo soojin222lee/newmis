@@ -1167,53 +1167,6 @@ function autoDrawerHtml() {
     </div>`;
 }
 
-function renderPmDashboard() {
-  homeSelectedProject = 'all';
-  homeCat = 'all';
-
-  return `
-    <div class="ai-workspace home2">
-      <section class="home2-main centered">
-        <div class="home2-hero center">
-          <h1>좋은 아침이에요, 봄님</h1>
-          <p>담당 9개 프로젝트 중 <b>3개</b>에서 계획과 실적이 벌어지고 있어요</p>
-          <p class="home2-brief" id="home-brief">${homeBriefHtml()}</p>
-        </div>
-
-        ${homeAutoStripHtml()}
-
-        <div class="home2-search">
-          <span class="home2-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
-              <path d="M12 4.4V8"/>
-              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
-              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <path d="M2 13v3M22 13v3"/>
-            </svg>
-          </span>
-          <input id="ai-main-query" type="text" placeholder="프로젝트를 찾거나, 숫자의 이유를 묻거나, 다음 업무를 요청해보세요"
-            onfocus="showHomeExamples(true)" onblur="setTimeout(function(){showHomeExamples(false)},150)"
-            onkeydown="if(event.key==='Enter') askFromHome()">
-          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
-        </div>
-        <div class="home2-search-ex" id="home-search-ex" hidden>
-          <button onmousedown="askExample('SKON 외주비가 왜 늘었어?')"><span class="ex-ag q">Q</span>SKON 외주비가 왜 늘었어?</button>
-          <button onmousedown="askExample('실행예산 변경 화면 찾아줘')"><span class="ex-ag navi">N</span>실행예산 변경 화면 찾아줘</button>
-          <button onmousedown="askExample('오늘 내가 처리해야 할 업무 알려줘')"><span class="ex-ag pilot">P</span>오늘 내가 처리해야 할 업무 알려줘</button>
-          <button onmousedown="askExample('개발자 2명 더 투입하면 어떻게 돼?')"><span class="ex-ag pilot">P</span>개발자 2명 더 투입하면?</button>
-        </div>
-
-        <div class="hm-signal">${homeSignalBlockHtml()}</div>
-
-        <div id="home-insight-block">${renderHomeInsightBlock()}</div>
-
-        <div id="home-foot">${homeFootHtml()}</div>
-      </section>
-    </div>
-    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>`;
-}
 
 function renderLeadDashboard() {
   return `
@@ -1646,80 +1599,10 @@ function rerenderHomeFeed() {
 }
 
 // ── 메인화면 — 단순화 버전 ──
-function renderPmDashboard() {
-  homeSelectedProject = 'all';
-  homeCat = 'all';
-
-  return `
-    <div class="ai-workspace home2 home-simple">
-      <section class="home2-main centered">
-        <div class="home2-hero center">
-          <h1>좋은 아침이에요, 봄님</h1>
-          <p class="home2-brief" id="home-brief">${homeBriefHtml()}</p>
-        </div>
-
-        <div class="home2-search">
-          <span class="home2-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
-              <path d="M12 4.4V8"/>
-              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
-              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <path d="M2 13v3M22 13v3"/>
-            </svg>
-          </span>
-          <input id="ai-main-query" type="text" placeholder="원하는 업무를 입력하세요 — 화면을 찾거나, 숫자의 이유를 묻거나, 다음 업무를 요청해보세요"
-            onkeydown="if(event.key==='Enter') askFromHome()">
-          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
-        </div>
-
-        <div id="home-under">${homePjtStripHtml()}</div>
-
-        <div class="hm-signal">${homeSignalBlockHtml()}</div>
-      </section>
-    </div>
-    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
-    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
-}
 
 // ── 6차-3 — 메인화면에서 예산 여력(Headroom)·Runway 제거 ──
 // 부문장님 지시(구글 첫 화면처럼 단순화)에 따라 메인에서는 걷어낸다.
 // 함수 자체는 남겨두어 PJT 팝업/상세화면에서 재사용할 수 있게 한다.
-function renderPmDashboard() {
-  // 선택된 PJT는 화면을 다녀와도 유지한다 (대화 문맥이므로 초기화하지 않음)
-  homeCat = 'all';
-
-  return `
-    <div class="ai-workspace home2 home-simple">
-      <section class="home2-main centered">
-        <div class="home2-hero center">
-          <h1>좋은 아침이에요, 봄님</h1>
-          <p class="home2-brief" id="home-brief">${homeBriefHtml()}</p>
-        </div>
-
-        <div class="home2-search">
-          <span class="home2-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
-              <path d="M12 4.4V8"/>
-              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
-              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <path d="M2 13v3M22 13v3"/>
-            </svg>
-          </span>
-          <input id="ai-main-query" type="text" placeholder="원하는 업무를 입력하세요 — 화면을 찾거나, 숫자의 이유를 묻거나, 다음 업무를 요청해보세요"
-            onkeydown="if(event.key==='Enter') askFromHome()">
-          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
-        </div>
-
-        <div id="home-under">${homePjtStripHtml()}</div>
-      </section>
-    </div>
-    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
-    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
-}
 
 // ============================================================
 //  7차 — 메뉴 토글 · PJT 선택 문맥 · 간결 팝업 · LLM 대화
@@ -1959,39 +1842,6 @@ function homePjtStripHtml() {
 }
 
 // ── 메인화면 — 캐러셀 → 선택 문맥 → 입력창 ──
-function renderPmDashboard() {
-  // 선택된 PJT는 화면을 다녀와도 유지한다 (대화 문맥이므로 초기화하지 않음)
-  homeCat = 'all';
-
-  return `
-    <div class="ai-workspace home2 home-simple">
-      <section class="home2-main centered">
-        <div class="home2-hero center">
-          <h1>좋은 아침이에요, 봄님</h1>
-        </div>
-
-        <div id="home-under">${homePjtStripHtml()}</div>
-
-        <div class="home2-search">
-          <span class="home2-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
-              <path d="M12 4.4V8"/>
-              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
-              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <path d="M2 13v3M22 13v3"/>
-            </svg>
-          </span>
-          <input id="ai-main-query" type="text" placeholder="원하는 업무를 입력하세요 — 화면을 찾거나, 숫자의 이유를 묻거나, 다음 업무를 요청해보세요"
-            onkeydown="if(event.key==='Enter') askFromHome()">
-          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
-        </div>
-      </section>
-    </div>
-    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
-    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
-}
 
 // 히어로 브리핑 문구를 없앴으므로 갱신 대상에서 제외
 function rerenderHomeFeed() {
@@ -2205,40 +2055,6 @@ function homeWorkBoardHtml() {
 }
 
 // ── 13차 — 메인화면 조립 (캐러셀은 필터로 유지, 아래에 해야 할 일/이상징후) ──
-function renderPmDashboard() {
-  homeCat = 'all';
-  const u = homeUserNow();
-  return `
-    <div class="ai-workspace home2 home-simple">
-      <section class="home2-main centered">
-        <div class="home2-hero center">
-          <h1>좋은 아침이에요, ${escHtml(u.greet)}</h1>
-        </div>
-
-        <div id="home-under">${homePjtStripHtml()}</div>
-
-        <div class="home2-search">
-          <span class="home2-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
-              <path d="M12 4.4V8"/>
-              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
-              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <path d="M2 13v3M22 13v3"/>
-            </svg>
-          </span>
-          <input id="ai-main-query" type="text" placeholder="원하는 업무를 입력하세요 — 화면을 찾거나, 숫자의 이유를 묻거나, 다음 업무를 요청해보세요"
-            onkeydown="if(event.key==='Enter') askFromHome()">
-          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
-        </div>
-
-        <div id="home-board">${homeWorkBoardHtml()}</div>
-      </section>
-    </div>
-    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
-    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
-}
 
 // 팀장도 같은 화면 구조를 쓴다 (목록 내용만 달라짐)
 function initDashboard() {
@@ -3543,34 +3359,6 @@ function homeWorkBoardHtml() {
 }
 
 // ── 메인화면 — 입력창 + PJT 카드 그리드 ──
-function renderPmDashboard() {
-  return `
-    <div class="ai-workspace home2 home-simple home-cards">
-      <section class="home2-main centered">
-        <div class="home2-title">실행예산 에이전트</div>
-
-        <div class="home2-search">
-          <span class="home2-orb" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#2f6bed" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="4" y="8" width="16" height="12" rx="3.2"/>
-              <path d="M12 4.4V8"/>
-              <circle cx="12" cy="3.2" r="1.3" fill="#2f6bed" stroke="none"/>
-              <circle cx="9.2" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <circle cx="14.8" cy="13.4" r="1.2" fill="#2f6bed" stroke="none"/>
-              <path d="M2 13v3M22 13v3"/>
-            </svg>
-          </span>
-          <input id="ai-main-query" type="text" placeholder="질문을 남겨주세요"
-            onkeydown="if(event.key==='Enter') askFromHome()">
-          <button class="home2-search-send" onclick="askFromHome()" aria-label="질문하기">↑</button>
-        </div>
-
-        <div id="home-board">${homeWorkBoardHtml()}</div>
-      </section>
-    </div>
-    <div class="hm-drawer-overlay" id="home-impact-drawer" onclick="if(event.target===this)closeImpactDrawer()"></div>
-    <div class="hm-modal-overlay" id="home-pjt-modal" onclick="if(event.target===this)closeHomePjtModal()"></div>`;
-}
 
 function rerenderHomeFeed() {
   const bd = document.getElementById('home-board'); if (bd) bd.innerHTML = homeWorkBoardHtml();
