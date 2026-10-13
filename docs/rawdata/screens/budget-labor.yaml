@@ -184,6 +184,186 @@ elements:
     backend: null
     result: 실투입인건비 계획 rows 등록 + 예산내역 투입확정(q) 갱신
 
+  # ── [2026.10.12] Agent 콘솔(예산관리 Agent ON) 인건비 상세 ──
+  #   실투입인건비는 SCM 선행: 화면에서 인력을 직접 등록하는 버튼이 없다.
+  #   SCM I/F 수신 → [예산 조정안] Agent 제안(ap-01 등) → PM [반영] → 인력표에 "반영(결재전)" 표시.
+  - id: cell-agent-labor-reflected
+    label: "인력표 상태열 '반영(결재전)' 배지"
+    type: badge
+    crud: R
+    area: "Agent 콘솔 인건비 상세 · 실투입인건비 탭 인력표 상태열"
+    event: null
+    front:
+      handler: "renderAgentLaborDetailFinal() 내부 st(r)"
+      file: "budget-agent-console.js:2292 (행 구성 agentLaborRowsFinal:2204)"
+      logic: >
+        [예산 조정안]에서 PM이 [반영]한(agentMiniSelFinal) 인건비 제안의 persons는 신규 행, leaves는 기존 행 철수로 얹고
+        상태열에 '반영(결재전)' + 아래 줄 '신규 +MM +금액' / '철수 −MM −금액'을 표시. 반영 해제·기안 상신 시 사라진다.
+      validation: null
+      state_writes: []
+    backend: { note: "제안 원천은 SCM 투입계획 확정/변경 I/F(목업 AGENT_PROPOSALS_FINAL)" }
+    result: 결재 전 반영분이 인력표·합계·간트에 함께 보임
+
+  - id: btn-agent-labor-sub-add
+    label: "＋ 이관인건비 등록 / ＋ OT비 등록"
+    type: button
+    crud: N
+    area: "Agent 콘솔 인건비 상세 · 이관인건비/OT비 탭 표 상단 우측"
+    event: onclick
+    front:
+      handler: "agentLabEditOpenFinal('transfer'|'ot', '')"
+      file: "budget-agent-console.js:2063 (팝업 렌더 renderAgentLabEditPopFinal:2150)"
+      logic: "신규 입력 팝업 오픈. 직책자 화면·과거 확정 버전 조회 중에는 버튼과 관리 열을 숨긴다(열람 전용)"
+      validation: null
+      state_writes: [agentLabEditFinal]
+    backend: null
+    result: 등록 팝업
+
+  - id: btn-agent-labor-sub-edit
+    label: 수정
+    type: button
+    crud: N
+    area: "이관인건비/OT비 표 관리 열"
+    event: onclick
+    front:
+      handler: "agentLabEditOpenFinal(kind, id)"
+      file: "budget-agent-console.js:2063"
+      logic: "해당 건 값을 채운 수정 팝업 오픈(금액은 양수로 표시). 실적이 생긴(집행완료·actualized) 이관 건은 버튼 대신 '조회 전용' 표시"
+      validation: "잠긴 건이면 '실적(집행완료)이 생긴 이관 건은 조회만 가능합니다.' 토스트"
+      state_writes: [agentLabEditFinal]
+    backend: null
+    result: 수정 팝업
+
+  - id: frm-agent-labor-sub
+    label: "입력 팝업 — 이관 구분(받을 인건비/보낼 인건비, 이관만) · 발생 예정월/대상 월 · 금액(원) · 내용"
+    type: [input, select]
+    crud: N
+    area: 이관인건비/OT비 등록·수정 팝업
+    event: null
+    front:
+      handler: renderAgentLabEditPopFinal(viewData)
+      file: "budget-agent-console.js:2150"
+      logic: "월 선택지는 프로젝트 기간 월(viewData.months). 입력 id: aglb-ed-type(이관만) / aglb-ed-month / aglb-ed-amount / aglb-ed-desc"
+      validation: null
+      state_writes: []
+    backend: null
+    result: null
+
+  - id: btn-agent-labor-sub-update
+    label: 수정 저장
+    type: button
+    crud: U
+    area: "이관인건비/OT비 수정 팝업 하단"
+    event: onclick
+    front:
+      handler: agentLabEditSaveFinal()
+      file: "budget-agent-console.js:2076"
+      logic: "수정 중인 건(agentLabEditFinal.id)에 월·금액·내용을 덮어쓴다. 처리 규칙은 아래 [등록]과 같다"
+      validation: "월 미선택·금액 0·내용 공란이면 저장 거부 + 토스트, 잠긴 이관 건은 수정 불가"
+      state_writes: ["laborTransferRowsByProjectFinal[proj]", "AGENT_LABOR_OT_FINAL[proj]", agentLabEditFinal]
+    backend: null
+    result: 표·탭 금액·인건비 합계 갱신 + 토스트
+
+  - id: btn-agent-labor-sub-save
+    label: 등록
+    type: button
+    crud: C
+    area: 이관인건비/OT비 등록 팝업 하단
+    event: onclick
+    front:
+      handler: agentLabEditSaveFinal()
+      file: "budget-agent-console.js:2076"
+      logic: >
+        이관인건비는 공유 목업 getLaborTransferRowsFinal()에 추가/수정 — 받을 인건비=Receiver Project(+금액),
+        보낼 인건비=Sender Project(−금액). 입력은 양수로 받고 구분에 따라 부호를 붙인다(AGENT_LAB_TR_KIND_FINAL).
+        OT비는 Agent 화면 전용 목록 agentLaborOtRowsFinal()에 {month, amount, memo} 추가/수정 → 재렌더.
+        인건비 상세 금액(getMonthlyBudgetRows 재정의:9126 부근)이 등록 내역 합계라 탭 금액·상단 LIVE 바가 함께 바뀐다.
+      validation: "월 미선택·금액 0·내용 공란이면 저장 거부 + 토스트, 잠긴 이관 건은 수정 불가"
+      state_writes: ["laborTransferRowsByProjectFinal[proj]", "AGENT_LABOR_OT_FINAL[proj]", agentLabEditFinal]
+    backend: null
+    result: 표·탭 금액·인건비 합계 갱신 + 토스트
+
+  - id: btn-agent-labor-sub-delete
+    label: 삭제
+    type: button
+    crud: D
+    area: "이관인건비/OT비 표 관리 열"
+    event: onclick
+    front:
+      handler: "agentLabDeleteFinal(kind, id)"
+      file: "budget-agent-console.js:2103"
+      logic: "confirm 확인 후 목록에서 제거 → 재렌더"
+      validation: "실적이 생긴(집행완료·actualized) 이관 건은 삭제 불가 토스트"
+      state_writes: ["laborTransferRowsByProjectFinal[proj]", "AGENT_LABOR_OT_FINAL[proj]"]
+    backend: null
+    result: 표·탭 금액·인건비 합계 감소 + 토스트
+
+  - id: btn-agent-labor-sub-close
+    label: 닫음
+    type: button
+    crud: N
+    area: "등록·수정 팝업 하단 / 우상단 ✕ / 바깥 영역"
+    event: onclick
+    front:
+      handler: agentLabEditCloseFinal()
+      file: "budget-agent-console.js:2072"
+      logic: 팝업 닫기(입력값 버림)
+      validation: null
+      state_writes: [agentLabEditFinal]
+    backend: null
+    result: 팝업 닫힘
+
+  - id: sum-agent-labor-transfer
+    label: "이관인건비 요약 — 계획(받을 인건비 · 보낼 인건비 · 순 이관 계획) / 실적(받은 인건비 · 보낸 인건비 · 순 이관 실적)"
+    type: summary
+    crud: R
+    area: "Agent 콘솔 인건비 상세 · 이관인건비 탭 상단"
+    event: null
+    front:
+      handler: "renderAgentLaborDetailFinal() 이관 분기"
+      file: "budget-agent-console.js:2292"
+      logic: >
+        계획은 transferType별 amount 합계(받을 +, 보낼 −), 실적은 agentLabTrActualFinal(x)(2059) 합계 —
+        actualAmount가 있으면 그 값, 없으면 집행완료·actualized 건의 amount. 표에도 계획 열과 실적 열을 따로 둔다.
+      validation: null
+      state_writes: []
+    backend: { note: "실적 원천은 ERP 집행 확정(목업: 공유 이관 rows의 actualized/status)" }
+    result: 계획과 실적을 나눠 보여 줌
+
+  - id: btn-agent-labor-monthly
+    label: 월별 계획/실적 보기
+    type: button
+    crud: R
+    area: "Agent 콘솔 인건비 상세 · 상세 칸 머리 우측([💬 대화] 버튼 앞)"
+    event: onclick
+    front:
+      handler: "agentAcctMonthlySetFinal('인건비')"
+      file: "budget-agent-console.js:2128 (팝업 렌더 renderAgentAcctMonthlyPopFinal:2136 — 5개 계정 공통, budget-adjust.yaml 참고)"
+      logic: >
+        인건비 월별 계획/실적 팝업 오픈. 표는 기존 인건비 예산내역 렌더러 renderAccountMonthlyBudgetTable(budget-area-labor.js)를
+        그대로 사용 — 구분(인건비 합계 · 실투입/이관/OT) × 계획(전체) · 실적(확정) · 계획(미집행) · 월별 금액.
+        상세 3계정은 펼친 상태로 연다(laborBudgetTreeOpenFinal=true). 지난 월 셀은 실적 상세, 이후 월은 계획 상세로 연결.
+        화면에 기본으로 펼치지 않는다.
+      validation: null
+      state_writes: [agentAcctMonthlyFinal, laborBudgetTreeOpenFinal]
+    backend: null
+    result: 인건비 월별 계획/실적 팝업
+
+  - id: btn-agent-labor-monthly-close
+    label: 닫음
+    type: button
+    crud: N
+    area: "월별 계획/실적 팝업 하단 / 우상단 ✕ / 바깥 영역"
+    event: onclick
+    front:
+      handler: "agentAcctMonthlySetFinal('')"
+      file: "budget-agent-console.js:2128"
+      logic: 팝업 닫기
+      validation: null
+      state_writes: [agentAcctMonthlyFinal]
+    backend: null
+    result: 팝업 닫힘
+
   - id: row-labor-assignment-select
     label: 등록 인력 행 선택(월별 반영 내역 보기)
     type: row(click)
@@ -417,3 +597,9 @@ requirements:
   - { id: FR-LAB-16, text: "P레벨 단가 확정으로 인한 예산 초과 가능성을 위험 알림으로 안내해야 한다(인력·MM 변동 없어도 초과 가능)" }
   - { id: FR-LAB-17, text: "등록된 인력 배정 상태는 localStorage에 영속화하고 재진입 시 복원해야 한다" }
   - { id: FR-LAB-18, text: "각 알림에 대해 AI 해설(원인/영향/조치)을 요청·표시할 수 있어야 하며, API 키는 서버에만 보관해야 한다" }
+  - { id: FR-LAB-19, text: "Agent 화면의 실투입인건비는 SCM이 선행되어야 하며, 화면에서 인력을 직접 등록할 수 없어야 한다(SCM 수신분은 [예산 조정안] Agent 제안으로 올라와야 한다)" }
+  - { id: FR-LAB-20, text: "PM이 [예산 조정안]에서 인건비 제안을 [반영]하면 실투입인건비 인력표에 '반영(결재전)'으로 신규·철수 변동이 표시되어야 한다" }
+  - { id: FR-LAB-21, text: "Agent 화면에서 이관인건비와 OT비를 건 단위로 등록·수정·삭제할 수 있어야 하며, 결과가 인건비 상세 금액에 즉시 반영되어야 한다" }
+  - { id: FR-LAB-22, text: "직책자 화면과 과거 확정 버전 조회 중에는 이관인건비·OT비를 열람만 할 수 있어야 한다" }
+  - { id: FR-LAB-23, text: "이관인건비 계획은 '받을 인건비(+)'와 '보낼 인건비(−)' 두 구분으로 수립할 수 있어야 하며, 실제로 받거나 보낸 실적은 계획과 따로 표시되어야 한다(실적이 생긴 건은 조회 전용)" }
+  - { id: FR-LAB-24, text: "인건비 월별 계획/실적은 화면에 기본 노출하지 않고 [월별 계획/실적 보기] 팝업으로 상세 3계정별 계획·실적·미집행과 월별 금액을 제공해야 한다" }

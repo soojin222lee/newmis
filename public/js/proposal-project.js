@@ -103,7 +103,7 @@ function ppSaveRegister() {
     if (typeof showToast === 'function') showToast('제안 프로젝트를 수정했습니다.');
   } else {
     PROPOSAL_PROJECTS['PP-' + Date.now()] = data;
-    if (typeof showToast === 'function') showToast('제안 프로젝트를 신규 등록했습니다.');
+    if (typeof showToast === 'function') showToast('제안 프로젝트를 IF 등록했습니다.');
   }
   ppView = 'list'; ppEditId = null; renderProposalProject();
 }
@@ -143,7 +143,7 @@ function renderProposalList() {
         <div class="page-title">제안 프로젝트</div>
         <div class="page-sub">수주형 프로젝트에 딸린 제안(P00N 채번) · 자동 등록·예산 수립은 수주형과 동일</div>
       </div>
-      <button class="save-btn" onclick="ppStartRegister()" style="font-size:14px;padding:8px 16px">＋ 신규 등록</button>
+      <button class="save-btn" onclick="ppStartRegister()" style="font-size:14px;padding:8px 16px">＋ IF 등록</button>
     </div>
 
     <div class="proj-list-toolbar">
@@ -198,7 +198,7 @@ function renderProposalRegister() {
   el.innerHTML = `
     <div class="page-header">
       <div>
-        <div class="page-title">${edit ? '제안 프로젝트 수정' : '제안 프로젝트 신규 등록'}</div>
+        <div class="page-title">${edit ? '제안 프로젝트 수정' : '제안 프로젝트 IF 등록'}</div>
         <div class="page-sub">제안(P00N) 프로젝트 정보를 입력하고 저장합니다.</div>
       </div>
     </div>

@@ -32,6 +32,18 @@ screen:
     rail_auto_collapse: "메인 외 화면에 들어가거나 다른 프로젝트로 넘어가면 레일 자동 축소(64px). 메인 복귀 시 메인에서 고른 상태로 복원"
     agent_default: "버전2 에서 예산관리 Agent 기본 ON(agentViewFinal='agent'). 버전1 은 수진 기본값 'draft' 그대로. budget-agent-console.js 는 수정하지 않음"
     my_work_removed: "상단 메뉴였던 My Work 도 레일에서 제외 — 메인 복귀는 로고 클릭(AiPMO 와 같음)"
+  decisions_2026_10_13:
+    why: "목업을 개발자에게 계속 공유하므로, 개발 범위에서 빠질 도구와 실제 업무 메뉴를 나눠 정리한다"
+    business_menu: "상단 가로 메뉴였던 프로젝트(6)·수행원가(3)·인사이트(3)를 레일 '담당 프로젝트' 아래 업무 메뉴로 둔다 — 그룹 접기/펼치기, 지금 화면의 그룹만 자동으로 펼침·현재 항목 파랑. (rev2 의 '메뉴를 드러내지 않는다' 원칙을 이 결정으로 바꾼다)"
+    my_work: "My Work 는 메인이라 레일 메뉴에 넣지 않는다(로고 클릭 = 메인). 개발용 '상단 메뉴 보기'로 켠 상단 바에는 그대로 있다"
+    sk_logo: "상단 바의 'SK 주식회사 AX' 로고는 레일에 넣지 않는다 (사용자: 삭제)"
+    reference_menu: "화면 설명·그라운드 룰·AI 네비게이터·AI개발 Agent·구매시스템 참고·상단 메뉴 보기(개발용)는 '참고용 메뉴(삭제예정)' 하나로 묶어 레일 맨 끝(사용자 정보 아래)에 둔다. 처음엔 접힘, 펼침 상태는 localStorage 'newmis.v2Ref'"
+    project_split: "프로젝트 메뉴를 연동 프로젝트 IF(수주형·제안, 버튼 ＋ IF 등록) / 생성 프로젝트 신규(W/G·사내·투자·선투입, 버튼 ＋ 신규 생성)로 나눈다. 용어: 등록=IF 수신으로 들여오기, 생성=작성→결재→ERP IF 송신"
+    fold_2026_10_13: "담당 프로젝트 머리줄을 눌러 목록을 접고 펼친다(기본 펼침, localStorage 'newmis.v2PjSec'). 프로젝트 그룹을 펼치면 '연동 프로젝트 IF' · '생성 프로젝트 신규' 두 줄만 보이고, 각각 눌러야 하위 화면이 펼쳐진다. 지금 화면이 든 소묶음은 자동으로 펼침"
+    brand_2026_10_13: "AXGENTIC WIRE 는 사용이 제한된 브랜드라 표기하지 않는다 → '예산관리 시스템'(+ 아래 AiBudget). 마크는 'B' 노드형(B 한 획 + 기둥 위 노드 3개) — 시안 4종(배지·라인·블록·노드) 중 사용자 선택. 색은 기존 그라데이션 그대로"
+    hint_text: "메인 입력창과 대화창 안내 문구를 '원가 관련 궁금한 점을 자연어로 질문해 주세요.'로 통일"
+    main_refresh: "메인으로 돌아오면 initDashboard 로 다시 그린다 — showMain 은 화면만 바꿔 상세에서 처리·결재한 건수가 옛 숫자로 남았다"
+    req_notes_dock: "석완 req-notes.js 의 '요구사항' 버튼(좌하단 고정)은 버전2 에서 레일 오른쪽으로 비켜 둔다 (CSS 만)"
   design_reference:
     AiPMO:
       - "회청색 바탕(#eef1f6) 위 큰 흰 패널(라운드 18px). 상단 바 없음"
@@ -100,12 +112,12 @@ states:
 # ── 요소 인벤토리 ── (모든 요소 crud 명시. N = 이동·팝업·토글 이벤트)
 elements:
   - id: btn-rail-brand
-    label: AXGENTIC WIRE / AiBudget (메인으로 이동)
+    label: 예산관리 시스템 / AiBudget (메인으로 이동)
     kind: button
     crud: N
     where: "레일 최상단 .v2-lock"
     handler: "showMain()"
-    logic: "dashboard.js:v2BrandHtml 재사용. 메인 홈으로 이동"
+    logic: "shell-v2.js:v2BrandHtml · v2BrandMarkSvg 가 dashboard.js 정의를 덮는다(2026-10-13). B 노드형 마크(하늘색→진파랑 그라데이션) + '예산관리 시스템' + AiBudget. 메인 홈으로 이동"
     api: 없음
   - id: btn-rail-collapse
     label: 메뉴 접기/펴기
@@ -123,11 +135,67 @@ elements:
     handler: "toggleHomeV2Pjt(id) · 항목 homePjtGo(pjtId, acct)"
     logic: "main-home-v2.yaml 의 btn-rail-pjt-toggle / btn-rail-item 과 동일. 버전2 의 주 이동 경로 — 항목 클릭 시 해당 계정 원가조정 화면으로 가고 레일이 자동 축소된다"
     api: 없음
+  - id: btn-pjsec-toggle
+    label: 담당 프로젝트 목록 펼치기/접기
+    kind: toggle
+    crud: N
+    where: "레일 '담당 프로젝트'/'팀 프로젝트' 머리줄 .v2-sec-btn"
+    handler: "toggleV2PjSec()"
+    logic: "shell-v2.js:toggleV2PjSec — v2PjSecOpen 뒤집고 localStorage 'newmis.v2PjSec' 저장 · #v2-pjsec.shut 로 #v2-rail-body 숨김. 접힌 레일이면 먼저 편다"
+    api: 없음 (localStorage)
+  - id: nav-sub-toggle
+    label: 연동 프로젝트 IF / 생성 프로젝트 신규 펼치기/접기
+    kind: toggle
+    crud: N
+    where: "업무 메뉴 '프로젝트' 그룹 안 .v2-nsg > button.v2-ns"
+    handler: "v2NavSubToggle('if' | 'new')"
+    logic: "shell-v2.js:v2NavSubToggle — v2NavSubOpen[k] 뒤집고 #v2-nav 다시 그림. 화면을 옮기면 v2NavSync 가 그 화면의 소묶음만 펼친다(v2NavSubOf)"
+    api: 없음
+  - id: nav-group-toggle
+    label: 업무 메뉴 그룹 펼치기/접기 (프로젝트 · 수행원가 · 인사이트)
+    kind: toggle
+    crud: N
+    where: "레일 담당 프로젝트 아래 #v2-nav .v2-ng-h"
+    handler: "v2NavToggle(g)"
+    logic: "shell-v2.js:v2NavToggle — v2NavOpen[g] 뒤집고 #v2-nav 다시 그림. 레일이 접혀 있으면 펴면서 그 그룹을 연다. 960px 이하는 그룹 첫 화면으로 이동"
+    api: 없음
+  - id: nav-item-project
+    label: 프로젝트 메뉴 — 연동 프로젝트 IF(수주형 · 제안) / 생성 프로젝트 신규(W/G · 사내 · 투자 · 선투입)
+    kind: button
+    crud: N
+    where: "업무 메뉴 '프로젝트' 그룹 .v2-ni"
+    handler: "showSIProject() · showProposalProject() · showWGProject() · showInternalProject() · showInvestmentProject() · showAdvanceProject()"
+    logic: "app.js 의 상단 메뉴와 같은 진입 함수. 현재 화면 항목은 .on(파랑)·aria-current. 소묶음 머리(.v2-ns)는 버튼이 아닌 표시 — 화면 버튼도 같은 기준(IF 등록 / 신규 생성, project-mgmt.yaml·06 문서 용어표)"
+    api: 없음
+  - id: nav-item-cost
+    label: 수행원가 메뉴 (원가현황 · 원가조정 · 변경 이력)
+    kind: button
+    crud: N
+    where: "업무 메뉴 '수행원가' 그룹 .v2-ni"
+    handler: "showCostStatus() · showCostAdjust() · showCostHistory()"
+    logic: "수행원가는 한 화면(s-budget)이라 v2NavCur 가 costMode(status/adjust/history)로 현재 항목을 고른다"
+    api: 없음
+  - id: nav-item-insight
+    label: 인사이트 메뉴 (종합 현황 · AI 레포트 · 맞춤 레포트)
+    kind: button
+    crud: N
+    where: "업무 메뉴 '인사이트' 그룹 .v2-ni"
+    handler: "showInsights('overview') · showAiReport() · showCustomReport()"
+    logic: "s-insights · s-ai-report · s-custom-report 화면 id 로 현재 항목 표시"
+    api: 없음
+  - id: btn-ref-toggle
+    label: 참고용 메뉴(삭제예정) 펼치기/접기
+    kind: toggle
+    crud: N
+    where: "레일 맨 끝 #v2-ref .v2-ref-h ('삭제예정' 배지)"
+    handler: "toggleV2Ref()"
+    logic: "shell-v2.js:toggleV2Ref — v2RefOpen 뒤집고 localStorage 'newmis.v2Ref' 저장 · 접힌 레일이면 먼저 편다. 아래 btn-util-* 6개가 이 안에 있다"
+    api: 없음 (localStorage)
   - id: btn-util-screen-desc
     label: 화면 설명 열기
     kind: button
     crud: N
-    where: "레일 하단 유틸 1"
+    where: "참고용 메뉴(삭제예정) 1"
     handler: "toggleScreenDesc(this)"
     logic: "screen-desc.js:toggleScreenDesc (수진) — 현재 활성 화면 설명 패널. 버전2 에서는 패널을 위쪽(16px)에 붙인다"
     api: 없음
@@ -135,7 +203,7 @@ elements:
     label: 그라운드 룰 조회
     kind: button
     crud: R
-    where: "레일 하단 유틸 2"
+    where: "참고용 메뉴(삭제예정) 2"
     handler: "openSetupGuide()"
     logic: "app.js:openSetupGuide — 팀 그라운드 룰 오버레이"
     api: 없음
@@ -143,7 +211,7 @@ elements:
     label: AI 네비게이터 열기
     kind: button
     crud: N
-    where: "레일 하단 유틸 3"
+    where: "참고용 메뉴(삭제예정) 3"
     handler: "openAiChat('navi')"
     logic: "app.js:openAiChat — 화면 길잡이 AI 로 대화창 열기"
     api: 없음
@@ -151,7 +219,7 @@ elements:
     label: AI개발 Agent 목록 열기
     kind: button
     crud: N
-    where: "레일 하단 유틸 4"
+    where: "참고용 메뉴(삭제예정) 4"
     handler: "openAgentModal()"
     logic: "dashboard.js:openAgentModal — AGENT_APPS 중앙 모달"
     api: 없음
@@ -159,7 +227,7 @@ elements:
     label: 구매시스템 참고 화면 열기
     kind: button
     crud: N
-    where: "레일 하단 유틸 5"
+    where: "참고용 메뉴(삭제예정) 5"
     handler: "openPurchaseReference()"
     logic: "상단 바 ▦ 버튼과 같은 함수(상단 바가 숨겨져 레일로 이동)"
     api: 없음
@@ -167,7 +235,7 @@ elements:
     label: 상단 메뉴 보기/숨기기 (개발용)
     kind: toggle
     crud: N
-    where: "레일 하단 유틸 맨 아래 .v2-dev-topmenu ('개발용' 표시)"
+    where: "참고용 메뉴(삭제예정) 6 — 맨 아래 .v2-dev-topmenu ('개발용' 표시)"
     handler: "toggleV2TopMenu()"
     logic: "v2TopMenu 뒤집고 localStorage 'newmis.v2TopMenu' 저장 → v2ApplyTopMenu() 가 body.v2-topmenu 토글 · 버튼 문구를 '상단 메뉴 보기'/'숨기기'로 바꿈"
     api: 없음 (localStorage)
@@ -238,9 +306,9 @@ component_map:
 
 # ── 요구사항 ──
 requirements:
-  - { id: FR-SHELL-01, text: "버전2 는 메뉴를 드러내지 않아야 하며, 사용자는 AI 에이전트 질의·응답과 담당 프로젝트 항목 클릭으로 화면을 이동할 수 있어야 한다" }
+  - { id: FR-SHELL-01, text: "사용자는 레일의 담당 프로젝트 아래 업무 메뉴(프로젝트·수행원가·인사이트)를 그룹별로 펼쳐 화면을 이동할 수 있어야 하며, 지금 화면의 메뉴가 표시되어야 한다. AI 에이전트 질의·응답과 담당 프로젝트 항목 클릭으로도 이동할 수 있어야 한다" }
   - { id: FR-SHELL-02, text: "개발 테스트를 위해 레일의 버튼으로 숨겨진 상단 메뉴 바를 보이거나 숨길 수 있어야 하고, 그 선택은 유지되어야 한다" }
-  - { id: FR-SHELL-03, text: "버전2 에서는 상단 메뉴 바 없이 화면 설명·그라운드 룰·AI 네비게이터·AI개발 Agent·구매시스템 참고·사용자 전환을 레일 하단에서 제공해야 한다" }
+  - { id: FR-SHELL-03, text: "버전2 에서는 개발 범위에서 빠질 도구(화면 설명·그라운드 룰·AI 네비게이터·AI개발 Agent·구매시스템 참고·상단 메뉴 보기)를 레일 맨 끝 '참고용 메뉴(삭제예정)'에 접어 두고 펼쳐 쓸 수 있어야 한다" }
   - { id: FR-SHELL-04, text: "상세 화면에 들어가거나 다른 프로젝트로 넘어가면 레일이 자동으로 축소되어야 하고, 메인으로 돌아오면 메인에서 고른 상태로 돌아와야 한다" }
   - { id: FR-SHELL-05, text: "사용자는 어느 화면에서든 버전1과 버전2를 전환할 수 있어야 하며, 저장된 선택이 없으면 버전2로 열려야 한다" }
   - { id: FR-SHELL-06, text: "버전1 로 전환하면 모든 화면이 기존 구성·스타일 그대로 보여야 한다" }
@@ -251,6 +319,13 @@ requirements:
 
 # ── 확인 시나리오 (2026-10-07) ──
 verification:
+  - "[8차] 레일 로고 '예산관리 시스템 / AiBudget' · 화면 어디에도 AXGENTIC 없음 · 대화창 안내 문구 = 메인 입력창 문구"
+  - "[8차] 담당임원: 결재 대기 2건 → 스마트팩토리 D101 '기안 전체 승인' → 확정 · 로고로 메인 복귀 시 바로 '결재 대기 1건'"
+  - "[7차] 담당 프로젝트 머리줄 클릭 → 목록 숨김·저장('0') · 안에서 프로젝트 펼침(toggleHomeV2Pjt) 후에도 숨김 유지 · 다시 클릭 → 보임"
+  - "[7차] 프로젝트 그룹 펼침 → '연동 프로젝트 IF' · '생성 프로젝트 신규' 두 줄만 · 생성 클릭 → W/G·사내·투자·선투입 · 수주형 화면 이동 → 연동만 펼쳐지고 '수주형 프로젝트' 파랑"
+  - "[6차] 레일: 담당 프로젝트 → 업무 메뉴 3그룹(프로젝트·수행원가·인사이트), My Work·SK 로고 없음 · 하단: 화면 버전 → 사용자 → 참고용 메뉴(맨 끝, 처음 접힘, 펼침 저장)"
+  - "[6차] W/G 프로젝트 → 원가현황 → 변경 이력 → AI 레포트 차례로 이동 시 현재 항목 파랑 · 그 그룹만 펼침 · 접힌 레일에서 그룹 아이콘 누르면 레일이 펴지며 그룹 열림"
+  - "[6차] develop(석완 3건) 반영 후 메인 '목업용 경비 300만원 줄여줘' → 경비 화면 계산 · 가운데 '이상징후 있어?' → 메인 AI 답 이어짐 · 버전1 은 상단 바 그대로 · 콘솔 오류 0"
   - "[5차] 메인 '예산관리시스템 목업용 경비 300만원 줄여줘' → #/budget-adjust/expense · 📍 → PM 질문 → Agent 계산(수립 1,503,800,000 → 1,500,800,000) · 경비 25,000,000 → 22,000,000"
   - "[5차] 메인 '해야 할 일' → 재료비 이관 항목 클릭 → 📍 재료비 → '고르신 … 건은 재료비 −10,000,000원 조정안…' / 가운데 대화 속 SCM 항목 클릭 → 인건비로 옮기며 '+70,000,000원 조정안…' 이어짐"
   - "[5차] 메인 분석 질문(답이 늦게 옴) → 📍 다음에 답이 그대로 이어짐 · 안내 문구 중복 0 · 버전1 은 기존 그대로 · 콘솔 오류 0"
