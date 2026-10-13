@@ -144,9 +144,9 @@ function renderAdvList() {
     <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
       <div>
         <div class="page-title">선투입 프로젝트</div>
-        <div class="page-sub">선투입 프로젝트 등록·조회</div>
+        <div class="page-sub">선투입 프로젝트 생성·조회</div>
       </div>
-      <button class="save-btn" onclick="advBudgetRows=[{name:'',materials:0,labor:0,outsource:0,expense:0}];advView='register';renderAdvRegister()" style="margin-top:4px;font-size:14px;padding:6px 14px">+ 프로젝트 등록</button>
+      <button class="save-btn" onclick="advBudgetRows=[{name:'',materials:0,labor:0,outsource:0,expense:0}];advView='register';renderAdvRegister()" style="margin-top:4px;font-size:14px;padding:6px 14px">+ 신규 생성</button>
     </div>
 
     <div class="proj-list-toolbar">
@@ -259,7 +259,7 @@ function renderAdvDetail() {
       <div style="display:flex;align-items:center;gap:10px">
         <span style="font-size:22px">✅</span>
         <div>
-          <div style="font-size:15px;font-weight:700;color:#1d4ed8">ERP 등록 완료</div>
+          <div style="font-size:15px;font-weight:700;color:#1d4ed8">ERP 생성 완료</div>
           <div style="font-size:14px;color:#64748b;margin-top:2px">승인 완료 후 ERP IF를 통해 프로젝트가 생성되었습니다.</div>
         </div>
       </div>
@@ -323,7 +323,7 @@ function buildAdvBudgetTable(budget) {
 }
 
 // ════════════════════════════════════════
-//  선투입 프로젝트 등록 폼
+//  선투입 프로젝트 신규 생성 폼
 // ════════════════════════════════════════
 function renderAdvRegister() {
   const el = document.getElementById('s-advance-project');
@@ -331,7 +331,7 @@ function renderAdvRegister() {
     <div class="wg-detail-topbar">
       <button class="mc-back-btn" onclick="advView='list';renderAdvList()">← 목록</button>
       <div style="flex:1">
-        <div style="font-size:20px;font-weight:800;color:#1e293b">선투입 프로젝트 등록</div>
+        <div style="font-size:20px;font-weight:800;color:#1e293b">선투입 프로젝트 신규 생성</div>
         <div style="font-size:14px;color:#64748b;margin-top:2px">결재 상신 후 ERP IF를 통해 프로젝트가 생성됩니다.</div>
       </div>
     </div>
@@ -509,7 +509,7 @@ function submitAdvDraft() {
   advSelectedId = newId;
   advView = 'detail';
   renderAdvDetail();
-  showToast('결재가 상신되었습니다. 승인 완료 후 ERP에 등록됩니다.');
+  showToast('결재가 상신되었습니다. 승인 완료 후 ERP에 생성됩니다.');
 }
 
 function approveAdvProject(id) {
@@ -519,6 +519,6 @@ function approveAdvProject(id) {
   p.status = '승인';
   p.approval.forEach(a => { if (a.status === '대기') { a.status = '승인'; a.date = now; } });
   renderAdvDetail();
-  showToast('✅ 승인 완료 · ERP IF를 통해 프로젝트가 등록되었습니다.');
+  showToast('✅ 승인 완료 · ERP IF를 통해 프로젝트가 생성되었습니다.');
 }
 
