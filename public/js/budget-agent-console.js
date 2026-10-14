@@ -1020,13 +1020,6 @@ function agentChatKeepBottomFinal() {
         const el = document.querySelector(sel);
         if (el && el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight;
       });
-    // AI구상안은 스트림이 페이지째 흐르므로 문서를 내립니다
-    if (agentViewFinal === 'ai') {
-      const y = document.documentElement.scrollHeight;
-      window.scrollTo(0, y);
-      const sc = document.getElementById('s-budget');
-      if (sc && sc.scrollHeight > sc.clientHeight) sc.scrollTop = sc.scrollHeight;
-    }
   }, 0);
 }
 
@@ -4264,8 +4257,7 @@ function agentSimApplyFinal(cmd) {
     return true;
   }
   if (cmd.kind === 'open') {
-    if (agentViewFinal === 'ai') agentAiSheetFinal = cmd.acct;
-    else if (typeof agentBudgetFullOpenFinal === 'function') agentBudgetFullOpenFinal(cmd.acct);
+    if (typeof agentBudgetFullOpenFinal === 'function') agentBudgetFullOpenFinal(cmd.acct);
     const r = ((agentRollCacheFinal || {}).rows || []).find(x => x.acct === cmd.acct) || { plan: 0, done: 0, cp: 0 };
     AGENT_CHAT_FINAL.push({ who: 'agent', text:
       `${cmd.acct} 상세를 열었습니다. 수립 ${fmt(r.plan)}원 · 실적(확정) ${fmt(r.done)}원`
