@@ -16,12 +16,6 @@ const SCREEN_DESC = {
     features: ['원가현황: 월별 계획/실적 그리드 (기준월 이전=ERP 실적, 이후=계획)', '원가조정: 계정별 편집 · 3단계(이력→작성→결재) · 예산 이관(총액 내)', '변경이력: 실행예산 버전 이력 · 이관 변경 로그', '5대 계정: 인건비 · 외주비 · 재료비 · 경비 · A/S Cost'],
     systems: ['SCM(인건비 확정 인력)', 'POP(외주·재료 PO/검수)', 'ERP(경비 가용예산·실적)'],
   },
-  's-insights': {
-    menu: '인사이트', title: '인사이트',
-    purpose: '프로젝트 원가를 종합 분석한다. 계획 대비 소진율·진척 편차, 버전별 변화를 시각화하고 AI가 해석한다.',
-    features: ['종합현황: KPI + AI Insight 자동 생성', '원가 소진율: 계획율/소진율/진척편차/예상최종 · S-커브 · Cost 4분할', '버전별 예산: 버전 간 계정 변동 · AI 요약', 'AI 보고서(3탭 종합 생성)'],
-    systems: ['LLM(AI 분석·보고서)'],
-  },
   's-ai-report': {
     menu: '인사이트 · AI 레포트', title: 'AI 레포트',
     purpose: '자연어로 질문하면 LLM이 SQL로 변환해 실제 데이터를 조회, 표로 보여준다.',
@@ -37,14 +31,8 @@ const SCREEN_DESC = {
   's-system-desc': {
     menu: '시스템 설명', title: '운영 가이드 (프로세스 안내)',
     purpose: '시스템 컨셉·업무 프로세스·데이터 흐름·부서별 R&R을 설명하는 정적 안내 화면(읽기용).',
-    features: ['프로젝트 운영 컨셉(As-Is → To-Be)', '프로세스: 등록 → 수행(월마감 순환) → 종료', '유관시스템 데이터 흐름(CRM·AI PMO·SCM·구매·ERP·BIX)', '유관부서 확인 필요사항(R&R)'],
+    features: ['프로젝트 운영 컨셉(As-Is → To-Be)', '프로세스: 등록 → 수행 → 종료', '유관시스템 데이터 흐름(CRM·AI PMO·SCM·구매·ERP·BIX)', '유관부서 확인 필요사항(R&R)'],
     systems: ['-'],
-  },
-  's-monthly-close': {
-    menu: '월 마감', title: '월 마감',
-    purpose: '매월 말 실행예산을 현행화하고 실적을 확정해 ERP·BIX로 전송하는 마감 처리 화면.',
-    features: ['당월 실행예산 현행화', '마감 중 외부 IF 일시 차단', '마감 완료 후 ERP·BIX 자동 전송'],
-    systems: ['ERP', 'BIX'],
   },
   's-initiation': { menu:'착수 보고', title:'착수 보고', purpose:'프로젝트 착수 단계의 계획·리스크를 정리해 보고한다.', features:['단계별 기간·예상 소진율','전체 원가·마진 계획','리스크 사전 분석(AI)'], systems:['-'] },
   's-interim':   { menu:'중간 보고', title:'중간 보고', purpose:'단계 전환 시점의 실적 vs 계획을 비교해 보고한다.', features:['실적 vs 계획 비교','AI 초안 작성 후 PM 검토','팀장 승인 및 다음 단계 확정'], systems:['-'] },

@@ -126,15 +126,6 @@ const screenGuideKnowledge = {
     comments: ['업무 정의와 시스템 경계 설명을 제공하는 정적 가이드 영역입니다.'],
     faqs: {},
   },
-  's-monthly-close': {
-    title: '월 마감',
-    route: '#monthly-close',
-    frontend: ['public/js/monthly-close.js'],
-    backend: ['/api/monthly-close', '/api/erp/monthly-actuals'],
-    logic: ['월별 마감 대상 조회', '실적/계획 비교', '마감 이력 확인'],
-    comments: ['현재 메뉴는 숨김 처리될 수 있지만 화면 로직은 유지되어 있습니다.'],
-    faqs: {},
-  },
 };
 
 const screenGuideDefault = {
