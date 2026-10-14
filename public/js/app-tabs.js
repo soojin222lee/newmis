@@ -50,7 +50,8 @@
     if (document.getElementById('app-tabs-style')) return;
     var st = document.createElement('style'); st.id = 'app-tabs-style';
     st.textContent = `
-     .app-tabbar{display:flex;align-items:center;gap:4px;padding:7px 12px 0;background:transparent;overflow-x:auto;scrollbar-width:thin}
+     .app-tabbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:4px;padding:7px 12px 0;
+       background:var(--sk-page,#f2f2ee);border-bottom:1px solid #dfe3ea;overflow-x:auto;scrollbar-width:thin}
      .app-tabbar::-webkit-scrollbar{height:5px}
      .app-tabbar::-webkit-scrollbar-thumb{background:#d4d8e0;border-radius:3px}
      .aptab-clear{flex:none;width:28px;height:28px;margin-right:4px;border:1px solid #e3e7ec;border-radius:8px;
@@ -73,7 +74,6 @@
        background:#fff;color:#64748b;cursor:pointer;font-size:17px;line-height:1;display:grid;place-items:center;font-family:inherit}
      .aptab-new:hover{border-color:#1d4ed8;color:#1d4ed8}
      .aptab-new:disabled{opacity:.4;cursor:not-allowed;border-color:#e3e7ec;color:#9aa3b2}
-     .app-tabbar-sep{height:1px;background:#dfe3ea;margin:0}
     `;
     document.head.appendChild(st);
   }
@@ -86,11 +86,8 @@
     bar = document.createElement('div');
     bar.id = 'app-tabbar';
     bar.className = 'app-tabbar';
-    var sep = document.createElement('div');
-    sep.className = 'app-tabbar-sep';
     var content = main.querySelector('.content') || main.firstChild;
     main.insertBefore(bar, content);
-    main.insertBefore(sep, content);
     return bar;
   }
 
@@ -261,10 +258,47 @@
     } catch (e) {}
     return null;
   }
+  // ── 프로젝트 열기 힌트 ──
+  // 같은 프로젝트 탭이 이미 있으면 그 탭을 포커스, 없으면 새 탭을 띄운다(최대치면 현재 탭 사용).
+  // 호출 뒤 호출자가 실제 화면을 렌더(show*/setScreen/orig)하면 활성 탭이 그 화면으로 채워진다.
+  function tabOpenProjectHint(desc) {
+    if (!desc) return;
+    var sig = JSON.stringify(desc);
+    var existing = null;
+    for (var i = 0; i < tabs.length; i++) {
+      if (tabs[i].openDesc && JSON.stringify(tabs[i].openDesc) === sig) { existing = tabs[i]; break; }
+    }
+    if (existing) {
+      if (existing.id !== activeId) {
+        saveActive();
+        activeId = existing.id;
+        switching = true;
+        if (typeof origSetScreen === 'function') origSetScreen(existing.screenId);
+        switching = false;
+      }
+      return;
+    }
+    var cur = tabs.find(function (t) { return t.id === activeId; });
+    var freshHome = cur && cur.screenId === 's-main' && !cur.projName;   // 갓 연 홈 탭이면 재사용
+    if (freshHome) return;
+    if (tabs.length < MAX) {
+      saveActive();
+      var t = { id: ++seq, screenId: 's-main', label: '홈', projNo: null, projName: null, openDesc: null, snap: null, scroll: 0 };
+      tabs.push(t);
+      activeId = t.id;
+      render();
+      return;
+    }
+    toast('탭 ' + MAX + '개가 모두 열려 있어 현재 탭에서 엽니다.');
+  }
+  window.tabOpenProjectHint = tabOpenProjectHint;
+
   function wrapBudgetOpener() {
     if (window.__tabsBudgetWrapped || typeof window.openBudgetProjectScreen !== 'function') return;
     var orig = window.openBudgetProjectScreen;
     window.openBudgetProjectScreen = function (k) {
+      var desc = { kind: 'budget', key: k, costMode: (typeof costMode !== 'undefined' ? costMode : 'status') };
+      if (!switching) tabOpenProjectHint(desc);
       var ret = orig.apply(this, arguments);
       try {
         if (!switching) {
@@ -275,7 +309,7 @@
             var info = budgetProjInfo(k);
             if (info) { t.projNo = info.no || null; t.projName = info.name; }
             else { t.projNo = null; t.projName = null; t.label = labelFor('s-budget'); }
-            t.openDesc = { kind: 'budget', key: k, costMode: (typeof costMode !== 'undefined' ? costMode : 'status') };
+            t.openDesc = desc;
             render();
           }
         }

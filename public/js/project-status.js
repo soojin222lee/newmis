@@ -208,6 +208,9 @@ function psvResetFilter() { psvSearch = ''; psvTypeFilter = ''; psvStatusFilter 
 function psvOpenDetail(type, key) {
   const meta = PSV_TYPES.find(function (m) { return m.type === type; });
   if (!meta) return;
+  const desc = { kind: 'psvDetail', type: type, key: key };
+  // 프로젝트는 새 탭으로(이미 열린 프로젝트면 그 탭 포커스) — 인터넷 새 탭처럼
+  if (typeof window.tabOpenProjectHint === 'function') window.tabOpenProjectHint(desc);
   if (typeof window[meta.show] === 'function') window[meta.show]();
   if (typeof window[meta.detail] === 'function') window[meta.detail](key);
   // 탭에 "프로젝트번호 + 명칭" 태깅 (+ 즐겨찾기용 재진입 서술자)
@@ -215,7 +218,7 @@ function psvOpenDetail(type, key) {
     const store = psvStore(meta.data);
     const p = store && store[key];
     if (p && typeof window.tabTagProject === 'function') {
-      window.tabTagProject(p.code || '', p.name || '', { kind: 'psvDetail', type: type, key: key });
+      window.tabTagProject(p.code || '', p.name || '', desc);
     }
   } catch (e) {}
 }

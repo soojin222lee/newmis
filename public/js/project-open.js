@@ -306,13 +306,17 @@ function popenOnStatus(v) { popenStatusFilter = v; renderProjectOpen(); }
 function popenOnType(v)   { popenTypeFilter = v; renderProjectOpen(); }
 function popenResetFilter() { popenSearch = ''; popenStatusFilter = ''; popenTypeFilter = ''; renderProjectOpen(); }
 function popenOpenDetail(id) {
+  const desc = { kind: 'popenDetail', id: id };
+  // 프로젝트는 새 탭으로(이미 열린 프로젝트면 그 탭 포커스)
+  if (typeof window.tabOpenProjectHint === 'function') window.tabOpenProjectHint(desc);
+  if (typeof setScreen === 'function') setScreen('s-project-open');
   popenSelectedId = id; popenView = 'detail'; renderProjectOpen();
   // 탭에 "프로젝트번호 + 명칭" 태깅 (등록 전이면 번호 자리에 신청유형 표시)
   try {
     const a = POPEN_APPS[id];
     if (a && typeof window.tabTagProject === 'function') {
       const no = (a.regStatus === '등록완료' && a.projectNo) ? a.projectNo : ('개설·' + a.type);
-      window.tabTagProject(no, a.name || '', { kind: 'popenDetail', id: id });
+      window.tabTagProject(no, a.name || '', desc);
     }
   } catch (e) {}
 }
