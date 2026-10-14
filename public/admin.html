@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>관리자 · 예산관리 시스템</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  :root { --a-ink:#16151f; --a-red:#b23b3b; --a-border:#e5e7eb; --a-page:#f4f5f8; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--a-page); color: var(--a-ink);
+    font-family: 'Noto Sans KR','Malgun Gothic',sans-serif; -webkit-font-smoothing: antialiased; }
+
+  /* 상단바 */
+  .asite-top { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 14px;
+    height: 56px; padding: 0 20px; background: #fff; border-bottom: 1px solid var(--a-border); }
+  .asite-brand { display: flex; align-items: center; gap: 9px; font-weight: 900; font-size: 15px; color: #0f172a; }
+  .asite-brand .b-mk { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center;
+    background: linear-gradient(135deg,#2ec8f5,#141fb4); color: #fff; font-size: 14px; }
+  .asite-brand em { font-style: normal; color: var(--a-red); font-weight: 900; }
+  .asite-top-sp { flex: 1; }
+  .asite-back { display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+    border: 1px solid var(--a-border); background: #fff; color: #334155; border-radius: 8px;
+    padding: 7px 13px; font-size: 12.5px; font-weight: 700; }
+  .asite-back:hover { border-color: var(--a-red); color: var(--a-red); }
+  .asite-user { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 700; color: #475569; }
+  .asite-user .u-av { width: 28px; height: 28px; border-radius: 50%; background: #eef1f6; display: grid; place-items: center; font-size: 13px; }
+
+  /* 레이아웃 */
+  .asite-body { display: flex; min-height: calc(100vh - 56px); }
+
+  /* 좌측 메뉴 바 */
+  .asite-nav { width: 224px; flex: none; background: #fff; border-right: 1px solid var(--a-border);
+    padding: 14px 12px; display: flex; flex-direction: column; gap: 3px; position: sticky; top: 56px;
+    height: calc(100vh - 56px); overflow-y: auto; }
+  .asite-nav-lbl { font-size: 10.5px; font-weight: 900; letter-spacing: .5px; color: #9aa3b2; padding: 6px 10px 4px; }
+  .asite-navi { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    border: 1px solid transparent; background: transparent; border-radius: 10px; padding: 9px 11px;
+    cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; color: #4b5563; }
+  .asite-navi:hover { background: #f6f7f9; color: #0f172a; }
+  .asite-navi.on { background: #fdecec; color: var(--a-red); border-color: #f4caca; }
+  .asite-navi-ic { font-size: 16px; width: 20px; text-align: center; }
+  .asite-navi-t { flex: 1; }
+
+  /* 콘텐츠 */
+  .asite-main { flex: 1; min-width: 0; padding: 26px 30px 56px; overflow-y: auto; }
+  .asite-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .asite-h-ic { font-size: 26px; }
+  .asite-h-t { font-size: 20px; font-weight: 900; color: #0f172a; }
+  .asite-h-d { font-size: 12.5px; color: #64748b; margin-top: 2px; }
+  .asite-content { margin-top: 18px; max-width: 1040px; }
+
+  /* 공통 관리 컴포넌트 (.adm-*) */
+  .adm-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; }
+  .adm-btn { border: 1px solid #d1d5db; background: #fff; border-radius: 8px; padding: 8px 13px; font-size: 12.5px; font-weight: 700; color: #334155; cursor: pointer; font-family: inherit; }
+  .adm-btn:hover { border-color: var(--a-red); color: var(--a-red); }
+  .adm-btn.pri { background: var(--a-red); border-color: var(--a-red); color: #fff; }
+  .adm-btn.pri:hover { background: #953030; }
+  .adm-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--a-border); border-radius: 12px; overflow: hidden; font-size: 12.5px; }
+  .adm-table th { background: #f8fafc; text-align: left; padding: 11px 12px; font-weight: 800; color: #475569; border-bottom: 1px solid var(--a-border); white-space: nowrap; }
+  .adm-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; color: #1f2937; }
+  .adm-table tr:last-child td { border-bottom: 0; }
+  .adm-table tr:hover td { background: #fafbfc; }
+  .adm-table td.num, .adm-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .adm-chk { width: 16px; height: 16px; accent-color: var(--a-red); cursor: pointer; }
+  .adm-tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: #eef2ff; color: #4338ca; }
+  .adm-toggle { cursor: pointer; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 3px 10px; border: 1px solid; font-family: inherit; }
+  .adm-toggle.on { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+  .adm-toggle.off { background: #f1f5f9; color: #94a3b8; border-color: var(--a-border); }
+  .adm-org { border: 1px solid var(--a-border); border-radius: 12px; background: #fff; padding: 8px 6px; }
+  .adm-org-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; }
+  .adm-org-row:hover { background: #fafbfc; }
+  .adm-org-name { font-weight: 800; color: #0f172a; font-size: 13px; }
+  .adm-org-head { font-size: 11.5px; color: #64748b; margin-left: auto; }
+  .adm-note { font-size: 11.5px; color: #94a3b8; margin-top: 14px; line-height: 1.6; }
+  .adm-tbd { display: inline-block; font-size: 9.5px; font-weight: 900; color: #94a3b8; background: #eef1f6; border: 1px solid #e0e5ec; border-radius: 5px; padding: 1px 5px; margin-left: 6px; vertical-align: middle; letter-spacing: .3px; }
+  .adm-tbd-box { border: 1px dashed #cbd5e1; border-radius: 14px; background: #f8fafc; padding: 54px 20px; text-align: center; }
+  .adm-tbd-ic { font-size: 32px; }
+  .adm-tbd-t { font-size: 16px; font-weight: 900; color: #334155; margin: 12px 0 6px; }
+  .adm-tbd-d { font-size: 12.5px; color: #94a3b8; line-height: 1.7; }
+
+  /* 토스트 */
+  #toast { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(8px); z-index: 100;
+    background: #16151f; color: #fff; font-size: 13px; font-weight: 700; padding: 11px 18px; border-radius: 10px;
+    opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 560px) {
+    .asite-nav { width: 60px; padding: 12px 8px; }
+    .asite-navi-t { display: none; }
+    .asite-nav-lbl { display: none; }
+    .asite-main { padding: 20px 14px 44px; }
+  }
+</style>
+</head>
+<body>
+  <header class="asite-top">
+    <a class="asite-brand" href="/" title="메인으로">
+      <span class="b-mk">B</span>예산관리 시스템 · <em>관리자</em>
+    </a>
+    <span class="asite-top-sp"></span>
+    <a class="asite-back" href="/">← 메인으로</a>
+    <span class="asite-user"><span class="u-av">봄</span>이봄 · 시스템관리자</span>
+  </header>
+
+  <div class="asite-body">
+    <nav class="asite-nav" id="asite-nav" aria-label="관리자 메뉴">
+      <div class="asite-nav-lbl">관리 메뉴</div>
+    </nav>
+    <main class="asite-main" id="asite-main"></main>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="/js/admin.js?v=20261014-adminsite"></script>
+</body>
+</html>
