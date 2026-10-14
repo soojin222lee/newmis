@@ -42,38 +42,6 @@ function setNav(id) {
 
 // ── 개발 에이전트 그리드 (구글 앱 런처 스타일) ──
 // 에이전트 추가 시 아래 배열에 한 줄만 추가하면 됩니다.
-const AGENT_APPS = [
-  { name: '요구사항 Agent', sub: '10.250.98.122:8502', icon: '📑', url: 'http://10.250.98.122:8502' },
-  { name: 'PROMIS 참고',    sub: '10.250.98.122:8501', icon: '🗂️', url: 'http://10.250.98.122:8501' },
-  // { name: '세번째 Agent', sub: '...:8503', icon: '🧭', url: 'http://10.250.98.122:8503' },
-];
-function toggleAgentGrid(btn) {
-  let pop = document.getElementById('agent-grid-pop');
-  if (pop && pop.classList.contains('open')) { pop.classList.remove('open'); return; }
-  if (!pop) {
-    pop = document.createElement('div');
-    pop.id = 'agent-grid-pop';
-    pop.className = 'agent-grid-pop';
-    document.body.appendChild(pop);
-    document.addEventListener('click', function (e) {
-      if (!e.target.closest('#agent-grid-pop') && !e.target.closest('.tb-agents')) pop.classList.remove('open');
-    });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') pop.classList.remove('open'); });
-  }
-  const tiles = AGENT_APPS.map(function (a) {
-    return `<button class="agent-tile" onclick="window.open('${a.url}','_blank','noopener')" title="${a.name} · ${a.url}">
-        <span class="agent-tile-ic">${a.icon}</span>
-        <span class="agent-tile-name">${a.name}</span>
-        <span class="agent-tile-sub">${a.sub || ''}</span>
-      </button>`;
-  }).join('');
-  pop.innerHTML = `<div class="agent-grid-head">AI개발 Agent</div><div class="agent-grid">${tiles}</div>`;
-  const b = btn || document.querySelector('.tb-agents');
-  const r = b.getBoundingClientRect();
-  pop.style.top = (r.bottom + 8) + 'px';
-  pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
-  pop.classList.add('open');
-}
 
 // ── URL 라우팅 (해시 = 소스파일명) ──
 const SCREEN_ROUTES = {
@@ -97,12 +65,6 @@ const SCREEN_ROUTES = {
     const pj = (detail && typeof currentBudgetProj !== 'undefined') ? currentBudgetProj : null;
     return pj ? (base + '?pj=' + pj) : base;
   },
-  // 인사이트 딥링크(AI 바로가기): 경로는 메뉴명(탭)까지, 프로젝트는 끝에 파라미터로 → insights/<탭>?pj=<프로젝트ID>
-  's-insights': () => {
-    const id = (typeof insRouteId === 'function') ? insRouteId() : null;
-    const tab = (typeof insTab !== 'undefined') ? insTab : 'overview';
-    return id ? ('insights/' + tab + '?pj=' + id) : ('insights/' + tab);
-  },
   's-custom-report': 'custom-report',
   's-ai-report': 'ai-report',
   's-si-project': 'si-project',
@@ -115,7 +77,6 @@ const SCREEN_ROUTES = {
   's-master-config': 'master-config',
   's-hist': 'risk-history',
   's-cp-briefing': 'checkpoint', 's-cp-status': 'checkpoint', 's-cp-history': 'checkpoint',
-  's-monthly-close': 'monthly-close',
   's-initiation': 'initiation-report',
   's-interim': 'interim-report',
   's-closure': 'closure-report',
@@ -125,7 +86,6 @@ const SCREEN_ROUTES = {
 const ROUTE_ACTIONS = {
   'dashboard': () => showMain(),
   // 'budget-status' / 'budget-adjust' / 'budget-history'는 budget-cost-*.js에서 등록한다.
-  'insights': () => (typeof gotoInsights === 'function' ? gotoInsights(routeQueryParam('pj'), 'overview') : (typeof showInsights === 'function' ? showInsights('overview') : null)),
   'custom-report': () => showCustomReport(),
   'ai-report': () => showAiReport(),
   'si-project': () => showSIProject(),
@@ -138,7 +98,6 @@ const ROUTE_ACTIONS = {
   'master-config': () => showMasterBudgetRate(),
   'risk-history': () => showCpCurrent(),
   'checkpoint': () => showCpBriefing(),
-  'monthly-close': () => showMonthlyClose(),
   'initiation-report': () => showInitiation(),
   'interim-report': () => showInterim(),
   'closure-report': () => showClosure(),
@@ -162,9 +121,7 @@ function routeQueryParam(k) {
   return new URLSearchParams(h.slice(qi + 1)).get(k);
 }
 // 동적 라우트 (딥링크). 정적 ROUTE_ACTIONS에 없을 때만 매칭한다.
-//   insights[/<탭>]?pj=<프로젝트ID>  → gotoInsights(pj, tab)
 const DYNAMIC_ROUTES = [
-  { re: /^insights(?:\/([^/?]+))?$/, run: m => (typeof gotoInsights === 'function' ? gotoInsights(routeQueryParam('pj'), m[1]) : null) },
 ];
 function resolveAction(name) {
   if (ROUTE_ACTIONS[name]) return ROUTE_ACTIONS[name];
@@ -335,12 +292,6 @@ function showPhaseHistory() {
   setScreen('s-phase-history');
   setNav('nav-phase-history');
   renderPhaseHistory();
-}
-
-function showMonthlyClose() {
-  setScreen('s-monthly-close');
-  setNav('nav-monthly');
-  renderMonthlyClose();
 }
 
 // ── 구형 호환 ──
@@ -781,7 +732,6 @@ function bootstrapApp() {
     initDashboard();
     initRiskHistory();
     initBudgetStatus();
-    initMonthlyClose();
     routeInitial();
   })();
 }
@@ -1251,9 +1201,6 @@ function askLLMAnswer(text) {
 // ── 채팅 네비게이터: 자연어 → 화면 딥링크 이동 ──
 // 이동 가능한 화면 목록(설명 포함) — LLM이 이 중에서 고른다.
 const NAV_ROUTES = [
-  { key:'insights-overview', label:'인사이트 · 종합 현황', desc:'프로젝트 KPI, 월별 원가 트렌드, AI 인사이트 종합' },
-  { key:'insights-progress', label:'인사이트 · 원가 소진율', desc:'원가(Cost)/계획/실적 비교, 소진율·진척, 계정별 원가 vs 계획 vs 실적, 합의 Cost 분해' },
-  { key:'insights-version',  label:'인사이트 · 버전별 예산', desc:'실행예산 버전별 계정 배분 변동(예산 돌려쓰기)' },
   { key:'ai-report',         label:'AI 레포트',        desc:'자연어로 물어보면 SQL로 데이터를 조회' },
   { key:'custom-report',     label:'맞춤 레포트',       desc:'필드를 골라 프로젝트/실행예산 데이터 조회' },
   { key:'budget-status',     label:'수행원가 · 원가현황', desc:'프로젝트 수행원가 계획/실적 현황' },
@@ -1262,12 +1209,6 @@ const NAV_ROUTES = [
   { key:'si-project',        label:'수주형 프로젝트',    desc:'수주형 프로젝트 목록/상세' },
   { key:'dashboard',         label:'메인 / 홈',         desc:'내 업무 홈 화면' },
 ];
-// 홈 프로젝트 id → 인사이트 프로젝트 id (이름이 달라 수동 매핑, 없으면 인사이트 기본 프로젝트)
-const HOME_TO_INS = { skon:'pj7f3a9c', logi:'pj2b8e14', migr:'pj9c4d7a', erp:'pj61e2d8' };
-function homeSelInsightsId() {
-  const id = (typeof homeSelectedProject !== 'undefined') ? homeSelectedProject : 'all';
-  return HOME_TO_INS[id] || null;
-}
 // 홈 프로젝트 id → 수행원가 프로젝트 키 (원가 데이터가 키별로 있어 매핑, 없으면 목록)
 const HOME_TO_BUDGET = { skon:'cloud', logi:'mobile', migr:'erp', erp:'erp', sec:'sec', cloud:'cloud', mob:'mobile', dw:'budgetMock', aidoc:'budgetMock' };
 function homeSelBudgetKey() {
@@ -1275,14 +1216,9 @@ function homeSelBudgetKey() {
   return HOME_TO_BUDGET[id] || null;
 }
 function navGo(key) {
-  const insId = homeSelInsightsId();
-  const insHash = tab => `#/insights/${tab}${insId ? `?pj=${insId}` : ''}`;
   const bKey = homeSelBudgetKey();
   const budgetHash = base => `#/${base}${bKey ? `?pj=${bKey}` : ''}`;  // 선택 프로젝트 있으면 그 상세로, 없으면 목록
   switch (key) {
-    case 'insights-overview': location.hash = insHash('overview'); break;
-    case 'insights-progress': location.hash = insHash('progress'); break;
-    case 'insights-version':  location.hash = insHash('version');  break;
     case 'ai-report':      if (typeof showAiReport === 'function') showAiReport(); break;
     case 'custom-report':  if (typeof showCustomReport === 'function') showCustomReport(); break;
     case 'budget-status':  location.hash = budgetHash('budget-status');  break;
@@ -1695,9 +1631,6 @@ const NAVI_SCREENS = [
     path:['수행원가','변경 이력'], go:'showCostHistory',
     need:'없음', min:'약 1분', note:'버전별 변경 전/후와 승인자를 함께 볼 수 있어요.' },
 
-  { id:'insights', k:/(인사이트|종합현황|종합\s*현황|분석화면|추이|trend)/i, t:'인사이트 종합현황',
-    path:['인사이트','종합 현황'], go:'showInsights',
-    need:'없음', min:'약 3분', note:'월별 원가 추이와 계획 대비 실적을 차트로 봐요.' },
   { id:'report', k:/(레포트|리포트|보고서|보고자료)/, t:'맞춤 레포트',
     path:['인사이트','맞춤 레포트'], go:'showCustomReport',
     need:'보고 대상·기간', min:'약 3분', note:'필요한 항목만 골라 보고서 형태로 뽑을 수 있어요.' },
@@ -1724,9 +1657,6 @@ const NAVI_SCREENS = [
   { id:'close', k:/(프로젝트종료|종료보고|사업종료)/, t:'프로젝트 종료',
     path:['프로젝트','프로젝트 종료'], go:'showProjectClose',
     need:'없음', min:'약 3분', note:'종료 단계 산출물과 정산을 확인해요.' },
-  { id:'monthly', k:/(월마감|마감)/, t:'월 마감',
-    path:['수행원가','월 마감'], go:'showMonthlyClose',
-    need:'없음', min:'약 3분', note:'당월 계획과 실적의 gap을 맞추는 단계예요.' },
 ];
 
 // 실제 화면 이동 — 함수가 없으면 이동하지 않고 false를 돌려준다(엉뚱한 화면 방지)
@@ -1735,7 +1665,7 @@ function naviGo(id) {
   if (!s) return false;
   const fn = window[s.go];
   if (typeof fn !== 'function') return false;
-  if (s.id === 'insights') fn('overview'); else fn();
+  fn();
   if (typeof dockAiChat === 'function') dockAiChat();
   return true;
 }
@@ -1747,7 +1677,7 @@ function naviMatch(text) {
 
 // 못 찾으면 엉뚱한 화면을 안내하지 않고 되묻는다
 function naviAskHtml(text) {
-  const picks = ['cost-status', 'cost-adjust', 'insights', 'report', 'si', 'monthly']
+  const picks = ['cost-status', 'cost-adjust', 'report', 'si', 'monthly']
     .map(id => NAVI_SCREENS.find(s => s.id === id))
     .filter(Boolean)
     .map(s => `<button class="ai-act" onclick="naviGo('${s.id}')">${escHtml(s.path.join(' › '))}</button>`)
