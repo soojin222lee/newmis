@@ -810,7 +810,6 @@ if (typeof renderMaterialItemPanel === 'function') {
   var renderMaterialItemPanelBeforeAgentFinal = renderMaterialItemPanel;
   renderMaterialItemPanel = function () {
     const html = renderMaterialItemPanelBeforeAgentFinal();
-    if (agentViewFinal === 'draft') return html;
     return html.replace(/<span>검수계획<\/span>/g, '<span>검수 예상 주기</span>')
                .replace(/검수 계획을 확인합니다/g, '검수 예상 주기를 확인합니다');
   };
@@ -824,7 +823,6 @@ if (typeof renderMaterialKindTabs === 'function') {
   var renderMaterialKindTabsBeforeAgentFinal = renderMaterialKindTabs;
   renderMaterialKindTabs = function () {
     const html = renderMaterialKindTabsBeforeAgentFinal();
-    if (agentViewFinal === 'draft') return html;      // 초안은 개편 이전 모양 그대로
     return html.replace('class="os-kind-tabs os-kind-tabs-strong',
       'class="os-kind-tabs os-kind-tabs-strong bpo-kind-tabs');
   };
@@ -834,8 +832,6 @@ if (typeof renderMaterialKindTabs === 'function') {
 // 항목 6) 계정 편집기는 기본 열람 전용. 수동 개입을 켜지 않으면 입력이 잠깁니다.
 var renderBudgetAccountEditorBeforeAgentFinal = renderBudgetAccountEditor;
 renderBudgetAccountEditor = function (data, account) {
-  // 초안은 개편 이전 화면 그대로 — Agent 열람전용 처리를 걸지 않습니다.
-  if (agentViewFinal === 'draft') return renderBudgetAccountEditorBeforeAgentFinal(data, account);
   // 최초 편성 프로젝트는 계정 상세 데이터가 없습니다 — 초안 편성 화면을 보여 줍니다.
   const firstDraft = (typeof AGENT_PJT_CP_FINAL !== 'undefined'
     && !!AGENT_PJT_CP_FINAL[typeof currentBudgetProj !== 'undefined' ? currentBudgetProj : '']);
@@ -6179,9 +6175,7 @@ function agentAddEvidenceProposalFinal(ev) {
    [해야 할 일] 제안으로 올리므로 중복이라 띄우지 않습니다.
    초안(8/27 이전) 화면은 개편 전 모습이라 그대로 둡니다. */
 if (typeof renderLaborAlertsFinal === 'function') {
-  var renderLaborAlertsBeforeAgentFinal = renderLaborAlertsFinal;
   renderLaborAlertsFinal = function () {
-    if (agentViewFinal === 'draft') return renderLaborAlertsBeforeAgentFinal();
     return '';
   };
 }
@@ -8749,7 +8743,7 @@ if (typeof getMonthlyBudgetRows === 'function') {
   var getMonthlyBudgetRowsBeforeLaborSumFinal = getMonthlyBudgetRows;
   getMonthlyBudgetRows = function (data, account) {
     const prev = getMonthlyBudgetRowsBeforeLaborSumFinal(data, account);
-    if (account !== '인건비' || agentViewFinal === 'draft') return prev;
+    if (account !== '인건비') return prev;
     const months = ((data && data.months) || []).map(mo => mo.m);
     if (!months.length) return prev;
 
@@ -8788,7 +8782,7 @@ if (typeof getMonthlyBudgetRows === 'function') {
   var getMonthlyBudgetRowsBeforeOsSubFinal = getMonthlyBudgetRows;
   getMonthlyBudgetRows = function (data, account) {
     const prev = getMonthlyBudgetRowsBeforeOsSubFinal(data, account);
-    if (account !== '외주비' || agentViewFinal === 'draft' || !Array.isArray(prev)) return prev;
+    if (account !== '외주비' || !Array.isArray(prev)) return prev;
     const months = ((data && data.months) || []).map(mo => mo.m);
     return prev.map(row => {
       const seed = AGENT_OS_SUB_SEED_FINAL[row.name];
@@ -8812,7 +8806,7 @@ if (typeof getMonthlyBudgetRows === 'function') {
   var getMonthlyBudgetRowsBeforeMatSubFinal = getMonthlyBudgetRows;
   getMonthlyBudgetRows = function (data, account) {
     const prev = getMonthlyBudgetRowsBeforeMatSubFinal(data, account);
-    if (account !== '재료비' || agentViewFinal === 'draft' || !Array.isArray(prev)) return prev;
+    if (account !== '재료비' || !Array.isArray(prev)) return prev;
     const months = ((data && data.months) || []).map(mo => mo.m);
     const k = (typeof currentBudgetProj !== 'undefined') ? currentBudgetProj : '';
     const box = AGENT_MAT_DELTA_FINAL[k] || {};
@@ -8868,7 +8862,7 @@ if (typeof getMonthlyBudgetRows === 'function') {
   var getMonthlyBudgetRowsBeforeHandFinal = getMonthlyBudgetRows;
   getMonthlyBudgetRows = function (data, account) {
     const prev = getMonthlyBudgetRowsBeforeHandFinal(data, account);
-    if (agentViewFinal === 'draft' || !Array.isArray(prev) || !prev.length) return prev;
+    if (!Array.isArray(prev) || !prev.length) return prev;
     const edits = AGENT_HAND_EDITS_FINAL.filter(e => e.acct === account && agentHandOpenFinal(e.pid));
     if (!edits.length) return prev;
     const months = ((data && data.months) || []).map(mo => mo.m);
