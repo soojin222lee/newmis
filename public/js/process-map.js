@@ -5,14 +5,10 @@
 // 단계 정의 — label(노드명) + nav(이동 함수). nav 없는 노드는 설명용(비클릭).
 var PROCESS_MAP_PHASES = [
   {
-    key: 'reg', title: '① 프로젝트 등록', sub: '유형별 프로젝트 등록',
+    key: 'reg', title: '① 프로젝트 개설·등록', sub: '개설 신청 · 승인 · 통합 조회',
     nodes: [
-      { label: '수주형', nav: 'showSIProject' },
-      { label: '제안', nav: 'showProposalProject' },
-      { label: 'W/G', nav: 'showWGProject' },
-      { label: '사내', nav: 'showInternalProject' },
-      { label: '투자', nav: 'showInvestmentProject' },
-      { label: '선투입', nav: 'showAdvanceProject' },
+      { label: '프로젝트 개설 관리', nav: 'showProjectOpen', desc: 'W/G·사내 개설 신청→승인→등록' },
+      { label: '프로젝트 현황', nav: 'showProjectStatus', desc: '수주형·제안·투자·선투입 자동연계 + 전 유형 통합 조회' },
     ],
   },
   {
@@ -26,7 +22,6 @@ var PROCESS_MAP_PHASES = [
     key: 'act', title: '③ 수행 실적 · 마감', sub: '집행 · 마감 · 종료',
     nodes: [
       { label: '실적 현황', nav: 'showCostStatus', desc: '실투입·검수 실적 집행 현황' },
-      { label: '월 마감', nav: 'showMonthlyClose', desc: 'ERP 전송·월마감 처리' },
       { label: '변경 이력', nav: 'showCostHistory', desc: '버전별 변경 이력' },
       { label: '프로젝트 종료', nav: 'showProjectClose', desc: '종료 선언·사후점검' },
     ],

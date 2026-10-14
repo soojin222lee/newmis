@@ -6,7 +6,7 @@
 //
 //  버전2 의 기조 — 메뉴를 드러내지 않는다
 //    · 화면 이동은 ① AI 에이전트 질의·응답(네비게이터) ② 담당 프로젝트 항목 클릭으로 한다.
-//    · 상단 메뉴 바는 숨긴다. 개발 테스트용으로만 레일의 "상단 메뉴 보기" 버튼으로 켜고 끈다.
+//    · 상단 메뉴 바는 없다. 전체 메뉴는 레일의 "메뉴 보기" 버튼으로 팝업(menu-panel.js)에서 따로 본다.
 //    · 레일에는 로고 · 담당 프로젝트 · 유틸 · 화면 버전 · 사용자만 둔다.
 //
 //  확정 사항
@@ -60,29 +60,10 @@ const V2_IC = (function () {
     chip:    s('<rect x="5.4" y="5.4" width="9.2" height="9.2" rx="1.6"/><path d="M8 2.8v2.6M12 2.8v2.6M8 14.6v2.6M12 14.6v2.6M2.8 8h2.6M2.8 12h2.6M14.6 8h2.6M14.6 12h2.6"/>'),
     apps:    s('<rect x="3.4" y="3.4" width="5" height="5" rx="1.2"/><rect x="11.6" y="3.4" width="5" height="5" rx="1.2"/><rect x="3.4" y="11.6" width="5" height="5" rx="1.2"/><rect x="11.6" y="11.6" width="5" height="5" rx="1.2"/>'),
     topmenu: s('<rect x="3" y="3.6" width="14" height="12.8" rx="2"/><path d="M3 7.4h14M6 5.5h.01M8.2 5.5h.01"/>'),
+    star:    s('<path d="M10 2.8l2.2 4.5 4.9.7-3.5 3.5.8 4.9L10 14.9l-4.4 2.2.8-4.9L2.9 8l4.9-.7z"/>'),
   };
 })();
 
-// ── 개발용 상단 메뉴 토글 ──
-// 버전2 는 메뉴를 드러내지 않지만, 개발 테스트 중에는 상단 메뉴로 바로 들어가야 할 때가 있다.
-let v2TopMenu = (function () {
-  try { return localStorage.getItem('newmis.v2TopMenu') === '1'; } catch (e) { return false; }
-})();
-function toggleV2TopMenu() {                      // crud N — 상단 메뉴 바 보이기/숨기기 (개발용)
-  v2TopMenu = !v2TopMenu;
-  try { localStorage.setItem('newmis.v2TopMenu', v2TopMenu ? '1' : '0'); } catch (e) {}
-  v2ApplyTopMenu();
-}
-function v2ApplyTopMenu() {
-  document.body.classList.toggle('v2-topmenu', v2TopMenu && homeVer === 'v2');
-  const b = document.querySelector('#v2-app-rail .v2-dev-topmenu');
-  if (b) {
-    b.classList.toggle('on', v2TopMenu);
-    b.setAttribute('aria-pressed', String(v2TopMenu));
-    const t = b.querySelector('.v2-dev-t');
-    if (t) t.textContent = v2TopMenu ? '상단 메뉴 숨기기' : '상단 메뉴 보기';
-  }
-}
 
 // ── 레일 마크업 — 로고 · 담당 프로젝트 · 유틸 · 화면 버전 · 사용자 ──
 function v2AppRailHtml() {
@@ -107,12 +88,9 @@ function v2AppRailHtml() {
       </button>
       <div class="v2-util">
         ${util('compass', 'AI 네비게이터', "openAiChat('navi')")}
-        ${util('chip', 'AI개발 Agent', 'openAgentModal()')}
+        ${util('star', '즐겨찾기', 'openFavorites()')}
         ${util('apps', '구매시스템 참고', 'openPurchaseReference()')}
-        <button class="v2-dev-topmenu${v2TopMenu ? ' on' : ''}" onclick="toggleV2TopMenu()"
-          aria-pressed="${v2TopMenu}" title="개발 테스트용 — 숨겨진 상단 메뉴 바를 보이거나 숨깁니다">
-          <span>${V2_IC.topmenu}</span><span class="v2-dev-t">${v2TopMenu ? '상단 메뉴 숨기기' : '상단 메뉴 보기'}</span><em>개발용</em>
-        </button>
+        ${util('topmenu', '메뉴 보기', 'openMenuPanel()')}
       </div>
       ${(typeof v2MeHtml === 'function') ? v2MeHtml() : ''}
     </div>`;
@@ -649,21 +627,7 @@ function v2ApplyShell() {
   document.body.classList.toggle('home-v2', on);  // 메인 버전2 팔레트 토큰(home.css)도 함께
   v2MountRail();
   v2ApplyRail();
-  v2ApplyTopMenu();
   v2ChatDecorate();
-}
-
-// ── 버전 전환 — 앱 전체 ──
-function setHomeVer(v) {                          // crud N — 화면 버전 전환
-  homeVer = 'v2';                              // [정리] 버전2 전용 — v1 전환 무력화
-  try { localStorage.setItem('newmis.homeVer', homeVer); } catch (e) {}
-  v2ThreadSig = '';                                // 다시 그리면 대화 끝으로 내려 준다
-  v2ApplyAgentDefault(true);                       // 수행원가 화면이 열려 있으면 그 자리에서 다시 그림
-  v2ApplyShell();
-  if (v2OnMain() && typeof initDashboard === 'function') initDashboard();
-  if (document.querySelector('#s-budget.active') && typeof renderBudgetPage === 'function') renderBudgetPage();  // 이어 붙인 대화 넣기/빼기
-  v2ThreadOnPlace();
-  window.scrollTo(0, 0);
 }
 
 // ── 메인화면 버전2 — 레일이 앱 셸로 나갔으므로 히어로만 그린다 ──

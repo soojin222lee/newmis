@@ -34,7 +34,6 @@ body.app-v2 {
 body.app-v2.v2-rail-min { --v2-rail-w: 64px; }
 
 /* ── 1. 틀 — 상단 바 숨김 · 회청색 바탕 · 큰 흰 패널 ── */
-body.app-v2 .topbar { display: none !important; }
 body.app-v2 .shell {
   padding-left: var(--v2-rail-w);
   /* 폭 전환은 즉시 — 애니메이션이 멈추면(백그라운드 탭 등) 본문이 레일 밑으로 들어간다 */
@@ -368,7 +367,6 @@ body.app-v2 .cr-ai-inputrow:focus-within { border-color: var(--v2-purple) !impor
 
 /* 버전1의 전체 폭 기준 여백 — 흰 패널 안에서는 이중 여백이 되어 걷는다 */
 body.app-v2 #s-budget,
-body.app-v2 #s-insights { padding-left: 0 !important; padding-right: 0 !important; }
 
 /* 실행예산 목록 — 바깥 카드를 걷고(패널이 이미 카드) 필드는 AiPMO 처럼 라벨 위·입력 아래 */
 body.app-v2 .exec-budget-page { background: transparent !important; border: 0 !important; box-shadow: none !important; }
@@ -386,34 +384,6 @@ body.app-v2 .exec-total {
   padding: 0 !important; color: var(--v2-mute) !important; font-weight: 700 !important;
 }
 body.app-v2 .exec-total strong { color: var(--v2-blue) !important; font-weight: 900 !important; }
-
-/* ── 10. 개발용 상단 메뉴 토글 (2026-10-08) ──
-   버전2 는 메뉴를 드러내지 않는다. 개발 테스트 중에만 레일 버튼으로 상단 바를 메뉴와 함께 띄운다. */
-/* 메인에서는 home.css 의 `body.home-v2 .shell:has(#s-main.active) .topbar`(ID 수준 우선순위)가 숨기므로 같은 형태로 이긴다 */
-body.app-v2.v2-topmenu .topbar,
-body.app-v2.v2-topmenu .shell:has(#s-main.active) .topbar { display: block !important; }
-body.app-v2.v2-topmenu .topbar .topnav { display: flex !important; }
-body.app-v2.v2-topmenu .sdsc-panel { top: 64px !important; }   /* 상단 바가 보이면 원래 위치로 */
-
-.v2-app-rail .v2-util .v2-dev-topmenu {
-  grid-template-columns: 18px auto minmax(0, 1fr);
-  margin-top: 2px; border: 1px dashed var(--v2-line-2);
-}
-.v2-app-rail .v2-util .v2-dev-topmenu em {
-  font-style: normal; justify-self: end;
-  font-size: 9.5px; font-weight: 900; color: var(--v2-mute-2);
-  background: #e4e9f2; border-radius: 999px; padding: 1px 6px;
-}
-.v2-app-rail .v2-util .v2-dev-topmenu.on { border-style: solid; border-color: var(--v2-blue-line); color: var(--v2-blue); background: var(--v2-blue-soft); }
-.v2-app-rail .v2-util .v2-dev-topmenu.on span { color: var(--v2-blue); }
-body.app-v2.v2-rail-min .v2-app-rail .v2-dev-topmenu em,
-body.app-v2.v2-rail-min .v2-app-rail .v2-dev-t { display: none; }
-body.app-v2.v2-rail-min .v2-app-rail .v2-util .v2-dev-topmenu { grid-template-columns: 1fr; }
-@media (max-width: 960px) {
-  body.app-v2 .v2-app-rail .v2-dev-topmenu em,
-  body.app-v2 .v2-app-rail .v2-dev-t { display: none; }
-  body.app-v2 .v2-app-rail .v2-util .v2-dev-topmenu { grid-template-columns: 1fr; }
-}
 
 /* ==========================================================================
    11. 대화 한 줄기 — 메인 대화가 수행원가 "Agent와 대화하기"로 이어질 때

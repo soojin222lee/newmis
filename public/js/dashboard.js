@@ -79,10 +79,6 @@ function askCostAi(forceText) {
     openAiBudgetMock('재료비');
     return;
   }
-  if (text.includes('월마감') || text.includes('정산')) {
-    showMonthlyClose();
-    return;
-  }
   if (text.includes('운영') || text.includes('기준') || text.includes('가이드')) {
     showSysDescConcept();
     return;
@@ -97,7 +93,6 @@ function initDashboard() {
         ${renderAiShortcut('실행예산', '예산 조회', 'showBudget()')}
         ${renderAiShortcut('인건비', '투입/승인', "openAiBudgetMock('인건비')")}
         ${renderAiShortcut('외주비', '계획 수정', "openAiBudgetMock('외주비')")}
-        ${renderAiShortcut('월마감', '정산 확인', 'showMonthlyClose()')}
         ${renderAiShortcut('가이드', '운영 기준', 'showSysDescConcept()')}
         ${renderAiShortcut('전체메뉴', '업무 찾기', 'showBudget()')}
       </div>
@@ -110,7 +105,7 @@ function initDashboard() {
         <h1>사용은 가볍게, 데이터는 단단하게.<br><span class="ai-hero-line-sub">편리한 업무 환경과 신뢰할 수 있는 데이터의 연결.</span></h1>
         <div class="ai-search">
           <div class="ai-search-mark">AI</div>
-          <input id="ai-main-query" type="text" placeholder="프로젝트, 실행예산, 인건비, 외주비, 월마감에 대해 질문해보세요"
+          <input id="ai-main-query" type="text" placeholder="프로젝트, 실행예산, 인건비, 외주비에 대해 질문해보세요"
             onkeydown="if(event.key==='Enter') askCostAi()">
           <button class="ai-send-btn" onclick="askCostAi()" title="질문하기">↑</button>
           <button class="ai-menu-btn" onclick="showBudget()" title="실행예산 바로가기">☰</button>
@@ -119,7 +114,6 @@ function initDashboard() {
           <button onclick="askCostAi('예산관리시스템 목업용 실행예산 보여줘')">예산관리시스템 목업용</button>
           <button onclick="askCostAi('인건비 수정하고 싶어')">인건비 수정</button>
           <button onclick="askCostAi('외주비 계획을 수정하고 싶어')">외주비 계획</button>
-          <button onclick="askCostAi('월마감 상태 확인')">월마감</button>
           <button onclick="askCostAi('운영 기준 알려줘')">운영 기준</button>
         </div>
       </section>
@@ -341,7 +335,7 @@ function initDashboard() {
           </div>
           <div>
             <strong>이번 달 원가관리 포인트</strong>
-            <span>실행예산 조정, 인건비 승인요청, 월마감 일정을 같이 확인할 수 있어요.</span>
+            <span>실행예산 조정, 인건비 승인요청 일정을 같이 확인할 수 있어요.</span>
           </div>
         </div>
         <div class="ai-chatbox">
@@ -387,7 +381,7 @@ function openSchedulePanel() {
     8: ['외주비 계획 검토'],
     15: ['검수 마지막날', '인건비 MM 입력 마감'],
     22: ['SCM 승인대기 건 확인'],
-    29: ['월마감일', '실행예산 변경 히스토리 점검'],
+    29: ['실행예산 변경 히스토리 점검'],
   };
   const scheduleRows = Object.entries(events)
     .map(([day, titles]) => ({ day: Number(day), title: titles.join(' / ') }))
@@ -563,7 +557,7 @@ function scrollHomeTabs(dir) {
   t.scrollLeft = Math.max(0, Math.min(max, t.scrollLeft + dir * 260));
 }
 
-// ── 예산 신호 레이어 · Headroom 리본 / Runway / 월마감 타임레일 / 프로젝트 신호등 ──
+// ── 예산 신호 레이어 · Headroom 리본 / Runway / 프로젝트 신호등 ──
 // 계정별 남은 여력과 소진 속도를 먼저 보여주고, 이번 달 어디까지 왔는지를 한 줄로 잇는다.
 // lv: ok(여유) · warn(주의) · risk(임박) · na(해당없음)
 const HOME_HEADROOM = [
@@ -578,16 +572,6 @@ const HOME_RUNWAY = {
   account:'외주비', month:'11월', months:'2.8개월', delta:'계획 대비 +18%',
   spark:'0,6 20,8 40,7 60,11 80,15 100,20 118,24',
 };
-
-// 이번 달 예산 일정 — kind: now(오늘) · auto(AI 자동) · human(사람 확인) · done(완료)
-const HOME_RAIL = [
-  { at:2,  d:'8/10', l:'계획 확정',      kind:'done'  },
-  { at:34, d:'오늘 8/19', l:'',           kind:'now'   },
-  { at:55, d:'8/25', l:'검수 마감',      kind:'human' },
-  { at:74, d:'8/31', l:'월마감',         kind:'done'  },
-  { at:86, d:'9/1',  l:'자동 현행화',    kind:'auto'  },
-  { at:97, d:'9/3',  l:'팀장 승인',      kind:'human' },
-];
 
 // 프로젝트별 신호등 + 원가 소진률
 const HOME_SIGNAL = {
@@ -620,30 +604,8 @@ function homeRunwayHtml() {
     </div>`;
 }
 
-function homeRailHtml() {
-  const pins = HOME_RAIL.map(p => `
-        <div class="hm-rail-p ${p.kind}" style="left:${p.at}%">
-          <span class="hm-rail-pin"></span>
-          <span class="hm-rail-d">${p.d}</span>
-          ${p.l ? `<span class="hm-rail-l">${p.l}</span>` : ''}
-        </div>`).join('');
-  const now = HOME_RAIL.find(p => p.kind === 'now');
-  return `<div class="hm-rail">
-      <div class="hm-rail-head">
-        <span class="hm-rail-tt">이번 달 예산 일정</span>
-        <span class="hm-chip grade r">● 자동</span>
-        <span class="hm-chip due near">○ 사람 확인</span>
-        <span class="hm-rail-sys">연계 시스템 정상 · ERP 전송 대기 3건</span>
-      </div>
-      <div class="hm-rail-line">
-        <div class="hm-rail-ln"><i style="width:${now ? now.at : 0}%"></i></div>
-        ${pins}
-      </div>
-    </div>`;
-}
-
 function homeSignalBlockHtml() {
-  return homeHeadroomHtml() + homeRunwayHtml() + homeRailHtml();
+  return homeHeadroomHtml() + homeRunwayHtml();
 }
 
 // 프로젝트 탭 신호등 — 전체 탭은 신호등 없이 진행 평균만
@@ -710,7 +672,7 @@ function renderHomeInsightBlock() {
 // impactWon: 정렬용 절대 임팩트(만원) · dueDays: 마감까지 남은 일수
 const HOME_AI = {
   'skon|8월 외주비가 계획 대비 18% 증가했어요': {
-    grade:'R', src:'구매', impact:'+5,400만원', impactWon:5400, dueDays:2, dueNote:'월마감 전',
+    grade:'R', src:'구매', impact:'+5,400만원', impactWon:5400, dueDays:2, dueNote:'마감 전',
     plan:[ ['외주비 8~11월 계획','2.30억','2.72억','+4,200만원'],
            ['AI 예비비 상계','3,200만원','0','-3,200만원'],
            ['연말 예상원가','27.20억','27.74억','+5,400만원'] ],
@@ -724,7 +686,7 @@ const HOME_AI = {
                ['후행 전송','전송 대기 · 팀장 승인 후 ERP 연계 큐 등재'] ] },
 
   'skon|승인 이후 계약금액이 변경됐어요': {
-    grade:'D', src:'CRM', impact:'+1.2억', impactWon:12000, dueDays:2, dueNote:'월마감 전',
+    grade:'D', src:'CRM', impact:'+1.2억', impactWon:12000, dueDays:2, dueNote:'마감 전',
     plan:[ ['계약금액','30.8억','32.0억','+1.2억'],
            ['수행원가(현재)','27.2억','27.2억','-'],
            ['예상 원가율','88.3%','85.0%','-3.3%p'] ],
@@ -768,7 +730,7 @@ const HOME_AI = {
            ['7월 경비 실적','—','4,040만원','+840만원'],
            ['연말 예상원가','16.90억','16.98억','+840만원'] ],
     guard:[ ['ok','확정 실적 · 이미 기표 완료'], ['warn','잔여기간 계획 재검토 필요'] ],
-    evidence:[ ['원천 IF 데이터','ERP 7월 확정 실적 기표 · 월마감 D+1 자동 수신'],
+    evidence:[ ['원천 IF 데이터','ERP 7월 확정 실적 기표 · D+1 자동 수신'],
                ['적용 규칙 · 산식','실적 초과분 = 확정 실적 − 당월 계획'],
                ['계산 과정','① 실적 4,040만원 인식 → ② 계획 3,200만원 대비 +840만원 → ③ 연말 예상원가 반영'],
                ['데이터 등급','D · 확정 — 기표 완료분'],
@@ -776,7 +738,7 @@ const HOME_AI = {
                ['후행 전송','BIX 손익 반영 완료'] ] },
 
   'skon|8월 투입인력 변경이 확정됐어요': {
-    grade:'D', src:'SCM', impact:'-1,050만원', impactWon:1050, dueDays:4, dueNote:'8월 마감 전',
+    grade:'D', src:'SCM', impact:'-1,050만원', impactWon:1050, dueDays:4, dueNote:'마감 전',
     plan:[ ['투입인원','14명','13명','-1명'],
            ['8월 인건비','9,200만원','8,150만원','-1,050만원'],
            ['연말 예상원가','28.10억','28.00억','-1,050만원'] ],
@@ -1065,8 +1027,8 @@ const HOME_AUTO_WEEK    = 47;   // 이번 주 누적 자동 반영
 
 // grade: 'D' 확정(원천 IF 확정값) | 'R' 규칙기반(산식 적용, 계정 총액 불변)
 const HOME_AUTO_LOG = [
-  { time:'09:02', sys:'ERP',    grade:'D', title:'월마감 D+1 자동 현행화 · 인건비', desc:'7월 확정 실적 기표 반영 · 이관인건비 포함 8건', proj:'all' },
-  { time:'09:02', sys:'ERP',    grade:'D', title:'월마감 D+1 자동 현행화 · 경비',   desc:'잡비·사무용품 실적 반영 · 계획=실적 확정', proj:'all' },
+  { time:'09:02', sys:'ERP',    grade:'D', title:'D+1 자동 현행화 · 인건비', desc:'7월 확정 실적 기표 반영 · 이관인건비 포함 8건', proj:'all' },
+  { time:'09:02', sys:'ERP',    grade:'D', title:'D+1 자동 현행화 · 경비',   desc:'잡비·사무용품 실적 반영 · 계획=실적 확정', proj:'all' },
   { time:'10:41', sys:'구매',   grade:'D', title:'외주 PO 확정 반영 · 외주비',      desc:'ATS 2건 · AGS 1건 계획=실적 확정 처리', proj:'skon' },
   { time:'11:15', sys:'SCM',    grade:'R', title:'납기 변경 반영 · 재료비',         desc:'검수월 9월 → 10월 이동 · 계정 총액 불변', proj:'logi' },
   { time:'13:08', sys:'AI PMO', grade:'D', title:'Roll-out 인력 반영 · 인건비',     desc:'1명 철수 · 8월 인건비 -850만원', proj:'migr' },
@@ -1094,7 +1056,7 @@ function homeAutoStripHtml() {
   return `
     <button class="hm-autostrip" onclick="openAutoDrawer()">
       <span class="hm-autostrip-ic">⚡</span>
-      <span class="hm-autostrip-tx">선행 시스템 이벤트 <em>${HOME_EVENT_TOTAL}건 중 ${HOME_AUTO_COUNT}건</em>을 AI가 수행원가에 자동 반영했어요 · <em>월마감 D+1 자동 현행화</em> 포함</span>
+      <span class="hm-autostrip-tx">선행 시스템 이벤트 <em>${HOME_EVENT_TOTAL}건 중 ${HOME_AUTO_COUNT}건</em>을 AI가 수행원가에 자동 반영했어요 · <em>D+1 자동 현행화</em> 포함</span>
       <span class="hm-autostrip-more">자동 처리 내역 보기 ›</span>
     </button>`;
 }
@@ -1207,7 +1169,7 @@ function renderLeadDashboard() {
           <div class="lead-ai-card primary">
             <span>AI 판단</span>
             <strong>오늘은 승인 지연 2건과 15일 검수 마감을 먼저 보세요.</strong>
-            <p>팀 전체 예산 흐름은 정상 범위지만, 인건비 승인요청이 SCM에서 지연되고 있어 월마감 전에 확정 금액이 흔들릴 수 있습니다.</p>
+            <p>팀 전체 예산 흐름은 정상 범위지만, 인건비 승인요청이 SCM에서 지연되고 있어 마감 전에 확정 금액이 흔들릴 수 있습니다.</p>
           </div>
           <div class="lead-ai-card">
             <span>위험 신호</span>
@@ -1243,13 +1205,11 @@ function renderLeadDashboard() {
 }
 
 // ============================================================
-//  5차 — PJT 재무 현황(절대금액) + 월마감 사이클 워크플로우
+//  5차 — PJT 재무 현황(절대금액)
 //  ※ 앞의 3차 신호 레이어를 여기서 override 한다.
 //    (프로젝트 규칙: 뒤에 정의된 코드가 앞을 override)
 //  - 예산 여력(%)만으로는 규모 감이 없어 계약·계획·실적·잔여 절대금액을 병기
 //  - 프로젝트 탭 선택에 연동 (선택 PJT의 전체 현황)
-//  - 월마감 사이클: 계획확정 → 투입원가 입력 → 검수·확정 → 월마감 대사
-//    → 자동 현행화 → 팀장 승인 (gap 보전 사이클을 화면에 드러냄)
 // ============================================================
 
 // 프로젝트별 계약금액(cp) + 계정별 [계정명, 수행원가 계획, 실적] · 단위: 억원
@@ -1325,7 +1285,7 @@ function homeFinSummaryHtml() {
         ${tile('수행원가 계획', finAmt(f.plan), '')}
         ${tile('실적(집행)', finAmt(f.act), '', `집행률 ${finPct(f.exec)}`)}
         ${tile('잔여', finAmt(f.left), f.left / f.plan * 100 < 20 ? 'risk' : '', `여력 ${finPct(f.left / f.plan * 100)}`)}
-        ${tile('당월 계획 대비 실적', finSigned(f.mgap), f.mgap > 0 ? 'risk' : '', '8월 마감 보전 대상')}
+        ${tile('당월 계획 대비 실적', finSigned(f.mgap), f.mgap > 0 ? 'risk' : '', '마감 보전 대상')}
       </div>
     </div>`;
 }
@@ -1374,54 +1334,9 @@ function homeRunwayHtml() {
     </div>`;
 }
 
-// ── 월마감 사이클 워크플로우 ──────────────────────────────
-// 사용자 업무 개념: 월마감마다 계획-실적 gap을 보전하고, 투입원가를 즉시 입력해
-// 계획과 실적을 맞춘다. 각 단계의 담당(PM/AI/팀장)과 남은 건수를 함께 보여준다.
-// st: done(완료) · active(진행 중) · wait(대기)
-const HOME_CYCLE = [
-  { n:'계획 확정',      d:'8/10',  st:'done',   own:'PM',   note:'8월 계획 고정 완료' },
-  { n:'투입원가 입력',  d:'~8/24', st:'active', own:'PM',   note:'미입력', cnt:3, go:'adjust' },
-  { n:'검수·확정',      d:'8/25',  st:'wait',   own:'PM',   note:'확인 필요', cnt:2, go:'status' },
-  { n:'월마감 대사',    d:'8/31',  st:'wait',   own:'시스템', note:'계획-실적 gap 보전' },
-  { n:'자동 현행화',    d:'9/1',   st:'wait',   own:'AI',   note:'AI 자동 반영' },
-  { n:'팀장 승인',      d:'9/3',   st:'wait',   own:'팀장', note:'승인 대기' },
-];
-const HOME_CYCLE_OWN = { 'PM':'pm', 'AI':'ai', '팀장':'lead', '시스템':'sys' };
-
-function homeCycleHtml() {
-  const f = homeFinOf(homeSelectedProject);
-  const gap = f.mgap;
-  const doneN = HOME_CYCLE.filter(s => s.st === 'done').length;
-  const steps = HOME_CYCLE.map((s, i) => {
-    const ic = s.st === 'done' ? '✓' : (i + 1);
-    const cnt = s.cnt ? `<span class="hm-cy-cnt">${s.note} ${s.cnt}건</span>` : `<span class="hm-cy-note">${s.n === '월마감 대사' ? 'gap ' + finSigned(gap) : s.note}</span>`;
-    const click = s.go ? ` onclick="homeCycleGo('${s.go}')" role="button" tabindex="0"` : '';
-    return `<div class="hm-cy-step ${s.st}${s.go ? ' clickable' : ''}"${click}>
-        <div class="hm-cy-line"><span class="hm-cy-ic">${ic}</span></div>
-        <div class="hm-cy-b">
-          <div class="hm-cy-h"><b>${s.n}</b><span class="hm-cy-own ${HOME_CYCLE_OWN[s.own]}">${s.own}</span></div>
-          <div class="hm-cy-d">${s.d}</div>
-          ${cnt}
-        </div>
-      </div>`;
-  }).join('');
-  return `<div class="hm-cycle">
-      <div class="hm-cy-head">
-        <span class="hm-cy-tt">월마감 사이클 · 8월</span>
-        <span class="hm-cy-prog">${doneN}/${HOME_CYCLE.length} 단계 완료</span>
-        <span class="hm-cy-sys">당월 계획-실적 gap <b>${finSigned(gap)}</b> · 8월 마감 보전 대상</span>
-      </div>
-      <div class="hm-cy-track">${steps}</div>
-    </div>`;
-}
-function homeCycleGo(kind) {
-  if (kind === 'adjust' && typeof openCostAdjust === 'function') openCostAdjust('budgetMock');
-  else if (typeof openCostStatus === 'function') openCostStatus('budgetMock');
-}
-
-// ── 신호 레이어 조립 (재무 요약 → 여력 → Runway → 월마감 사이클) ──
+// ── 신호 레이어 조립 (재무 요약 → 여력 → Runway) ──
 function homeSignalBlockHtml() {
-  return homeFinSummaryHtml() + homeHeadroomHtml() + homeRunwayHtml() + homeCycleHtml();
+  return homeFinSummaryHtml() + homeHeadroomHtml() + homeRunwayHtml();
 }
 
 // ── 프로젝트 전환/카드 처리 시 신호 레이어까지 함께 갱신 ──
@@ -1438,12 +1353,12 @@ function rerenderHomeFeed() {
 //    (프로젝트 규칙: 뒤에 정의된 코드가 앞을 override)
 //
 //  · 상단 GNB 메뉴 / 우측 하단 네비 3개 → CSS로 숨김 (마크업은 유지)
-//  · 제거: 예시 프롬프트 · 재무 요약 · 월마감 사이클 · 확인이 필요한 것 · 하단 요약
+//  · 제거: 예시 프롬프트 · 재무 요약 · 확인이 필요한 것 · 하단 요약
 //  · 입력창 아래: 자동 처리 내역 + PJT 캐러셀(To-Do 건수순)
 //  · PJT 클릭 → 팝업에서 해당 PJT의 확인 항목 + 상세까지 표시
 // ============================================================
 
-// 예산 신호는 Headroom + Runway만 남긴다 (재무 요약·월마감 사이클 제거)
+// 예산 신호는 Headroom + Runway만 남긴다 (재무 요약·단계 사이클 제거)
 function homeSignalBlockHtml() {
   return homeHeadroomHtml() + homeRunwayHtml();
 }
@@ -1610,40 +1525,6 @@ function rerenderHomeFeed() {
 //    버튼은 JS로 주입하고 함수는 파일 끝 override로 처리한다.
 // ============================================================
 
-// ── ③ 상단 메뉴 토글 버튼 (구매시스템 ▦ 버튼과 동일 사이즈의 회색 버튼) ──
-// index.html이 공유 파일이라 마크업을 넣지 않고 .tb-right에 주입한다.
-function homeMenuToggle() {
-  document.body.classList.toggle('menu-shown');
-  const on = document.body.classList.contains('menu-shown');
-  const b = document.getElementById('tb-menu-toggle');
-  if (b) {
-    b.classList.toggle('on', on);
-    b.title = on ? '상단 메뉴 숨기기' : '상단 메뉴 보기';
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-  }
-}
-
-(function injectMenuToggle() {
-  function bind() {
-    const right = document.querySelector('.topbar .tb-right');
-    if (!right) { setTimeout(bind, 300); return; }
-    if (document.getElementById('tb-menu-toggle')) return;
-    const b = document.createElement('button');
-    b.id = 'tb-menu-toggle';
-    b.className = 'tb-menu-toggle';
-    b.type = 'button';
-    b.textContent = '☰';
-    b.title = '상단 메뉴 보기';
-    b.setAttribute('aria-label', '상단 메뉴 표시 전환');
-    b.setAttribute('aria-pressed', 'false');
-    b.onclick = homeMenuToggle;
-    const apps = right.querySelector('.tb-apps');
-    if (apps) right.insertBefore(b, apps); else right.appendChild(b);
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
-  else bind();
-})();
-
 // ── ② PJT 캐러셀 = 선택 (팝업 아님) ──
 // 선택된 PJT는 chatbot 질의의 문맥이 된다.
 function selectHomePjt(id) {
@@ -1744,58 +1625,6 @@ function homePjtSlimCard(it) {
       </div>`;
 }
 
-// ── 9차 — 상단 메뉴 토글 상태 기억 ─────────────────────────
-// 기본은 숨김(부문장님 지시: 단순한 첫 화면)이지만, 실무자가 ☰ 버튼으로 켜면
-// 그 선택을 브라우저에 저장해 새로고침·재접속해도 유지한다.
-// (메뉴가 없어 작업이 불편하다는 팀 피드백을 기본값을 바꾸지 않고 해소)
-const MENU_PREF_KEY = 'newmis.menuShown';
-
-function menuPrefGet() {
-  try { return localStorage.getItem(MENU_PREF_KEY) === '1'; } catch (e) { return false; }
-}
-function menuPrefSet(on) {
-  try { localStorage.setItem(MENU_PREF_KEY, on ? '1' : '0'); } catch (e) { /* 사생활 모드 등 */ }
-}
-
-function syncMenuToggleBtn() {
-  const on = document.body.classList.contains('menu-shown');
-  const b = document.getElementById('tb-menu-toggle');
-  if (!b) return;
-  b.classList.toggle('on', on);
-  b.title = on ? '상단 메뉴 숨기기' : '상단 메뉴 보기';
-  b.setAttribute('aria-pressed', on ? 'true' : 'false');
-}
-
-function homeMenuToggle() {
-  const on = !document.body.classList.contains('menu-shown');
-  document.body.classList.toggle('menu-shown', on);
-  menuPrefSet(on);
-  syncMenuToggleBtn();
-}
-
-// 저장된 선택을 화면에 적용 + 버튼 주입(중복 주입 방지)
-(function applyMenuPref() {
-  function bind() {
-    const right = document.querySelector('.topbar .tb-right');
-    if (!right) { setTimeout(bind, 300); return; }
-    if (menuPrefGet()) document.body.classList.add('menu-shown');
-    if (!document.getElementById('tb-menu-toggle')) {
-      const b = document.createElement('button');
-      b.id = 'tb-menu-toggle';
-      b.className = 'tb-menu-toggle';
-      b.type = 'button';
-      b.textContent = '☰';
-      b.setAttribute('aria-label', '상단 메뉴 표시 전환');
-      b.onclick = homeMenuToggle;
-      const apps = right.querySelector('.tb-apps');
-      if (apps) right.insertBefore(b, apps); else right.appendChild(b);
-    }
-    syncMenuToggleBtn();
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
-  else bind();
-})();
-
 // ============================================================
 //  10차 — 메인화면 재배치 · 도킹 채팅 재열기
 //  배치: PJT 캐러셀 (위) → 선택된 프로젝트 (중간) → chatbot 입력창 (아래)
@@ -1885,45 +1714,12 @@ function syncTopUser() {
   if (n) n.textContent = u.name + ' 님';
   if (r) r.textContent = u.role;
 }
-function toggleUserMenu(e) {
-  if (e) e.stopPropagation();
-  const m = document.getElementById('tb-user-menu');
-  if (m) m.classList.toggle('open');
-}
 function closeUserMenu() {
   const m = document.getElementById('tb-user-menu');
   if (m) m.classList.remove('open');
 }
-(function injectUserSwitch() {
-  function bind() {
-    const box = document.querySelector('.topbar .tb-user');
-    if (!box) { setTimeout(bind, 300); return; }
-    if (document.getElementById('tb-user-menu')) return;
-    // 전환할 사용자가 하나뿐이면 드롭다운을 만들지 않는다
-    if (Object.keys(HOME_USERS).length < 2) { syncTopUser(); return; }
-    box.classList.add('switchable');
-    box.setAttribute('role', 'button');
-    box.setAttribute('tabindex', '0');
-    box.setAttribute('title', '사용자 전환');
-    box.onclick = toggleUserMenu;
-    const m = document.createElement('div');
-    m.id = 'tb-user-menu';
-    m.className = 'tb-user-menu';
-    m.innerHTML = Object.keys(HOME_USERS).map(function (k) {
-      const u = HOME_USERS[k];
-      return `<button class="tb-user-opt" onclick="switchHomeUser('${k}')">
-          <b>${u.name} 님</b><span>${u.role}</span><em>${u.desc}</em>
-        </button>`;
-    }).join('');
-    box.appendChild(m);
-    document.addEventListener('click', function (ev) {
-      if (!box.contains(ev.target)) closeUserMenu();
-    });
-    syncTopUser();
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
-  else bind();
-})();
+// 사용자가 하나뿐(PM)이라 상단 전환 드롭다운은 두지 않는다.
+// syncTopUser()는 switchHomeUser/initDashboard에서 직접 호출된다.
 
 // ── 금액 표기 (원 단위) ──
 function homeWon(v) {
@@ -2074,7 +1870,7 @@ function selectHomePjt(id) {
 }
 
 // ============================================================
-//  14차 — 시나리오 PJT(30130020-D001) 일원화 · 월마감 단계별 원가조정
+//  14차 — 시나리오 PJT(30130020-D001) 일원화 · 단계별 원가조정
 //
 //  [메인 ↔ 상세 불일치 해결 방식]
 //  기존 목업 프로젝트(key: budgetMock)는 이름만 '예산관리시스템 목업용'인 자리표시자였고,
@@ -2109,7 +1905,7 @@ const MOCK_PJT = { key:'budgetMock', no:'30131234-D001', name:'예산관리시�
   homeSelectedProject = SCEN_PJT.key;
 })();
 
-// ── 월마감 사이클 단계 ─────────────────────────────────────
+// ── 마감 사이클 단계 ─────────────────────────────────────
 // budget-ax처럼 "시점마다 무슨 일이 벌어지는가"를 강제로 만들어 두고,
 // 단계를 눌러가며 4대계정 원가조정 작업을 확인한다.
 // 한 달 안에서 사람이 해야 할 일의 시간 축.
@@ -2118,7 +1914,7 @@ const CLOSE_STAGES = [
   { id:'plan',    n:'계획 확정',     own:'PM' },
   { id:'input',   n:'투입원가 입력', own:'PM' },
   { id:'inspect', n:'검수·확정',     own:'PM' },
-  { id:'recon',   n:'월마감 대사',   own:'시스템' },
+  { id:'recon',   n:'실적 대사',   own:'시스템' },
   { id:'auto',    n:'자동 현행화',   own:'AI' },
   { id:'approve', n:'팀장 승인',     own:'팀장' },
 ];
@@ -2163,13 +1959,13 @@ const CLOSE_WORK = {
   ],
   inspect: [
     { acct:'외주비', title:'외주 검수 대상 3건 확정 필요', note:'검수 완료분만 실적으로 인식됩니다', st:'next' },
-    { acct:'재료비', title:'구매 검수 지연 1건',           note:'검수가 밀리면 월마감 실적에 잡히지 않습니다', st:'next' },
+    { acct:'재료비', title:'구매 검수 지연 1건',           note:'검수가 밀리면 마감 실적에 잡히지 않습니다', st:'next' },
   ],
   recon: [
     { acct:'전 계정', title:'계획 대비 실적 gap 보전',  note:'당월 gap +1,520만원 · 계정 간 이동으로 맞춥니다', st:'next' },
   ],
   auto: [
-    { acct:'전 계정', title:'월마감 D+1 자동 현행화',  note:'AI가 확정 실적을 자동 반영합니다 (사람 개입 없음)', st:'next' },
+    { acct:'전 계정', title:'D+1 자동 현행화',  note:'AI가 확정 실적을 자동 반영합니다 (사람 개입 없음)', st:'next' },
   ],
   approve: [
     { acct:'외주비', title:'외주비 증액 결재',        note:'PM 상신 건을 팀장이 승인합니다', st:'next' },
@@ -2193,31 +1989,11 @@ const SCEN_RISKS = [
     impact:'-150만원', from:24997578, to:23497578, stage:'input' },
   { id:'sr-04', acct:'재료비', sev:'danger', scen:'구매 검수 지연 · 종료 보류',
     title:'구매 검수가 지연돼 프로젝트 종료가 보류될 수 있습니다',
-    why:'검수 미완료분이 월마감 실적에 잡히지 않아 종료 판정에서 미결 항목으로 남습니다.',
+    why:'검수 미완료분이 마감 실적에 잡히지 않아 종료 판정에서 미결 항목으로 남습니다.',
     impact:'종료 보류', from:46000000, to:46000000, stage:'inspect' },
 ];
 
-// ── 14차 — 월마감 단계 레일 + 단계별 보드 ─────────────────
-
-function homeStageRailHtml() {
-  const cur = closeStage;
-  const steps = CLOSE_STAGES.map(function (s, i) {
-    const on = s.id === cur;
-    const ic = s.st === 'done' ? '✓' : (i + 1);
-    return `<button class="hm-st ${s.st} ${on ? 'on' : ''}" onclick="selectCloseStage('${s.id}')" aria-pressed="${on}">
-        <span class="hm-st-ic">${ic}</span>
-        <span class="hm-st-b"><b>${escHtml(s.n)}</b><em>${escHtml(s.d)} · ${escHtml(s.own)}</em></span>
-      </button>`;
-  }).join('');
-  return `
-    <div class="hm-stage">
-      <div class="hm-stage-h">
-        <span class="hm-stage-t">월마감 사이클 · 8월</span>
-        <span class="hm-stage-pjt">${escHtml(SCEN_PJT.no)} · ${escHtml(SCEN_PJT.name)}</span>
-      </div>
-      <div class="hm-stage-track">${steps}</div>
-    </div>`;
-}
+// ── 14차 — 단계 레일 + 단계별 보드 ─────────────────
 
 // 현재 단계(투입원가 입력)의 작업 = 원가조정 승인 대기와 동일한 건
 function homeStageTodo() {
@@ -2289,7 +2065,7 @@ function homeWorkBoardHtml() {
     : `<div class="hm-board-empty">이 단계에서 발견된 이상징후가 없어요.</div>`;
 
   return `
-    ${lead ? '' : homeStageRailHtml()}
+    ${''}
     <div class="hm-board">
       <section class="hm-col todo">
         <div class="hm-col-h">
@@ -2320,7 +2096,7 @@ function homeTodoGo(acct) {
 }
 
 // ── 14차 — 캐러셀: 시나리오 PJT를 맨 앞에 고정 ──
-// 시나리오 PJT는 HOME_FEED가 아니라 월마감 단계 데이터로 건수를 센다.
+// 시나리오 PJT는 HOME_FEED가 아니라 마감 단계 데이터로 건수를 센다.
 function homeOpenCountOf(id) {
   if (id === SCEN_PJT.key) {
     return (homeUser === 'lead' ? homeTodoLead().length : homeStageTodo().filter(function (t) { return t.st === 'now'; }).length)
@@ -2410,7 +2186,7 @@ function homeStageRisks() {
 //
 //  · 기존 '예산관리시스템 목업용'(budgetMock)은 팀원 작업이므로 그대로 둔다.
 //  · CRM/PMO에서 넘어와 자동 생성된 직후 상태(실행예산 편성 대기)부터 시작해,
-//    편성 → 조정 → 이상징후 → 승인 → 월마감 → 종료까지 전 case를 담는다.
+//    편성 → 조정 → 이상징후 → 승인 → 마감 → 종료까지 전 case를 담는다.
 //  · 수행원가 상세 화면이 정상 동작하도록 프로젝트별 저장소를 모두 채운다.
 //    (EXEC_BUDGET_PROJECTS · BUDGET_SOURCE · budgetTransferHistory)
 // ============================================================
@@ -2434,7 +2210,7 @@ function homeStageRisks() {
       // ② 예산 데이터 — 계약 18.5억, 착수 2026-08, 현재 2026-08 (편성 직후)
       //    8월만 실적이 있고 9월 이후는 계획. 신규 PJT라 실적 누계가 적다.
       // CRM/PMO/SCM에서 IF로 넘어온 직후 상태 — 계약원가만 수신됐고 실적은 아직 없다.
-      // PM이 실행예산을 편성하고 승인받은 뒤, 월마감을 돌리며 실적이 쌓인다.
+      // PM이 실행예산을 편성하고 승인받은 뒤, 마감을 돌리며 실적이 쌓인다.
       BUDGET_SOURCE[SCEN_PJT.key] = {
         projName: SCEN_PJT.name, stage: '편성', dplus: 0,
         start: '2026-08', end: '2026-12', current: '2026-08',
@@ -2507,7 +2283,7 @@ function homeStageRisks() {
 })();
 
 // ── 시나리오 PJT의 단계별 제안 (상세 화면과 메인이 공유) ──
-// stage: 월마감 사이클 단계 · CRM/PMO 자동 생성 직후(plan)부터 종료(close)까지
+// stage: 마감 사이클 단계 · CRM/PMO 자동 생성 직후(plan)부터 종료(close)까지
 const SCEN_PROPOSALS = [
   // ① 계획 확정 — CRM 계약원가 수신 직후 최초 편성
   { id:'sp-01', pjt:'credit', stage:'plan', acct:'인건비', status:'pending', confidence:0.95,
@@ -2541,13 +2317,13 @@ const SCEN_PROPOSALS = [
   { id:'sp-05', pjt:'credit', stage:'inspect', acct:'재료비', status:'pending', confidence:0.88,
     detectedAt:'2026-08-25 09:00', trigger:'구매 검수 지연',
     title:'장비 검수 2건이 지연돼 8월 실적에 반영되지 않습니다',
-    why:'검수 완료분만 실적으로 인식됩니다. 검수가 밀리면 월마감 실적에서 빠지고 프로젝트 종료 판정에서도 미결로 남습니다.',
+    why:'검수 완료분만 실적으로 인식됩니다. 검수가 밀리면 마감 실적에서 빠지고 프로젝트 종료 판정에서도 미결로 남습니다.',
     from:46000000, to:46000000,
     impact:'금액 변동은 없으나 8월 실적 인식이 9월로 이월됩니다.' },
 
-  // ④ 월마감 대사 — 예비비 전환
+  // ④ 실적 대사 — 예비비 전환
   { id:'sp-06', pjt:'credit', stage:'recon', acct:'경비', status:'pending', confidence:0.86,
-    detectedAt:'2026-08-31 18:00', trigger:'월마감 대사 · 계획-실적 gap',
+    detectedAt:'2026-08-31 18:00', trigger:'실적 대사 · 계획-실적 gap',
     title:'미집행 경비를 AI 예비비로 전환할 수 있습니다',
     why:'8월 경비 계획 대비 실적이 3,200,000원 미달했습니다. 정산 진입 전에는 예비비로 전환해 두면 잔여 기간에 활용할 수 있습니다.',
     from:25000000, to:21800000,
@@ -2563,11 +2339,11 @@ const SCEN_RISKS_BY_PJT = {
       impact:'여력 2.64억' },
     { id:'cr-02', stage:'input', acct:'인건비', sev:'warning', scen:'선투입 승계 미처리',
       title:'선투입 집행분이 아직 본 프로젝트에 반영되지 않았습니다',
-      why:'승계하지 않으면 실적이 누락돼 원가율이 실제보다 낮게 보입니다. 월마감 전에 처리해야 합니다.',
+      why:'승계하지 않으면 실적이 누락돼 원가율이 실제보다 낮게 보입니다. 마감 전에 처리해야 합니다.',
       impact:'실적 +4,200만원' },
     { id:'cr-03', stage:'inspect', acct:'재료비', sev:'danger', scen:'구매 검수 지연 · 종료 보류',
       title:'검수 지연 2건이 종료 판정에서 미결로 남습니다',
-      why:'검수 미완료분은 월마감 실적에 잡히지 않아, 프로젝트 종료 시 미결 항목으로 분류됩니다.',
+      why:'검수 미완료분은 마감 실적에 잡히지 않아, 프로젝트 종료 시 미결 항목으로 분류됩니다.',
       impact:'종료 보류' },
     { id:'cr-04', stage:'recon', acct:'전 계정', sev:'warning', scen:'계획-실적 gap',
       title:'8월 계획 대비 실적이 1,520만원 미달했습니다',
@@ -2724,27 +2500,6 @@ function homePjtStripHtml() {
 }
 
 // 단계 레일 — 선택된 PJT 이름과 단계별 건수를 함께 보여준다
-function homeStageRailHtml() {
-  const pj = homeBoardPjt();
-  const p = HOME_PROJECTS.find(function (x) { return x.id === pj; });
-  const steps = CLOSE_STAGES.map(function (s, i) {
-    const on = s.id === closeStage;
-    const cnt = homeProposalsOf(pj, s.id).length + (SCEN_RISKS_BY_PJT[pj] || []).filter(function (r) { return (r.stage || 'input') === s.id; }).length;
-    const st = stageStateOf(s.id);
-    const ic = st === 'done' ? '✓' : (i + 1);
-    return `<button class="hm-st ${st} ${on ? 'on' : ''}" onclick="selectCloseStage('${s.id}')" aria-pressed="${on}"
-        title="${escHtml(s.n)} · ${escHtml(stageDateOf(s.id))} · ${st === 'done' ? '완료' : st === 'active' ? '진행 중' : '대기'}">
-        <span class="hm-st-ic">${ic}</span>
-        <span class="hm-st-b"><b>${escHtml(s.n)}</b><em>${escHtml(stageDateOf(s.id))} · ${escHtml(s.own)}</em></span>
-        ${cnt ? `<span class="hm-st-n">${cnt}</span>` : ''}
-      </button>`;
-  }).join('');
-  return `
-    <div class="hm-stage">
-      <div class="hm-stage-track">${steps}</div>
-    </div>`;
-}
-
 // 상세 화면으로 이동 — 항상 현재 선택된 프로젝트로
 function homeTodoGo(acct) {
   const a = (acct === '전 계정') ? '인건비' : acct;
@@ -2769,11 +2524,11 @@ function homeWorkBoardHtml() {
   const riskBody = risks.length
     ? risks.map(homeScenRiskCardHtml).join('')
     : `<div class="hm-board-empty">${fresh
-        ? '방금 생성된 프로젝트라 아직 실적이 없습니다. 월 마감을 돌려 실적이 쌓이면 이상징후를 감지합니다.'
+        ? '방금 생성된 프로젝트라 아직 실적이 없습니다. 실적이 쌓이면 이상징후를 감지합니다.'
         : '이 단계에서 발견된 이상징후가 없어요.'}</div>`;
 
   return `
-    ${showRail ? homeStageRailHtml() : ''}
+    ${''}
     <div class="hm-board">
       <section class="hm-col todo">
         <div class="hm-col-h">
@@ -2802,14 +2557,9 @@ function homeWorkBoardHtml() {
 }
 
 // ============================================================
-//  16차 — 월 마감 실행 (budget-ax 월마감 프로세스 참고)
+//  16차 — 월별 시나리오 이벤트 (최초 생성부터 종료까지)
 //
-//  budget-ax의 월마감 컨셉만 가져온다:
-//   ① 월마감 익일 자동 트리거 → ② 실적 수신(계정별 구분) → ③ 실적 IF 방향
-//   → ④ 추정 Rawdata 제공(BIX) → ⑤ 현행화 조정안 자동 확정 (팀장 승인 불요)
-//  원가 계획/반영 처리 방식은 budget-cowork(현 목업) 기준을 따른다.
-//
-//  월마감을 돌리면 그 달 계획이 실적으로 확정되고, 다음 달 이벤트로 넘어간다.
+//  그 달 계획이 실적으로 확정되면 다음 달 이벤트로 넘어가는 흐름을 데이터로 둔다.
 //  → 최초 생성(편성 전)부터 종료까지 한 프로젝트로 전 과정을 돌려볼 수 있다.
 // ============================================================
 
@@ -2817,15 +2567,6 @@ const SCEN_MONTHS = ['2026-08', '2026-09', '2026-10', '2026-11', '2026-12'];
 let scenMonthIdx = 0;
 function scenMonth() { return SCEN_MONTHS[scenMonthIdx] || SCEN_MONTHS[SCEN_MONTHS.length - 1]; }
 function scenMonthLabel(m) { return (m || scenMonth()).split('-')[1].replace(/^0/, '') + '월'; }
-
-// budget-ax 월마감 5단계
-const CLOSE_RUN_STEPS = [
-  { t:'월마감 익일 자동 트리거', d:'익일 06:00 현행화 배치 실행' },
-  { t:'실적 수신 (계정별 구분)', d:'인건비 SCM Teaming · 외주비 실투입/검수 · 재료비·경비 구분 수신' },
-  { t:'실적 I/F 방향 확인',      d:'외주비·재료비 ERP 수신 / 인건비·경비 ERP 전송 · 변경 PO 재수신' },
-  { t:'추정 Rawdata 제공',       d:'계획+실적 Rawdata를 추정 시스템·BIX로 이관' },
-  { t:'현행화 조정안 자동 확정', d:'실적 반영 조정 · 팀장 승인 없이 자동 확정 (Process MAP)' },
-];
 
 const SCEN_CP = 1850000000;          // PMO에서 넘어온 CP 총액 (이 금액 이하로 편성해야 한다)
 const SCEN_CP_BY_ACCT = { 인건비: 770000000, 외주비: 1195000000, 재료비: 60000000, 경비: 40000000 };
@@ -2905,7 +2646,7 @@ const SCEN_BY_MONTH = {
     risks:[
       { stage:'input', acct:'인건비', sev:'warning', scen:'선투입 승계 미처리',
         title:'선투입 집행분 42,000,000원이 아직 반영되지 않았습니다',
-        why:'월마감 전에 승계하지 않으면 9월 실적에서 누락되어 원가율이 낮게 보입니다.', impact:'실적 +4,200만원' },
+        why:'마감 전에 승계하지 않으면 9월 실적에서 누락되어 원가율이 낮게 보입니다.', impact:'실적 +4,200만원' },
     ],
   },
 
@@ -2921,7 +2662,7 @@ const SCEN_BY_MONTH = {
           decide:'증액 후에도 외주비 CP한도 1,195,000,000원 이내인지 확인합니다. 자가전결 범위면 바로 저장됩니다' } },
       { stage:'inspect', acct:'재료비', trigger:'구매 검수 지연',
         title:'장비 검수 2건(9,200,000원)이 10월 실적에서 빠집니다',
-        why:'검수 완료분만 실적으로 인식됩니다. 검수가 밀리면 월마감 실적에 잡히지 않습니다.',
+        why:'검수 완료분만 실적으로 인식됩니다. 검수가 밀리면 마감 실적에 잡히지 않습니다.',
         from:46000000, to:46000000,
         guide:{ where:'수행원가 › 원가조정 › 재료비',
           do:'검수 예정 목록에서 지연 2건의 검수 예정월을 10월 → 11월로 조정합니다',
@@ -2930,7 +2671,7 @@ const SCEN_BY_MONTH = {
     risks:[
       { stage:'inspect', acct:'재료비', sev:'danger', scen:'구매 검수 지연',
         title:'검수 지연 2건이 실적 인식에서 빠집니다',
-        why:'검수 미완료분은 월마감 실적에 잡히지 않아 원가율이 실제보다 낮게 보입니다.', impact:'인식 이월' },
+        why:'검수 미완료분은 마감 실적에 잡히지 않아 원가율이 실제보다 낮게 보입니다.', impact:'인식 이월' },
     ],
   },
 
@@ -2944,7 +2685,7 @@ const SCEN_BY_MONTH = {
         guide:{ where:'수행원가 › 원가조정 › 외주비',
           do:'증액 사유를 입력하고 [승인 요청]을 눌러 직책자에게 올립니다',
           decide:'증액 후 1,050,000,000원이 외주비 CP한도 1,195,000,000원 이내인지 확인합니다' } },
-      { stage:'recon', acct:'경비', trigger:'월마감 대사 · 미집행 발생',
+      { stage:'recon', acct:'경비', trigger:'실적 대사 · 미집행 발생',
         title:'미집행 경비 3,200,000원을 AI 예비비로 전환할 수 있습니다',
         why:'정산 단계에 들어가면 계정 간 이동이 제한됩니다. 그 전에 전환해 두면 잔여 기간에 쓸 수 있습니다.',
         from:25000000, to:21800000,
@@ -3009,7 +2750,7 @@ function syncScenProposals() {
       status: 'pending', confidence: 0.92, detectedAt: m + '-01 09:00',
       trigger: t.trigger, title: t.title, why: t.why, guide: t.guide,
       from: t.from, to: t.to,
-      impact: '월마감 ' + scenMonthLabel(m) + ' 기준 · 계정별 CP 한도 이내입니다.',
+      impact: '마감 ' + scenMonthLabel(m) + ' 기준 · 계정별 CP 한도 이내입니다.',
     });
   });
 }
@@ -3031,96 +2772,6 @@ function scenRisks() {
   else bind();
 })();
 
-// ── 16차 — 월 마감 버튼 · 실행 패널 ─────────────────────────
-
-function closeRunOpen() {
-  const ov = document.getElementById('close-run-overlay');
-  if (!ov) return;
-  ov.innerHTML = closeRunHtml();
-  ov.classList.add('open');
-}
-function closeRunClose() {
-  const ov = document.getElementById('close-run-overlay');
-  if (ov) ov.classList.remove('open');
-}
-
-function closeRunHtml() {
-  const m = scenMonth();
-  const ev = SCEN_BY_MONTH[m] || { note: '', todos: [], risks: [] };
-  const last = scenMonthIdx >= SCEN_MONTHS.length - 1;
-  const openTodo = homeProposalsOf(SCEN_PJT.key, null).length;
-  const steps = CLOSE_RUN_STEPS.map(function (s, i) {
-    return `<div class="cr-step"><span class="cr-n">${i + 1}</span>
-        <div><b>${escHtml(s.t)}</b><em>${escHtml(s.d)}</em></div></div>`;
-  }).join('');
-  const months = SCEN_MONTHS.map(function (x, i) {
-    const cls = i < scenMonthIdx ? 'done' : i === scenMonthIdx ? 'now' : '';
-    return `<span class="cr-m ${cls}">${scenMonthLabel(x)}</span>`;
-  }).join('<i>›</i>');
-  return `
-    <div class="cr-panel" onclick="event.stopPropagation()">
-      <div class="cr-head">
-        <div>
-          <div class="cr-eyebrow">월 마감</div>
-          <strong>${escHtml(scenMonthLabel(m))} 마감 실행</strong>
-          <div class="cr-meta">${escHtml(SCEN_PJT.no)} · ${escHtml(SCEN_PJT.name)} — ${escHtml(ev.note)}</div>
-        </div>
-        <button class="hm-drawer-x" onclick="closeRunClose()" aria-label="닫기">✕</button>
-      </div>
-      <div class="cr-body">
-        <div class="cr-months">${months}</div>
-        ${openTodo ? `<div class="cr-warn">아직 처리하지 않은 항목이 <b>${openTodo}건</b> 있습니다. 마감하면 이 달 계획이 실적으로 확정되고 다음 달로 넘어갑니다.</div>` : ''}
-        <div class="cr-sec">마감 처리 순서</div>
-        ${steps}
-        <div class="cr-note">현행화 조정안은 Process MAP상 <b>팀장 승인 없이 자동 확정</b>됩니다.
-          원가 계획·반영 규칙은 현재 목업(수행원가 &gt; 원가조정) 기준을 따릅니다.</div>
-      </div>
-      <div class="cr-foot">
-        <button class="hm-btn" onclick="closeRunClose()">닫기</button>
-        ${last
-          ? `<button class="hm-btn pri" onclick="runMonthlyClose()">12월 마감 · 프로젝트 종료 →</button>`
-          : `<button class="hm-btn pri" onclick="runMonthlyClose()">${escHtml(scenMonthLabel(m))} 마감 실행 →</button>`}
-      </div>
-    </div>`;
-}
-
-// 마감 실행 — 그 달 계획을 실적으로 확정하고 다음 달 이벤트로 넘어간다
-function runMonthlyClose() {
-  const m = scenMonth();
-  try {
-    const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[SCEN_PJT.key] : null;
-    if (src && Array.isArray(src.months) && typeof budgetMockMonth === 'function') {
-      const i = src.months.findIndex(function (x) { return x.m === m; });
-      if (i >= 0 && src.months[i].type !== 'actual') {
-        const r0 = src.months[i];
-        const pick = function (k) { return (r0[k] && r0[k].p) ? r0[k].p : 0; };
-        // 실적은 계획과 조금 다르게 확정된다 (월마감 대사에서 gap이 생기는 이유)
-        src.months[i] = budgetMockMonth(m, 'actual', {
-          labor: Math.round(pick('인건비') * 0.97),
-          outsource: Math.round(pick('외주비') * 1.02),
-          material: Math.round(pick('재료비') * 0.90),
-          expense: Math.round(pick('경비') * 0.95),
-        });
-      }
-      const next = SCEN_MONTHS[scenMonthIdx + 1];
-      if (next) src.current = next;
-      if (src.stage === '편성') src.stage = '수행';
-    }
-  } catch (e) { /* 데이터 구조가 달라도 화면 흐름은 유지 */ }
-
-  const last = scenMonthIdx >= SCEN_MONTHS.length - 1;
-  if (!last) scenMonthIdx += 1;
-  if (typeof window.__scenRefresh === 'function') window.__scenRefresh();
-  closeStage = firstStageWithWork();
-  closeRunClose();
-  if (typeof rerenderHomeFeed === 'function') rerenderHomeFeed();
-  if (typeof showToast === 'function') {
-    showToast(last
-      ? '12월 마감 완료 · 최종 원가를 확정하고 BIX로 이관했습니다.'
-      : scenMonthLabel(m) + ' 마감 완료 · ' + scenMonthLabel(scenMonth()) + ' 업무로 넘어갑니다.');
-  }
-}
-
 // 이 달에 할 일이 있는 첫 단계를 찾는다 (빈 단계가 먼저 열리지 않게)
 function firstStageWithWork() {
   const pj = SCEN_PJT.key;
@@ -3132,31 +2783,9 @@ function firstStageWithWork() {
   return hit ? hit.id : 'input';
 }
 
-// 우측 하단 작은 월 마감 버튼 (대화 FAB 위에 배치)
-(function injectCloseFab() {
-  function bind() {
-    if (document.getElementById('close-run-fab')) return;
-    const b = document.createElement('button');
-    b.id = 'close-run-fab';
-    b.className = 'close-run-fab';
-    b.type = 'button';
-    b.innerHTML = '<span class="crf-ic">📅</span><span class="crf-t">월 마감</span>';
-    b.title = '월 마감 실행';
-    b.onclick = closeRunOpen;
-    document.body.appendChild(b);
-    const ov = document.createElement('div');
-    ov.id = 'close-run-overlay';
-    ov.className = 'cr-overlay';
-    ov.onclick = function (e) { if (e.target === ov) closeRunClose(); };
-    document.body.appendChild(ov);
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
-  else bind();
-})();
-
 // ============================================================
 //  18차 — 메인화면을 PJT 카드 그리드로 재구성
-//  · 캐러셀 · 월마감 단계 레일 · 월 마감 버튼 · 인사말 → 화면에서 제거
+//  · 캐러셀 · 단계 레일 · 인사말 → 화면에서 제거
 //  · PJT 단위 카드에 해야 할 일 / 이상징후를 함께 요약
 //  · 카드의 항목을 누르면 수행원가 › 원가조정의 해당 PJT·계정 화면으로 이동
 //
@@ -3182,7 +2811,7 @@ const EXTRA_PJTS = [
     ],
     todos:[
       { acct:'외주비', title:'외주 검수 지연 2건을 확정해야 합니다',
-        why:'검수 완료분만 실적으로 인식됩니다. 8월 마감 전에 확정하지 않으면 실적이 9월로 밀립니다.',
+        why:'검수 완료분만 실적으로 인식됩니다. 마감 전에 확정하지 않으면 실적이 9월로 밀립니다.',
         from:510000000, to:510000000,
         guide:{ where:'수행원가 › 원가조정 › 외주비', do:'검수 대기 2건의 검수 완료를 처리합니다',
                 decide:'금액 변동 없이 인식 시점만 바뀝니다' } },
@@ -4495,8 +4124,8 @@ function leadActualOf(id, month, acct) {
   return { v: Math.round(p * (0.86 + leadSeed(id + month + acct) * 0.26)), est: true };
 }
 
-// 전월 마감시점에 잡혀 있던 그 달의 계획.
-// 월마감을 돌리면 leadSnapStore 에 실제 스냅샷이 쌓이고, 그 전 달은 합성값을 쓴다.
+// 전월말 시점에 잡혀 있던 그 달의 계획.
+// 마감을 돌리면 leadSnapStore 에 실제 스냅샷이 쌓이고, 그 전 달은 합성값을 쓴다.
 const leadSnapStore = {};
 function leadPlanSnapOf(id, month, acct) {
   const s = leadSnapStore[id] && leadSnapStore[id][month];
@@ -4508,7 +4137,7 @@ function leadPlanSnapOf(id, month, acct) {
   const base = (row.type === 'actual') ? (row[acct].a || 0) : (row[acct].p || 0);
   return Math.round(base * (0.90 + leadSeed('snap' + id + month + acct) * 0.22));
 }
-// 월마감 시 그 시점 계획을 남긴다 (다음 달 "전월 계획 대비" 의 근거가 된다)
+// 마감 시 그 시점 계획을 남긴다 (다음 달 "전월 계획 대비" 의 근거가 된다)
 function leadSaveSnapshot(id, month) {
   const src = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
   if (!src) return;
@@ -4556,7 +4185,7 @@ function leadMoM(sel) {
       cur += a.v; prev += b.v;
       if (a.est || b.est) est = true;
     });
-    // 전월 기준 누계 = 전월까지 실적 + 전월 마감시점에 잡아둔 당월 계획.
+    // 전월 기준 누계 = 전월까지 실적 + 전월말 시점에 잡아둔 당월 계획.
     // 누계끼리 그냥 빼면 차액이 당월 실적과 같아져 아무것도 말해주지 않는다.
     src.months.forEach(function (m) {
       if (m.m > LEAD_MONTH) return;
@@ -4761,8 +4390,8 @@ const LEAD_AGGRS = [
 ];
 
 // ── 계정별 차액 집계 ──
-// mode 'mom' : 당월 실적 − 전월 마감시점의 당월 계획
-// mode 'cum' : 당월 누계 실적 − 전월 마감시점의 누계 전망
+// mode 'mom' : 당월 실적 − 전월말 시점의 당월 계획
+// mode 'cum' : 당월 누계 실적 − 전월말 시점의 누계 전망
 function leadGapRows(sel, mode) {
   const ids = leadIds(sel);
   const yr = LEAD_MONTH.slice(0, 4);
@@ -5074,11 +4703,9 @@ function leadTierBodyHtml() {
 }
 
 // ============================================================
-//  27차 — 분석 패널 정리 + 인사이트 계정별 원가에 차액 근거 열
+//  27차 — 분석 패널 정리
 //  1) 우측 상단 "당월 실적 / 누계 실적" 두 개를 "전월대비" 하나로 합친다.
 //     표 안의 당월·누계 선택이 이미 같은 축이라 중복이었다. 연간은 제거.
-//  2) [인사이트]-[종합 현황] 계정별 원가 표에도 같은 형식의 차액 근거 열을 붙인다.
-//     insights.js 가 dashboard.js 뒤에 로드되므로 런타임 할당으로 덮는다.
 // ============================================================
 
 // 패널 4개 · 집계 2개
@@ -5099,7 +4726,7 @@ function setLeadPanel(v) {
 }
 
 // 집계 단위가 곧 비교 기준이다.
-//   당월 = 당월 실적 vs 전월 마감시점의 당월 계획
+//   당월 = 당월 실적 vs 전월말 시점의 당월 계획
 //   누계 = 당월 기준 누계 vs 전월 기준 누계(전월까지 실적 + 당월 계획)
 function leadGapMode() { return leadAggr === 'cum' ? 'cum' : 'mom'; }
 
@@ -5185,94 +4812,6 @@ function leadTierHtml() {
     </div>`;
 }
 if (leadPanel === 'mom' || leadPanel === 'cum') leadPanel = 'gap';
-
-// ────────────────────────────────────────────────────────────
-//  [인사이트] › 종합 현황 › 계정별 원가 — 차액 근거 열 추가
-// ────────────────────────────────────────────────────────────
-// 인사이트 표의 계정명은 구매(=재료비)를 쓴다. My Work 의 문구 사전을 그대로 재사용한다.
-function insWhyAcct(name) { return (name === '구매') ? '재료비' : name; }
-// 인사이트 종합현황 표에는 4대계정 외 "기타" 행이 있어 문구를 따로 넣는다
-LEAD_GAP_WHY['기타'] = {
-  down: ['미분류 원가 정산 이월', '예비 항목 미집행'],
-  up: ['미분류 원가 정산 반영', '예비 항목 집행'],
-};
-
-// 억 단위 차액에서 근거 문구를 만든다 (My Work 의 leadGapWhy 와 같은 형식)
-function insGapWhy(name, delta, subName) {
-  const acct = insWhyAcct(name);
-  const dir = delta >= 0 ? 'up' : 'down';
-  const pool = (typeof LEAD_GAP_WHY !== 'undefined' && LEAD_GAP_WHY[acct])
-    ? LEAD_GAP_WHY[acct][dir] : ['원인 분석 중'];
-  const seed = (typeof leadSeed === 'function') ? leadSeed(acct + dir + (subName || '')) : 0;
-  const head = pool[Math.floor(seed * pool.length) % pool.length];
-  // 0.1억 미만은 "0.0억"으로 뭉개지므로 만원으로 적는다
-  const abs = Math.abs(delta);
-  const man = Math.round(abs * 10000);
-  const amt = (abs >= 0.1)
-    ? (delta >= 0 ? '+' : '△') + abs.toFixed(1) + '억'
-    : (man > 0 ? (delta >= 0 ? '+' : '△') + man.toLocaleString() + '만원' : '차이 미미');
-  let extra = '';
-  if ((acct === '인건비' || acct === '외주비') && abs >= 0.15) {
-    extra = ', ' + Math.round(abs / 0.22) + '명';                            // 1MM ≒ 0.22억
-  } else if (acct === '재료비' && abs >= 0.05) {
-    extra = ', ' + (2 + (Math.floor(seed * 10) % 10)) + '월';
-  }
-  return (subName ? subName + ' ' : '') + head + ' (' + amt + extra + ')';
-}
-
-// insights.js 가 이 파일보다 뒤에 로드되므로, 로드가 끝난 뒤 함수를 바꿔 끼운다.
-function insInstallWhyColumn() {
-  if (typeof insAccountTableHtml !== 'function' || typeof projAccounts !== 'function') return false;
-  window.insAccountTableHtml = function (p) {
-    let rows = projAccounts(p).map(function (a, i) { return Object.assign({}, a, { _i: i }); });
-    rows.sort(function (a, b) {
-      const d = a[insSort.key] < b[insSort.key] ? -1 : a[insSort.key] > b[insSort.key] ? 1 : 0;
-      return insSort.dir === 'asc' ? d : -d;
-    });
-    const th = function (k, label) {
-      return `<th class="num ${insSort.key === k ? 'sorted' : ''}" onclick="insSortBy('${k}')">${label}${insSort.key === k ? (insSort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>`;
-    };
-    const head = `<tr><th onclick="insSortBy('name')">계정</th>
-      ${insCols.plan ? th('plan', '계획') : ''}${insCols.actual ? th('actual', '실적') : ''}${insCols.forecast ? th('forecast', '예상원가') : ''}
-      <th class="num">계획 대비</th>${insCols.share ? `<th class="num">비중</th>` : ''}<th class="ins-why-h">차액 근거</th></tr>`;
-    const body = rows.map(function (a) {
-      const subs = (typeof insOvSubs === 'function') ? insOvSubs(a.name) : null;
-      const open = subs && insOvExpanded[a.name];
-      const tog = subs
-        ? `<button class="ins-vt-tog ${open ? 'open' : ''}" title="${open ? '상세 접기' : '소계정 펼치기'}" onclick="toggleInsOvAcct('${a.name}')">${open ? '−' : '+'}</button>`
-        : `<span class="ins-vt-tog-space"></span>`;
-      const parent = `<tr class="ins-row">
-        <td class="nm">${tog}<span class="ins-dot" style="background:${a.color}"></span>${a.name}</td>
-        ${insCols.plan ? `<td class="num">${a.plan.toFixed(1)}억</td>` : ''}
-        ${insCols.actual ? `<td class="num">${a.actual.toFixed(1)}억</td>` : ''}
-        ${insCols.forecast ? `<td class="num">${a.forecast.toFixed(1)}억</td>` : ''}
-        <td class="num ${a.delta >= 0 ? 'up' : 'down'}">${a.delta >= 0 ? '+' : ''}${a.delta.toFixed(1)}억</td>
-        ${insCols.share ? `<td class="num">${a.share}%</td>` : ''}
-        <td class="ins-why">${insGapWhy(a.name, a.delta)}</td>
-      </tr>`;
-      const detail = open ? subs.map(function (s) {
-        const d = +(a.delta * s.r).toFixed(1);
-        return `<tr class="ins-row ins-ov-detail">
-          <td class="nm"><span class="ins-vt-subname">${s.n}</span></td>
-          ${insCols.plan ? `<td class="num">${(a.plan * s.r).toFixed(1)}억</td>` : ''}
-          ${insCols.actual ? `<td class="num">${(a.actual * s.r).toFixed(1)}억</td>` : ''}
-          ${insCols.forecast ? `<td class="num">${(a.forecast * s.r).toFixed(1)}억</td>` : ''}
-          <td class="num ${a.delta >= 0 ? 'up' : 'down'}">${a.delta >= 0 ? '+' : ''}${d.toFixed(1)}억</td>
-          ${insCols.share ? `<td class="num">${Math.round(a.share * s.r)}%</td>` : ''}
-          <td class="ins-why sub">${insGapWhy(a.name, a.delta * s.r, s.n)}</td>
-        </tr>`;
-      }).join('') : '';
-      return parent + detail;
-    }).join('');
-    return `<div class="ins-table-scroll"><table class="ins-table">${head}${body}</table></div>`;
-  };
-  return true;
-}
-document.addEventListener('DOMContentLoaded', function () {
-  if (insInstallWhyColumn()) return;
-  let n = 0;
-  const t = setInterval(function () { if (insInstallWhyColumn() || ++n > 40) clearInterval(t); }, 120);
-});
 
 // ============================================================
 //  28차 — 숫자 정합성 + 팀장 위젯 보드
@@ -5445,7 +4984,7 @@ function toggleLeadWidget(k) {
   rerenderHomeFeed();
 }
 
-// 시스템이 보낸 메일 — 결재 대기·점검 대상·월마감에서 만들어 실제 화면과 어긋나지 않게 한다
+// 시스템이 보낸 메일 — 결재 대기·점검 대상에서 만들어 실제 화면과 어긋나지 않게 한다
 function leadMails() {
   const me = (typeof HOME_USERS !== 'undefined' && HOME_USERS.lead) ? HOME_USERS.lead.name : '박정우';
   const out = [];
@@ -5466,10 +5005,6 @@ function leadMails() {
       body: '계획율 대비 ' + pctSigned(o.dev) + ' · ' + o.why,
       when: LEAD_MONTH + '-' + String(20 + i).padStart(2, '0'), unread: i === 0 });
   });
-  out.push({ tag: '월마감', to: me + ' 팀장 · 사업관리팀',
-    subj: '[' + LEAD_MONTH + '] 월마감 확정 및 ERP 전송 완료',
-    body: '담당 ' + homeCardPjts().length + '건 마감 · 누계실적 ' + homeWon(leadCostBreak('all').act),
-    when: LEAD_MONTH + '-31', unread: false });
   return out.slice(0, 6);
 }
 
@@ -5921,10 +5456,7 @@ function leadCostBreak(sel) {
 //  index.html 은 공유 파일이라 한 줄도 건드리지 않고 여기서 주입한다.
 // ============================================================
 
-let homeVer = (function () {
-  try { const v = localStorage.getItem('newmis.homeVer'); if (v === 'v1' || v === 'v2') return v; } catch (e) {}
-  return 'v1';                                    // 기본은 현재 디자인
-})();
+let homeVer = 'v2';                               // [정리] 버전2 전용 — 버전1 제거(shell-v2.js가 확정)
 
 // ── 히어로 문안 ── 사용자별로 "지금 가장 중요한 한 가지"를 문장으로 만든다
 function homeV2Hero() {
@@ -5975,73 +5507,6 @@ function homeV2GoBoard() {                        // crud N — 히어로 아래
 }
 
 // ── 좌측 레일 ──
-function homeV2RailHtml() {
-  const u = homeUserNow();
-  const pjts = homeCardPjts();
-  const lead = homeUser === 'lead';
-  const q = (lead && typeof leadApprovalQueue === 'function') ? leadApprovalQueue().length : 0;
-  const o = (lead && typeof teamOutliers === 'function') ? teamOutliers().length : 0;
-  const todo = pjts.reduce(function (s, p) {
-    return s + pjtTodosOf(p.id).filter(function (x) { return x.open; }).length;
-  }, 0);
-  const risk = pjts.reduce(function (s, p) {
-    return s + pjtRisksOf(p.id).filter(function (x) { return x.open; }).length;
-  }, 0);
-
-  const workRows = lead
-    ? [{ t: '내 결재 대기', n: q, a: 'homeV2GoBoard()' },
-       { t: '점검 필요 프로젝트', n: o, a: 'homeV2GoBoard()' }]
-    : [{ t: '해야 할 일', n: todo, a: 'homeV2GoBoard()' },
-       { t: '이상징후', n: risk, a: 'homeV2GoBoard()' }];
-
-  const pjtRows = pjts.map(function (p) {
-    const b = leadCostBreak(p.id);
-    const tag = b.plan ? pct(b.burnRate) : '편성 전';
-    return `<button class="v2-row" onclick="homeV2PickPjt('${escAttr(p.id)}')">
-        <span class="v2-row-t">${escHtml(p.name)}</span>
-        <em class="v2-row-tag${b.plan ? '' : ' pre'}">${escHtml(tag)}</em>
-        <i>›</i></button>`;
-  }).join('');
-
-  return `
-    <aside class="v2-rail">
-      <div class="v2-brand">
-        <button class="v2-lock" onclick="showMain()" aria-label="AiBudget 홈">
-          <span class="v2-wm">AXGENTIC<b>WIRE</b></span>
-          <span class="v2-sub">AiBudget</span>
-        </button>
-      </div>
-
-      <div class="v2-sec"><i>◳</i>${lead ? '팀 업무' : '내 업무'}</div>
-      <div class="v2-card">
-        ${workRows.map(function (r) {
-          return `<button class="v2-row" onclick="${r.a}">
-            <span class="v2-row-t">${escHtml(r.t)}</span>
-            <em class="v2-row-n${r.n ? ' on' : ''}">${r.n}</em>
-            <i>›</i></button>`;
-        }).join('')}
-      </div>
-
-      <div class="v2-sec"><i>▤</i>담당 프로젝트</div>
-      <div class="v2-card">${pjtRows || '<div class="v2-empty">담당 프로젝트가 없습니다.</div>'}</div>
-
-      <div class="v2-sec"><i>◷</i>최근 조회 목록</div>
-      <div class="v2-card"><div class="v2-empty">${homeV2RecentHtml()}</div></div>
-
-      <div class="v2-util">
-        <button onclick="openSetupGuide()"><span>▤</span>그라운드 룰<i>›</i></button>
-        <button onclick="openAiChat('navi')"><span>◈</span>AI 네비게이터<i>›</i></button>
-        <button onclick="toggleAgentGrid(this)"><span>◉</span>AI개발 Agent<i>›</i></button>
-      </div>
-
-      <button class="v2-me" onclick="homeV2SwitchUser()" title="사용자 전환">
-        <span class="v2-me-av">${escHtml(u.name.slice(0, 1))}</span>
-        <span class="v2-me-t"><b>${escHtml(u.name)}</b><em>${escHtml(u.role)} · NOVA PMO팀</em></span>
-        <i>›</i>
-      </button>
-    </aside>`;
-}
-
 // 최근 조회 — 실제로 열어본 PJT를 기억해서 보여준다
 let homeV2Recent = [];
 function homeV2RecentHtml() {
@@ -6157,39 +5622,6 @@ function homeV2PjtListHtml() {
 }
 
 // ── 좌측 레일 — 내 업무를 담당 프로젝트로 병합 ──
-function homeV2RailHtml() {
-  const u = homeUserNow();
-  const list = homeCardPjts();
-  const lead = homeUser === 'lead';
-  return `
-    <aside class="v2-rail">
-      <div class="v2-brand">
-        <button class="v2-lock" onclick="showMain()" aria-label="AiBudget 홈">
-          <span class="v2-wm">AXGENTIC<b>WIRE</b></span>
-          <span class="v2-sub">AiBudget</span>
-        </button>
-      </div>
-
-      <div class="v2-sec"><i>▤</i>${lead ? '팀 프로젝트' : '담당 프로젝트'}<em>${list.length}</em></div>
-      <div class="v2-card" id="v2-rail-body">${homeV2PjtListHtml()}</div>
-
-      <div class="v2-sec"><i>◷</i>최근 조회 목록</div>
-      <div class="v2-card"><div class="v2-empty" id="v2-recent">${homeV2RecentHtml()}</div></div>
-
-      <div class="v2-util">
-        <button onclick="openSetupGuide()"><span>▤</span>그라운드 룰<i>›</i></button>
-        <button onclick="openAiChat('navi')"><span>◈</span>AI 네비게이터<i>›</i></button>
-        <button onclick="toggleAgentGrid(this)"><span>◉</span>AI개발 Agent<i>›</i></button>
-      </div>
-
-      <button class="v2-me" onclick="homeV2SwitchUser()" title="사용자 전환">
-        <span class="v2-me-av">${escHtml(u.name.slice(0, 1))}</span>
-        <span class="v2-me-t"><b>${escHtml(u.name)}</b><em>${escHtml(u.role)} · NOVA PMO팀</em></span>
-        <i>›</i>
-      </button>
-    </aside>`;
-}
-
 // 프로젝트를 눌렀을 때도 레일에서만 처리한다 (중앙 블록이 없으므로 스크롤 이동도 없다)
 function homeV2GoBoard() {                        // crud N — 첫 프로젝트 업무 펼치기
   const first = homeCardPjts()[0];
@@ -6384,36 +5816,6 @@ function chatOpenPjtIssues(text) {
 })();
 
 // ── [2] 최근 조회 목록 제거 · [3] 역할별 라벨 ──
-function homeV2RailHtml() {
-  const u = homeUserNow();
-  const list = homeCardPjts();
-  const lead = homeUser === 'lead';
-  return `
-    <aside class="v2-rail">
-      <div class="v2-brand">
-        <button class="v2-lock" onclick="showMain()" aria-label="AiBudget 홈">
-          <span class="v2-wm">AXGENTIC<b>WIRE</b></span>
-          <span class="v2-sub">AiBudget</span>
-        </button>
-      </div>
-
-      <div class="v2-sec"><i>▤</i>${lead ? '팀 프로젝트' : '담당 프로젝트'}<em>${list.length}</em></div>
-      <div class="v2-card" id="v2-rail-body">${homeV2PjtListHtml()}</div>
-
-      <div class="v2-util">
-        <button onclick="openSetupGuide()"><span>▤</span>그라운드 룰<i>›</i></button>
-        <button onclick="openAiChat('navi')"><span>◈</span>AI 네비게이터<i>›</i></button>
-        <button onclick="toggleAgentGrid(this)"><span>◉</span>AI개발 Agent<i>›</i></button>
-      </div>
-
-      <button class="v2-me" onclick="homeV2SwitchUser()" title="사용자 전환">
-        <span class="v2-me-av">${escHtml(u.name.slice(0, 1))}</span>
-        <span class="v2-me-t"><b>${escHtml(u.name)}</b><em>${escHtml(u.role)} · NOVA PMO팀</em></span>
-        <i>›</i>
-      </button>
-    </aside>`;
-}
-
 function toggleHomeV2Pjt(id) {                    // crud N — 프로젝트 업무 펼치기/접기
   homeV2Open = (homeV2Open === id) ? '' : id;
   const el = document.getElementById('v2-rail-body');
@@ -6552,46 +5954,6 @@ else v2SyncBudgetMap();
 // ============================================================
 
 // ── [3] AI개발 Agent 중앙 모달 ──
-function openAgentModal() {                       // crud N — AI개발 Agent 목록 팝업 열기
-  let ov = document.getElementById('v2-agent-modal');
-  if (!ov) {
-    ov = document.createElement('div');
-    ov.id = 'v2-agent-modal';
-    ov.className = 'v2-modal';
-    ov.onclick = function (e) { if (e.target === ov) closeAgentModal(); };
-    document.body.appendChild(ov);
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeAgentModal();
-    });
-  }
-  const tiles = (typeof AGENT_APPS !== 'undefined' ? AGENT_APPS : []).map(function (a) {
-    return `<button class="v2-agent" onclick="window.open('${escAttr(a.url)}','_blank','noopener')"
-        title="${escAttr(a.name)} · ${escAttr(a.url)}">
-        <span class="v2-agent-ic">${a.icon || '◉'}</span>
-        <span class="v2-agent-n">${escHtml(a.name)}</span>
-        <span class="v2-agent-s">${escHtml(a.sub || '')}</span>
-        <span class="v2-agent-go">열기 →</span>
-      </button>`;
-  }).join('');
-  ov.innerHTML = `
-    <div class="v2-modal-box" role="dialog" aria-modal="true" aria-label="AI개발 Agent">
-      <div class="v2-modal-h">
-        <span class="v2-modal-ic">◉</span>
-        <b>AI개발 Agent</b>
-        <span>바이브코딩에 쓰는 사내 Agent — 새 창으로 열립니다</span>
-        <button class="v2-modal-x" onclick="closeAgentModal()" aria-label="닫기">✕</button>
-      </div>
-      <div class="v2-agent-grid">${tiles || '<div class="v2-empty">등록된 Agent가 없습니다.</div>'}</div>
-    </div>`;
-  // requestAnimationFrame 은 탭이 백그라운드면 멈춘다 → 그 사이에 열면 영원히 안 보인다.
-  // 트랜지션 시작 프레임만 필요하므로 짧은 타이머로 바꾼다.
-  setTimeout(function () { ov.classList.add('open'); }, 20);
-}
-function closeAgentModal() {                      // crud N — 팝업 닫기
-  const ov = document.getElementById('v2-agent-modal');
-  if (ov) ov.classList.remove('open');
-}
-
 // ── [2] 채팅 팝업 → 화면 전환 시 우측 레일로 접기 ──
 // function 선언으로 덮으면 호이스팅 때문에 app.js 정의를 못 잡는다 → 런타임 교체.
 var navGoBeforeV2 = (typeof navGo === 'function') ? navGo : null;
@@ -6666,42 +6028,10 @@ function homeV2PjtRowHtml(p) {
 }
 
 // 레일 유틸 — Agent 는 중앙 모달로
-function homeV2RailHtml() {
-  const u = homeUserNow();
-  const list = homeCardPjts();
-  const lead = homeUser === 'lead';
-  return `
-    <aside class="v2-rail">
-      <div class="v2-brand">
-        <button class="v2-lock" onclick="showMain()" aria-label="AiBudget 홈">
-          <span class="v2-wm">AXGENTIC<b>WIRE</b></span>
-          <span class="v2-sub">AiBudget</span>
-        </button>
-      </div>
-
-      <div class="v2-sec"><i>▤</i>${lead ? '팀 프로젝트' : '담당 프로젝트'}<em>${list.length}</em></div>
-      <div class="v2-card" id="v2-rail-body">${homeV2PjtListHtml()}</div>
-
-      <div class="v2-util">
-        <button onclick="openSetupGuide()"><span>▤</span>그라운드 룰<i>›</i></button>
-        <button onclick="openAiChat('navi')"><span>◈</span>AI 네비게이터<i>›</i></button>
-        <button onclick="openAgentModal()"><span>◉</span>AI개발 Agent<i>›</i></button>
-      </div>
-
-      <button class="v2-me" onclick="homeV2SwitchUser()" title="사용자 전환">
-        <span class="v2-me-av">${escHtml(u.name.slice(0, 1))}</span>
-        <span class="v2-me-t"><b>${escHtml(u.name)}</b><em>${escHtml(u.role)} · NOVA PMO팀</em></span>
-        <i>›</i>
-      </button>
-    </aside>`;
-}
-
 // ============================================================
 //  35차 — 레일 접기/펴기 + 브랜드 락업을 AiPMO 와 동일하게
 //
-//  [1] 브랜드 오른쪽 ◧ 버튼이 접기가 아니라 setHomeVer('v1') 이었다.
-//      레퍼런스의 그 자리는 사이드바 접기이므로 진짜 접기로 바꾼다.
-//      버전1 복귀는 우측 상단 "버전1" 탭이 이미 담당한다.
+//  [1] 브랜드 오른쪽 ◧ 버튼은 사이드바 접기로 쓴다(레퍼런스와 동일 위치).
 //      접힘은 .v2-wrap 의 클래스만 바꿔 CSS 로 전환한다(재렌더 없이 부드럽게).
 //
 //  [2] 브랜드 락업을 AiPMO·AiTeaming 과 같은 구성으로 맞춘다.
@@ -6793,31 +6123,6 @@ function v2BrandHtml() {
     </div>`;
 }
 
-function homeV2RailHtml() {
-  const u = homeUserNow();
-  const list = homeCardPjts();
-  const lead = homeUser === 'lead';
-  return `
-    <aside class="v2-rail">
-      ${v2BrandHtml()}
-
-      <div class="v2-sec"><i>▤</i>${lead ? '팀 프로젝트' : '담당 프로젝트'}<em>${list.length}</em></div>
-      <div class="v2-card" id="v2-rail-body">${homeV2PjtListHtml()}</div>
-
-      <div class="v2-util">
-        <button onclick="openSetupGuide()" title="그라운드 룰"><span>▤</span>그라운드 룰<i>›</i></button>
-        <button onclick="openAiChat('navi')" title="AI 네비게이터"><span>◈</span>AI 네비게이터<i>›</i></button>
-        <button onclick="openAgentModal()" title="AI개발 Agent"><span>◉</span>AI개발 Agent<i>›</i></button>
-      </div>
-
-      <button class="v2-me" onclick="homeV2SwitchUser()" title="사용자 전환 (${escAttr(u.name)} ${escAttr(u.role)})">
-        <span class="v2-me-av">${escHtml(u.name.slice(0, 1))}</span>
-        <span class="v2-me-t"><b>${escHtml(u.name)}</b><em>${escHtml(u.role)} · NOVA PMO팀</em></span>
-        <i>›</i>
-      </button>
-    </aside>`;
-}
-
 // 접힌 상태에서 프로젝트를 누르면 자동으로 펴서 보여준다
 function toggleHomeV2Pjt(id) {                    // crud N — 프로젝트 업무 펼치기/접기
   if (homeV2Rail === 'min') toggleV2Rail();
@@ -6903,26 +6208,6 @@ function v2MeHtml() {
       </span>
       <span class="v2-me-go" aria-hidden="true">›</span>
     </button>`;
-}
-
-function homeV2RailHtml() {
-  const list = homeCardPjts();
-  const lead = homeUser === 'lead';
-  return `
-    <aside class="v2-rail">
-      ${v2BrandHtml()}
-
-      <div class="v2-sec"><i>▤</i>${lead ? '팀 프로젝트' : '담당 프로젝트'}<em>${list.length}</em></div>
-      <div class="v2-card" id="v2-rail-body">${homeV2PjtListHtml()}</div>
-
-      <div class="v2-util">
-        <button onclick="openSetupGuide()" title="그라운드 룰"><span>▤</span>그라운드 룰<i>›</i></button>
-        <button onclick="openAiChat('navi')" title="AI 네비게이터"><span>◈</span>AI 네비게이터<i>›</i></button>
-        <button onclick="openAgentModal()" title="AI개발 Agent"><span>◉</span>AI개발 Agent<i>›</i></button>
-      </div>
-
-      ${v2MeHtml()}
-    </aside>`;
 }
 
 // ============================================================

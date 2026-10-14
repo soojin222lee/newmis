@@ -14,70 +14,11 @@
 <link rel="stylesheet" href="/css/home.css?v=20260827-merge2" />
 <link rel="stylesheet" href="/css/ai-agent.css?v=20260827-merge2" />
 <link rel="stylesheet" href="/css/si-project.css?v=20260819-ifredesign4" />
-<link rel="stylesheet" href="/css/insights.css?v=20260825-ovsub" />
 <link rel="stylesheet" href="/css/shell-v2.css?v=20261007-r2" />
 </head>
 <body>
 
 <div class="shell">
-  <!-- ── Top nav ── -->
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="tb-left">
-        <div class="tb-brand nav-group-btn" id="nav-main-brand" onclick="showMain()">
-          <span class="tb-brand-mark">SK</span>
-          <span class="tb-brand-sub">주식회사<br>AX</span>
-        </div>
-        <nav class="topnav">
-          <button class="nav-group-btn topnav-item" id="nav-main" onclick="showMain()">My Work</button>
-          <div class="topnav-drop">
-            <button class="nav-group-btn topnav-item" id="ngbtn-sub-ops">프로젝트 <span class="tb-caret">▾</span></button>
-            <div class="topnav-menu" id="sub-ops">
-              <button class="nav-sub-item" id="nav-si-project" onclick="showSIProject()">수주형 프로젝트</button>
-              <button class="nav-sub-item" id="nav-proposal-project" onclick="showProposalProject()">제안 프로젝트</button>
-              <button class="nav-sub-item" id="nav-wg-project" onclick="showWGProject()">W/G 프로젝트</button>
-              <button class="nav-sub-item" id="nav-internal-project" onclick="showInternalProject()">사내 프로젝트</button>
-              <button class="nav-sub-item" id="nav-investment-project" onclick="showInvestmentProject()">투자프로젝트</button>
-              <button class="nav-sub-item" id="nav-advance-project" onclick="showAdvanceProject()">선투입 프로젝트</button>
-            </div>
-          </div>
-          <div class="topnav-drop">
-            <button class="nav-group-btn topnav-item" id="nav-budget" onclick="showCostStatus()">수행원가 <span class="tb-caret">▾</span></button>
-            <div class="topnav-menu" id="sub-cost">
-              <button class="nav-sub-item" onclick="showCostStatus()">원가현황</button>
-              <button class="nav-sub-item" onclick="showCostAdjust()">원가조정</button>
-              <button class="nav-sub-item" onclick="showCostHistory()">변경 이력</button>
-            </div>
-          </div>
-          <div class="topnav-drop">
-            <button class="nav-group-btn topnav-item" id="ngbtn-sub-insight" onclick="showInsights('overview')">인사이트 <span class="tb-caret">▾</span></button>
-            <div class="topnav-menu" id="sub-insight">
-              <button class="nav-sub-item" onclick="showInsights('overview')">종합 현황</button>
-              <button class="nav-sub-item" id="nav-ai-report" onclick="showAiReport()">AI 레포트</button>
-              <button class="nav-sub-item" id="nav-custom-report" onclick="showCustomReport()">맞춤 레포트</button>
-            </div>
-          </div>
-        </nav>
-      </div>
-      <div class="tb-right">
-        <button class="tb-guide" onclick="toggleScreenDesc(this)" title="현재 화면 설명">
-          <span class="tb-guide-ic">📖</span>화면 설명
-        </button>
-        <button class="tb-guide" onclick="openSetupGuide()" title="팀 그라운드 룰 · 개발 셋업">
-          <span class="tb-guide-ic">📋</span>그라운드 룰
-        </button>
-        <button class="tb-guide tb-guide-icon tb-agents" onclick="toggleAgentGrid(this)" title="AI개발 Agent" aria-label="AI개발 Agent" aria-haspopup="true">
-          <span class="tb-guide-ic">🧑‍💻</span>
-        </button>
-        <div class="tb-user">
-          <div class="tb-user-name">이봄 님</div>
-          <div class="tb-user-role">PM</div>
-        </div>
-        <button class="tb-apps" onclick="openPurchaseReference()" title="구매시스템 참고 화면" aria-label="구매시스템 참고 화면">▦</button>
-      </div>
-    </div>
-  </header>
-
   <!-- ── Main ── -->
   <main class="main">
     <div class="content">
@@ -87,12 +28,12 @@
       <div class="screen" id="s-project-close"></div>
       <div class="screen" id="s-custom-report"></div>
       <div class="screen" id="s-ai-report"></div>
-      <div class="screen" id="s-insights"></div>
       <div class="screen" id="s-initiation"></div>
       <div class="screen" id="s-interim"></div>
       <div class="screen" id="s-closure"></div>
-      <div class="screen" id="s-monthly-close"></div>
       <div class="screen" id="s-system-desc"></div>
+      <div class="screen" id="s-project-status"></div>
+      <div class="screen" id="s-project-open"></div>
       <div class="screen" id="s-si-project"></div>
       <div class="screen" id="s-proposal-project"></div>
       <div class="screen" id="s-wg-project"></div>
@@ -341,11 +282,9 @@
 <script src="/js/budget-agent-console.js?v=20260904-agent111"></script>
 <script src="/js/project-close.js?v=20260814-fontbump"></script>
 <script src="/js/custom-report.js?v=20260825-crassist"></script>
-<script src="/js/insights.js?v=20260825-verrename"></script>
 <script src="/js/initiation-report.js?v=20260814-fontbump"></script>
 <script src="/js/interim-report.js?v=20260814-fontbump"></script>
 <script src="/js/closure-report.js?v=20260814-fontbump"></script>
-<script src="/js/monthly-close.js?v=20260814-fontbump"></script>
 <script src="/js/system-desc.js?v=20260814-fontbump"></script>
 <script src="/js/si-project.js?v=20260820-ppdash"></script>
 <script src="/js/proposal-project.js?v=20260820-ppdash"></script>
@@ -353,12 +292,17 @@
 <script src="/js/internal-project.js?v=20260814-fontbump"></script>
 <script src="/js/investment-project.js?v=20260814-fontbump"></script>
 <script src="/js/advance-project.js?v=20260814-fontbump"></script>
+<script src="/js/project-status.js?v=20261013-projrework"></script>
+<script src="/js/project-open.js?v=20261013-projrework"></script>
 <script src="/js/master-config.js?v=20260814-fontbump"></script>
 <script src="/js/checkpoint-extra.js?v=20260814-fontbump"></script>
 <script src="/js/screen-guide-chatbot.js?v=20260814-dev"></script>
 <script src="/js/screen-desc.js?v=20260918-desc"></script>
 <!-- 버전2 앱 셸(전 화면 공통) — 반드시 맨 마지막에 로드: dashboard.js 의 같은 이름 정의를 덮는다 -->
 <script src="/js/process-map.js?v=20261013-procmap"></script>
+<script src="/js/menu-panel.js?v=20261013-menu"></script>
 <script src="/js/shell-v2.js?v=20261007-r6"></script>
+<script src="/js/favorites.js?v=20261014-fav"></script>
+<script src="/js/app-tabs.js?v=20261014-tabs3"></script>
 </body>
 </html>
