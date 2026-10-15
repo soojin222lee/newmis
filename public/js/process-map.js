@@ -23,6 +23,7 @@ var PROCESS_MAP_PHASES = [
     ],
     tutorials: [
       { name: '인건비 계획 수립', file: 'tutorial-labor.html', dl: 'AiBudget-튜토리얼-인건비.html' },
+      { name: '외주비 계획(실투입)', file: 'tutorial-outsource.html', dl: 'AiBudget-튜토리얼-외주비.html' },
       { name: '실행예산 버전 관리', file: 'tutorial-version.html', dl: 'AiBudget-튜토리얼-실행예산버전.html' },
     ],
   },

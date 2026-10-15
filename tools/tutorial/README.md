@@ -15,6 +15,7 @@
 | `tutorial-config-wg.js` | WG·사내 개설(신청→기안·승인→등록) |
 | `tutorial-config-version.js` | 실행예산 버전 관리(확정 스냅샷·버전 업·저장/승인요청·과거월=실적/미래월=계획) |
 | `tutorial-config-close.js` | 프로젝트 종료(기간+30일 자동 배치 종료·조건) |
+| `tutorial-outsource.html` | **외주비(실투입)** — 자립형 시뮬레이션 튜토리얼(POP↔실행예산 2개 시스템, 시나리오 A~E). 실제 앱 인라인이 아니라 단독 HTML이므로 `build-tutorial.js` 대상이 아니며, 수정 시 `public/tutorials/tutorial-outsource.html` 로 복사한다. |
 | `build-tutorial.js` | 실제 목업(CSS+JS 전체) 인라인 + 엔진 + 설정 → 단독 HTML 생성 |
 | `build-all.sh` / `build-all.cmd` | 4종 전체 재생성 |
 
