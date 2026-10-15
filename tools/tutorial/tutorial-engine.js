@@ -35,10 +35,10 @@ window.TutovEngine = function (CONFIG) {
     #tutov-hud button:hover{background:#f3f6fb}
     body.tutov-on{padding-top:50px!important}
     body.tutov-dragging, body.tutov-dragging *{user-select:none!important;cursor:grabbing!important}
-    #tutov-mask{position:fixed;inset:0;z-index:99001;background:rgba(10,14,26,.56);display:none}
+    #tutov-mask{position:fixed;inset:0;z-index:99001;background:rgba(10,14,26,.34);display:none}
     #tutov-hole{position:fixed;z-index:99002;border-radius:10px;border:2.5px solid #2f6bed;background:transparent;cursor:pointer;display:none;
-      box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.56);animation:tutovP 1.6s ease-in-out infinite}
-    @keyframes tutovP{0%,100%{box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.56)}50%{box-shadow:0 0 0 9px rgba(47,107,237,.15),0 0 0 9999px rgba(10,14,26,.56)}}
+      box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.34);animation:tutovP 1.6s ease-in-out infinite}
+    @keyframes tutovP{0%,100%{box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.34)}50%{box-shadow:0 0 0 9px rgba(47,107,237,.15),0 0 0 9999px rgba(10,14,26,.34)}}
     #tutov-hole.shake{animation:tutovShake .4s}
     @keyframes tutovShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
     #tutov-hole .fg{position:absolute;right:-14px;bottom:-14px;font-size:24px;pointer-events:none;animation:tutovFg 1.3s ease-in-out infinite;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
@@ -148,8 +148,10 @@ window.TutovEngine = function (CONFIG) {
     function syncToTarget() {
       if (curTgt && $('tutov-hole').style.display === 'block') {
         const r = curTgt.getBoundingClientRect();
-        const key = [r.left, r.top, r.width, r.height, innerWidth, innerHeight, bubMoved ? 1 : 0].join(',');
-        if (key !== lastKey) { lastKey = key; drawHole(r); if (!bubMoved) posBub($('tutov-bubble'), r, curPos); }
+        if (r.width || r.height) {   // 제거된 요소(0×0)면 그리지 않음 → 전환 잔상 방지
+          const key = [r.left, r.top, r.width, r.height, innerWidth, innerHeight, bubMoved ? 1 : 0].join(',');
+          if (key !== lastKey) { lastKey = key; drawHole(r); if (!bubMoved) posBub($('tutov-bubble'), r, curPos); }
+        }
       } else { lastKey = ''; }
       requestAnimationFrame(syncToTarget);
     }
@@ -170,7 +172,7 @@ window.TutovEngine = function (CONFIG) {
       else { a.style.top = '-8px'; a.style.left = cl(r.left + r.width / 2 - l - 7, 14, bw - 24) + 'px'; a.style.borderRight = 'none'; a.style.borderBottom = 'none'; }
     }
 
-    function render() { const s = STEPS[step]; if (s && s.ensure) s.ensure(); setTimeout(place, (s && s.wait) || 240); }
+    function render() { const s = STEPS[step]; curTgt = null; $('tutov-hole').style.display = 'none'; $('tutov-bubble').style.display = 'none'; if (s && s.ensure) s.ensure(); setTimeout(place, (s && s.wait) || 240); }
     function next() { if (step < STEPS.length - 1) { step++; render(); } else done(); }
 
     function done() {

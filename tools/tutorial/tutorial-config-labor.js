@@ -15,11 +15,18 @@
   const tabs = () => document.querySelector('.aglb-tabs');
   const table = () => document.querySelector('.aglb-wrap');
   const otBtn = () => [...document.querySelectorAll('button')].find(b => (b.getAttribute('onclick') || '').indexOf("agentLabEditOpenFinal('ot'") > -1);
+  const chips = () => document.querySelector('.agga-chips');
+  const laborChip = () => [...document.querySelectorAll('[onclick*="인건비 상세 보여줘"]')][0];
 
   TutovEngine({
     ready: () => typeof window.agentAiSheetOpenFinal === 'function' && typeof window.agentLabKindSetFinal === 'function',
     hud: '실행예산 <em>인건비</em> · 계획 수립 가이드',
     steps: [
+      { ensure: () => { if (!document.querySelector('.agga-chips')) location.hash = '#/budget-adjust/labor?pj=budgetMock'; }, wait: 900,
+        target: () => chips(), pos: 'top', title: '원가조정은 Agent로',
+        text: '원가조정은 <b>Agent</b>에 자연어로 요청하면 <b>입력 내용에 따라 분기</b>합니다. (예: “외주비 3천만원 늘려줘”, “경비 300만원 줄여줘”, “인건비 상세 보여줘”)', mode: 'next' },
+      { target: () => laborChip() || chips(), pos: 'bottom', title: '“인건비 상세 보여줘” 분기',
+        text: '인건비를 다루려면 <b>“인건비 상세 보여줘”</b>처럼 요청합니다. 이어서 인건비 상세(실투입·이관·OT)로 들어가 볼게요.', mode: 'next' },
       { ensure: () => ensureSheet('direct'), wait: 1000,
         target: () => tabs(), pos: 'bottom', title: '인건비는 상세 3종',
         text: '인건비는 <b>① 실투입 · ② 이관 · ③ OT</b> 세 가지로 나뉩니다. 하나씩 살펴볼게요.', mode: 'next' },

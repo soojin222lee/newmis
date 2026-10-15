@@ -60898,6 +60898,8 @@ var PROCESS_MAP_PHASES = [
       { label: '실행예산 승인(상신)', nav: 'showCostAdjust', desc: 'CP총액 검증 후 결재 상신' },
     ],
     tutorials: [
+      { name: '인건비 계획 수립', file: 'tutorial-labor.html', dl: 'AiBudget-튜토리얼-인건비.html' },
+      { name: '외주비 계획(실투입)', file: 'tutorial-outsource.html', dl: 'AiBudget-튜토리얼-외주비.html' },
       { name: '실행예산 버전 관리', file: 'tutorial-version.html', dl: 'AiBudget-튜토리얼-실행예산버전.html' },
     ],
   },
@@ -62650,10 +62652,10 @@ window.TutovEngine = function (CONFIG) {
     #tutov-hud button:hover{background:#f3f6fb}
     body.tutov-on{padding-top:50px!important}
     body.tutov-dragging, body.tutov-dragging *{user-select:none!important;cursor:grabbing!important}
-    #tutov-mask{position:fixed;inset:0;z-index:99001;background:rgba(10,14,26,.56);display:none}
+    #tutov-mask{position:fixed;inset:0;z-index:99001;background:rgba(10,14,26,.34);display:none}
     #tutov-hole{position:fixed;z-index:99002;border-radius:10px;border:2.5px solid #2f6bed;background:transparent;cursor:pointer;display:none;
-      box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.56);animation:tutovP 1.6s ease-in-out infinite}
-    @keyframes tutovP{0%,100%{box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.56)}50%{box-shadow:0 0 0 9px rgba(47,107,237,.15),0 0 0 9999px rgba(10,14,26,.56)}}
+      box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.34);animation:tutovP 1.6s ease-in-out infinite}
+    @keyframes tutovP{0%,100%{box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.34)}50%{box-shadow:0 0 0 9px rgba(47,107,237,.15),0 0 0 9999px rgba(10,14,26,.34)}}
     #tutov-hole.shake{animation:tutovShake .4s}
     @keyframes tutovShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
     #tutov-hole .fg{position:absolute;right:-14px;bottom:-14px;font-size:24px;pointer-events:none;animation:tutovFg 1.3s ease-in-out infinite;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
@@ -62763,8 +62765,10 @@ window.TutovEngine = function (CONFIG) {
     function syncToTarget() {
       if (curTgt && $('tutov-hole').style.display === 'block') {
         const r = curTgt.getBoundingClientRect();
-        const key = [r.left, r.top, r.width, r.height, innerWidth, innerHeight, bubMoved ? 1 : 0].join(',');
-        if (key !== lastKey) { lastKey = key; drawHole(r); if (!bubMoved) posBub($('tutov-bubble'), r, curPos); }
+        if (r.width || r.height) {   // 제거된 요소(0×0)면 그리지 않음 → 전환 잔상 방지
+          const key = [r.left, r.top, r.width, r.height, innerWidth, innerHeight, bubMoved ? 1 : 0].join(',');
+          if (key !== lastKey) { lastKey = key; drawHole(r); if (!bubMoved) posBub($('tutov-bubble'), r, curPos); }
+        }
       } else { lastKey = ''; }
       requestAnimationFrame(syncToTarget);
     }
@@ -62785,7 +62789,7 @@ window.TutovEngine = function (CONFIG) {
       else { a.style.top = '-8px'; a.style.left = cl(r.left + r.width / 2 - l - 7, 14, bw - 24) + 'px'; a.style.borderRight = 'none'; a.style.borderBottom = 'none'; }
     }
 
-    function render() { const s = STEPS[step]; if (s && s.ensure) s.ensure(); setTimeout(place, (s && s.wait) || 240); }
+    function render() { const s = STEPS[step]; curTgt = null; $('tutov-hole').style.display = 'none'; $('tutov-bubble').style.display = 'none'; if (s && s.ensure) s.ensure(); setTimeout(place, (s && s.wait) || 240); }
     function next() { if (step < STEPS.length - 1) { step++; render(); } else done(); }
 
     function done() {
@@ -62861,11 +62865,18 @@ window.TutovEngine = function (CONFIG) {
   const tabs = () => document.querySelector('.aglb-tabs');
   const table = () => document.querySelector('.aglb-wrap');
   const otBtn = () => [...document.querySelectorAll('button')].find(b => (b.getAttribute('onclick') || '').indexOf("agentLabEditOpenFinal('ot'") > -1);
+  const chips = () => document.querySelector('.agga-chips');
+  const laborChip = () => [...document.querySelectorAll('[onclick*="인건비 상세 보여줘"]')][0];
 
   TutovEngine({
     ready: () => typeof window.agentAiSheetOpenFinal === 'function' && typeof window.agentLabKindSetFinal === 'function',
     hud: '실행예산 <em>인건비</em> · 계획 수립 가이드',
     steps: [
+      { ensure: () => { if (!document.querySelector('.agga-chips')) location.hash = '#/budget-adjust/labor?pj=budgetMock'; }, wait: 900,
+        target: () => chips(), pos: 'top', title: '원가조정은 Agent로',
+        text: '원가조정은 <b>Agent</b>에 자연어로 요청하면 <b>입력 내용에 따라 분기</b>합니다. (예: “외주비 3천만원 늘려줘”, “경비 300만원 줄여줘”, “인건비 상세 보여줘”)', mode: 'next' },
+      { target: () => laborChip() || chips(), pos: 'bottom', title: '“인건비 상세 보여줘” 분기',
+        text: '인건비를 다루려면 <b>“인건비 상세 보여줘”</b>처럼 요청합니다. 이어서 인건비 상세(실투입·이관·OT)로 들어가 볼게요.', mode: 'next' },
       { ensure: () => ensureSheet('direct'), wait: 1000,
         target: () => tabs(), pos: 'bottom', title: '인건비는 상세 3종',
         text: '인건비는 <b>① 실투입 · ② 이관 · ③ OT</b> 세 가지로 나뉩니다. 하나씩 살펴볼게요.', mode: 'next' },

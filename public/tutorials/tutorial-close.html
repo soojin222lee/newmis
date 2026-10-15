@@ -60898,6 +60898,8 @@ var PROCESS_MAP_PHASES = [
       { label: '실행예산 승인(상신)', nav: 'showCostAdjust', desc: 'CP총액 검증 후 결재 상신' },
     ],
     tutorials: [
+      { name: '인건비 계획 수립', file: 'tutorial-labor.html', dl: 'AiBudget-튜토리얼-인건비.html' },
+      { name: '외주비 계획(실투입)', file: 'tutorial-outsource.html', dl: 'AiBudget-튜토리얼-외주비.html' },
       { name: '실행예산 버전 관리', file: 'tutorial-version.html', dl: 'AiBudget-튜토리얼-실행예산버전.html' },
     ],
   },
@@ -60906,7 +60908,10 @@ var PROCESS_MAP_PHASES = [
     nodes: [
       { label: '실적 현황', nav: 'showCostStatus', desc: '실투입·검수 실적 집행 현황' },
       { label: '변경 이력', nav: 'showCostHistory', desc: '버전별 변경 이력' },
-      { label: '프로젝트 종료', nav: 'showProjectClose', desc: '종료 선언·사후점검' },
+      { label: '프로젝트 종료', nav: 'showProjectClose', desc: '기간+30일 자동 배치 종료·사후점검' },
+    ],
+    tutorials: [
+      { name: '프로젝트 종료 (자동 종료)', file: 'tutorial-close.html', dl: 'AiBudget-튜토리얼-프로젝트종료.html' },
     ],
   },
 ];
@@ -62647,10 +62652,10 @@ window.TutovEngine = function (CONFIG) {
     #tutov-hud button:hover{background:#f3f6fb}
     body.tutov-on{padding-top:50px!important}
     body.tutov-dragging, body.tutov-dragging *{user-select:none!important;cursor:grabbing!important}
-    #tutov-mask{position:fixed;inset:0;z-index:99001;background:rgba(10,14,26,.56);display:none}
+    #tutov-mask{position:fixed;inset:0;z-index:99001;background:rgba(10,14,26,.34);display:none}
     #tutov-hole{position:fixed;z-index:99002;border-radius:10px;border:2.5px solid #2f6bed;background:transparent;cursor:pointer;display:none;
-      box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.56);animation:tutovP 1.6s ease-in-out infinite}
-    @keyframes tutovP{0%,100%{box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.56)}50%{box-shadow:0 0 0 9px rgba(47,107,237,.15),0 0 0 9999px rgba(10,14,26,.56)}}
+      box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.34);animation:tutovP 1.6s ease-in-out infinite}
+    @keyframes tutovP{0%,100%{box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.34)}50%{box-shadow:0 0 0 9px rgba(47,107,237,.15),0 0 0 9999px rgba(10,14,26,.34)}}
     #tutov-hole.shake{animation:tutovShake .4s}
     @keyframes tutovShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
     #tutov-hole .fg{position:absolute;right:-14px;bottom:-14px;font-size:24px;pointer-events:none;animation:tutovFg 1.3s ease-in-out infinite;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
@@ -62760,8 +62765,10 @@ window.TutovEngine = function (CONFIG) {
     function syncToTarget() {
       if (curTgt && $('tutov-hole').style.display === 'block') {
         const r = curTgt.getBoundingClientRect();
-        const key = [r.left, r.top, r.width, r.height, innerWidth, innerHeight, bubMoved ? 1 : 0].join(',');
-        if (key !== lastKey) { lastKey = key; drawHole(r); if (!bubMoved) posBub($('tutov-bubble'), r, curPos); }
+        if (r.width || r.height) {   // 제거된 요소(0×0)면 그리지 않음 → 전환 잔상 방지
+          const key = [r.left, r.top, r.width, r.height, innerWidth, innerHeight, bubMoved ? 1 : 0].join(',');
+          if (key !== lastKey) { lastKey = key; drawHole(r); if (!bubMoved) posBub($('tutov-bubble'), r, curPos); }
+        }
       } else { lastKey = ''; }
       requestAnimationFrame(syncToTarget);
     }
@@ -62782,7 +62789,7 @@ window.TutovEngine = function (CONFIG) {
       else { a.style.top = '-8px'; a.style.left = cl(r.left + r.width / 2 - l - 7, 14, bw - 24) + 'px'; a.style.borderRight = 'none'; a.style.borderBottom = 'none'; }
     }
 
-    function render() { const s = STEPS[step]; if (s && s.ensure) s.ensure(); setTimeout(place, (s && s.wait) || 240); }
+    function render() { const s = STEPS[step]; curTgt = null; $('tutov-hole').style.display = 'none'; $('tutov-bubble').style.display = 'none'; if (s && s.ensure) s.ensure(); setTimeout(place, (s && s.wait) || 240); }
     function next() { if (step < STEPS.length - 1) { step++; render(); } else done(); }
 
     function done() {
@@ -62851,7 +62858,11 @@ window.TutovEngine = function (CONFIG) {
     ready: () => typeof window.showProjectClose === 'function',
     hud: '프로젝트 <em>종료</em> · 자동 종료 가이드',
     steps: [
-      { ensure: () => showProjectClose(), wait: 340,
+      { ensure: () => { var _m = document.querySelector('.ai-chat-modal'); if (typeof openAiChat === 'function' && (!_m || _m.getBoundingClientRect().width < 50)) openAiChat('navi'); }, wait: 600,
+        target: () => document.querySelector('[onclick*="askExample"]') || document.querySelector('.ai-chat-modal'),
+        pos: 'bottom', title: 'AI 네비게이터로 분기',
+        text: '<b>AI 네비게이터</b>에 자연어로 물으면 입력 내용에 따라 원하는 화면으로 <b>분기·안내</b>합니다. (예: “프로젝트 종료 어디서 해?” → 프로젝트 종료)', mode: 'next' },
+      { ensure: () => { if (typeof closeAiChat === 'function') closeAiChat(); if (!document.querySelector('#s-project-close tbody tr')) showProjectClose(); }, wait: 340,
         target: () => closeRow() && closeRow().children[3], pos: 'bottom', title: '종료 대상 조회',
         text: '프로젝트 기간이 끝나면 <b>종료 대상</b>이 됩니다. 상태가 <b>종료준비</b>인 건을 눌러 상세를 확인합니다.', mode: 'realclick' },
       { ensure: () => openProjectCloseDetail('credit'), wait: 420,

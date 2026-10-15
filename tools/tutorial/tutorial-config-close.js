@@ -8,7 +8,11 @@
     ready: () => typeof window.showProjectClose === 'function',
     hud: '프로젝트 <em>종료</em> · 자동 종료 가이드',
     steps: [
-      { ensure: () => showProjectClose(), wait: 340,
+      { ensure: () => { var _m = document.querySelector('.ai-chat-modal'); if (typeof openAiChat === 'function' && (!_m || _m.getBoundingClientRect().width < 50)) openAiChat('navi'); }, wait: 600,
+        target: () => document.querySelector('[onclick*="askExample"]') || document.querySelector('.ai-chat-modal'),
+        pos: 'bottom', title: 'AI 네비게이터로 분기',
+        text: '<b>AI 네비게이터</b>에 자연어로 물으면 입력 내용에 따라 원하는 화면으로 <b>분기·안내</b>합니다. (예: “프로젝트 종료 어디서 해?” → 프로젝트 종료)', mode: 'next' },
+      { ensure: () => { if (typeof closeAiChat === 'function') closeAiChat(); if (!document.querySelector('#s-project-close tbody tr')) showProjectClose(); }, wait: 340,
         target: () => closeRow() && closeRow().children[3], pos: 'bottom', title: '종료 대상 조회',
         text: '프로젝트 기간이 끝나면 <b>종료 대상</b>이 됩니다. 상태가 <b>종료준비</b>인 건을 눌러 상세를 확인합니다.', mode: 'realclick' },
       { ensure: () => openProjectCloseDetail('credit'), wait: 420,
