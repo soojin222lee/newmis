@@ -10,6 +10,7 @@
 | 파일 | 역할 |
 |---|---|
 | `tutorial-engine.js` | 공용 엔진 — 스포트라이트, 말풍선(드래그 이동), 배경 스크롤 잠금(고정), 진행바/이전/다시 시작, 인트로·완료 카드, 잘못 클릭 안내 |
+| `tutorial-config-labor.js` | 인건비 계획 수립(SCM 인력·MM·P등급·이관·OT·소급 제약) |
 | `tutorial-config-si.js` | 수주형 프로젝트 등록 |
 | `tutorial-config-wg.js` | WG·사내 개설(신청→기안·승인→등록) |
 | `tutorial-config-version.js` | 실행예산 버전 관리(확정 스냅샷·버전 업·저장/승인요청·과거월=실적/미래월=계획) |
