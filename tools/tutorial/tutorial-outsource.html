@@ -163,6 +163,8 @@ table.t.pop thead th{background:var(--pop-soft);color:var(--pop-deep)} table.t.p
 .tl-n.esv{background:var(--esv-soft);border-color:#bcd3f7} .tl-n.esv b{color:#16151f} .tl-n.esv span{color:var(--esv-deep)}
 .tl-n.big{outline:2px solid var(--esv);outline-offset:-1px}
 .tl-ar{align-self:center;color:#c3cbd6;font-weight:900;font-size:15px;flex:0 0 auto}
+.tl-eq{align-self:center;text-align:center;color:var(--esv-deep);font-weight:900;font-size:17px;flex:0 0 auto;padding:0 2px}
+.tl-eq i{display:block;font-style:normal;font-size:9.5px;font-weight:800;color:#8a94a6;line-height:1.25;margin-top:1px}
 .tl-note{font-size:12.5px;line-height:1.6;color:#55606f;background:#f7f9fc;border:1px solid #e4e2da;border-radius:10px;padding:10px 13px;margin-top:10px}
 .tl-note b{color:#16151f}
 /* Agent 콘솔 */
@@ -522,7 +524,7 @@ const SCEN = {
     { render:()=>scrPlanDetail(plan('P1')), spot:'.amt-bar', pos:'bottom', title:'총금액 = 실투입 생성 + 잔여', text:'<b>실투입 전표는 구매(ERP)에서 생성</b>됩니다. 실행예산은 그 데이터를 받아 <b>잔여를 계산</b>만 해요. 지금은 실투입 4천만·잔여 6천만. 구매에서 09월 전표를 만들어볼게요.' },
     { render:()=>scrErpVoucher(plan('P1'),'2026-09'), spot:'#a-genVoucher', pos:'left', title:'구매/ERP에서 전표 생성', text:'이 화면은 <b>구매/ERP(빨강)</b> 영역입니다. 09월 <b>실투입 전표</b>를 생성하면 전표번호가 발번돼요. (실행예산이 만드는 게 아닙니다)', sysToast:'실행예산 → 구매·ERP',
       act:()=>{ const p=plan('P1'); const m=p.months.find(x=>x.m==='2026-09'); m.used=m.plan; p.used+=m.plan; p.vouchers.push({m:'2026-09',amt:m.plan,no:'880012303'}); } },
-    { render:()=>scrPlanDetail(plan('P1')), spot:'#bar-used', pos:'bottom', title:'실행예산 = 돈 계산만', text:'ERP로 전표 데이터가 넘어오자, 실행예산은 <b>받은 금액만큼 실투입 생성↑·잔여↓</b>를 계산해 보여줍니다(막대·이력 반영). 실행예산이 전표를 만들지는 않아요.', sysToast:'구매·ERP → 실행예산' },
+    { render:()=>scrPlanDetail(plan('P1')), spot:'#bar-used', pos:'bottom', title:'실행예산 = 실시간 잔여 계산', text:'구매/ERP가 실투입 전표를 <b>계속 보내오고</b>, 실행예산은 <b>받은 만큼 실시간으로</b> 실투입 생성↑·잔여↓를 계산합니다(막대·이력 반영). 정해진 순서가 아니라 <b>데이터가 올 때마다</b> 갱신돼요. 실행예산이 전표를 만들지는 않습니다.', sysToast:'구매·ERP → 실행예산' },
     { render:null, keep:true, spot:'#a-applyTotal', pos:'top', title:'실적 이하로 수정 시도', text:'총 계획금액을 <b>3천만</b>으로 낮춰봤습니다(입력됨). 실투입 생성(6천만)보다 낮으므로 <b class="lock">제한</b>돼요. <b>[계획금액 변경]</b>을 누르세요.',
       enter:()=>{ const i=document.getElementById('in-total'); if(i) i.value='30000000'; },
       act:()=>{ const msg=document.getElementById('total-msg'); if(msg){ msg.style.color='#b42318'; msg.textContent='✕ 실투입 생성금액(60,000,000원) 미만으로는 낮출 수 없습니다.'; } } },
@@ -648,16 +650,16 @@ function openScenarios(){
   setSys('esv',''); sim().innerHTML='';
   const items=SC_ORDER.map(k=>{ const sc=SCEN[k]; return '<button class="sc-item" onclick="runScenario(\''+k+'\')"><span class="sc-no">'+k+'</span><span><span class="sc-tt">'+sc.name+'</span><span class="sc-ds">'+sc.desc+'</span></span>'+(done[k]?'<span class="sc-done">✓</span>':'')+'</button>'; }).join('');
   const c=$('center'); c.style.display='flex';
-  const timeline='<div class="tl-title">외주비 — 시점 한눈에 보기 <em>(여기서 헷갈려요)</em></div>'
+  const timeline='<div class="tl-title">외주비 — 시점 한눈에 보기 <em>(순서보다 ‘항목 일치’가 핵심)</em></div>'
     +'<div class="tl">'
-    +'<div class="tl-n pop"><b>① 견적 요청</b><span>POP</span></div><div class="tl-ar">→</div>'
-    +'<div class="tl-n pop"><b>② 견적 작성·도착</b><span>POP</span></div><div class="tl-ar">→</div>'
-    +'<div class="tl-n esv big"><b>③ 실행예산 수립</b><span>불러오기/직접입력</span></div><div class="tl-ar">→</div>'
-    +'<div class="tl-n pop"><b>④ 구매요청·PO</b><span>POP</span></div><div class="tl-ar">→</div>'
-    +'<div class="tl-n pop"><b>⑤ 실투입 전표</b><span>구매/ERP</span></div><div class="tl-ar">→</div>'
-    +'<div class="tl-n esv"><b>⑥ 잔여 계산</b><span>예산관리</span></div>'
+    +'<div class="tl-n pop"><b>① 견적 작성</b><span>POP · 또는 구두합의 입력</span></div>'
+    +'<div class="tl-eq">⇄<i>동일 항목<br>순서 무관</i></div>'
+    +'<div class="tl-n esv big"><b>② 실행예산 수립</b><span>견적과 동일 데이터</span></div><div class="tl-ar">→</div>'
+    +'<div class="tl-n pop"><b>③ 구매요청·PO</b><span>POP</span></div><div class="tl-ar">→</div>'
+    +'<div class="tl-n pop"><b>④ 실투입 전표</b><span>구매/ERP · 계속 수신 ↻</span></div><div class="tl-ar">→</div>'
+    +'<div class="tl-n esv"><b>실시간 잔여 관리</b><span>예산관리 · 상시</span></div>'
     +'</div>'
-    +'<div class="tl-note">💡 <b>실행예산 수립(③)</b>은 견적이 <b>도착한 뒤</b> 합니다. 견적이 없으면 ③에서 <b>직접 입력</b>으로 수립하고, 이후 ④에서 POP 구매요청·PO를 진행해요. 실적(⑤)은 <b style="color:var(--pop-deep)">구매/ERP</b>가 만들고, 예산관리는 <b style="color:var(--esv-deep)">⑥ 잔여만 계산</b>합니다.</div>';
+    +'<div class="tl-note">💡 <b>핵심은 순서가 아니라 ‘항목 일치’</b> — POP 견적과 실행예산의 <b>견적 항목이 똑같아야</b> 합니다. 실행예산 수립(②)은 견적 작성(①)과 <b>동시에</b> 하거나 <b>먼저</b> 할 수도 있어요(견적이 시스템에 없어도 업체와 <b>구두 합의</b>한 내용이면 <b>수기 수립</b> 가능 — 이후 POP 입력→연계). 잔여는 <b style="color:var(--pop-deep)">실투입 전표를 계속 받아</b> <b style="color:var(--esv-deep)">실시간</b>으로 계산됩니다(정해진 순서가 아님).</div>';
   c.innerHTML='<div class="card2" style="max-width:860px"><div class="eb">실행예산 · 외주비(실투입)</div><h2>외주비 계획 — 시나리오 선택</h2>'
     +'<p><b style="color:var(--pop-deep)">🔴 구매시스템(POP·ERP) = 빨강</b> · <b style="color:var(--esv-deep)">🔵 실행예산(예산관리) = 파랑</b>. 두 시스템을 오가지만, <b>예산관리의 프로세스·로직</b>에 집중하세요.</p>'
     +timeline
