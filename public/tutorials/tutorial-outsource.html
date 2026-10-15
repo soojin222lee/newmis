@@ -12,7 +12,7 @@
 :root{
   --sk-ink:#17161f; --sk-page:#f2f2ee; --sk-border:#e7eaef; --sk-border-strong:#d3d9e2; --sk-head:#eef2f7;
   --esv:#2f6bed; --esv-deep:#1746a0; --esv-soft:#eaf1fd;
-  --pop:#7c3aed; --pop-deep:#5b21b6; --pop-soft:#f3edff;
+  --pop:#ea002c; --pop-deep:#b80022; --pop-soft:#fdecec;  /* 구매시스템(POP/ERP) = 빨강 */
   --green:#22b07d; --amber:#b4740a; --red:#ea002c;
   --font:'Pretendard','Noto Sans KR',-apple-system,system-ui,sans-serif; --mono:ui-monospace,Menlo,monospace;
   color-scheme:light;
@@ -37,7 +37,7 @@ body{font-family:var(--font);background:var(--sk-page);color:#1c2432;-webkit-fon
 .scr-title{font-size:22px;font-weight:900;color:#16151f;margin:0 0 3px}
 .scr-sub{font-size:13px;color:#8a94a6;font-weight:600;margin:0 0 18px}
 .card{background:#fff;border:1px solid #e4e2da;border-radius:12px;padding:16px 18px;margin-bottom:14px}
-.card.pop{border-color:#d9c9f5;background:#fdfcff}
+.card.pop{border-color:#f3c7c5;background:#fffafa}
 .sec{font-size:12px;font-weight:900;color:#55606f;margin:0 0 10px;letter-spacing:.2px}
 
 .btn{height:38px;padding:0 16px;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;
@@ -87,7 +87,7 @@ table.t.pop thead th{background:var(--pop-soft);color:var(--pop-deep)} table.t.p
 
 .banner{border-radius:12px;padding:13px 16px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:9px;margin-bottom:14px}
 .banner.ok{background:#eef7f1;border:1px solid #bbe7cc;color:#166534}
-.banner.pop{background:var(--pop-soft);border:1px solid #d9c9f5;color:var(--pop-deep)}
+.banner.pop{background:var(--pop-soft);border:1px solid #f3c7c5;color:var(--pop-deep)}
 .banner.warn{background:#fdecec;border:1px solid #f5c2c0;color:#b42318}
 
 /* 시스템 전환 토스트 */
@@ -208,11 +208,11 @@ const quote = no => S.quotes.find(q => q.no === no);
 const plan = id => S.plans.find(p => p.id === id);
 
 /* ---------- 시스템 바 ---------- */
-function setSys(sys, flow) {
+function setSys(sys, flow, name) {
   const bar = document.getElementById('sysbar');
   bar.className = sys;
-  if (sys === 'pop') { document.getElementById('sys-name').textContent = 'POP 구매시스템'; document.getElementById('sys-tag').textContent = '구매 시스템 (외부 연계)'; document.querySelector('#sysbar .ic').textContent = '🛒'; }
-  else { document.getElementById('sys-name').textContent = '실행예산 · New MIS'; document.getElementById('sys-tag').textContent = '실행예산 시스템'; document.querySelector('#sysbar .ic').textContent = '📊'; }
+  if (sys === 'pop') { document.getElementById('sys-name').textContent = name || 'POP 구매시스템'; document.getElementById('sys-tag').textContent = '구매 시스템 (외부 연계 · 빨강)'; document.querySelector('#sysbar .ic').textContent = '🛒'; }
+  else { document.getElementById('sys-name').textContent = '실행예산 · New MIS'; document.getElementById('sys-tag').textContent = '실행예산 시스템 (파랑)'; document.querySelector('#sysbar .ic').textContent = '📊'; }
   document.getElementById('sys-flow').textContent = flow || '';
 }
 function switchToast(txt) {
@@ -361,10 +361,9 @@ function scrPlanDetail(p) {
   const rem = p.total - p.used;
   const upct = Math.round(p.used / p.total * 100), rpct = 100 - upct;
   const mrows = p.months.map(m => {
-    const can = m.used === 0;
     return `<tr><td>${m.m}</td><td class="num">${won(m.plan)}</td><td class="num">${m.mm.toFixed(1)}MM</td>
       <td class="num">${m.used ? won(m.used) : '<span style="color:#aab2c0">-</span>'}</td>
-      <td>${m.used ? '<span class="badge b-ok">생성완료</span>' : `<button class="btn sm esv" data-gen="${m.m}">전표 생성</button>`}</td></tr>`;
+      <td>${m.used ? '<span class="badge b-ok">생성완료</span>' : '<span class="badge b-none">구매 생성 대기</span>'}</td></tr>`;
   }).join('');
   const vh = p.vouchers.map(v => `<tr><td>${v.m}</td><td class="num">${won(v.amt)}</td><td class="mono">${v.no}</td></tr>`).join('');
   sim().innerHTML = `<div class="wrap">
@@ -378,8 +377,8 @@ function scrPlanDetail(p) {
         <span><span class="d" style="background:#cbd7ec"></span>잔여금액 <b id="v-rem">${won(rem)}</b></span>
       </div>
     </div>
-    <div class="card"><div class="sec">월별 계획 · 실투입 전표 생성</div>
-      <table class="t"><thead><tr><th>월</th><th class="num">계획금액</th><th class="num">계획 MM</th><th class="num">실투입 생성</th><th>전표</th></tr></thead><tbody>${mrows}</tbody></table>
+    <div class="card"><div class="sec">월별 계획 · 실투입 실적(구매/ERP 수신)</div>
+      <table class="t"><thead><tr><th>월</th><th class="num">계획금액</th><th class="num">계획 MM</th><th class="num">실투입 생성</th><th>전표(구매/ERP)</th></tr></thead><tbody>${mrows}</tbody></table>
     </div>
     <div class="card"><div class="sec">실투입 전표 생성 이력</div>
       <table class="t"><thead><tr><th>검수/대상월</th><th class="num">생성금액</th><th>실투입 전표번호</th></tr></thead><tbody id="vh">${vh}</tbody></table>
@@ -390,6 +389,21 @@ function scrPlanDetail(p) {
         <button class="btn" id="a-applyTotal">계획금액 변경</button>
         <span id="total-msg" style="font-size:12.5px;font-weight:700;color:#8a94a6"></span>
       </div>
+    </div>
+  </div>`;
+}
+
+function scrErpVoucher(p, month) {
+  setSys('pop', '실투입 전표 생성 (구매/ERP 영역)', '구매 · ERP');
+  const m = p.months.find(x => x.m === month);
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">구매 · ERP — 실투입 전표 생성</h1>
+    <p class="scr-sub">실투입(실적)은 구매/ERP 영역에서 전표로 생성됩니다. 실행예산은 이 데이터를 받아 잔여를 계산만 합니다.</p>
+    <div class="banner pop">🛒 이 화면은 <b>구매 / ERP 시스템(빨강)</b>입니다 — 실행예산이 아닙니다.</div>
+    <div class="card pop"><div class="sec">실투입 전표 생성 대상</div>
+      <table class="t pop"><thead><tr><th>프로젝트</th><th>대상 월</th><th class="num">생성 예정 금액</th></tr></thead>
+      <tbody><tr><td class="mono">30131234-D001</td><td>${month}</td><td class="num">${won(m.plan)}</td></tr></tbody></table>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn pop" id="a-genVoucher">실투입 전표 생성</button></div>
     </div>
   </div>`;
 }
@@ -452,15 +466,16 @@ const SCEN = {
       enter:()=>{ const c=document.getElementById('po-P1'); if(c){ c.textContent='PO-2026-0912'; c.classList.add('po-fill'); } }, mode:'done',
       doneTitle:'D. 구매요청·PO 매핑 완료', doneHtml:'<p>계획 등록과 구매오더 생성은 <b>서로 다른 단계</b>입니다. 계획은 PO 없이 저장되고, POP에서 PM이 매핑→PO 생성하면 <b>PO번호가 실행예산으로 연계</b>됩니다. (실투입대상·전문직수수료·공사 MA 모두 PO 매핑 대상)</p>' },
   ]},
-  E: { no:'E', name:'월별 실투입 전표 생성', desc:'전표 생성 → 실투입↑·잔여↓ → 실적 이하 수정 제한', steps:[
-    { render:()=>scrPlanDetail(plan('P1')), spot:'[data-gen="2026-09"]', pos:'left', title:'월별 실투입 전표 생성', text:'총금액 = <b>실투입 생성(4천만)</b> + <b>잔여(6천만)</b>. 09월을 대상으로 <b>[전표 생성]</b>해 실적을 만들어봅니다.',
+  E: { no:'E', name:'월별 실투입 전표·실적 관리', desc:'구매/ERP 전표 생성 → 실행예산이 잔여 계산 → 실적 이하 수정 제한', steps:[
+    { render:()=>scrPlanDetail(plan('P1')), spot:'.amt-bar', pos:'bottom', title:'총금액 = 실투입 생성 + 잔여', text:'<b>실투입 전표는 구매(ERP)에서 생성</b>됩니다. 실행예산은 그 데이터를 받아 <b>잔여를 계산</b>만 해요. 지금은 실투입 4천만·잔여 6천만. 구매에서 09월 전표를 만들어볼게요.' },
+    { render:()=>scrErpVoucher(plan('P1'),'2026-09'), spot:'#a-genVoucher', pos:'left', title:'구매/ERP에서 전표 생성', text:'이 화면은 <b>구매/ERP(빨강)</b> 영역입니다. 09월 <b>실투입 전표</b>를 생성하면 전표번호가 발번돼요. (실행예산이 만드는 게 아닙니다)', sysToast:'실행예산 → 구매·ERP',
       act:()=>{ const p=plan('P1'); const m=p.months.find(x=>x.m==='2026-09'); m.used=m.plan; p.used+=m.plan; p.vouchers.push({m:'2026-09',amt:m.plan,no:'880012303'}); } },
-    { render:()=>scrPlanDetail(plan('P1')), spot:'#bar-used', pos:'bottom', title:'실투입↑ · 잔여↓', text:'전표가 생성되자 <b>실투입 생성금액 6천만</b>으로 늘고 <b>잔여 4천만</b>으로 줄었습니다(막대·이력 반영). 이미 확정된 실적이에요.' },
+    { render:()=>scrPlanDetail(plan('P1')), spot:'#bar-used', pos:'bottom', title:'실행예산 = 돈 계산만', text:'ERP로 전표 데이터가 넘어오자, 실행예산은 <b>받은 금액만큼 실투입 생성↑·잔여↓</b>를 계산해 보여줍니다(막대·이력 반영). 실행예산이 전표를 만들지는 않아요.', sysToast:'구매·ERP → 실행예산' },
     { render:null, keep:true, spot:'#a-applyTotal', pos:'top', title:'실적 이하로 수정 시도', text:'총 계획금액을 <b>3천만</b>으로 낮춰봤습니다(입력됨). 실투입 생성(6천만)보다 낮으므로 <b class="lock">제한</b>돼요. <b>[계획금액 변경]</b>을 누르세요.',
       enter:()=>{ const i=document.getElementById('in-total'); if(i) i.value='30000000'; },
       act:()=>{ const msg=document.getElementById('total-msg'); if(msg){ msg.style.color='#b42318'; msg.textContent='✕ 실투입 생성금액(60,000,000원) 미만으로는 낮출 수 없습니다.'; } } },
     { render:null, keep:true, spot:'#total-msg', pos:'top', title:'수정 제한 안내', text:'“실투입 생성금액(60,000,000원) 미만으로는 낮출 수 없습니다.” <b>실적 확정분은 보호</b>됩니다.', mode:'done',
-      doneTitle:'E. 월별 실투입 전표 생성', doneHtml:'<p>필요 시점에 <b>월별 실투입 전표</b>를 생성하면 그 금액이 실적으로 확정돼 <b>실투입 생성금액↑ · 잔여금액↓</b> 됩니다. 이미 생성된 실적보다 총 계획금액을 <b>낮출 수 없습니다</b>.</p><p style="margin-top:10px"><span class="tbd">※ 계획 변경 승인·예산 변경 절차, 전표 취소/정정은 추후 확정</span></p>' },
+      doneTitle:'E. 월별 실투입 전표·실적', doneHtml:'<p><b>실투입(실적) 전표 생성은 구매/ERP 영역</b>입니다. 실행예산은 ERP로 받은 전표 데이터로 <b>실투입 생성금액↑ · 잔여금액↓</b>를 계산해 보여줄 뿐이에요. 이미 생성된 실적보다 총 계획금액을 <b>낮출 수 없습니다</b>.</p><p style="margin-top:10px"><span class="tbd">※ 계획 변경 승인·예산 변경 절차, 전표 취소/정정은 추후 확정</span></p>' },
   ]},
 };
 const SC_ORDER = ['A','B','C','D','E'];
@@ -572,7 +587,7 @@ function openScenarios(){
   const items=SC_ORDER.map(k=>{ const sc=SCEN[k]; return '<button class="sc-item" onclick="runScenario(\''+k+'\')"><span class="sc-no">'+k+'</span><span><span class="sc-tt">'+sc.name+'</span><span class="sc-ds">'+sc.desc+'</span></span>'+(done[k]?'<span class="sc-done">✓</span>':'')+'</button>'; }).join('');
   const c=$('center'); c.style.display='flex';
   c.innerHTML='<div class="card2"><div class="eb">실행예산 · 외주비(실투입)</div><h2>외주비 계획 — 시나리오 선택</h2>'
-    +'<p>POP 구매시스템과 실행예산을 오가며 외주비 계획 등록부터 PO 매핑, 월별 실투입 실적까지 직접 체험합니다. <b>POP</b>은 보라색, <b>실행예산</b>은 파란색으로 구분돼요.</p>'
+    +'<p>구매시스템(POP/ERP)과 실행예산을 오가며 외주비 계획 등록부터 PO 매핑, 월별 실투입 실적까지 직접 체험합니다. <b style="color:var(--pop-deep)">구매시스템(POP·ERP)은 빨간색</b>, <b style="color:var(--esv-deep)">실행예산은 파란색</b>으로 구분돼요. 예산관리 시스템의 프로세스·로직에 집중하세요.</p>'
     +'<div class="sclist">'+items+'</div></div>';
 }
 
