@@ -22,6 +22,7 @@ var PROCESS_MAP_PHASES = [
       { label: '실행예산 승인(상신)', nav: 'showCostAdjust', desc: 'CP총액 검증 후 결재 상신' },
     ],
     tutorials: [
+      { name: '인건비 계획 수립', file: 'tutorial-labor.html', dl: 'AiBudget-튜토리얼-인건비.html' },
       { name: '실행예산 버전 관리', file: 'tutorial-version.html', dl: 'AiBudget-튜토리얼-실행예산버전.html' },
     ],
   },
