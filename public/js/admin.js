@@ -194,6 +194,11 @@ function admUserToggle(i) { if (ADM_USERS[i]) { ADM_USERS[i].status = ADM_USERS[
 
 // ════════ ① 관리자 독립 사이트 (admin.html) ════════
 var adminCur = 'user';
+var adminTabs = [];          // [{ id, key }]
+var adminActiveId = null;
+var adminTabSeq = 0;
+var ADMIN_MAX_TABS = 5;
+
 function asiteRender() {
   var nav = document.getElementById('asite-nav');
   var main = document.getElementById('asite-main');
@@ -205,21 +210,132 @@ function asiteRender() {
       + '<span class="asite-navi-ic">' + s.icon + '</span><span class="asite-navi-t">' + s.title + tbd + '</span></button>';
   }).join('');
   var meta = ADMIN_SECTIONS.find(function (s) { return s.key === adminCur; }) || {};
-  main.innerHTML = '<div class="asite-head"><div class="asite-h-ic">' + (meta.icon || '') + '</div><div>'
+  main.innerHTML = asiteTabsHtml()
+    + '<div class="asite-page"><div class="asite-head"><div class="asite-h-ic">' + (meta.icon || '') + '</div><div>'
     + '<div class="asite-h-t">' + (meta.title || '') + '</div>'
     + '<div class="asite-h-d">' + (meta.desc || '') + '</div></div></div>'
-    + '<div class="asite-content">' + admSectionBody(adminCur) + '</div>';
+    + '<div class="asite-content">' + admSectionBody(adminCur) + '</div></div>';
 }
+
+// 콘텐츠 상단 탭 바 (여러 관리 화면을 동시에 띄움)
+function asiteTabsHtml() {
+  if (!adminTabs.length) return '';
+  var chips = adminTabs.map(function (t) {
+    var meta = ADMIN_SECTIONS.find(function (s) { return s.key === t.key; }) || {};
+    var on = t.id === adminActiveId ? ' on' : '';
+    var solo = adminTabs.length <= 1 ? ' solo' : '';
+    return '<div class="asite-tab' + on + solo + '" onclick="adminActivateTab(' + t.id + ')" title="' + (meta.title || '') + '">'
+      + '<span class="asite-tab-ic">' + (meta.icon || '') + '</span><span class="asite-tab-t">' + (meta.title || '') + '</span>'
+      + '<button class="asite-tab-x" onclick="event.stopPropagation();adminCloseTab(' + t.id + ')" aria-label="탭 닫기">✕</button></div>';
+  }).join('');
+  var clear = '<button class="asite-tab-clear" onclick="adminClearTabs()" title="모든 탭 닫기" aria-label="모든 탭 닫기">🗑</button>';
+  var newb = '<button class="asite-tab-new" onclick="adminOpenMenu()" title="새 탭 — 메뉴에서 선택" aria-label="새 탭">＋</button>';
+  return '<div class="asite-tabbar">' + clear + chips + newb + '</div>';
+}
+function adminClearTabs() {
+  adminTabs = [{ id: ++adminTabSeq, key: 'user' }];
+  adminActiveId = adminTabSeq;
+  adminCur = 'user';
+  try { history.replaceState(null, '', '#user'); } catch (e) {}
+  asiteRender();
+}
+
+// 메뉴 선택 = 해당 탭이 있으면 포커스, 없으면 새 탭(최대 5)
 function adminGo(key) {
   if (!ADMIN_SECTIONS.some(function (s) { return s.key === key; })) key = 'user';
+  var ex = adminTabs.find(function (t) { return t.key === key; });
+  if (ex) {
+    adminActiveId = ex.id;
+  } else if (adminTabs.length >= ADMIN_MAX_TABS) {
+    admToast('탭은 최대 ' + ADMIN_MAX_TABS + '개까지 열 수 있어 현재 탭에서 엽니다.');
+    var at = adminTabs.find(function (t) { return t.id === adminActiveId; });
+    if (at) { at.key = key; } else { adminTabs.push({ id: ++adminTabSeq, key: key }); adminActiveId = adminTabSeq; }
+  } else {
+    adminTabs.push({ id: ++adminTabSeq, key: key });
+    adminActiveId = adminTabSeq;
+  }
   adminCur = key;
   try { if (location.hash !== '#' + key) history.replaceState(null, '', '#' + key); } catch (e) {}
   asiteRender();
   var m = document.getElementById('asite-main'); if (m) m.scrollTop = 0;
 }
+function adminActivateTab(id) {
+  var t = adminTabs.find(function (x) { return x.id === id; });
+  if (!t) return;
+  adminActiveId = id; adminCur = t.key;
+  try { if (location.hash !== '#' + t.key) history.replaceState(null, '', '#' + t.key); } catch (e) {}
+  asiteRender();
+}
+function adminCloseTab(id) {
+  if (adminTabs.length <= 1) return;
+  var idx = adminTabs.findIndex(function (t) { return t.id === id; });
+  if (idx < 0) return;
+  var wasActive = id === adminActiveId;
+  adminTabs.splice(idx, 1);
+  if (wasActive) {
+    var next = adminTabs[Math.min(idx, adminTabs.length - 1)];
+    adminActiveId = next.id; adminCur = next.key;
+    try { history.replaceState(null, '', '#' + next.key); } catch (e) {}
+  }
+  asiteRender();
+}
+// 레일 접기/펴기(아이콘 모드)
+function adminToggleRail() {
+  var min = document.body.classList.toggle('asite-min');
+  try { localStorage.setItem('newmis.adminRailMin', min ? '1' : '0'); } catch (e) {}
+}
+function adminApplyRail() {
+  try { if (localStorage.getItem('newmis.adminRailMin') === '1') document.body.classList.add('asite-min'); } catch (e) {}
+}
+
+// 메뉴 보기 팝업
+function adminOpenMenu() {
+  var ov = document.getElementById('amenu-ov');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'amenu-ov'; document.body.appendChild(ov); }
+  ov.className = 'amenu-ov';
+  var items = ADMIN_SECTIONS.map(function (s) {
+    var tbd = s.tbd ? '<span class="adm-tbd">TBD</span>' : '';
+    return '<button class="amenu-item' + (s.key === adminCur ? ' on' : '') + '" onclick="adminMenuGo(\'' + s.key + '\')">'
+      + '<span class="amenu-ic">' + s.icon + '</span><span>' + s.title + tbd + '</span></button>';
+  }).join('');
+  ov.innerHTML = '<div class="amenu-panel" role="dialog" aria-modal="true" aria-label="관리 메뉴">'
+    + '<div class="amenu-head"><strong>☰ 관리 메뉴</strong><button class="amenu-x" onclick="adminCloseMenu()" aria-label="닫기">✕</button></div>'
+    + '<div class="amenu-list">' + items + '</div></div>';
+  ov.onclick = function (e) { if (e.target === ov) adminCloseMenu(); };
+  document.addEventListener('keydown', adminMenuEsc);
+}
+function adminCloseMenu() {
+  var ov = document.getElementById('amenu-ov');
+  if (ov) ov.remove();
+  document.removeEventListener('keydown', adminMenuEsc);
+}
+function adminMenuEsc(e) { if (e.key === 'Escape') adminCloseMenu(); }
+function adminMenuGo(key) { adminCloseMenu(); adminGo(key); }
+
+// 관리자 사이트 우측 상단 '메인' 버튼 — 메인앱 Admin 버튼과 동일 디자인
+function adminInjectMainBtn() {
+  if (document.getElementById('asite-main-btn')) return;
+  if (!document.getElementById('asite-mainbtn-style')) {
+    var st = document.createElement('style'); st.id = 'asite-mainbtn-style';
+    st.textContent = '#asite-main-btn{position:fixed;top:12px;right:18px;z-index:120;display:inline-flex;align-items:center;gap:6px;'
+      + 'border:1px solid #d7a3a3;background:#fff;color:#b23b3b;border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:800;'
+      + 'cursor:pointer;font-family:inherit;text-decoration:none;box-shadow:0 4px 12px -6px rgba(178,59,59,.35)}'
+      + '#asite-main-btn:hover{background:#fff5f5;border-color:#b23b3b}';
+    document.head.appendChild(st);
+  }
+  var a = document.createElement('a');
+  a.id = 'asite-main-btn'; a.href = '/'; a.title = '메인으로';
+  a.innerHTML = '<span aria-hidden="true">⬅</span> 메인';
+  document.body.appendChild(a);
+}
+
 function initAdminSite() {
+  adminInjectMainBtn();
+  adminApplyRail();
   var h = (location.hash || '').replace('#', '');
   if (h && ADMIN_SECTIONS.some(function (s) { return s.key === h; })) adminCur = h;
+  adminTabs = [{ id: ++adminTabSeq, key: adminCur }];   // 첫 탭
+  adminActiveId = adminTabSeq;
   asiteRender();
   window.addEventListener('hashchange', function () {
     var k = (location.hash || '').replace('#', '');
