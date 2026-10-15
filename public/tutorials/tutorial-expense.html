@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AiBudget 업무 튜토리얼 · 경비 계획</title>
+<meta name="description" content="POP 견적 연계·직접 입력·중복 방지·PO 매핑·월별 실투입 전표까지 — 경비 인터랙티브 튜토리얼.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sk-ink:#17161f; --sk-page:#f2f2ee; --sk-border:#e7eaef; --sk-border-strong:#d3d9e2; --sk-head:#eef2f7;
+  --esv:#2f6bed; --esv-deep:#1746a0; --esv-soft:#eaf1fd;
+  --pop:#ea002c; --pop-deep:#b80022; --pop-soft:#fdecec;  /* 구매시스템(POP/ERP) = 빨강 */
+  --green:#22b07d; --amber:#b4740a; --red:#ea002c;
+  --font:'Pretendard','Noto Sans KR',-apple-system,system-ui,sans-serif; --mono:ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box;letter-spacing:-.1px}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);background:var(--sk-page);color:#1c2432;-webkit-font-smoothing:antialiased;overflow:hidden}
+
+/* 시스템 바 */
+#sysbar{position:fixed;top:50px;left:0;right:0;height:44px;z-index:50;display:flex;align-items:center;gap:12px;padding:0 20px;
+  background:#fff;border-bottom:1px solid var(--sk-border);transition:background .3s,border-color .3s}
+#sysbar .sys{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:900}
+#sysbar .sys .ic{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:#fff;font-size:14px}
+#sysbar.esv{background:#fff} #sysbar.esv .sys{color:var(--esv-deep)} #sysbar.esv .sys .ic{background:var(--esv)}
+#sysbar.pop{background:var(--pop-soft)} #sysbar.pop .sys{color:var(--pop-deep)} #sysbar.pop .sys .ic{background:var(--pop)}
+#sysbar .tag{font-size:11px;font-weight:800;color:#8a94a6}
+#sysbar .flow{margin-left:auto;font-size:11.5px;font-weight:800;color:#aab2c0}
+
+/* 본문 */
+#sim{position:fixed;top:94px;left:0;right:0;bottom:0;overflow:auto;padding:22px 26px 80px;transition:opacity .18s ease}
+.wrap{max-width:1000px;margin:0 auto}
+.scr-title{font-size:22px;font-weight:900;color:#16151f;margin:0 0 3px}
+.scr-sub{font-size:13px;color:#8a94a6;font-weight:600;margin:0 0 18px}
+.card{background:#fff;border:1px solid #e4e2da;border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.card.pop{border-color:#f3c7c5;background:#fffafa}
+.sec{font-size:12px;font-weight:900;color:#55606f;margin:0 0 10px;letter-spacing:.2px}
+
+.btn{height:38px;padding:0 16px;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;
+  display:inline-flex;align-items:center;gap:7px;border:1px solid var(--sk-border-strong);background:#fff;color:#2b3442}
+.btn:hover{background:#f3f6fb}
+.btn.esv{background:var(--esv);border-color:var(--esv);color:#fff} .btn.esv:hover{background:var(--esv-deep)}
+.btn.ink{background:var(--sk-ink);border-color:var(--sk-ink);color:#fff}
+.btn.pop{background:var(--pop);border-color:var(--pop);color:#fff} .btn.pop:hover{background:var(--pop-deep)}
+.btn.sm{height:30px;padding:0 11px;font-size:12.5px;border-radius:8px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+.choice2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ch-card{text-align:left;border:1.5px solid #e4e2da;border-radius:14px;padding:18px;cursor:pointer;background:#fff;transition:border-color .15s,transform .15s,background .15s}
+.ch-card:hover{border-color:var(--esv);transform:translateY(-2px);background:var(--esv-soft)}
+.ch-card .ic{font-size:24px}
+.ch-card .t{font-size:15px;font-weight:900;color:#16151f;margin:8px 0 4px}
+.ch-card .d{font-size:12px;color:#6b7480;line-height:1.5}
+
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t thead th{background:var(--sk-head);color:#3d4a5c;font-weight:800;text-align:left;padding:10px 12px;border-bottom:1px solid var(--sk-border-strong);white-space:nowrap}
+table.t td{padding:10px 12px;border-bottom:1px solid #eef1f5;color:#2b3442;white-space:nowrap}
+table.t tbody tr:last-child td{border-bottom:0}
+table.t tbody tr:hover td{background:var(--esv-soft)}
+table.t.pop thead th{background:var(--pop-soft);color:var(--pop-deep)} table.t.pop tbody tr:hover td{background:var(--pop-soft)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:12px;color:#55606f}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800}
+.b-ok{background:#eef7f1;color:#166534} .b-used{background:#fdecec;color:#b42318} .b-wait{background:#fff7ed;color:#b4740a}
+.b-link{background:var(--esv-soft);color:var(--esv-deep)} .b-none{background:#f1f0ea;color:#8a94a6}
+.tbd{display:inline-block;font-size:11px;font-weight:800;color:#b4740a;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:1px 7px}
+
+/* 금액 구성 bar */
+.amt-bar{height:30px;border-radius:9px;overflow:hidden;display:flex;border:1px solid #e4e2da;background:#f3f2ec}
+.amt-bar .used{background:var(--esv);height:100%;transition:width .6s cubic-bezier(.2,.8,.2,1);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;white-space:nowrap}
+.amt-bar .rem{background:#cbd7ec;height:100%;transition:width .6s cubic-bezier(.2,.8,.2,1);display:flex;align-items:center;justify-content:center;color:#1746a0;font-size:11px;font-weight:800;white-space:nowrap}
+.amt-legend{display:flex;gap:16px;margin-top:9px;font-size:12px;font-weight:700;color:#55606f;flex-wrap:wrap}
+.amt-legend b{color:#16151f} .amt-legend .d{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:middle}
+
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.kv .k{font-size:11px;font-weight:800;color:#98a2b3}
+.kv .v{font-size:15px;font-weight:900;color:#16151f;margin-top:3px;font-variant-numeric:tabular-nums}
+.inp{height:34px;border:1px solid var(--sk-border-strong);border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;color:#2b3442;background:#fff}
+
+.flash{animation:flash 1s ease}@keyframes flash{0%{background:#fff7cc}100%{background:transparent}}
+.po-fill{animation:poFill .8s ease}@keyframes poFill{0%{background:#d1fadf;transform:scale(1.04)}100%{background:transparent;transform:none}}
+
+.banner{border-radius:12px;padding:13px 16px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.banner.ok{background:#eef7f1;border:1px solid #bbe7cc;color:#166534}
+.banner.pop{background:var(--pop-soft);border:1px solid #f3c7c5;color:var(--pop-deep)}
+.banner.warn{background:#fdecec;border:1px solid #f5c2c0;color:#b42318}
+
+/* 시스템 전환 토스트 */
+#switch{position:fixed;inset:0;z-index:9500;display:none;align-items:center;justify-content:center;pointer-events:none}
+#switch .pill{background:#17161f;color:#fff;font-size:15px;font-weight:900;padding:14px 24px;border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.35);animation:swin .5s cubic-bezier(.2,.9,.3,1.2)}
+#switch .pill em{font-style:normal}
+@keyframes swin{from{opacity:0;transform:translateY(12px) scale(.95)}to{opacity:1;transform:none}}
+
+/* ===== 튜토리얼 오버레이 (공용 스타일) ===== */
+#hud{position:fixed;top:0;left:0;right:0;z-index:9000;height:50px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--sk-border);display:flex;align-items:center;gap:13px;padding:0 16px}
+#hud .ch{font-size:13px;font-weight:900;color:#16151f;white-space:nowrap}#hud .ch em{font-style:normal;color:var(--esv)}
+#hud .sc{font-size:11.5px;font-weight:800;color:#8a94a6;white-space:nowrap}
+#hud .bar{flex:1;max-width:300px;height:7px;background:#e9ecf1;border-radius:999px;overflow:hidden}
+#hud .fill{height:100%;width:0;background:var(--esv);border-radius:999px;transition:width .4s}
+#hud .cnt{font-size:12px;font-weight:800;color:#6b7480;white-space:nowrap}
+#hud .sp{flex:1}
+#hud button{height:31px;padding:0 12px;border-radius:8px;border:1px solid var(--sk-border-strong);background:#fff;color:#37414f;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit}
+#hud button:hover{background:#f3f6fb}
+#mask{position:fixed;inset:0;z-index:9001;background:rgba(10,14,26,.34);display:none}
+#hole{position:fixed;z-index:9002;border-radius:10px;border:2.5px solid var(--esv);background:transparent;cursor:pointer;display:none;
+  box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.34);animation:pulse 1.6s ease-in-out infinite}
+#hole.pop{border-color:var(--pop);box-shadow:0 0 0 4px rgba(124,58,237,.30),0 0 0 9999px rgba(10,14,26,.34)}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.34)}50%{box-shadow:0 0 0 9px rgba(47,107,237,.15),0 0 0 9999px rgba(10,14,26,.34)}}
+#hole .fg{position:absolute;right:-14px;bottom:-14px;font-size:24px;pointer-events:none;animation:fg 1.3s ease-in-out infinite;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
+@keyframes fg{0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,-5px)}}
+#hole.shake{animation:shake .4s}@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+#bubble{position:fixed;z-index:9003;max-width:340px;background:#fff;border-radius:14px;padding:16px 18px 14px;border:1px solid #e4e2da;
+  box-shadow:0 18px 50px rgba(10,14,26,.28);display:none;cursor:grab;animation:pop .28s cubic-bezier(.2,.9,.3,1.2)}
+#bubble:active{cursor:grabbing}
+@keyframes pop{from{opacity:0;transform:scale(.94) translateY(6px)}to{opacity:1;transform:none}}
+#bubble .grip{position:absolute;top:8px;right:10px;font-size:13px;color:#c3cbd6;pointer-events:none}
+#bubble .st{font-size:11px;font-weight:900;color:var(--esv);letter-spacing:.5px}
+#bubble.pop .st{color:var(--pop)}
+#bubble .tt{font-size:16px;font-weight:900;color:#16151f;margin:5px 0 7px;padding-right:20px}
+#bubble .tx{font-size:13.5px;line-height:1.62;color:#3a4250}#bubble .tx b{color:#17161f}
+#bubble .tx .lock{color:#b42318}
+#bubble .hint{margin-top:10px;font-size:11.5px;font-weight:800;color:var(--esv);display:flex;gap:10px;flex-wrap:wrap}
+#bubble.pop .hint{color:var(--pop)}#bubble .hint em{font-style:normal;color:#9aa4b2}
+#bubble .ar{position:absolute;width:14px;height:14px;background:#fff;border:1px solid #e4e2da;transform:rotate(45deg)}
+#center{position:fixed;inset:0;z-index:9003;display:none;align-items:center;justify-content:center;padding:24px}
+#center .card2{background:#fff;border-radius:20px;max-width:620px;width:100%;padding:30px 32px;box-shadow:0 24px 70px rgba(10,14,26,.35);animation:pop .3s cubic-bezier(.2,.9,.3,1.2);margin:0;border:0}
+#center .eb{font-size:12px;font-weight:900;letter-spacing:1px;color:var(--esv);text-transform:uppercase}
+#center h2{font-size:23px;font-weight:900;color:#16151f;margin:8px 0 10px}
+#center p{font-size:14px;line-height:1.7;color:#3a4250;margin:0}
+#center .chk{width:58px;height:58px;border-radius:50%;background:var(--green);display:grid;place-items:center;margin:0 auto 12px;color:#fff;font-size:28px}
+#center .acts{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;justify-content:center}
+#center .acts button{height:38px;padding:0 16px;border-radius:10px;border:1px solid var(--sk-border-strong);background:#fff;color:#2b3442;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}
+#center .acts button.pri{background:var(--sk-ink);border-color:var(--sk-ink);color:#fff}
+.sclist{display:grid;gap:10px;margin-top:18px;text-align:left}
+.sc-item{display:flex;align-items:center;gap:13px;padding:13px 15px;border:1.5px solid #e4e2da;border-radius:13px;cursor:pointer;background:#fff;transition:border-color .15s,background .15s}
+.sc-item:hover{border-color:var(--esv);background:var(--esv-soft)}
+.sc-no{width:30px;height:30px;flex:none;border-radius:9px;background:var(--sk-ink);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:900}
+.sc-tt{font-size:14px;font-weight:800;color:#16151f}.sc-ds{font-size:12px;color:#8a94a6;font-weight:700;margin-top:1px}
+.sc-done{margin-left:auto;font-size:16px;color:var(--green)}
+#toast{position:fixed;z-index:9004;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:#17161f;color:#fff;font-size:13px;font-weight:700;padding:11px 18px;border-radius:11px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* 시스템 범례 (상시 표시, 현재 시스템 강조) */
+#sysbar .leg{display:flex;gap:8px;align-items:center;margin-left:12px}
+#sysbar .lg{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;opacity:.45;transition:opacity .2s}
+#sysbar .lg i{width:9px;height:9px;border-radius:3px;display:inline-block}
+#sysbar .lg.pop{color:var(--pop-deep);background:var(--pop-soft)} #sysbar .lg.pop i{background:var(--pop)}
+#sysbar .lg.esv{color:var(--esv-deep);background:var(--esv-soft)} #sysbar .lg.esv i{background:var(--esv)}
+#sysbar.pop .lg.pop{opacity:1;box-shadow:0 0 0 1.5px var(--pop)} #sysbar.esv .lg.esv{opacity:1;box-shadow:0 0 0 1.5px var(--esv)}
+/* 시점 타임라인 (시나리오 선택 상단) */
+.tl-title{font-size:13.5px;font-weight:900;color:#16151f;margin:16px 0 8px}
+.tl-title em{font-style:normal;color:var(--red);font-size:11.5px;font-weight:800;margin-left:6px}
+.tl{display:flex;align-items:stretch;gap:4px;overflow-x:auto;padding-bottom:4px}
+.tl-n{flex:1;min-width:96px;border-radius:11px;padding:10px 8px;text-align:center;border:1px solid #e4e2da}
+.tl-n b{display:block;font-size:12px;font-weight:800;line-height:1.3}
+.tl-n span{font-size:10px;font-weight:800}
+.tl-n.pop{background:var(--pop-soft);border-color:#f3c7c5} .tl-n.pop b{color:#16151f} .tl-n.pop span{color:var(--pop-deep)}
+.tl-n.esv{background:var(--esv-soft);border-color:#bcd3f7} .tl-n.esv b{color:#16151f} .tl-n.esv span{color:var(--esv-deep)}
+.tl-n.big{outline:2px solid var(--esv);outline-offset:-1px}
+.tl-ar{align-self:center;color:#c3cbd6;font-weight:900;font-size:15px;flex:0 0 auto}
+.tl-eq{align-self:center;text-align:center;color:var(--esv-deep);font-weight:900;font-size:17px;flex:0 0 auto;padding:0 2px}
+.tl-eq i{display:block;font-style:normal;font-size:9.5px;font-weight:800;color:#8a94a6;line-height:1.25;margin-top:1px}
+.tl-note{font-size:12.5px;line-height:1.6;color:#55606f;background:#f7f9fc;border:1px solid #e4e2da;border-radius:10px;padding:10px 13px;margin-top:10px}
+.tl-note b{color:#16151f}
+/* Agent 콘솔 */
+.ag-chips{display:flex;gap:8px;flex-wrap:wrap}
+.ag-chip{border:1px solid var(--sk-border-strong);background:#fff;border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:800;color:#2b3442;cursor:pointer}
+.ag-chip:hover{border-color:var(--esv);background:var(--esv-soft)}
+.ag-input{display:flex;gap:8px;align-items:center;margin-top:12px}
+.ag-prop{border-left:3px solid var(--esv)}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <span class="ch">Chapter · <em>경비</em> 계획</span>
+  <span class="sc" id="hud-sc"></span>
+  <div class="bar"><div class="fill" id="hud-fill"></div></div>
+  <span class="cnt" id="hud-cnt"></span>
+  <span class="sp"></span>
+  <button onclick="tPrev()">◀ 이전</button><button onclick="tRestart()">↻ 다시 시작</button><button onclick="openScenarios()">☰ 시나리오</button>
+</div>
+<div id="sysbar" class="esv"><div class="sys"><span class="ic">📊</span><span id="sys-name">실행예산 · New MIS</span></div><span class="tag" id="sys-tag">실행예산 시스템</span><span class="flow" id="sys-flow"></span><span class="leg"><span class="lg pop"><i></i>POP·구매/ERP</span><span class="lg esv"><i></i>예산관리</span></span></div>
+
+<div id="sim"></div>
+
+<div id="mask" onclick="tWrong()"></div>
+<div id="hole"><span class="fg">👆</span></div>
+<div id="bubble"><span class="ar"></span><span class="grip">⠿</span><div class="st"></div><div class="tt"></div><div class="tx"></div><div class="hint"><span>👆 강조된 영역을 클릭</span><em>✋ 말풍선 드래그 이동</em></div></div>
+<div id="center"></div>
+<div id="switch"><div class="pill"></div></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   경비(실투입) 인터랙티브 튜토리얼 — 시뮬레이션
+   POP 구매시스템 ↔ 실행예산(MIS) 두 시스템을 오가며 5개 시나리오 체험.
+   ※ 실제 ERP/POP 미연결, 모두 가상 데이터 시뮬레이션.
+   ===================================================================== */
+const won = n => n.toLocaleString('ko-KR') + '원';
+const eok = n => (n/100000000) + '억';
+
+function initState() {
+  return {
+    plans: [{
+      id:'P1', type:'조직운영비(통제)', method:'POP 견적', quote:'QT261000001',
+      total:100000000, used:40000000, po:'', poState:'미연계',
+      contract:{start:'2026-07-01', end:'2026-12-31'},
+      months:[
+        {m:'2026-07', plan:20000000, mm:1.0, used:20000000},
+        {m:'2026-08', plan:20000000, mm:1.0, used:20000000},
+        {m:'2026-09', plan:20000000, mm:1.0, used:0},
+        {m:'2026-10', plan:20000000, mm:1.0, used:0},
+        {m:'2026-11', plan:10000000, mm:0.5, used:0},
+        {m:'2026-12', plan:10000000, mm:0.5, used:0},
+      ],
+      vouchers:[{m:'2026-07', amt:20000000, no:'881234501'},{m:'2026-08', amt:20000000, no:'881234502'}],
+    }],
+    quotes:[
+      {no:'QT261000001', proj:'30131234-D001', author:'김구매(32011)', start:'2026-07-01', end:'2026-12-31', total:100000000, used:true,
+       months:[{m:'2026-07',plan:20000000,mm:1.0},{m:'2026-08',plan:20000000,mm:1.0},{m:'2026-09',plan:20000000,mm:1.0},{m:'2026-10',plan:20000000,mm:1.0},{m:'2026-11',plan:10000000,mm:.5},{m:'2026-12',plan:10000000,mm:.5}]},
+      {no:'QT261000002', proj:'30131234-D001', author:'이소싱(32044)', start:'2026-08-01', end:'2027-01-31', total:72000000, used:false,
+       months:[{m:'2026-08',plan:12000000,mm:.6},{m:'2026-09',plan:12000000,mm:.6},{m:'2026-10',plan:12000000,mm:.6},{m:'2026-11',plan:12000000,mm:.6},{m:'2026-12',plan:12000000,mm:.6},{m:'2027-01',plan:12000000,mm:.6}]},
+    ],
+    sel:null, tryTotal:null,
+  };
+}
+let S = initState();
+const quote = no => S.quotes.find(q => q.no === no);
+const plan = id => S.plans.find(p => p.id === id);
+
+/* ---------- 시스템 바 ---------- */
+function setSys(sys, flow, name) {
+  const bar = document.getElementById('sysbar');
+  bar.className = sys;
+  if (sys === 'pop') { document.getElementById('sys-name').textContent = name || 'POP 구매시스템'; document.getElementById('sys-tag').textContent = '구매 시스템 (외부 연계 · 빨강)'; document.querySelector('#sysbar .ic').textContent = '🛒'; }
+  else { document.getElementById('sys-name').textContent = '실행예산 · New MIS'; document.getElementById('sys-tag').textContent = '실행예산 시스템 (파랑)'; document.querySelector('#sysbar .ic').textContent = '📊'; }
+  document.getElementById('sys-flow').textContent = flow || '';
+}
+function switchToast(txt) {
+  const s = document.getElementById('switch'); s.querySelector('.pill').innerHTML = txt; s.style.display = 'flex';
+  setTimeout(() => s.style.display = 'none', 900);
+}
+
+/* ---------- 화면 렌더러 ---------- */
+const sim = () => document.getElementById('sim');
+
+function scrPopReq() {
+  setSys('pop', '① POP에서 견적 요청·작성');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">POP 구매시스템 · 견적 요청</h1>
+    <p class="scr-sub">프로젝트 번호로 견적을 요청하면 구매담당이 견적을 작성합니다.</p>
+    <div class="card pop">
+      <div class="sec">견적 요청</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:800;color:#55606f">프로젝트 번호</span>
+        <input class="inp" value="30131234-D001" style="width:170px" readonly>
+        <button class="btn pop" id="a-req">견적 요청</button>
+      </div>
+    </div>
+    <div class="banner pop">🛒 견적 <b>QT261000002</b> 작성 완료 (작성자 이소싱 · 총 72,000,000원). 이제 실행예산에서 불러옵니다.</div>
+  </div>`;
+}
+
+function scrRegister() {
+  setSys('esv', '③ 실행예산 · 경비 등록');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">경비 등록</h1>
+    <p class="scr-sub">경비 계획은 두 가지 방식으로 등록합니다. 두 방식 모두 같은 계획 관리 화면에서 조회됩니다.</p>
+    <div class="choice2">
+      <button class="ch-card" id="a-loadQuote"><div class="ic">🔗</div><div class="t">POP 견적 불러오기</div>
+        <div class="d">POP에서 작성 완료된 견적을 검색·선택해 계약·월별 데이터를 자동으로 가져옵니다.</div></button>
+      <button class="ch-card" id="a-direct"><div class="ic">✍️</div><div class="t">직접 입력</div>
+        <div class="d">견적이 아직 없을 때, PM이 중분류·계정과 월별 금액을 직접 입력합니다.</div></button>
+    </div>
+    ${planListCard()}
+  </div>`;
+}
+
+function planListCard() {
+  const rows = S.plans.map(p => `<tr>
+    <td>${p.type}</td>
+    <td><span class="badge ${p.method==='POP 견적'?'b-link':'b-none'}">${p.method}</span></td>
+    <td class="mono">${p.quote||'-'}</td>
+    <td class="num">${won(p.total)}</td>
+    <td class="num">${won(p.used)}</td>
+    <td class="num">${won(p.total - p.used)}</td>
+    <td class="mono" id="po-${p.id}">${p.po || '<span class="badge b-none">미연계</span>'}</td>
+    <td><button class="btn sm" data-detail="${p.id}">상세</button></td></tr>`).join('');
+  return `<div class="card"><div class="sec">경비 계획 목록</div>
+    <table class="t"><thead><tr><th>중분류·계정</th><th>등록방식</th><th>견적번호</th><th class="num">계획금액</th><th class="num">실투입 생성</th><th class="num">잔여</th><th>PO번호</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function scrQuoteSearch(dupTry) {
+  setSys('esv', 'POP 견적 연계 · 검색');
+  const rows = S.quotes.map(q => {
+    const canUse = !q.used;
+    return `<tr>
+      <td class="mono">${q.no}</td><td class="mono">${q.proj}</td><td>${q.author}</td>
+      <td>${q.start} ~ ${q.end}</td><td class="num">${won(q.total)}</td>
+      <td>${canUse ? '<span class="badge b-ok">● 등록 가능</span>' : '<span class="badge b-used">● 사용 중</span>'}</td>
+      <td><button class="btn sm ${canUse?'esv':''}" data-pick="${q.no}">선택</button></td></tr>`;
+  }).join('');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">POP 견적 불러오기</h1>
+    <p class="scr-sub">프로젝트 번호 또는 견적 작성자로 검색해, 사용할 견적을 선택합니다. (예산 수립에 필요한 항목만 표시)</p>
+    <div class="card">
+      <div class="sec">검색 조건</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:800;color:#55606f">프로젝트 번호</span><input class="inp" value="30131234-D001" style="width:150px">
+        <span style="font-size:13px;font-weight:800;color:#55606f">견적 작성자</span><input class="inp" placeholder="(전체)" style="width:120px">
+        <button class="btn ink" id="a-search">검색</button>
+      </div>
+    </div>
+    <div class="card" id="q-results"><div class="sec">검색된 견적</div>
+      <table class="t"><thead><tr><th>견적번호</th><th>프로젝트</th><th>작성자</th><th>계약기간</th><th class="num">계약 총금액</th><th>등록여부</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+  </div>`;
+}
+
+function scrDupMsg(q) {
+  // 중복 안내 배너를 결과 카드 위에 표시
+  const host = document.getElementById('q-results');
+  if (host && !document.getElementById('dup-banner')) {
+    const b = document.createElement('div'); b.id = 'dup-banner'; b.className = 'banner warn'; b.style.marginBottom = '12px';
+    b.innerHTML = `⚠ 견적 <b style="margin:0 3px">${q.no}</b> 은 이미 등록되어 있어 중복 등록할 수 없습니다. ` +
+      `기존 등록: <b>조직운영비(통제) · 계획금액 ${won(q.total)}</b> &nbsp; <span class="tbd">재등록(연결 해제·재매핑) 정책은 추후 확정</span>`;
+    host.insertBefore(b, host.querySelector('table'));
+  }
+}
+
+function scrQuoteConfirm(q) {
+  setSys('esv', '견적 확인 · 저장');
+  const mrows = q.months.map(m => `<tr><td>${m.m}</td><td class="num">${won(m.plan)}</td></tr>`).join('');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">견적 확인 후 저장</h1>
+    <p class="scr-sub">불러온 견적의 계약·월별 계획을 확인하고 저장하면 실행예산에 반영됩니다.</p>
+    <div class="card">
+      <div class="sec">연계된 견적 정보</div>
+      <div class="kv">
+        <div><div class="k">견적번호</div><div class="v mono">${q.no}</div></div>
+        <div><div class="k">프로젝트 번호</div><div class="v mono">${q.proj}</div></div>
+        <div><div class="k">계약 총금액</div><div class="v">${won(q.total)}</div></div>
+        <div><div class="k">계약 시작일</div><div class="v">${q.start}</div></div>
+        <div><div class="k">계약 종료일</div><div class="v">${q.end}</div></div>
+        <div><div class="k">등록 방식</div><div class="v">POP 견적 연계</div></div>
+      </div>
+    </div>
+    <div class="card"><div class="sec">월별 계획</div>
+      <table class="t"><thead><tr><th>월</th><th class="num">월별 계획금액</th></tr></thead><tbody>${mrows}</tbody></table>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px"><button class="btn esv" id="a-saveQuote">💾 저장 · 실행예산 반영</button></div>
+  </div>`;
+}
+
+function scrDirect() {
+  setSys('esv', '직접 입력');
+  const ex = [['2026-08',12000000,.6],['2026-09',12000000,.6],['2026-10',12000000,.6],['2026-11',12000000,.6]];
+  const total = ex.reduce((s,r)=>s+r[1],0);
+  const mrows = ex.map(r=>`<tr><td>${r[0]}</td><td class="num">${won(r[1])}</td></tr>`).join('');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">경비 직접 입력</h1>
+    <p class="scr-sub">견적이 없을 때 PM이 중분류·계정을 골라 월별 계획을 직접 입력(수기)합니다. (예시 데이터 입력됨)</p>
+    <div class="card">
+      <div class="sec">중분류·계정 · 대상 기간</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:13px;font-weight:800;color:#55606f">중분류</span><select class="inp"><option>조직운영비(통제)</option><option>소모품비(통제)</option><option>접대비(통제)</option></select>
+        <span style="font-size:13px;font-weight:800;color:#55606f">계정</span><select class="inp"><option>의욕관리비</option><option>회의비</option></select>
+        <span style="font-size:13px;font-weight:800;color:#55606f">대상 기간</span><input class="inp" value="2026-08 ~ 2026-11" style="width:160px">
+      </div>
+    </div>
+    <div class="card"><div class="sec">월별 계획금액</div>
+      <table class="t"><thead><tr><th>월</th><th class="num">계획금액</th></tr></thead><tbody>${mrows}
+      <tr style="font-weight:900"><td>총금액(자동)</td><td class="num" style="color:var(--esv-deep)">${won(total)}</td></tr></tbody></table>
+    </div>
+    <div class="banner ok">ℹ 직접 입력한 계획도 이후 <b>구매요청·PO 매핑 대상</b>이 됩니다.</div>
+    <div style="display:flex;justify-content:flex-end"><button class="btn esv" id="a-saveDirect">💾 저장 · 실행예산 반영</button></div>
+  </div>`;
+}
+
+function scrPlanDetail(p) {
+  setSys('esv', '실투입 계획·실적 관리');
+  const rem = p.total - p.used;
+  const upct = Math.round(p.used / p.total * 100), rpct = 100 - upct;
+  const mrows = p.months.map(m => {
+    return `<tr><td>${m.m}</td><td class="num">${won(m.plan)}</td>
+      <td class="num">${m.used ? won(m.used) : '<span style="color:#aab2c0">-</span>'}</td>
+      <td>${m.used ? '<span class="badge b-ok">생성완료</span>' : '<span class="badge b-none">구매 생성 대기</span>'}</td></tr>`;
+  }).join('');
+  const vh = p.vouchers.map(v => `<tr><td>${v.m}</td><td class="num">${won(v.amt)}</td><td class="mono">${v.no}</td></tr>`).join('');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">경비 계획 · 실적</h1>
+    <p class="scr-sub">${p.type} · ${p.method} · 견적 ${p.quote||'-'} · PO ${p.po||'미연계'}</p>
+    <div class="card"><div class="sec">금액 구성 — 총금액 = 실투입 생성금액 + 잔여금액</div>
+      <div class="amt-bar"><div class="used" id="bar-used" style="width:${upct}%">${upct>12?won(p.used):''}</div><div class="rem" id="bar-rem" style="width:${rpct}%">${rpct>12?won(rem):''}</div></div>
+      <div class="amt-legend">
+        <span><span class="d" style="background:#17161f"></span>총 계획금액 <b id="v-total">${won(p.total)}</b></span>
+        <span><span class="d" style="background:var(--esv)"></span>실투입 생성금액 <b id="v-used">${won(p.used)}</b></span>
+        <span><span class="d" style="background:#cbd7ec"></span>잔여금액 <b id="v-rem">${won(rem)}</b></span>
+      </div>
+    </div>
+    <div class="card"><div class="sec">월별 계획 · 실투입 실적(구매/ERP 수신)</div>
+      <table class="t"><thead><tr><th>월</th><th class="num">계획금액</th><th class="num">실투입 생성</th><th>전표(구매/ERP)</th></tr></thead><tbody>${mrows}</tbody></table>
+    </div>
+    <div class="card"><div class="sec">실투입 전표 생성 이력</div>
+      <table class="t"><thead><tr><th>검수/대상월</th><th class="num">생성금액</th><th>실투입 전표번호</th></tr></thead><tbody id="vh">${vh}</tbody></table>
+    </div>
+    <div class="card"><div class="sec">총 계획금액 변경 (실적 이하로는 낮출 수 없음)</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input class="inp" id="in-total" value="${p.total}" style="width:150px">
+        <button class="btn" id="a-applyTotal">계획금액 변경</button>
+        <span id="total-msg" style="font-size:12.5px;font-weight:700;color:#8a94a6"></span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function scrPurchaseSend(p, month, sent) {
+  setSys('pop', '실투입 정보 정의 · ERP 전송 (구매)', '구매 (POP)');
+  const m = p.months.find(x => x.m === month);
+  const erp = sent ? '<div class="card" id="erp-box" style="border-left:3px solid #d97706;background:#fff8f0;border-color:#f3d9b5"><div class="sec" style="color:#b45309">🧾 ERP — 실투입 전표 생성 완료</div><p style="font-size:13px;margin:0;color:#3a4250">구매가 보낸 정보로 <b>ERP가 실투입 전표를 생성·채번</b>했습니다 — 전표번호 <b class="mono">881234503</b>. <b>구매와 ERP는 서로 다른 시스템</b>이에요.</p></div>' : '';
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">구매 — 실투입 정보 정의 · ERP 전송</h1>
+    <p class="scr-sub">구매는 실투입 정보(금액·월)를 정의해 ERP로 전송합니다. 전표 생성·채번은 ERP가 합니다.</p>
+    <div class="banner pop">🛒 이 화면은 <b>구매(POP) 영역</b>입니다 — 실행예산이 아닙니다. (전표는 ERP가 생성)</div>
+    <div class="card pop"><div class="sec">ERP로 보낼 실투입 정보</div>
+      <table class="t pop"><thead><tr><th>프로젝트</th><th>대상 월</th><th class="num">실투입 금액</th></tr></thead>
+      <tbody><tr><td class="mono">30131234-D001</td><td>${month}</td><td class="num">${won(m.plan)}</td></tr></tbody></table>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn pop" id="a-sendErp">ERP로 실투입 전송</button></div>
+    </div>
+    ${erp}
+  </div>`;
+}
+
+function scrPurchaseReq(p) {
+  setSys('pop', '④ POP 구매요청 · PO 생성');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">POP 구매시스템 · 구매요청</h1>
+    <p class="scr-sub">POP에서 실행예산 계획을 조회해 구매요청 대상과 직접 매핑한 뒤 구매오더(PO)를 생성합니다.</p>
+    <div class="banner pop">🔗 실행예산 → POP 계획 데이터 조회 완료</div>
+    <div class="card pop"><div class="sec">실행예산 계획 조회 (연계)</div>
+      <table class="t pop"><thead><tr><th>중분류·계정</th><th>견적번호</th><th class="num">계획금액</th><th>매핑</th></tr></thead>
+      <tbody><tr><td>${p.type}</td><td class="mono">${p.quote||'-'}</td><td class="num">${won(p.total)}</td>
+        <td><button class="btn sm pop" id="a-map">이 계획에 매핑</button></td></tr></tbody></table>
+    </div>
+    <div class="card pop" id="po-box" style="display:none"><div class="sec">구매오더 생성</div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:13px;color:#55606f;font-weight:700">매핑 완료 — 구매오더를 생성하면 PO번호가 발번됩니다.</span>
+        <button class="btn pop" id="a-po">구매오더(PO) 생성</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function scrAgent(branch) {
+  setSys('esv', '⑦ 원가조정 Agent로 반영');
+  const chips = '<div class="ag-chips">'
+    + '<span class="ag-chip" id="chip-up">경비 300만원 늘려줘</span>'
+    + '<span class="ag-chip" id="chip-transfer">이관으로 메워줘</span>'
+    + '<span class="ag-chip" id="chip-req">요구사항만 적어줘</span></div>';
+  let resp;
+  if (branch === 'up') resp = '<div class="card ag-prop"><div class="sec">Agent 조정안 — 경비 증액</div>'
+    + '<p style="font-size:13px;margin:0 0 10px;color:#3a4250">입력: “경비 300만원 늘려줘” → <b>경비 +3,000,000원</b> (중분류 한도 내 조정). CP 총액 내에서 조정합니다.</p>'
+    + '<div style="display:flex;justify-content:flex-end"><button class="btn esv" id="a-apply">이 조정안 반영</button></div></div>';
+  else if (branch === 'transfer') resp = '<div class="card ag-prop"><div class="sec">Agent 조정안 — 이관으로 메움</div>'
+    + '<p style="font-size:13px;margin:0 0 10px;color:#3a4250">입력: “이관으로 메워줘” → <b>타 프로젝트 이관 경비로 ±0</b> (총액 변동 없이 재원 이동).</p>'
+    + '<div style="display:flex;justify-content:flex-end"><button class="btn esv" id="a-apply2">이 조정안 반영</button></div></div>';
+  else if (branch === 'req') resp = '<div class="card ag-prop"><div class="sec">요구사항 초안</div>'
+    + '<p style="font-size:13px;margin:0;color:#3a4250">입력: “요구사항만 적어줘” → 예산 변경 없이 <b>요구사항 문구만 작성</b>합니다(조정안 아님).</p></div>';
+  else resp = '<div class="banner ok" style="margin:0">💬 아래 예시를 누르면 <b>입력 내용에 따라</b> Agent가 서로 다른 조정안으로 분기합니다.</div>';
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">원가조정 Agent</h1>
+    <p class="scr-sub">자연어로 요청하면 Agent가 조정안을 제시합니다 — 입력 텍스트에 따라 분기돼요.</p>
+    <div class="card"><div class="sec">예시 질문</div>${chips}
+      <div class="ag-input"><input class="inp" style="flex:1" placeholder="원가 관련 요청을 자연어로 입력…" readonly><button class="btn ink">보내기</button></div>
+    </div>
+    <div id="agent-resp">${resp}</div>
+  </div>`;
+}
+
+/* =====================================================================
+   시나리오 정의
+   step: { render, spot(selector), title, text, pos, sys, act(), mode }
+   ===================================================================== */
+const SCEN = {
+  A: { no:'A', name:'POP 견적을 통한 경비 등록', desc:'견적 요청 → 검색 → 선택 → 저장 → 반영', steps:[
+    { render:scrPopReq, spot:'#a-req', pos:'right', title:'POP에서 견적 요청', text:'POP 구매시스템에서 <b>프로젝트 번호</b>로 견적을 요청하면 구매담당이 견적을 작성합니다. <b>[견적 요청]</b> 클릭.' },
+    { render:scrRegister, spot:'#a-loadQuote', pos:'bottom', title:'실행예산에서 불러오기', text:'견적이 작성되면 <b>실행예산</b>으로 와서 <b>[POP 견적 불러오기]</b>를 선택합니다.', sysToast:'POP → 실행예산' },
+    { render:scrQuoteSearch, spot:'[data-pick="QT261000002"]', pos:'left', title:'견적 검색·선택', text:'프로젝트 번호/작성자로 검색합니다. <b>등록 가능</b>한 견적 <b>QT261000002</b>을 <b>선택</b>하세요.' },
+    { render:()=>scrQuoteConfirm(quote('QT261000002')), spot:'#a-saveQuote', pos:'top', title:'월별 데이터 확인 후 저장', text:'월별 계획금액이 자동으로 들어왔습니다. 확인하고 <b>[저장]</b>하면 실행예산에 반영됩니다.',
+      act:()=>{ const q=quote('QT261000002'); q.used=true; S.plans.push({id:'P2',type:'조직운영비(통제)',method:'POP 견적',quote:q.no,total:q.total,used:0,po:'',poState:'미연계',contract:{start:q.start,end:q.end},months:q.months.map(m=>({...m,used:0})),vouchers:[]}); } },
+    { render:scrRegister, spot:'[data-detail="P2"]', pos:'left', title:'실행예산 반영 완료', text:'견적이 <b>경비 계획</b>으로 등록됐습니다(등록방식 = POP 견적). 목록에서 확인돼요.', mode:'done',
+      doneTitle:'A. POP 견적 등록 완료', doneHtml:'<p>POP에서 작성된 견적을 <b>검색→선택→저장</b>하면 계약·월별 계획이 그대로 실행예산에 반영됩니다. 예산 관리에 필요한 항목(견적번호·계약기간·총금액·월별 계획금액)만 가져옵니다.</p>' },
+  ]},
+  B: { no:'B', name:'PM 직접 입력', desc:'견적 미도착 → 중분류·월별 금액 수기 입력 → 저장', steps:[
+    { render:scrRegister, spot:'#a-direct', pos:'bottom', title:'견적이 없을 때', text:'POP 견적이 아직 도착하지 않았다면 <b>[직접 입력]</b>으로 PM이 계획을 세웁니다.' },
+    { render:scrDirect, spot:'#a-saveDirect', pos:'top', title:'월별 금액 수기 입력 후 저장', text:'중분류·계정과 <b>월별 계획금액</b>을 입력하면 <b>총금액이 자동 계산</b>됩니다. 확인 후 <b>[저장]</b>.',
+      act:()=>{ S.plans.push({id:'P3',type:'조직운영비(통제)',method:'직접 입력',quote:'',total:48000000,used:0,po:'',poState:'미연계',contract:{start:'2026-08-01',end:'2026-11-30'},months:[{m:'2026-08',plan:12000000,mm:.6,used:0},{m:'2026-09',plan:12000000,mm:.6,used:0},{m:'2026-10',plan:12000000,mm:.6,used:0},{m:'2026-11',plan:12000000,mm:.6,used:0}],vouchers:[]}); } },
+    { render:scrRegister, spot:'[data-detail="P3"]', pos:'left', title:'반영 완료', text:'직접 입력한 계획도 목록에 등록됐습니다(등록방식 = 직접 입력). 이후 <b>구매요청·PO 매핑 대상</b>이 됩니다.', mode:'done',
+      doneTitle:'B. 직접 입력 완료', doneHtml:'<p>견적 없이도 PM이 <b>중분류·계정과 월별 금액</b>을 수기로 입력해 계획을 세울 수 있습니다. POP 견적 방식과 <b>동일한 계획 관리 화면</b>에서 함께 조회됩니다.</p>' },
+  ]},
+  C: { no:'C', name:'견적 중복 등록 방지', desc:'이미 등록된 견적 선택 → 중복 제한 안내', steps:[
+    { render:scrRegister, spot:'#a-loadQuote', pos:'bottom', title:'견적 불러오기', text:'다시 <b>[POP 견적 불러오기]</b>로 들어가 봅니다.' },
+    { render:scrQuoteSearch, spot:'[data-pick="QT261000001"]', pos:'left', title:'이미 사용 중인 견적', text:'<b>QT261000001</b>은 등록여부가 <b class="lock">사용 중</b>입니다. 그래도 선택을 시도해볼게요.',
+      act:()=>{ scrDupMsg(quote('QT261000001')); } },
+    { render:null, keep:true, spot:'#dup-banner', pos:'bottom', title:'중복 등록 제한', text:'견적번호는 구매요청→PO로 이어지는 <b>연계 키</b>라 한 견적을 여러 계획에 <b class="lock">중복 등록할 수 없습니다</b>. 기존 등록 정보가 안내됩니다.', mode:'done',
+      doneTitle:'C. 중복 등록 방지', doneHtml:'<p>이미 실행예산에 등록된 견적은 <b>견적번호 기준</b>으로 중복 등록이 차단되고, 기존 등록 정보가 안내됩니다.</p><p style="margin-top:10px"><span class="tbd">※ 기등록 견적의 연결 해제·재매핑·변경 승인 정책은 추후 확정</span></p>' },
+  ]},
+  D: { no:'D', name:'구매요청 및 PO 매핑', desc:'계획 등록 → POP 매핑 → PO 생성 → 연계', steps:[
+    { render:scrRegister, spot:'[data-detail="P1"]', pos:'left', title:'PO 미연계 계획', text:'등록 시점엔 <b>PO번호가 비어</b> 있는 게 정상입니다(계획 등록 ≠ 구매오더). <b>P1</b> 상세는 생략하고, 구매요청으로 가볼게요.' },
+    { render:()=>scrPurchaseReq(plan('P1')), spot:'#a-map', pos:'left', title:'POP에서 계획 매핑', text:'POP 구매요청 화면에서 <b>실행예산 계획을 조회</b>해 구매요청 대상과 <b>PM이 직접 매핑</b>합니다.', sysToast:'실행예산 → POP',
+      act:()=>{ document.getElementById('po-box').style.display='block'; } },
+    { render:null, keep:true, spot:'#a-po', pos:'top', title:'구매오더(PO) 생성', text:'매핑 후 <b>구매오더</b>를 생성하면 POP에서 <b>PO번호가 발번</b>됩니다. (실행예산이 임의로 PO를 만들지 않습니다)',
+      act:()=>{ plan('P1').po='4500912345'; plan('P1').poState='연계'; } },
+    { render:scrRegister, spot:'#po-P1', pos:'bottom', title:'실행예산으로 PO 연계', text:'생성된 <b>PO번호(4500912345)</b>가 실행예산 계획에 <b>자동으로 채워집니다</b>.', sysToast:'POP → 실행예산',
+      enter:()=>{ const c=document.getElementById('po-P1'); if(c){ c.textContent='4500912345'; c.classList.add('po-fill'); } }, mode:'done',
+      doneTitle:'D. 구매요청·PO 매핑 완료', doneHtml:'<p>계획 등록과 구매오더 생성은 <b>서로 다른 단계</b>입니다. 계획은 PO 없이 저장되고, POP에서 PM이 매핑→PO 생성하면 <b>PO번호가 실행예산으로 연계</b>됩니다. (경비도 구매요청이 필요한 항목은 PO 매핑 대상)</p>' },
+  ]},
+  E: { no:'E', name:'월별 실투입 전표·실적 관리', desc:'구매 정의→ERP 전표 생성→실행예산 실시간 잔여', steps:[
+    { render:()=>scrPlanDetail(plan('P1')), spot:'.amt-bar', pos:'bottom', title:'총금액 = 실투입 생성 + 잔여', text:'<b>실투입 전표는 구매가 정보를 정의해 ERP에 전송 → ERP가 생성</b>합니다(구매≠ERP). 실행예산은 그 데이터를 받아 <b>잔여를 계산</b>만 해요. 지금은 실투입 4천만·잔여 6천만. 09월을 처리해볼게요.' },
+    { render:()=>scrPurchaseSend(plan('P1'),'2026-09',false), spot:'#a-sendErp', pos:'left', title:'구매 → ERP 전송', text:'이 화면은 <b>구매(POP)</b> 영역. 구매가 09월 <b>실투입 정보(금액·월)</b>를 정의해 <b>ERP로 전송</b>합니다. 전표 생성·채번은 ERP가 해요.', sysToast:'실행예산 → 구매',
+      act:()=>{ const p=plan('P1'); const m=p.months.find(x=>x.m==='2026-09'); m.used=m.plan; p.used+=m.plan; p.vouchers.push({m:'2026-09',amt:m.plan,no:'881234503'}); scrPurchaseSend(p,'2026-09',true); } },
+    { render:null, keep:true, spot:'#erp-box', pos:'top', title:'ERP가 전표 생성', text:'구매가 보낸 정보로 <b>ERP가 실투입 전표를 생성·채번</b>(88…)했습니다 — 881234503. <b>구매와 ERP는 서로 다른 시스템</b>이에요.', sysToast:'구매 → ERP' },
+    { render:()=>scrPlanDetail(plan('P1')), spot:'#bar-used', pos:'bottom', title:'실행예산 = 실시간 잔여 계산', text:'ERP가 전표를 <b>계속 보내오고</b>, 실행예산은 <b>받은 만큼 실시간으로</b> 실투입 생성↑·잔여↓를 계산합니다(막대·이력 반영). 정해진 순서가 아니라 <b>데이터가 올 때마다</b> 갱신돼요. 실행예산이 전표를 만들지는 않습니다.', sysToast:'ERP → 실행예산' },
+    { render:null, keep:true, spot:'#a-applyTotal', pos:'top', title:'실적 이하로 수정 시도', text:'총 계획금액을 <b>3천만</b>으로 낮춰봤습니다(입력됨). 실투입 생성(6천만)보다 낮으므로 <b class="lock">제한</b>돼요. <b>[계획금액 변경]</b>을 누르세요.',
+      enter:()=>{ const i=document.getElementById('in-total'); if(i) i.value='30000000'; },
+      act:()=>{ const msg=document.getElementById('total-msg'); if(msg){ msg.style.color='#b42318'; msg.textContent='✕ 실투입 생성금액(60,000,000원) 미만으로는 낮출 수 없습니다.'; } } },
+    { render:null, keep:true, spot:'#total-msg', pos:'top', title:'수정 제한 안내', text:'“실투입 생성금액(60,000,000원) 미만으로는 낮출 수 없습니다.” <b>실적 확정분은 보호</b>됩니다.', mode:'done',
+      doneTitle:'E. 월별 실투입 전표·실적', doneHtml:'<p><b>구매가 실투입 정보(금액·월)를 정의해 ERP로 전송 → ERP가 전표를 생성·채번(88…)</b>합니다(구매≠ERP). 실행예산은 ERP로 받은 전표 데이터로 <b>실투입 생성↑ · 잔여↓</b>를 <b>실시간</b> 계산해 보여줄 뿐이에요. 이미 생성된 실적보다 총 계획금액을 <b>낮출 수 없습니다</b>.</p><p style="margin-top:10px"><span class="tbd">※ 계획 변경 승인·예산 변경 절차, 전표 취소/정정은 추후 확정</span></p>' },
+  ]},
+  F: { no:'F', name:'Agent로 조정안 반영 (입력별 분기)', desc:'자연어 입력 → 내용에 따라 다른 조정안', steps:[
+    { render:()=>scrAgent(''), spot:'#chip-up', pos:'bottom', title:'자연어로 요청', text:'원가조정 <b>Agent</b>에 자연어로 요청하면 <b>입력 내용에 따라 분기</b>합니다. 먼저 <b>“경비 300만원 늘려줘”</b>를 눌러볼게요.', act:()=>scrAgent('up') },
+    { render:null, keep:true, spot:'#a-apply', pos:'top', title:'→ 경비 증액으로 분기', text:'“경비 300만원 늘려줘” → <b>경비 증액(+300만)</b> 조정안으로 분기됐습니다. 사람이 <b>[반영]</b>을 눌러야 예산에 적용돼요.' },
+    { render:()=>scrAgent(''), spot:'#chip-transfer', pos:'bottom', title:'다른 입력은 다르게', text:'같은 Agent라도 입력이 다르면 결과가 달라집니다. 이번엔 <b>“이관으로 메워줘”</b>.', act:()=>scrAgent('transfer') },
+    { render:null, keep:true, spot:'#a-apply2', pos:'top', title:'→ 이관으로 분기(±0)', text:'“이관으로 메워줘” → <b>이관 경비로 ±0</b>(총액 변동 없이 재원 이동) 조정안으로 분기됐죠. <b>입력 텍스트가 분기를 결정</b>합니다.', mode:'done',
+      doneTitle:'F. Agent 입력별 분기', doneHtml:'<p>원가조정 <b>Agent</b>에 자연어로 요청하면 <b>입력 내용에 따라</b> 증액 / 이관 / 요구사항 작성 등 서로 다른 조정안으로 <b>분기</b>합니다. Agent는 제안만 하고, <b>사람이 [반영]</b>을 눌러야 예산에 적용돼요(자동 적용 아님).</p>' },
+  ]},
+};
+const SC_ORDER = ['A','B','C','D','E','F'];
+const done = {};
+
+/* =====================================================================
+   엔진
+   ===================================================================== */
+let curSc = null, step = 0, steps = [], curTgt = null, curPos = 'bottom', bubMoved = false;
+const $ = id => document.getElementById(id);
+
+function lockScroll(){ const e=document.scrollingElement||document.documentElement; e.style.overflow='hidden'; $('sim').style.overflow='hidden'; }
+function unlockScroll(){ const e=document.scrollingElement||document.documentElement; e.style.overflow=''; $('sim').style.overflow='auto'; }
+
+function runScenario(key){
+  curSc=key; steps=SCEN[key].steps; step=0;
+  $('center').style.display='none';
+  $('hud-sc').textContent='시나리오 '+key+'. '+SCEN[key].name;
+  renderStep();
+}
+function renderStep(){
+  const s=steps[step];
+  // 전환 잔상 방지 — 이전 스포트라이트/말풍선 즉시 숨기고 타깃 해제(place 에서 다시 표시)
+  curTgt=null; $('hole').style.display='none'; $('bubble').style.display='none';
+  if(s.sysToast){ switchToast(s.sysToast.replace('→','<em style="opacity:.6"> → </em>')); }
+  if(s.render && !s.keep){ $('sim').style.opacity='0'; s.render(); }
+  if(s.enter){ try{ s.enter(); }catch(err){ console.warn(err); } }  // 단계 진입 시 상태 준비(입력 프리셋 등)
+  setTimeout(()=>place(s), s.sysToast?620:60);
+  $('hud-cnt').textContent='단계 '+(step+1)+' / '+steps.length;
+  $('hud-fill').style.width=Math.round(step/steps.length*100)+'%';
+}
+function place(s){
+  $('sim').style.opacity='1';
+  const tgt=document.querySelector(s.spot);
+  const isPop=document.getElementById('sysbar').classList.contains('pop');
+  $('center').style.display='none';
+  if(!tgt){ // 재시도(렌더 지연)
+    return setTimeout(()=>place(s), 120);
+  }
+  unlockScroll();
+  try{ tgt.scrollIntoView({block:'center',inline:'nearest'}); }catch(e){}
+  lockScroll();
+  $('mask').style.display='block';
+  curTgt=tgt; curPos=s.pos||'bottom'; bubMoved=false;
+  const hole=$('hole'); hole.className=isPop?'pop':''; drawHole(tgt.getBoundingClientRect());
+  hole.onclick=(e)=>{ e.stopPropagation(); if(s.act){ try{s.act();}catch(err){console.warn(err);} } if(s.mode==='done'){ finishScenario(s); } else { next(); } };
+  const bub=$('bubble'); bub.className=isPop?'pop':'';
+  bub.querySelector('.ar').style.display='block';
+  bub.querySelector('.st').textContent='STEP '+(step+1)+' / '+steps.length;
+  bub.querySelector('.tt').textContent=s.title;
+  bub.querySelector('.tx').innerHTML=s.text;
+  bub.style.display='block'; posBub(bub, tgt.getBoundingClientRect(), curPos);
+}
+function drawHole(r){ const h=$('hole'),p=7; h.style.display='block'; h.style.left=(r.left-p)+'px'; h.style.top=(r.top-p)+'px'; h.style.width=(r.width+p*2)+'px'; h.style.height=(r.height+p*2)+'px'; }
+function posBub(b,r,pos){
+  const bw=b.offsetWidth,bh=b.offsetHeight,g=18,vw=innerWidth,vh=innerHeight;let l,t;const a=b.querySelector('.ar');
+  const cl=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+  if(pos==='right'){l=r.right+g;t=r.top+r.height/2-bh/2;}else if(pos==='left'){l=r.left-bw-g;t=r.top+r.height/2-bh/2;}
+  else if(pos==='top'){l=r.left+r.width/2-bw/2;t=r.top-bh-g;}else{l=r.left+r.width/2-bw/2;t=r.bottom+g;}
+  if(l<12)l=12;if(l+bw>vw-12)l=vw-bw-12;if(t<100)t=100;if(t+bh>vh-12)t=vh-bh-12;
+  b.style.left=l+'px';b.style.top=t+'px';a.style.display='block';
+  if(pos==='right'){a.style.left='-8px';a.style.top=cl(r.top+r.height/2-t-7,10,bh-20)+'px';a.style.borderRight='none';a.style.borderBottom='none';}
+  else if(pos==='left'){a.style.left=(bw-6)+'px';a.style.top=cl(r.top+r.height/2-t-7,10,bh-20)+'px';a.style.borderLeft='none';a.style.borderTop='none';}
+  else if(pos==='top'){a.style.top=(bh-6)+'px';a.style.left=cl(r.left+r.width/2-l-7,14,bw-24)+'px';a.style.borderLeft='none';a.style.borderTop='none';}
+  else{a.style.top='-8px';a.style.left=cl(r.left+r.width/2-l-7,14,bw-24)+'px';a.style.borderRight='none';a.style.borderBottom='none';}
+}
+function next(){ if(step<steps.length-1){ step++; renderStep(); } else finishScenario(steps[steps.length-1]); }
+function tPrev(){ if(step>0){ step--; // 상태 되돌리기는 생략(간단화) — 재시작 권장
+  renderStep(); } else openScenarios(); }
+function tRestart(){ S=initState(); if(curSc) runScenario(curSc); else openScenarios(); }
+
+/* rAF 고정 */
+function sync(){ if(curTgt && $('hole').style.display==='block'){ const r=curTgt.getBoundingClientRect(); if(r.width||r.height){ drawHole(r); if(!bubMoved) posBub($('bubble'),r,curPos); } } requestAnimationFrame(sync); }
+requestAnimationFrame(sync);
+function maskOn(){ return $('mask').style.display==='block' && $('hole').style.display==='block'; }
+addEventListener('wheel', e=>{ if(maskOn()) e.preventDefault(); }, {passive:false,capture:true});
+addEventListener('touchmove', e=>{ if(maskOn() && !document.body.classList.contains('drag')) e.preventDefault(); }, {passive:false,capture:true});
+
+function finishScenario(s){
+  done[curSc]=true;
+  $('mask').style.display='none'; $('hole').style.display='none'; $('bubble').style.display='none'; curTgt=null; unlockScroll();
+  $('hud-fill').style.width='100%'; $('hud-cnt').textContent='단계 '+steps.length+' / '+steps.length;
+  const nextKey=SC_ORDER[SC_ORDER.indexOf(curSc)+1];
+  const c=$('center'); c.style.display='flex';
+  c.innerHTML='<div class="card2"><div style="text-align:center"><div class="chk">✓</div><div class="eb">경비 · 시나리오 '+curSc+'</div><h2>'+(s.doneTitle||'완료')+'</h2></div>'
+    +(s.doneHtml||'')
+    +'<div class="acts">'
+    +(nextKey?'<button class="pri" onclick="runScenario(\''+nextKey+'\')">다음 시나리오 '+nextKey+' →</button>':'')
+    +'<button onclick="openScenarios()">☰ 시나리오 목록</button>'
+    +'<button onclick="tRestart()">↻ 이 시나리오 다시</button></div></div>';
+}
+
+function tWrong(){ const h=$('hole'); if(h.style.display!=='block')return; h.classList.remove('shake'); void h.offsetWidth; h.classList.add('shake');
+  const t=$('toast'); t.textContent='👆 강조된 영역을 클릭하세요'; t.classList.add('show'); clearTimeout(window.__t); window.__t=setTimeout(()=>t.classList.remove('show'),1500); }
+
+/* 말풍선 드래그 */
+(function(){ const b=$('bubble'); let d=null;
+  const st=(x,y)=>{ d={x,y,l:parseFloat(b.style.left)||0,t:parseFloat(b.style.top)||0}; bubMoved=true; b.querySelector('.ar').style.display='none'; document.body.classList.add('drag'); };
+  const mv=(x,y)=>{ if(!d)return; let nl=d.l+(x-d.x),nt=d.t+(y-d.y); nl=Math.max(6,Math.min(innerWidth-b.offsetWidth-6,nl)); nt=Math.max(100,Math.min(innerHeight-b.offsetHeight-6,nt)); b.style.left=nl+'px'; b.style.top=nt+'px'; };
+  const en=()=>{ if(d){ d=null; document.body.classList.remove('drag'); } };
+  b.addEventListener('mousedown',e=>{ st(e.clientX,e.clientY); e.preventDefault(); });
+  addEventListener('mousemove',e=>mv(e.clientX,e.clientY)); addEventListener('mouseup',en);
+  b.addEventListener('touchstart',e=>{ const t=e.touches[0]; st(t.clientX,t.clientY); },{passive:true});
+  addEventListener('touchmove',e=>{ if(!d)return; const t=e.touches[0]; mv(t.clientX,t.clientY); e.preventDefault(); },{passive:false}); addEventListener('touchend',en);
+})();
+
+/* 시나리오 선택 */
+function openScenarios(){
+  $('mask').style.display='none'; $('hole').style.display='none'; $('bubble').style.display='none'; curTgt=null; unlockScroll(); curSc=null;
+  $('hud-sc').textContent=''; $('hud-cnt').textContent=''; $('hud-fill').style.width='0';
+  setSys('esv',''); sim().innerHTML='';
+  const items=SC_ORDER.map(k=>{ const sc=SCEN[k]; return '<button class="sc-item" onclick="runScenario(\''+k+'\')"><span class="sc-no">'+k+'</span><span><span class="sc-tt">'+sc.name+'</span><span class="sc-ds">'+sc.desc+'</span></span>'+(done[k]?'<span class="sc-done">✓</span>':'')+'</button>'; }).join('');
+  const c=$('center'); c.style.display='flex';
+  const timeline='<div class="tl-title">경비 — 시점 한눈에 보기 <em>(순서보다 ‘항목 일치’가 핵심)</em></div>'
+    +'<div class="tl">'
+    +'<div class="tl-n pop"><b>① 견적 작성</b><span>POP · 또는 구두합의 입력</span></div>'
+    +'<div class="tl-eq">⇄<i>동일 항목<br>순서 무관</i></div>'
+    +'<div class="tl-n esv big"><b>② 실행예산 수립</b><span>견적과 동일 데이터</span></div><div class="tl-ar">→</div>'
+    +'<div class="tl-n pop"><b>③ 구매요청·PO</b><span>POP</span></div><div class="tl-ar">→</div>'
+    +'<div class="tl-n pop"><b>④ 구매→ERP 전표</b><span>구매 정의→ERP 생성 ↻</span></div><div class="tl-ar">→</div>'
+    +'<div class="tl-n esv"><b>실시간 잔여 관리</b><span>예산관리 · 상시</span></div>'
+    +'</div>'
+    +'<div class="tl-note">💡 <b>핵심은 순서가 아니라 ‘항목 일치’</b> — POP 견적과 실행예산의 <b>견적 항목이 똑같아야</b> 합니다. 실행예산 수립(②)은 견적 작성(①)과 <b>동시에</b> 하거나 <b>먼저</b> 할 수도 있어요(견적이 시스템에 없어도 업체와 <b>구두 합의</b>한 내용이면 <b>수기 수립</b> 가능 — 이후 POP 입력→연계). 잔여는 <b style="color:var(--pop-deep)">실투입 전표를 계속 받아</b> <b style="color:var(--esv-deep)">실시간</b>으로 계산됩니다(정해진 순서가 아님).</div>';
+  c.innerHTML='<div class="card2" style="max-width:860px"><div class="eb">실행예산 · 경비</div><h2>경비 계획 — 시나리오 선택</h2>'
+    +'<p><b style="color:var(--pop-deep)">🔴 구매시스템(POP·ERP) = 빨강</b> · <b style="color:var(--esv-deep)">🔵 실행예산(예산관리) = 파랑</b>. 두 시스템을 오가지만, <b>예산관리의 프로세스·로직</b>에 집중하세요.</p>'
+    +timeline
+    +'<div class="sclist">'+items+'</div></div>';
+}
+
+openScenarios();
+</script>
+</body>
+</html>
