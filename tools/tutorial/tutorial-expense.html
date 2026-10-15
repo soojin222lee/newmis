@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AiBudget 업무 튜토리얼 · 경비 계획</title>
-<meta name="description" content="경비 — 가용예산 체크·월별 계획(미래월)·통제/비통제·인비례성·WLB·승인요청 체크 인터랙티브 튜토리얼.">
+<meta name="description" content="경비 — 가용예산 안내(ERP 수행 팟)·년단위 기간 입력·저장 가이드·계약리뷰 최종 Cost 승인 체크 인터랙티브 튜토리얼.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -57,29 +57,29 @@ table.t tbody tr:last-child td{border-bottom:0}
 .pname{font-weight:700;color:#16151f}
 
 .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800}
-.b-ctrl{background:var(--erp-soft);color:var(--erp-deep)} .b-free{background:var(--crm-soft);color:var(--crm-deep)}
-.b-lock{background:#f1f0ea;color:#8a94a6} .b-ok{background:#eef7f1;color:#166534} .b-warn{background:#fdecec;color:#b42318}
-.b-erp{background:var(--erp-soft);color:var(--erp-deep)} .b-crm{background:var(--crm-soft);color:var(--crm-deep)} .b-mm{background:var(--esv-soft);color:var(--esv-deep)}
+.b-ok{background:#eef7f1;color:#166534} .b-warn{background:#fdecec;color:#b42318} .b-lock{background:#f1f0ea;color:#8a94a6}
+.b-erp{background:var(--erp-soft);color:var(--erp-deep)} .b-mm{background:var(--esv-soft);color:var(--esv-deep)} .b-crm{background:var(--crm-soft);color:var(--crm-deep)}
 .tbd{display:inline-block;font-size:11px;font-weight:800;color:#b4740a;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:1px 7px}
 
 .avail-bar{height:26px;border-radius:8px;overflow:hidden;display:flex;border:1px solid #e4e2da;background:#f3f2ec}
 .avail-bar .use{background:var(--esv);height:100%;transition:width .5s ease;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800}
 .avail-bar .rem{background:#cbd7ec;height:100%;transition:width .5s ease;display:flex;align-items:center;justify-content:center;color:#1746a0;font-size:11px;font-weight:800}
 .avail-bar.over .use{background:var(--red)}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.kv .k{font-size:11px;font-weight:800;color:#98a2b3}.kv .v{font-size:16px;font-weight:900;color:#16151f;margin-top:3px;font-variant-numeric:tabular-nums}
 .inp{height:34px;border:1px solid var(--sk-border-strong);border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;color:#2b3442;background:#fff;text-align:right;font-variant-numeric:tabular-nums}
-.inp:disabled{background:#f4f3ee;color:#aab2c0}
+.inp:disabled{background:#f4f3ee;color:#8a94a6;text-align:left}
 .banner{border-radius:12px;padding:13px 16px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:9px;margin-bottom:14px}
 .banner.esv{background:var(--esv-soft);border:1px solid #bcd3f7;color:var(--esv-deep)}
 .banner.erp{background:var(--erp-soft);border:1px solid #f3d9b5;color:var(--erp-deep)}
 .banner.warn{background:#fdecec;border:1px solid #f5c2c0;color:#b42318}
 .banner.ok{background:#eef7f1;border:1px solid #bbe7cc;color:#166534}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.ty-card{border:1.5px solid #e4e2da;border-radius:14px;padding:16px}
-.ty-card.ctrl{border-color:#f3d9b5;background:var(--erp-soft)} .ty-card.free{border-color:#d9c9f5;background:var(--crm-soft)}
-.ty-card .t{font-size:15px;font-weight:900;color:#16151f}.ty-card .d{font-size:12.5px;line-height:1.6;color:#3a4250;margin-top:6px}
+.guide{border:1.5px solid #fed7aa;background:var(--erp-soft);border-radius:14px;padding:16px 18px}
+.guide .gt{font-size:14px;font-weight:900;color:var(--erp-deep);display:flex;align-items:center;gap:8px}
+.guide .gd{font-size:13px;line-height:1.6;color:#3a4250;margin-top:8px}
 .chk-row{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid #e4e2da;border-radius:10px;margin-bottom:8px;font-size:13px;font-weight:700;color:#2b3442}
 .chk-row .ic{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:13px;color:#fff;flex:none}
-.chk-row.ok .ic{background:var(--green)} .chk-row.no .ic{background:var(--red)} .chk-row.wait .ic{background:#c3cbd6}
+.chk-row.ok .ic{background:var(--green)} .chk-row.no .ic{background:var(--red)}
 .chk-row b{color:#16151f}
 
 #hud{position:fixed;top:0;left:0;right:0;z-index:9000;height:50px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--sk-border);display:flex;align-items:center;gap:13px;padding:0 16px}
@@ -96,18 +96,18 @@ table.t tbody tr:last-child td{border-bottom:0}
 #hole.shake{animation:shake .4s}@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
 #hole .fg{position:absolute;right:-14px;bottom:-14px;font-size:24px;pointer-events:none;animation:fg 1.3s ease-in-out infinite;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
 @keyframes fg{0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,-5px)}}
-#bubble{position:fixed;z-index:9003;max-width:350px;background:#fff;border-radius:14px;padding:16px 18px 14px;border:1px solid #e4e2da;box-shadow:0 18px 50px rgba(10,14,26,.28);display:none;cursor:grab;animation:pop .28s cubic-bezier(.2,.9,.3,1.2)}
+#bubble{position:fixed;z-index:9003;max-width:352px;background:#fff;border-radius:14px;padding:16px 18px 14px;border:1px solid #e4e2da;box-shadow:0 18px 50px rgba(10,14,26,.28);display:none;cursor:grab;animation:pop .28s cubic-bezier(.2,.9,.3,1.2)}
 #bubble:active{cursor:grabbing}
 @keyframes pop{from{opacity:0;transform:scale(.94) translateY(6px)}to{opacity:1;transform:none}}
 #bubble .grip{position:absolute;top:8px;right:10px;font-size:13px;color:#c3cbd6;pointer-events:none}
 #bubble .st{font-size:11px;font-weight:900;color:var(--esv);letter-spacing:.5px}
 #bubble .tt{font-size:16px;font-weight:900;color:#16151f;margin:5px 0 7px;padding-right:20px}
 #bubble .tx{font-size:13.5px;line-height:1.62;color:#3a4250}#bubble .tx b{color:#17161f}
-#bubble .tx .lock{color:#b42318}#bubble .tx .erp{color:var(--erp-deep)}#bubble .tx .crm{color:var(--crm-deep)}
+#bubble .tx .lock{color:#b42318}#bubble .tx .erp{color:var(--erp-deep)}
 #bubble .hint{margin-top:10px;font-size:11.5px;font-weight:800;color:var(--esv);display:flex;gap:10px;flex-wrap:wrap}#bubble .hint em{font-style:normal;color:#9aa4b2}
 #bubble .ar{position:absolute;width:14px;height:14px;background:#fff;border:1px solid #e4e2da;transform:rotate(45deg)}
 #center{position:fixed;inset:0;z-index:9003;display:none;align-items:center;justify-content:center;padding:24px}
-#center .card2{background:#fff;border-radius:20px;max-width:640px;width:100%;padding:30px 32px;box-shadow:0 24px 70px rgba(10,14,26,.35);animation:pop .3s cubic-bezier(.2,.9,.3,1.2)}
+#center .card2{background:#fff;border-radius:20px;max-width:660px;width:100%;padding:30px 32px;box-shadow:0 24px 70px rgba(10,14,26,.35);animation:pop .3s cubic-bezier(.2,.9,.3,1.2)}
 #center .eb{font-size:12px;font-weight:900;letter-spacing:1px;color:var(--esv);text-transform:uppercase}
 #center h2{font-size:23px;font-weight:900;color:#16151f;margin:8px 0 10px}
 #center p{font-size:14px;line-height:1.7;color:#3a4250;margin:0}
@@ -122,7 +122,7 @@ table.t tbody tr:last-child td{border-bottom:0}
 .sc-tt{font-size:14px;font-weight:800;color:#16151f}.sc-ds{font-size:12px;color:#8a94a6;font-weight:700;margin-top:1px}
 .sc-done{margin-left:auto;font-size:16px;color:var(--green)}
 .proc{display:flex;align-items:stretch;gap:4px;overflow-x:auto;padding-bottom:4px;margin-top:6px}
-.proc-n{flex:1;min-width:120px;border-radius:11px;padding:11px 10px;text-align:center;border:1px solid #e4e2da;background:#f7f9fc}
+.proc-n{flex:1;min-width:130px;border-radius:11px;padding:11px 10px;text-align:center;border:1px solid #e4e2da;background:#f7f9fc}
 .proc-n b{display:block;font-size:12.5px;font-weight:800;color:#16151f}.proc-n span{font-size:10.5px;font-weight:800;color:var(--esv-deep)}
 .proc-n.erp{background:var(--erp-soft);border-color:#f3d9b5}.proc-n.erp span{color:var(--erp-deep)}
 .proc-ar{align-self:center;color:#c3cbd6;font-weight:900;font-size:15px;flex:0 0 auto}
@@ -141,7 +141,7 @@ table.t tbody tr:last-child td{border-bottom:0}
   <span class="sp"></span>
   <button onclick="tPrev()">◀ 이전</button><button onclick="tRestart()">↻ 다시 시작</button><button onclick="openScenarios()">☰ 시나리오</button>
 </div>
-<div id="sysbar"><div class="sys"><span class="ic">📊</span><span>실행예산 · New MIS</span></div><span class="tag">경비는 POP·견적 없음 · 우리 시스템에서 월별 입력</span><span class="flow"></span><span class="leg"><span class="lg esv"><i></i>실행예산</span><span class="lg erp"><i></i>ERP 예산 팟</span><span class="lg crm"><i></i>CRM Cost</span></span></div>
+<div id="sysbar"><div class="sys"><span class="ic">📊</span><span>실행예산 · New MIS</span></div><span class="tag">경비는 POP·견적 없음 · 우리 시스템에서 년단위 입력</span><span class="flow"></span><span class="leg"><span class="lg esv"><i></i>실행예산</span><span class="lg erp"><i></i>ERP 수행 팟(가용)</span><span class="lg crm"><i></i>계약리뷰 Cost</span></span></div>
 
 <div id="sim"></div>
 
@@ -155,9 +155,11 @@ table.t tbody tr:last-child td{border-bottom:0}
 "use strict";
 /* =====================================================================
    경비 계획 인터랙티브 튜토리얼 — 시뮬레이션
-   핵심: POP·견적 없음 / 과거월=실적(잠김)·미래월만 계획 / 통제(ERP 팟 내)·
-         비통제(CRM Cost 허들) / 인비례성(인건비 MM)·WLB(부서 ERP 팟) /
-         계획 전 '가용예산' 체크 / 승인요청 시 CRM Cost + ERP 팟 모두 충족.
+   핵심: POP·견적 없음 / 가용예산은 ERP를 조회해 '매출귀속부서 수행 팟' 잔액
+         등을 받아 '정보성'으로 안내(자동 수립 아님) / 년단위(기간) 총액 입력
+         (월별 분배 X) · 이전 버전 예산−실적=잔여 자동 / 저장 시 가용 비교
+         가이드 팝업 / 승인요청은 '계약리뷰 최종 Cost' 초과 체크(유형별 전체
+         또는 4대 계정, 예산 간 쉐어 불가). 통제/비통제는 백단 로직이라 미노출.
    ※ 모두 가상 데이터 시뮬레이션.
    ===================================================================== */
 const won = n => n.toLocaleString('ko-KR') + '원';
@@ -165,160 +167,125 @@ const won = n => n.toLocaleString('ko-KR') + '원';
 function initState() {
   return {
     accts: [
-      { code:'705501', name:'의욕관리비', mid:'조직운영비', ctrl:'통제', nat:'인비례', src:'인건비 MM', srcT:'mm', avail:2400000 },
-      { code:'735901', name:'회의비',     mid:'일반통제성', ctrl:'통제', nat:'인비례', src:'인건비 MM', srcT:'mm', avail:1200000 },
-      { code:'743901', name:'잡비',       mid:'우편송',     ctrl:'통제', nat:'인비례', src:'인건비 MM', srcT:'mm', avail:800000 },
-      { code:'820101', name:'석식대',     mid:'WLB',        ctrl:'통제', nat:'WLB',   src:'매출귀속부서 ERP 팟', srcT:'erp', avail:1500000 },
-      { code:'820102', name:'시내교통비', mid:'WLB',        ctrl:'통제', nat:'WLB',   src:'매출귀속부서 ERP 팟', srcT:'erp', avail:900000 },
-      { code:'710301', name:'사무용품비', mid:'소모품비',   ctrl:'통제', nat:'일반',  src:'ERP 예산 팟',        srcT:'erp', avail:1100000 },
-      { code:'705502', name:'조직관리비', mid:'일반비',     ctrl:'비통제', nat:'일반', src:'CRM Cost 허들',      srcT:'crm', avail:5500000 },
+      { name:'의욕관리비', nat:'인비례성', src:'인건비 MM(가이드)', srcT:'mm',  avail:2400000 },
+      { name:'회의비',     nat:'인비례성', src:'인건비 MM(가이드)', srcT:'mm',  avail:1200000 },
+      { name:'잡비',       nat:'인비례성', src:'인건비 MM(가이드)', srcT:'mm',  avail:800000 },
+      { name:'석식대',     nat:'WLB',     src:'매출귀속부서 수행 팟', srcT:'erp', avail:1500000 },
+      { name:'시내교통비', nat:'WLB',     src:'매출귀속부서 수행 팟', srcT:'erp', avail:900000 },
+      { name:'사무용품비', nat:'일반',    src:'매출귀속부서 수행 팟', srcT:'erp', avail:1100000 },
     ],
-    cur:'820101',
-    months:[
-      { m:'2026-07', past:true,  plan:200000 },
-      { m:'2026-08', past:true,  plan:200000 },
-      { m:'2026-09', past:true,  plan:200000 },
-      { m:'2026-10', past:false, plan:0 },
-      { m:'2026-11', past:false, plan:0 },
-      { m:'2026-12', past:false, plan:0 },
-    ],
+    // 년단위(기간) 입력 대상 — 석식대
+    year:{ acct:'석식대', period:'2026-10 ~ 2026-12 (남은 3개월)', prevBudget:1800000, actual:600000, avail:1500000, input:0 },
   };
 }
 let S = initState();
-const acct = c => S.accts.find(a => a.code === c);
-const srcBadge = a => a.srcT==='erp' ? '<span class="badge b-erp">ERP 예산 팟</span>' : a.srcT==='crm' ? '<span class="badge b-crm">CRM Cost</span>' : '<span class="badge b-mm">인건비 MM</span>';
-
 const sim = () => document.getElementById('sim');
-function setFlow(t){ document.querySelector('#sysbar .flow').textContent = t || ''; }
+function setFlow(t){ const e=document.querySelector('#sysbar .flow'); if(e) e.textContent = t || ''; }
+const srcBadge = a => a.srcT==='erp' ? '<span class="badge b-erp">매출귀속부서 수행 팟</span>' : '<span class="badge b-mm">인건비 MM (가이드)</span>';
 
 /* ---------- 화면 ---------- */
 function scrAvail() {
-  setFlow('① 가용예산 체크 (계획 전 필수)');
+  setFlow('① 가용예산 안내 (ERP 조회 · 정보성)');
   const rows = S.accts.map(a => `<tr>
     <td class="pname">${a.name}</td>
-    <td>${a.mid}</td>
-    <td>${a.ctrl==='통제' ? '<span class="badge b-ctrl">통제</span>' : '<span class="badge b-free">비통제</span>'}</td>
     <td>${a.nat}</td>
     <td>${srcBadge(a)}</td>
     <td class="num" style="font-weight:800;color:#16151f">${won(a.avail)}</td></tr>`).join('');
   sim().innerHTML = `<div class="wrap">
-    <h1 class="scr-title">가용예산 조회</h1>
-    <p class="scr-sub">경비는 계획을 세우기 <b>전에 가용예산</b>을 확인합니다 — 지금 이 계정에 얼마를 세울 수 있는지.</p>
-    <div class="banner esv">💡 경비는 <b>POP·견적이 없습니다</b>. 실행예산에서 월별로 금액을 입력해요. 단, 그 전에 <b>가용예산</b>부터 확인!</div>
-    <div class="card"><div class="sec">계정별 가용예산 (출처가 계정 성격마다 다름)</div>
-      <table class="t"><thead><tr><th>계정</th><th>중분류</th><th>통제구분</th><th>성격</th><th>가용예산 출처</th><th class="num">가용금액</th></tr></thead>
+    <h1 class="scr-title">가용예산 안내</h1>
+    <p class="scr-sub">계획을 세우기 전, 시스템이 <b>ERP를 조회</b>해 <b>지금 얼마까지 세울 수 있는지</b> 알려줍니다 — <b>정보성 안내</b>(자동으로 세워주지 않아요).</p>
+    <div class="banner esv">💡 경비는 <b>POP·견적이 없습니다</b>. 가용예산은 해당 프로젝트 <b class="pname" style="color:var(--erp-deep)">매출귀속부서의 ‘수행 팟’</b> 잔액을 <b>ERP에서 받아와</b> “이만큼 안에서 세울 수 있어요”라고 안내하는 값이에요.</div>
+    <div class="card"><div class="sec">계정별 가용예산 (ERP 조회 결과 · 정보성)</div>
+      <table class="t"><thead><tr><th>계정</th><th>성격</th><th>가용 근거</th><th class="num">가용금액</th></tr></thead>
       <tbody>${rows}</tbody></table>
     </div>
-    <div class="proc-note">🟠 <b>통제</b> 계정은 <b style="color:var(--erp-deep)">ERP 예산 팟</b> 안에서만 · 🟣 <b>비통제</b>는 팟이 없지만 <b style="color:var(--crm-deep)">CRM Cost 허들</b> 내에서 · <b style="color:var(--esv-deep)">인비례성</b>(의욕관리비·회의비·잡비)은 투입 <b>인건비 MM</b>만큼 · <b>WLB</b>(석식대·시내교통비)는 <b>매출귀속부서 ERP 팟</b> 잔액만큼.</div>
+    <div class="proc-note">🟠 <b>WLB(석식대·시내교통비)·일반</b>은 <b style="color:var(--erp-deep)">매출귀속부서 수행 팟</b> 잔액만큼 · <b style="color:var(--esv-deep)">인비례성</b>(의욕관리비·회의비·잡비)은 투입 <b>인건비 MM만큼이 ‘가이드’</b>예요(꼭 그만큼 안 세워도 됨). 다만 <b>어느 쪽이든 결국 ERP 수행 팟에 돈이 있어야</b> 세울 수 있습니다.</div>
   </div>`;
 }
 
-function scrMonthly() {
-  setFlow('② 월별 계획 입력 (미래월만)');
-  const a = acct(S.cur);
-  const sum = S.months.reduce((s,m)=>s+(m.past?0:m.plan),0);
-  const over = sum > a.avail;
-  const upct = Math.min(100, Math.round(sum / a.avail * 100)), rpct = Math.max(0,100-upct);
-  const rows = S.months.map((m,i) => `<tr>
-    <td>${m.m}</td>
-    <td>${m.past ? '<span class="badge b-lock">🔒 실적(과거월)</span>' : '<span class="badge b-ok">계획 가능</span>'}</td>
-    <td class="num">${m.past ? won(m.plan)+' <span style="color:#aab2c0;font-size:11px">(실적)</span>' : `<input class="inp" style="width:120px" value="${m.plan}" data-mi="${i}">`}</td></tr>`).join('');
+function scrYearly() {
+  setFlow('② 년단위(기간) 계획 입력');
+  const y = S.year;
+  const remain = y.prevBudget - y.actual;
+  const over = y.input > y.avail;
+  const upct = Math.min(100, Math.round((y.input||0) / y.avail * 100)), rpct = Math.max(0,100-upct);
   sim().innerHTML = `<div class="wrap">
-    <h1 class="scr-title">월별 경비 계획 입력 — ${a.name}</h1>
-    <p class="scr-sub">${a.mid} · ${a.ctrl} · 성격 ${a.nat} · 가용 출처 ${a.src}</p>
-    <div class="banner ${over?'warn':'erp'}">${over?'⚠':'🟠'} 가용예산 <b>${won(a.avail)}</b> (출처: ${a.src}). <b>${a.ctrl==='통제'?'통제 계정은 ERP 예산 팟을 초과할 수 없습니다':'비통제지만 CRM Cost 허들 내'}</b>.</div>
-    <div class="card"><div class="sec">계획 입력 합계 대비 가용</div>
-      <div class="avail-bar ${over?'over':''}"><div class="use" id="av-use" style="width:${upct}%">${upct>14?won(sum):''}</div><div class="rem" style="width:${rpct}%">${rpct>14?won(a.avail-sum):''}</div></div>
-      <div style="display:flex;gap:16px;margin-top:9px;font-size:12px;font-weight:700;color:#55606f;flex-wrap:wrap">
-        <span>입력 합계 <b id="av-sum" style="color:${over?'var(--red)':'#16151f'}">${won(sum)}</b></span>
-        <span>가용예산 <b style="color:var(--erp-deep)">${won(a.avail)}</b></span>
-        <span id="av-msg" style="color:${over?'var(--red)':'#166534'};font-weight:800">${over?'✕ 가용 초과 — 승인요청 불가':'✓ 가용 내'}</span>
+    <h1 class="scr-title">년단위 경비 계획 입력 — ${y.acct}</h1>
+    <p class="scr-sub">경비는 <b>월별이 아니라 기간(년단위) 총액</b>으로 입력합니다 — “남은 3개월 동안 얼마 쓸지”.</p>
+    <div class="card"><div class="sec">이전 버전 대비 잔여 (자동)</div>
+      <div class="kv">
+        <div><div class="k">이전 버전 예산</div><div class="v">${won(y.prevBudget)}</div></div>
+        <div><div class="k">기집행 실적</div><div class="v">${won(y.actual)}</div></div>
+        <div><div class="k">남은 기간 잔여(자동 = 예산−실적)</div><div class="v" style="color:var(--esv-deep)">${won(remain)}</div></div>
       </div>
     </div>
-    <div class="card"><div class="sec">월별 계획 (과거월=실적 잠김 · 미래월만 입력)</div>
-      <table class="t"><thead><tr><th>월</th><th>상태</th><th class="num">계획금액</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="card"><div class="sec">남은 기간 계획 입력 (월별 분배 없이 총액)</div>
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:800;color:#55606f">대상 기간</span><input class="inp" value="${y.period}" disabled style="width:220px">
+        <span style="font-size:13px;font-weight:800;color:#55606f">이 기간 계획금액</span><input class="inp" id="in-year" value="${y.input}" style="width:150px">
+      </div>
+      <div class="avail-bar ${over?'over':''}" style="margin-top:14px"><div class="use" id="y-use" style="width:${upct}%">${upct>14?won(y.input):''}</div><div class="rem" style="width:${rpct}%">${rpct>14?won(y.avail-(y.input||0)):''}</div></div>
+      <div style="display:flex;gap:16px;margin-top:9px;font-size:12px;font-weight:700;color:#55606f;flex-wrap:wrap">
+        <span>가용예산 <b style="color:var(--erp-deep)">${won(y.avail)}</b> (매출귀속부서 수행 팟)</span>
+        <span id="y-msg" style="color:${over?'var(--red)':'#166534'};font-weight:800">${over?'✕ 가용 초과 — 저장 시 안내':'✓ 가용 내'}</span>
+      </div>
     </div>
-    <div style="display:flex;justify-content:flex-end"><button class="btn esv" id="a-saveMonthly">💾 저장</button></div>
+    <div style="display:flex;justify-content:flex-end"><button class="btn esv" id="a-saveYear">💾 저장</button></div>
   </div>`;
-  [...document.querySelectorAll('#sim input[data-mi]')].forEach(inp => inp.addEventListener('input', () => {
-    const i = +inp.dataset.mi; S.months[i].plan = parseInt(inp.value.replace(/[^0-9]/g,''))||0; recalcAvail();
-  }));
+  const inp = document.getElementById('in-year');
+  if (inp) inp.addEventListener('input', () => { S.year.input = parseInt(inp.value.replace(/[^0-9]/g,''))||0; recalcYear(); });
 }
-function recalcAvail() {
-  const a = acct(S.cur); const sum = S.months.reduce((s,m)=>s+(m.past?0:m.plan),0);
-  const over = sum > a.avail; const upct = Math.min(100, Math.round(sum/a.avail*100));
-  const use = document.getElementById('av-use'); if(use){ use.style.width=upct+'%'; use.textContent=upct>14?won(sum):''; use.parentElement.classList.toggle('over',over); }
-  const sE=document.getElementById('av-sum'); if(sE){ sE.textContent=won(sum); sE.style.color=over?'var(--red)':'#16151f'; }
-  const mE=document.getElementById('av-msg'); if(mE){ mE.textContent=over?'✕ 가용 초과 — 승인요청 불가':'✓ 가용 내'; mE.style.color=over?'var(--red)':'#166534'; }
+function recalcYear(){
+  const y=S.year; const over=y.input>y.avail; const upct=Math.min(100,Math.round((y.input||0)/y.avail*100));
+  const u=document.getElementById('y-use'); if(u){ u.style.width=upct+'%'; u.textContent=upct>14?won(y.input):''; u.parentElement.classList.toggle('over',over); }
+  const m=document.getElementById('y-msg'); if(m){ m.textContent=over?'✕ 가용 초과 — 저장 시 안내':'✓ 가용 내'; m.style.color=over?'var(--red)':'#166534'; }
 }
 
-function scrTypes() {
-  setFlow('통제 vs 비통제');
+function scrSaveGuide() {
+  setFlow('③ 저장 — 가용 비교 가이드');
+  const y = S.year;
   sim().innerHTML = `<div class="wrap">
-    <h1 class="scr-title">통제 · 비통제 계정</h1>
-    <p class="scr-sub">경비 계정은 통제/비통제로 나뉘고, 가용예산의 근거가 서로 다릅니다.</p>
-    <div class="g2">
-      <div class="ty-card ctrl"><div class="t">🟠 통제 계정</div><div class="d"><b>ERP에 예산 ‘팟(POT)’</b>이 있습니다. 그 <b>팟 안에서만</b> 계획을 세울 수 있어요. 팟에 돈이 없으면 CRM Cost에 포함돼 있어도 <b style="color:var(--red)">수립 불가</b>. (예: 석식대·시내교통비·사무용품비)</div></div>
-      <div class="ty-card free"><div class="t">🟣 비통제 계정</div><div class="d">ERP에 팟이 <b>따로 없어</b> 계획을 잡을 수는 있습니다. 다만 <b>전체 예산 허들</b>이 있어 <b>CRM에서 받아온 Cost 안에서만</b> 세울 수 있어요. (예: 조직관리비)</div></div>
+    <h1 class="scr-title">저장 — 가용예산 비교</h1>
+    <p class="scr-sub">저장할 때 입력한 계획을 <b>가용예산과 비교</b>합니다. ERP 수행 팟에 금액이 부족하면 <b>가이드 팝업</b>으로 알려줘요.</p>
+    <div class="guide" id="save-guide">
+      <div class="gt">⚠ 가용예산 초과 안내 (가이드)</div>
+      <div class="gd">입력한 <b>${won(y.input||1800000)}</b> 이(가) 매출귀속부서 <b style="color:var(--erp-deep)">수행 팟 가용 ${won(y.avail)}</b> 을(를) 넘습니다. ERP에 돈이 부족해 <b>그대로는 승인요청이 어려울 수 있어요</b>. 금액을 줄이거나 수행 팟을 확인하세요. <span class="tbd">정보성 안내</span></div>
     </div>
-    <div class="proc-note">정리 — <b>통제 = ERP 팟 잔액 한도</b> · <b>비통제 = CRM Cost 한도</b>. 그래서 계획 전 <b>가용예산 체크</b>가 꼭 필요합니다.</div>
+    <div class="banner esv" style="margin-top:14px">ℹ 이 체크는 <b>프로세스와는 별개</b>인 시스템 안내입니다. (실제 수행 팟 조회는 ERP 연동)</div>
   </div>`;
 }
 
-function scrProp() {
-  setFlow('인비례성 · WLB 계정');
+function scrApproval() {
+  setFlow('④ 승인요청 — 계약리뷰 최종 Cost 체크');
   sim().innerHTML = `<div class="wrap">
-    <h1 class="scr-title">인비례성 · WLB 계정</h1>
-    <p class="scr-sub">가용예산이 ‘투입 인건비’나 ‘부서 ERP 팟’에 연동되는 계정들이 있습니다.</p>
-    <div class="card"><div class="sec">인비례성 계정 — 투입 인건비 MM만큼</div>
-      <table class="t"><thead><tr><th>계정</th><th>가용 근거</th><th class="num">가용(예시)</th></tr></thead>
+    <h1 class="scr-title">실행예산 승인요청 — 계약리뷰 최종 Cost 체크</h1>
+    <p class="scr-sub">상신 시, 전체 예산이 <b>계약리뷰 단계에서 승인받은 최종 Cost</b> 합계를 넘는지 체크합니다. 체크 기준은 <b>프로젝트 유형</b>마다 달라요.</p>
+    <div class="card"><div class="sec">유형 A — 전체 Cost 기준</div>
+      <div class="chk-row ok"><span class="ic">✓</span><span><b>전체 예산 ≤ 계약리뷰 최종 Cost 합계</b> — 넘지 않으면 상신 가능 (넘으면 상신 불가 유형)</span></div>
+    </div>
+    <div class="card"><div class="sec">유형 B — 4대 예산 계정별 기준 (예산 간 쉐어 불가)</div>
+      <table class="t"><thead><tr><th>계정</th><th class="num">계획</th><th class="num">계약리뷰 Cost</th><th>판정</th></tr></thead>
       <tbody>
-        <tr><td class="pname">의욕관리비</td><td><span class="badge b-mm">인건비 MM 비례</span></td><td class="num">2,400,000원</td></tr>
-        <tr><td class="pname">회의비</td><td><span class="badge b-mm">인건비 MM 비례</span></td><td class="num">1,200,000원</td></tr>
-        <tr><td class="pname">잡비</td><td><span class="badge b-mm">인건비 MM 비례</span></td><td class="num">800,000원</td></tr>
+        <tr><td class="pname">인건비</td><td class="num">520,000,000</td><td class="num">500,000,000</td><td><span class="badge b-warn">초과 → 상신 불가</span></td></tr>
+        <tr><td>외주비</td><td class="num">860,000,000</td><td class="num">900,000,000</td><td><span class="badge b-ok">이내</span></td></tr>
+        <tr><td>재료비</td><td class="num">140,000,000</td><td class="num">150,000,000</td><td><span class="badge b-ok">이내</span></td></tr>
+        <tr><td>경비</td><td class="num">23,000,000</td><td class="num">25,000,000</td><td><span class="badge b-ok">이내</span></td></tr>
       </tbody></table>
-      <div class="proc-note" style="margin-top:10px">투입된 <b>인건비 MM이 늘면</b> 이 계정들의 가용예산도 늘어납니다. MM이 줄면 가용도 줄어요.</div>
+      <div class="proc-note" style="margin-top:10px">전체 합계는 Cost 안이어도, <b>인건비만 Cost를 넘으면 상신 불가</b>할 수 있어요 — <b>예산 간 쉐어가 불가</b>하기 때문입니다.</div>
     </div>
-    <div class="card"><div class="sec">WLB 비용 — 매출귀속부서 ERP 팟 잔액만큼</div>
-      <table class="t"><thead><tr><th>계정</th><th>가용 근거</th><th class="num">가용(예시)</th></tr></thead>
-      <tbody>
-        <tr><td class="pname">석식대</td><td><span class="badge b-erp">매출귀속부서 ERP 팟</span></td><td class="num">1,500,000원</td></tr>
-        <tr><td class="pname">시내교통비</td><td><span class="badge b-erp">매출귀속부서 ERP 팟</span></td><td class="num">900,000원</td></tr>
-      </tbody></table>
-      <div class="proc-note" style="margin-top:10px">WLB(석식대·시내교통비)는 프로젝트 <b>매출귀속부서의 ERP 예산 팟</b>에 돈이 들어있는 만큼만 세울 수 있어요.</div>
-    </div>
-  </div>`;
-}
-
-function scrApproval(state) {
-  setFlow('⑤ 실행예산 승인요청 체크');
-  const erpOk = (state === 'ok');
-  const can = erpOk;
-  sim().innerHTML = `<div class="wrap">
-    <h1 class="scr-title">실행예산 승인요청 — 사전 체크</h1>
-    <p class="scr-sub">상신하려면 <b>프로세스(CRM 승인)</b>와 <b>시스템 데이터(ERP 팟 잔액)</b>가 모두 합당해야 합니다.</p>
-    <div class="card"><div class="sec">승인요청 전 자동 체크</div>
-      <div class="chk-row ok"><span class="ic">✓</span><span><b>CRM Cost 승인</b> — 계약단계에서 경비 수립을 승인받아 Cost에 포함됨</span></div>
-      <div class="chk-row ${erpOk?'ok':'no'}"><span class="ic">${erpOk?'✓':'✕'}</span><span><b>ERP 예산 팟 잔액</b> — 통제 계정은 팟에 돈이 있어야 함 ${erpOk?'(충족)':'<b style="color:var(--red)">(부족 — 통제 계정 수립 불가)</b>'}</span></div>
-      <div class="chk-row ${can?'ok':'wait'}"><span class="ic">${can?'✓':'…'}</span><span><b>가용예산 내 수립</b> — 모든 계정이 가용 한도 이내</span></div>
-    </div>
-    <div style="display:flex;justify-content:flex-end;gap:10px">
-      <button class="btn" id="a-fixErp" ${erpOk?'disabled':''}>ERP 팟 충전 시뮬레이션</button>
-      <button class="btn esv" id="a-submit" ${can?'':'disabled'}>실행예산 승인요청(상신)</button>
-    </div>
-    <div class="banner ${can?'ok':'warn'}" style="margin-top:14px">${can?'✅ 프로세스·데이터 모두 합당 — 상신 가능합니다.':'⚠ CRM 승인이 있어도 <b style="margin:0 3px">통제 계정은 ERP 팟에 돈이 있어야</b> 상신할 수 있어요. 둘 다 합당해야 합니다.'}</div>
+    <div class="banner warn">⚠ 유형 B 기준 — <b>인건비가 계약리뷰 Cost 초과</b>라 <b class="lock">승인요청 불가</b>. <span class="tbd">※ 초과해도 상신 가능 여부는 협의 중(추후 확정)</span></div>
   </div>`;
 }
 
 function scrAgent(branch) {
-  setFlow('⑥ 원가조정 Agent로 반영');
+  setFlow('⑤ 원가조정 Agent로 반영');
   const chips = '<div style="display:flex;gap:8px;flex-wrap:wrap">'
     + '<span class="btn sm" id="chip-up">회의비 50만원 늘려줘</span>'
     + '<span class="btn sm" id="chip-free">가용예산 알려줘</span>'
     + '<span class="btn sm" id="chip-req">요구사항만 적어줘</span></div>';
   let resp;
-  if (branch === 'up') resp = '<div class="card" style="border-left:3px solid var(--esv)"><div class="sec">Agent 조정안 — 회의비 증액</div><p style="font-size:13px;margin:0 0 10px;color:#3a4250">입력: “회의비 50만원 늘려줘” → <b>회의비 +500,000원</b>. 단 <b>인비례성</b>이라 투입 인건비 MM 한도 내에서만 가능하다고 안내합니다.</p><div style="display:flex;justify-content:flex-end"><button class="btn esv" id="a-apply">이 조정안 반영</button></div></div>';
-  else if (branch === 'free') resp = '<div class="card" style="border-left:3px solid var(--erp)"><div class="sec">Agent 응답 — 가용예산 조회</div><p style="font-size:13px;margin:0;color:#3a4250">입력: “가용예산 알려줘” → 계정별 <b>가용예산(ERP 팟/CRM Cost/인건비 MM)</b>을 조회해 보여줍니다(조정안 아님).</p></div>';
+  if (branch === 'up') resp = '<div class="card" style="border-left:3px solid var(--esv)"><div class="sec">Agent 조정안 — 회의비 증액</div><p style="font-size:13px;margin:0 0 10px;color:#3a4250">입력: “회의비 50만원 늘려줘” → <b>회의비 +500,000원</b>. 단 <b>인비례성</b>이라 인건비 MM 가이드와 <b>ERP 수행 팟 가용</b> 내에서만 가능하다고 안내합니다.</p><div style="display:flex;justify-content:flex-end"><button class="btn esv" id="a-apply">이 조정안 반영</button></div></div>';
+  else if (branch === 'free') resp = '<div class="card" style="border-left:3px solid var(--erp)"><div class="sec">Agent 응답 — 가용예산 조회</div><p style="font-size:13px;margin:0;color:#3a4250">입력: “가용예산 알려줘” → ERP를 조회해 계정별 <b>가용예산(매출귀속부서 수행 팟)</b>을 안내합니다(조정안 아님).</p></div>';
   else resp = '<div class="banner ok" style="margin:0">💬 아래 예시를 누르면 <b>입력 내용에 따라</b> Agent가 다르게 분기합니다.</div>';
   sim().innerHTML = `<div class="wrap">
     <h1 class="scr-title">원가조정 Agent</h1>
@@ -332,46 +299,37 @@ function scrAgent(branch) {
    시나리오
    ===================================================================== */
 const SCEN = {
-  A: { name:'가용예산 먼저 체크', desc:'통제=ERP 팟 · 비통제=CRM Cost · 인비례=인건비 MM · WLB=부서 팟', steps:[
-    { render:scrAvail, spot:'.proc-note', pos:'top', title:'계획 전 가용예산 체크', text:'경비는 <b>POP·견적이 없어요</b>. 계획을 세우기 <b>전에</b> 계정별 <b>가용예산</b>부터 확인합니다. 출처가 계정 성격마다 다릅니다.' },
-    { render:scrAvail, spot:'tbody tr:nth-child(1)', pos:'bottom', title:'인비례성 = 인건비 MM', text:'<b>의욕관리비·회의비·잡비</b>는 <b>인비례성</b> — 투입 <b>인건비 MM만큼</b> 가용이 생깁니다.' },
-    { render:scrAvail, spot:'tbody tr:nth-child(4)', pos:'bottom', title:'WLB = 부서 ERP 팟', text:'<b>석식대·시내교통비(WLB)</b>는 프로젝트 <b class="erp">매출귀속부서 ERP 팟</b> 잔액만큼 세울 수 있어요.', mode:'done',
-      doneTitle:'1. 가용예산 체크', doneHtml:'<p>경비는 견적이 아니라 <b>가용예산</b>으로 한도가 정해집니다 — <b style="color:var(--erp-deep)">통제=ERP 팟</b>, <b style="color:var(--crm-deep)">비통제=CRM Cost</b>, <b>인비례성=인건비 MM</b>, <b>WLB=부서 ERP 팟</b>. 그래서 <b>계획 전 가용 체크</b>가 필수예요.</p>' },
+  A: { name:'가용예산 안내 (정보성)', desc:'ERP 조회 → 매출귀속부서 수행 팟 잔액 안내 · 자동 수립 아님', steps:[
+    { render:scrAvail, spot:'.banner', pos:'bottom', title:'계획 전 가용예산 안내', text:'경비는 <b>POP·견적이 없어요</b>. 계획 전, 시스템이 <b>ERP를 조회</b>해 <b class="erp">매출귀속부서 수행 팟</b> 잔액을 받아 “이만큼 안에서 세울 수 있어요”라고 <b>안내</b>합니다(자동 수립 아님).' },
+    { render:scrAvail, spot:'.proc-note', pos:'top', title:'인비례성은 가이드일 뿐', text:'<b>인비례성</b>(의욕관리비·회의비·잡비)은 투입 <b>인건비 MM만큼이 가이드</b>예요 — 꼭 그만큼 안 세워도 됩니다. 다만 <b>어느 쪽이든 결국 ERP 수행 팟에 돈이 있어야</b> 세울 수 있어요.', mode:'done',
+      doneTitle:'1. 가용예산 안내', doneHtml:'<p>가용예산은 <b>ERP(매출귀속부서 수행 팟)를 조회해 받아온 정보성 안내</b>입니다 — “이 금액 안에서 세울 수 있어요”. 자동으로 세워주지 않고, 인비례성의 인건비 MM도 <b>가이드</b>일 뿐이에요. 결국 <b>수행 팟에 금액이 있어야</b> 합니다.</p>' },
   ]},
-  B: { name:'월별 계획 입력 (미래월만)', desc:'과거월=실적 잠김 · 미래월만 입력 · 통제는 팟 초과 불가', steps:[
-    { render:scrMonthly, spot:'tbody tr:nth-child(1)', pos:'right', title:'과거월은 실적(잠김)', text:'<b>과거월</b>은 이미 집행된 <b>실적</b>이라 계획을 따로 세울 수 없어요(🔒 잠김).' },
-    { render:scrMonthly, spot:'input[data-mi="3"]', pos:'left', title:'미래월만 계획', text:'<b>미래월</b>에만 금액을 입력합니다. (예: 10월 500,000 입력) <b>통제 계정</b>은 <b class="erp">ERP 팟 가용</b>을 넘으면 안 돼요.',
-      enter:()=>{ const i=document.querySelector('input[data-mi="3"]'); if(i){ i.value='500000'; S.months[3].plan=500000; recalcAvail(); } } },
-    { render:scrMonthly, spot:'input[data-mi="4"]', pos:'left', title:'가용 초과는 막힘', text:'가용(1,500,000)을 넘겨볼게요 — 11월에 <b>1,200,000</b> 입력. 합계가 가용을 넘으면 막대가 빨개지고 <b class="lock">승인요청 불가</b>.',
-      enter:()=>{ const i=document.querySelector('input[data-mi="4"]'); if(i){ i.value='1200000'; S.months[4].plan=1200000; recalcAvail(); } }, mode:'done',
-      doneTitle:'2. 월별 계획(미래월)', doneHtml:'<p><b>과거월=실적</b>이라 계획 불가, <b>미래월만</b> 입력합니다. 통제 계정은 <b style="color:var(--erp-deep)">ERP 팟 가용</b>을 초과할 수 없고, 초과하면 승인요청이 막혀요.</p>' },
+  B: { name:'년단위(기간) 계획 입력', desc:'월별 분배 없이 기간 총액 · 이전 예산−실적=잔여 자동', steps:[
+    { render:scrYearly, spot:'.kv', pos:'bottom', title:'이전 예산−실적 = 잔여(자동)', text:'경비는 <b>월별이 아니라 기간(년단위) 총액</b>으로 입력해요. <b>이전 버전 예산 − 실적 = 남은 기간 잔여</b>가 자동으로 보입니다.' },
+    { render:scrYearly, spot:'#in-year', pos:'left', title:'남은 기간 총액 입력', text:'남은 3개월 동안 쓸 금액을 <b>한 번에</b> 입력합니다(월별로 나눌 필요 X). 입력이 <b class="erp">가용(수행 팟)</b>을 넘으면 저장 시 안내돼요.',
+      enter:()=>{ const i=document.getElementById('in-year'); if(i){ i.value='1200000'; S.year.input=1200000; recalcYear(); } }, mode:'done',
+      doneTitle:'2. 년단위 입력', doneHtml:'<p>경비는 <b>남은 기간 총액</b>으로 입력합니다(월별 분배 없음). 이전 버전 <b>예산−실적</b>이 <b>남은 기간 잔여</b>로 자동 표시돼요.</p>' },
   ]},
-  C: { name:'통제 vs 비통제', desc:'통제=ERP 팟 내 · 비통제=CRM Cost 허들', steps:[
-    { render:scrTypes, spot:'.ty-card.ctrl', pos:'right', title:'통제 = ERP 팟 내', text:'<b>통제 계정</b>은 ERP에 <b class="erp">예산 팟</b>이 있어 그 안에서만 계획 가능. 팟에 돈이 없으면 CRM Cost에 있어도 <b class="lock">수립 불가</b>.' },
-    { render:scrTypes, spot:'.ty-card.free', pos:'left', title:'비통제 = CRM Cost 허들', text:'<b>비통제</b>는 팟이 없어 계획은 잡을 수 있지만, <b class="crm">CRM Cost 허들</b> 안에서만 가능합니다.', mode:'done',
-      doneTitle:'3. 통제 · 비통제', doneHtml:'<p><b>통제 = ERP 팟 잔액 한도</b>, <b>비통제 = CRM Cost 한도</b>. 두 경우 모두 계획 전 <b>가용예산</b>으로 한도를 확인합니다.</p>' },
+  C: { name:'저장 시 가용 비교 가이드', desc:'입력 > 수행 팟 가용이면 가이드 팝업으로 안내', steps:[
+    { render:scrYearly, spot:'#a-saveYear', pos:'top', title:'저장하면 가용과 비교', text:'저장할 때 입력 금액을 <b class="erp">수행 팟 가용</b>과 비교합니다. 가용을 넘겨 저장해 볼게요.',
+      enter:()=>{ const i=document.getElementById('in-year'); if(i){ i.value='1800000'; S.year.input=1800000; recalcYear(); } } },
+    { render:scrSaveGuide, spot:'#save-guide', pos:'bottom', title:'가용 초과 가이드 팝업', text:'ERP <b class="erp">수행 팟 가용(1,500,000)</b>을 넘어, <b>“그대로는 승인요청이 어려울 수 있다”</b>는 <b>가이드 팝업</b>이 떠요. (정보성 — 프로세스와 별개)', mode:'done',
+      doneTitle:'3. 저장 가이드', doneHtml:'<p>저장 시 입력을 <b>가용예산(수행 팟)과 비교</b>해, ERP에 돈이 부족하면 <b>가이드 팝업</b>으로 안내합니다. 금액을 줄이거나 수행 팟을 확인하도록 돕는 <b>정보성</b> 기능이에요.</p>' },
   ]},
-  D: { name:'인비례성 · WLB', desc:'의욕관리비·회의비·잡비(인건비 MM) / 석식대·시내교통비(부서 팟)', steps:[
-    { render:scrProp, spot:'.card:nth-of-type(1)', pos:'top', title:'인비례성 = 인건비 MM', text:'<b>의욕관리비·회의비·잡비</b>는 투입 <b>인건비 MM만큼</b> 가용이 생깁니다. 인건비가 늘면 가용도 늘어요.' },
-    { render:scrProp, spot:'.card:nth-of-type(2)', pos:'top', title:'WLB = 부서 ERP 팟', text:'<b>석식대·시내교통비(WLB)</b>는 <b class="erp">매출귀속부서 ERP 팟</b> 잔액만큼 세울 수 있습니다.', mode:'done',
-      doneTitle:'4. 인비례성 · WLB', doneHtml:'<p>계정 성격에 따라 가용예산 근거가 달라요 — <b>인비례성</b>은 인건비 MM, <b>WLB</b>는 매출귀속부서 ERP 팟. 그래서 같은 경비라도 세울 수 있는 금액이 계정마다 다릅니다.</p>' },
+  D: { name:'승인요청 — 계약리뷰 최종 Cost', desc:'유형별: 전체 Cost 또는 4대 계정별(쉐어 불가)', steps:[
+    { render:scrApproval, spot:'.card:nth-of-type(1)', pos:'bottom', title:'전체 Cost 기준', text:'상신 시 전체 예산이 <b>계약리뷰 단계에서 승인받은 최종 Cost</b> 합계를 넘는지 체크합니다. 유형에 따라 <b>넘으면 상신 불가</b>.' },
+    { render:scrApproval, spot:'.card:nth-of-type(2)', pos:'top', title:'4대 계정별 — 쉐어 불가', text:'특정 유형은 <b>4대 예산 계정별</b>로 비교해요. 전체 합계는 Cost 안이어도 <b>인건비만 Cost를 넘으면 상신 불가</b> — <b>예산 간 쉐어가 불가</b>하기 때문입니다.', mode:'done',
+      doneTitle:'4. 계약리뷰 Cost 체크', doneHtml:'<p>승인요청 시 <b>계약리뷰 최종 Cost</b> 초과 여부를 체크합니다. 유형에 따라 <b>전체 Cost</b> 기준이거나 <b>4대 계정별</b> 기준이며, 후자는 <b>인건비만 초과해도 상신 불가</b>(쉐어 불가)예요.</p><p style="margin-top:10px"><span class="tbd">※ 초과해도 상신 가능 여부는 협의 중 · 추후 확정</span></p>' },
   ]},
-  E: { name:'승인요청 체크 (CRM+ERP)', desc:'프로세스(CRM 승인) + 데이터(ERP 팟) 모두 충족해야 상신', steps:[
-    { render:()=>scrApproval('no'), spot:'.chk-row.no', pos:'bottom', title:'CRM 승인만으론 부족', text:'CRM에서 경비를 승인받아 <b>Cost에 포함</b>돼 있어도, <b>통제 계정은 ERP 팟에 돈이 있어야</b> 합니다. 지금은 팟 잔액 부족으로 <b class="lock">상신 불가</b>.' },
-    { render:null, keep:true, spot:'#a-fixErp', pos:'top', title:'ERP 팟 충전', text:'ERP 예산 팟을 채워볼게요(시뮬레이션). <b>프로세스와 시스템 데이터가 모두 합당</b>해야 상신됩니다.',
-      act:()=>{ scrApproval('ok'); } },
-    { render:null, keep:true, spot:'#a-submit', pos:'top', title:'이제 상신 가능', text:'CRM Cost 승인 ✓ · ERP 팟 잔액 ✓ · 가용 내 ✓ — 모두 충족돼 <b>실행예산 승인요청(상신)</b>이 열렸습니다.', mode:'done',
-      doneTitle:'5. 승인요청 체크', doneHtml:'<p>실행예산 승인요청 시, <b>프로세스(CRM Cost 승인)</b>와 <b>시스템 데이터(ERP 팟 잔액)</b>가 <b>모두 합당</b>해야 상신됩니다. 통제 계정은 CRM에 있어도 ERP 팟이 비면 못 세워요.</p><p style="margin-top:10px"><span class="tbd">※ 승인 단계·허들 상세 정책은 추후 확정</span></p>' },
-  ]},
-  F: { name:'Agent로 조정·조회 (입력별 분기)', desc:'자연어 입력 → 내용에 따라 조정안/조회', steps:[
+  E: { name:'Agent로 조정·조회 (입력별 분기)', desc:'자연어 입력 → 내용에 따라 조정안/조회', steps:[
     { render:()=>scrAgent(''), spot:'#chip-up', pos:'bottom', title:'자연어로 요청', text:'원가조정 <b>Agent</b>에 자연어로 요청하면 <b>입력 내용에 따라 분기</b>합니다. 먼저 <b>“회의비 50만원 늘려줘”</b>.', act:()=>scrAgent('up') },
-    { render:null, keep:true, spot:'#a-apply', pos:'top', title:'→ 증액 조정안(인비례 한도 내)', text:'“회의비 50만원 늘려줘” → <b>회의비 증액</b> 조정안. 단 <b>인비례성</b>이라 인건비 MM 한도 내에서만 반영돼요.' },
+    { render:null, keep:true, spot:'#a-apply', pos:'top', title:'→ 증액 조정안(가이드·가용 내)', text:'“회의비 50만원 늘려줘” → <b>회의비 증액</b> 조정안. 단 <b>인비례성 가이드·ERP 수행 팟 가용</b> 내에서만 반영돼요.' },
     { render:()=>scrAgent(''), spot:'#chip-free', pos:'bottom', title:'다른 입력은 조회로', text:'이번엔 <b>“가용예산 알려줘”</b> — 조정이 아니라 <b>가용예산 조회</b>로 분기합니다.', act:()=>scrAgent('free') },
     { render:null, keep:true, spot:'#agent-resp', pos:'top', title:'→ 가용예산 조회로 분기', text:'같은 Agent라도 <b>입력 텍스트</b>에 따라 증액 조정안 / 가용 조회 / 요구사항 작성으로 달라집니다.', mode:'done',
-      doneTitle:'6. Agent 입력별 분기', doneHtml:'<p>원가조정 <b>Agent</b>는 입력 내용에 따라 <b>증액 조정 / 가용예산 조회 / 요구사항 작성</b> 등으로 분기합니다. 제안만 하고 <b>사람이 [반영]</b>을 눌러야 적용돼요.</p>' },
+      doneTitle:'5. Agent 입력별 분기', doneHtml:'<p>원가조정 <b>Agent</b>는 입력 내용에 따라 <b>증액 조정 / 가용예산 조회 / 요구사항 작성</b> 등으로 분기합니다. 제안만 하고 <b>사람이 [반영]</b>을 눌러야 적용돼요.</p>' },
   ]},
 };
-const SC_ORDER = ['A','B','C','D','E','F'];
+const SC_ORDER = ['A','B','C','D','E'];
 const done = {};
 
 /* =====================================================================
@@ -463,14 +421,15 @@ function openScenarios(){
   $('hud-sc').textContent=''; $('hud-cnt').textContent=''; $('hud-fill').style.width='0'; setFlow(''); sim().innerHTML='';
   const items=SC_ORDER.map((k,i)=>{ const sc=SCEN[k]; return '<button class="sc-item" onclick="runScenario(\''+k+'\')"><span class="sc-no">'+(i+1)+'</span><span><span class="sc-tt">'+sc.name+'</span><span class="sc-ds">'+sc.desc+'</span></span>'+(done[k]?'<span class="sc-done">✓</span>':'')+'</button>'; }).join('');
   const proc='<div class="proc">'
-    +'<div class="proc-n erp"><b>① 가용예산 체크</b><span>ERP 팟 / CRM Cost / 인건비 MM</span></div><div class="proc-ar">→</div>'
-    +'<div class="proc-n"><b>② 월별 계획 입력</b><span>미래월만 (과거=실적)</span></div><div class="proc-ar">→</div>'
-    +'<div class="proc-n erp"><b>③ 승인요청 체크</b><span>CRM 승인 + ERP 팟 둘 다</span></div>'
+    +'<div class="proc-n erp"><b>① 가용예산 안내</b><span>ERP 조회 · 매출귀속부서 수행 팟 (정보성)</span></div><div class="proc-ar">→</div>'
+    +'<div class="proc-n"><b>② 년단위 입력</b><span>기간 총액 · 이전 예산−실적=잔여</span></div><div class="proc-ar">→</div>'
+    +'<div class="proc-n erp"><b>③ 저장 가이드</b><span>가용 초과 시 안내 팝업</span></div><div class="proc-ar">→</div>'
+    +'<div class="proc-n"><b>④ 승인요청 체크</b><span>계약리뷰 최종 Cost (전체/4대 계정)</span></div>'
     +'</div>'
-    +'<div class="proc-note">💡 경비는 <b>POP·견적이 없어요</b>. 실행예산에서 <b>월별 금액을 입력</b>하되, <b>과거월=실적(잠김)</b>이라 <b>미래월만</b> 계획합니다. <b style="color:var(--erp-deep)">통제=ERP 팟</b>·<b style="color:var(--crm-deep)">비통제=CRM Cost</b>·인비례성=인건비 MM·WLB=부서 팟 한도 안에서만. 그래서 계획 전 <b>가용예산 체크</b>가 필수!</div>';
+    +'<div class="proc-note">💡 경비는 <b>POP·견적이 없어요</b>. 가용예산은 <b style="color:var(--erp-deep)">ERP(매출귀속부서 수행 팟)</b>를 조회해 안내하는 <b>정보성</b> 값(자동 수립 아님). 입력은 <b>월별이 아니라 기간(년단위) 총액</b>, 이전 예산−실적=잔여 자동. 승인요청은 <b style="color:var(--crm-deep)">계약리뷰 최종 Cost</b> 초과 여부를 유형별로 체크합니다.</div>';
   const c=$('center'); c.style.display='flex';
-  c.innerHTML='<div class="card2" style="max-width:880px"><div class="eb">실행예산 · 경비</div><h2>경비 계획 — 시나리오 선택</h2>'
-    +'<p><b>경비는 POP·견적과 무관</b>합니다 — 실행예산에서 월별 금액 입력. 가용예산은 <b style="color:var(--erp-deep)">ERP 예산 팟</b> / <b style="color:var(--crm-deep)">CRM Cost</b> / 인건비 MM 에서 나와요.</p>'
+  c.innerHTML='<div class="card2" style="max-width:900px"><div class="eb">실행예산 · 경비</div><h2>경비 계획 — 시나리오 선택</h2>'
+    +'<p><b>경비는 POP·견적과 무관</b>합니다 — 실행예산에서 <b>년단위 총액</b> 입력. 가용예산은 <b style="color:var(--erp-deep)">ERP(매출귀속부서 수행 팟)</b> 조회로 안내돼요. <span style="color:#8a94a6">(통제/비통제는 시스템 백단 로직이라 화면 미노출)</span></p>'
     +proc
     +'<div class="sclist">'+items+'</div></div>';
 }
