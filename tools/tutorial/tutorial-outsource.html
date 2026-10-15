@@ -209,7 +209,7 @@ const eok = n => (n/100000000) + '억';
 function initState() {
   return {
     plans: [{
-      id:'P1', type:'실투입대상', method:'POP 견적', quote:'Q-2026-0471',
+      id:'P1', type:'실투입대상', method:'POP 견적', quote:'QT261000001',
       total:100000000, used:40000000, po:'', poState:'미연계',
       contract:{start:'2026-07-01', end:'2026-12-31'},
       months:[
@@ -223,9 +223,9 @@ function initState() {
       vouchers:[{m:'2026-07', amt:20000000, no:'880012301'},{m:'2026-08', amt:20000000, no:'880012302'}],
     }],
     quotes:[
-      {no:'Q-2026-0471', proj:'30131234-D001', author:'김구매(32011)', start:'2026-07-01', end:'2026-12-31', total:100000000, used:true,
+      {no:'QT261000001', proj:'30131234-D001', author:'김구매(32011)', start:'2026-07-01', end:'2026-12-31', total:100000000, used:true,
        months:[{m:'2026-07',plan:20000000,mm:1.0},{m:'2026-08',plan:20000000,mm:1.0},{m:'2026-09',plan:20000000,mm:1.0},{m:'2026-10',plan:20000000,mm:1.0},{m:'2026-11',plan:10000000,mm:.5},{m:'2026-12',plan:10000000,mm:.5}]},
-      {no:'Q-2026-0588', proj:'30131234-D001', author:'이소싱(32044)', start:'2026-08-01', end:'2027-01-31', total:72000000, used:false,
+      {no:'QT261000002', proj:'30131234-D001', author:'이소싱(32044)', start:'2026-08-01', end:'2027-01-31', total:72000000, used:false,
        months:[{m:'2026-08',plan:12000000,mm:.6},{m:'2026-09',plan:12000000,mm:.6},{m:'2026-10',plan:12000000,mm:.6},{m:'2026-11',plan:12000000,mm:.6},{m:'2026-12',plan:12000000,mm:.6},{m:'2027-01',plan:12000000,mm:.6}]},
     ],
     sel:null, tryTotal:null,
@@ -264,7 +264,7 @@ function scrPopReq() {
         <button class="btn pop" id="a-req">견적 요청</button>
       </div>
     </div>
-    <div class="banner pop">🛒 견적 <b>Q-2026-0588</b> 작성 완료 (작성자 이소싱 · 총 72,000,000원). 이제 실행예산에서 불러옵니다.</div>
+    <div class="banner pop">🛒 견적 <b>QT261000002</b> 작성 완료 (작성자 이소싱 · 총 72,000,000원). 이제 실행예산에서 불러옵니다.</div>
   </div>`;
 }
 
@@ -490,9 +490,9 @@ const SCEN = {
   A: { no:'A', name:'POP 견적을 통한 외주비 등록', desc:'견적 요청 → 검색 → 선택 → 저장 → 반영', steps:[
     { render:scrPopReq, spot:'#a-req', pos:'right', title:'POP에서 견적 요청', text:'POP 구매시스템에서 <b>프로젝트 번호</b>로 견적을 요청하면 구매담당이 견적을 작성합니다. <b>[견적 요청]</b> 클릭.' },
     { render:scrRegister, spot:'#a-loadQuote', pos:'bottom', title:'실행예산에서 불러오기', text:'견적이 작성되면 <b>실행예산</b>으로 와서 <b>[POP 견적 불러오기]</b>를 선택합니다.', sysToast:'POP → 실행예산' },
-    { render:scrQuoteSearch, spot:'[data-pick="Q-2026-0588"]', pos:'left', title:'견적 검색·선택', text:'프로젝트 번호/작성자로 검색합니다. <b>등록 가능</b>한 견적 <b>Q-2026-0588</b>을 <b>선택</b>하세요.' },
-    { render:()=>scrQuoteConfirm(quote('Q-2026-0588')), spot:'#a-saveQuote', pos:'top', title:'월별 데이터 확인 후 저장', text:'계약·월별 계획금액/MM이 자동으로 들어왔습니다. 확인하고 <b>[저장]</b>하면 실행예산에 반영됩니다.',
-      act:()=>{ const q=quote('Q-2026-0588'); q.used=true; S.plans.push({id:'P2',type:'실투입대상',method:'POP 견적',quote:q.no,total:q.total,used:0,po:'',poState:'미연계',contract:{start:q.start,end:q.end},months:q.months.map(m=>({...m,used:0})),vouchers:[]}); } },
+    { render:scrQuoteSearch, spot:'[data-pick="QT261000002"]', pos:'left', title:'견적 검색·선택', text:'프로젝트 번호/작성자로 검색합니다. <b>등록 가능</b>한 견적 <b>QT261000002</b>을 <b>선택</b>하세요.' },
+    { render:()=>scrQuoteConfirm(quote('QT261000002')), spot:'#a-saveQuote', pos:'top', title:'월별 데이터 확인 후 저장', text:'계약·월별 계획금액/MM이 자동으로 들어왔습니다. 확인하고 <b>[저장]</b>하면 실행예산에 반영됩니다.',
+      act:()=>{ const q=quote('QT261000002'); q.used=true; S.plans.push({id:'P2',type:'실투입대상',method:'POP 견적',quote:q.no,total:q.total,used:0,po:'',poState:'미연계',contract:{start:q.start,end:q.end},months:q.months.map(m=>({...m,used:0})),vouchers:[]}); } },
     { render:scrRegister, spot:'[data-detail="P2"]', pos:'left', title:'실행예산 반영 완료', text:'견적이 <b>실투입외주비 계획</b>으로 등록됐습니다(등록방식 = POP 견적). 목록에서 확인돼요.', mode:'done',
       doneTitle:'A. POP 견적 등록 완료', doneHtml:'<p>POP에서 작성된 견적을 <b>검색→선택→저장</b>하면 계약·월별 계획이 그대로 실행예산에 반영됩니다. 예산 관리에 필요한 항목(견적번호·계약기간·총금액·월별 계획금액/MM)만 가져옵니다.</p>' },
   ]},
@@ -505,8 +505,8 @@ const SCEN = {
   ]},
   C: { no:'C', name:'견적 중복 등록 방지', desc:'이미 등록된 견적 선택 → 중복 제한 안내', steps:[
     { render:scrRegister, spot:'#a-loadQuote', pos:'bottom', title:'견적 불러오기', text:'다시 <b>[POP 견적 불러오기]</b>로 들어가 봅니다.' },
-    { render:scrQuoteSearch, spot:'[data-pick="Q-2026-0471"]', pos:'left', title:'이미 사용 중인 견적', text:'<b>Q-2026-0471</b>은 등록여부가 <b class="lock">사용 중</b>입니다. 그래도 선택을 시도해볼게요.',
-      act:()=>{ scrDupMsg(quote('Q-2026-0471')); } },
+    { render:scrQuoteSearch, spot:'[data-pick="QT261000001"]', pos:'left', title:'이미 사용 중인 견적', text:'<b>QT261000001</b>은 등록여부가 <b class="lock">사용 중</b>입니다. 그래도 선택을 시도해볼게요.',
+      act:()=>{ scrDupMsg(quote('QT261000001')); } },
     { render:null, keep:true, spot:'#dup-banner', pos:'bottom', title:'중복 등록 제한', text:'견적번호는 구매요청→PO로 이어지는 <b>연계 키</b>라 한 견적을 여러 계획에 <b class="lock">중복 등록할 수 없습니다</b>. 기존 등록 정보가 안내됩니다.', mode:'done',
       doneTitle:'C. 중복 등록 방지', doneHtml:'<p>이미 실행예산에 등록된 견적은 <b>견적번호 기준</b>으로 중복 등록이 차단되고, 기존 등록 정보가 안내됩니다.</p><p style="margin-top:10px"><span class="tbd">※ 기등록 견적의 연결 해제·재매핑·변경 승인 정책은 추후 확정</span></p>' },
   ]},
@@ -515,9 +515,9 @@ const SCEN = {
     { render:()=>scrPurchaseReq(plan('P1')), spot:'#a-map', pos:'left', title:'POP에서 계획 매핑', text:'POP 구매요청 화면에서 <b>실행예산 계획을 조회</b>해 구매요청 대상과 <b>PM이 직접 매핑</b>합니다.', sysToast:'실행예산 → POP',
       act:()=>{ document.getElementById('po-box').style.display='block'; } },
     { render:null, keep:true, spot:'#a-po', pos:'top', title:'구매오더(PO) 생성', text:'매핑 후 <b>구매오더</b>를 생성하면 POP에서 <b>PO번호가 발번</b>됩니다. (실행예산이 임의로 PO를 만들지 않습니다)',
-      act:()=>{ plan('P1').po='PO-2026-0912'; plan('P1').poState='연계'; } },
-    { render:scrRegister, spot:'#po-P1', pos:'bottom', title:'실행예산으로 PO 연계', text:'생성된 <b>PO번호(PO-2026-0912)</b>가 실행예산 계획에 <b>자동으로 채워집니다</b>.', sysToast:'POP → 실행예산',
-      enter:()=>{ const c=document.getElementById('po-P1'); if(c){ c.textContent='PO-2026-0912'; c.classList.add('po-fill'); } }, mode:'done',
+      act:()=>{ plan('P1').po='4500912345'; plan('P1').poState='연계'; } },
+    { render:scrRegister, spot:'#po-P1', pos:'bottom', title:'실행예산으로 PO 연계', text:'생성된 <b>PO번호(4500912345)</b>가 실행예산 계획에 <b>자동으로 채워집니다</b>.', sysToast:'POP → 실행예산',
+      enter:()=>{ const c=document.getElementById('po-P1'); if(c){ c.textContent='4500912345'; c.classList.add('po-fill'); } }, mode:'done',
       doneTitle:'D. 구매요청·PO 매핑 완료', doneHtml:'<p>계획 등록과 구매오더 생성은 <b>서로 다른 단계</b>입니다. 계획은 PO 없이 저장되고, POP에서 PM이 매핑→PO 생성하면 <b>PO번호가 실행예산으로 연계</b>됩니다. (실투입대상·전문직수수료·공사 MA 모두 PO 매핑 대상)</p>' },
   ]},
   E: { no:'E', name:'월별 실투입 전표·실적 관리', desc:'구매/ERP 전표 생성 → 실행예산이 잔여 계산 → 실적 이하 수정 제한', steps:[
