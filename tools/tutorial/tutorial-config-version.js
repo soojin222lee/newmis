@@ -8,7 +8,11 @@
     ready: () => typeof window.openBudgetProjectScreen === 'function',
     hud: '실행예산 <em>버전 관리</em> · 개념 가이드',
     steps: [
-      { ensure: () => openBudgetProjectScreen('budgetMock'), wait: 450,
+      { ensure: () => { var _m = document.querySelector('.ai-chat-modal'); if (typeof openAiChat === 'function' && (!_m || _m.getBoundingClientRect().width < 50)) openAiChat('navi'); }, wait: 600,
+        target: () => document.querySelector('[onclick*="naviPick(\'budget-history\')"]') || document.querySelector('[onclick*="askExample"]') || document.querySelector('.ai-chat-modal'),
+        pos: 'bottom', title: 'AI 네비게이터로 분기',
+        text: '<b>AI 네비게이터</b>에 자연어로 물으면 입력 내용에 따라 원하는 화면으로 <b>분기·안내</b>합니다. (예: “실행예산 변경 이력 보여줘” → 변경 이력/버전)', mode: 'next' },
+      { ensure: () => { if (typeof closeAiChat === 'function') closeAiChat(); openBudgetProjectScreen('budgetMock'); }, wait: 450,
         target: () => pill('v1.0'), pos: 'right', title: '최초 버전은 v1',
         text: '모든 실행예산은 <b>버전</b>으로 관리됩니다. 처음 수립한 예산이 <b>버전 1(v1.0)</b>이에요.', mode: 'next' },
       { target: () => pill('v3.0'), pos: 'right', title: '확정 버전 = 수정 불가',
