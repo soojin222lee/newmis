@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AiBudget 업무 튜토리얼 · 실행예산 승인요청</title>
+<meta name="description" content="실행예산 승인요청 — 왜 몰아서 검사하나·2층 검증(프론트/서버)·순차 중단 관문(계약리뷰 Cost·보안점검·현장지원·AS 종료) 인터랙티브 튜토리얼.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sk-ink:#17161f; --sk-page:#f2f2ee; --sk-border:#e7eaef; --sk-border-strong:#d3d9e2; --sk-head:#eef2f7;
+  --esv:#2f6bed; --esv-deep:#1746a0; --esv-soft:#eaf1fd;
+  --front:#d97706; --front-deep:#b45309; --front-soft:#fff8f0;
+  --srv:#ea002c; --srv-deep:#b80022; --srv-soft:#fdecec;
+  --green:#22b07d; --amber:#b4740a; --red:#ea002c;
+  --font:'Pretendard','Noto Sans KR',-apple-system,system-ui,sans-serif; --mono:ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box;letter-spacing:-.1px}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);background:var(--sk-page);color:#1c2432;-webkit-font-smoothing:antialiased;overflow:hidden}
+
+#sysbar{position:fixed;top:50px;left:0;right:0;height:44px;z-index:50;display:flex;align-items:center;gap:12px;padding:0 20px;background:#fff;border-bottom:1px solid var(--sk-border)}
+#sysbar .sys{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:900;color:var(--esv-deep)}
+#sysbar .sys .ic{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:#fff;font-size:14px;background:var(--esv)}
+#sysbar .tag{font-size:11px;font-weight:800;color:#8a94a6}
+#sysbar .flow{margin-left:auto;font-size:11.5px;font-weight:800;color:#aab2c0}
+#sysbar .leg{display:flex;gap:7px;align-items:center;margin-left:12px}
+#sysbar .lg{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px}
+#sysbar .lg i{width:9px;height:9px;border-radius:3px;display:inline-block}
+#sysbar .lg.esv{color:var(--esv-deep);background:var(--esv-soft)} #sysbar .lg.esv i{background:var(--esv)}
+#sysbar .lg.front{color:var(--front-deep);background:var(--front-soft)} #sysbar .lg.front i{background:var(--front)}
+#sysbar .lg.srv{color:var(--srv-deep);background:var(--srv-soft)} #sysbar .lg.srv i{background:var(--srv)}
+
+#sim{position:fixed;top:94px;left:0;right:0;bottom:0;overflow:auto;padding:22px 26px 80px;transition:opacity .18s ease}
+.wrap{max-width:1000px;margin:0 auto}
+.scr-title{font-size:22px;font-weight:900;color:#16151f;margin:0 0 3px}
+.scr-sub{font-size:13px;color:#8a94a6;font-weight:600;margin:0 0 18px}
+.card{background:#fff;border:1px solid #e4e2da;border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.sec{font-size:12px;font-weight:900;color:#55606f;margin:0 0 10px;letter-spacing:.2px}
+
+.btn{height:38px;padding:0 16px;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--sk-border-strong);background:#fff;color:#2b3442}
+.btn:hover{background:#f3f6fb}
+.btn.esv{background:var(--esv);border-color:var(--esv);color:#fff} .btn.esv:hover{background:var(--esv-deep)}
+.btn.ink{background:var(--sk-ink);border-color:var(--sk-ink);color:#fff}
+.btn.sm{height:30px;padding:0 11px;font-size:12.5px;border-radius:8px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t thead th{background:var(--sk-head);color:#3d4a5c;font-weight:800;text-align:left;padding:10px 12px;border-bottom:1px solid var(--sk-border-strong);white-space:nowrap}
+table.t td{padding:10px 12px;border-bottom:1px solid #eef1f5;color:#2b3442;white-space:nowrap}
+table.t tbody tr:last-child td{border-bottom:0}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.pname{font-weight:700;color:#16151f}
+.mono{font-family:var(--mono);font-size:12px;color:#55606f}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800}
+.b-ok{background:#eef7f1;color:#166534} .b-warn{background:var(--srv-soft);color:var(--srv-deep)} .b-na{background:#f1f0ea;color:#8a94a6} .b-wait{background:#eef2f7;color:#55606f}
+.tbd{display:inline-block;font-size:11px;font-weight:800;color:#b4740a;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:1px 7px}
+.dev{display:inline-block;font-size:11px;font-weight:800;color:#5b21b6;background:#f3edff;border:1px solid #d9c9f5;border-radius:6px;padding:1px 7px}
+
+.banner{border-radius:12px;padding:13px 16px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.banner.esv{background:var(--esv-soft);border:1px solid #bcd3f7;color:var(--esv-deep)}
+.banner.front{background:var(--front-soft);border:1px solid #f3d9b5;color:var(--front-deep)}
+.banner.srv{background:var(--srv-soft);border:1px solid #f5c2c0;color:var(--srv-deep)}
+.banner.ok{background:#eef7f1;border:1px solid #bbe7cc;color:#166534}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.layer{border:1.5px solid #e4e2da;border-radius:14px;padding:16px}
+.layer.front{border-color:#f3d9b5;background:var(--front-soft)} .layer.srv{border-color:#f5c2c0;background:var(--srv-soft)}
+.layer .t{font-size:15px;font-weight:900;color:#16151f}.layer .d{font-size:12.5px;line-height:1.6;color:#3a4250;margin-top:6px}
+
+/* 순차 관문 */
+.gate{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #e4e2da;border-radius:11px;margin-bottom:8px;background:#fff;transition:background .3s,border-color .3s}
+.gate .gn{width:26px;height:26px;flex:none;border-radius:8px;background:#eef2f7;color:#55606f;display:grid;place-items:center;font-size:13px;font-weight:900}
+.gate .gm{flex:1;min-width:0}
+.gate .gm b{font-size:13.5px;font-weight:800;color:#16151f;display:block}
+.gate .gm span{font-size:11.5px;color:#8a94a6;font-weight:700}
+.gate.pass{border-color:#bbe7cc;background:#f3faf6} .gate.pass .gn{background:var(--green);color:#fff}
+.gate.block{border-color:#f5c2c0;background:var(--srv-soft)} .gate.block .gn{background:var(--srv);color:#fff}
+.gate.skip{border-style:dashed;opacity:.6} .gate.na{opacity:.6}
+
+.cond{display:flex;align-items:center;gap:10px;padding:10px 13px;border:1px solid #e4e2da;border-radius:10px;margin-bottom:8px;font-size:13px;font-weight:700;color:#2b3442}
+.cond .ic{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:12px;color:#fff;flex:none}
+.cond.y .ic{background:var(--green)} .cond.n .ic{background:#c3cbd6}
+.cond b{color:#16151f}
+.flowd{display:flex;align-items:center;gap:0;overflow-x:auto;padding-bottom:4px;margin-top:6px}
+.flowd .fn{flex:1;min-width:110px;text-align:center;border:1px solid #e4e2da;border-radius:11px;padding:10px 8px;background:#f7f9fc}
+.flowd .fn b{display:block;font-size:12px;font-weight:800;color:#16151f}.flowd .fn span{font-size:10px;font-weight:800;color:var(--esv-deep)}
+.flowd .fa{align-self:center;color:#c3cbd6;font-weight:900;font-size:15px;flex:0 0 auto;padding:0 4px}
+.proc-note{font-size:12.5px;line-height:1.6;color:#55606f;background:#f7f9fc;border:1px solid #e4e2da;border-radius:10px;padding:10px 13px;margin-top:10px}.proc-note b{color:#16151f}
+
+#hud{position:fixed;top:0;left:0;right:0;z-index:9000;height:50px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--sk-border);display:flex;align-items:center;gap:13px;padding:0 16px}
+#hud .ch{font-size:13px;font-weight:900;color:#16151f;white-space:nowrap}#hud .ch em{font-style:normal;color:var(--esv)}
+#hud .sc{font-size:11.5px;font-weight:800;color:#8a94a6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+#hud .bar{flex:1;max-width:260px;height:7px;background:#e9ecf1;border-radius:999px;overflow:hidden}
+#hud .fill{height:100%;width:0;background:var(--esv);border-radius:999px;transition:width .4s}
+#hud .cnt{font-size:12px;font-weight:800;color:#6b7480;white-space:nowrap}#hud .sp{flex:1}
+#hud button{height:31px;padding:0 12px;border-radius:8px;border:1px solid var(--sk-border-strong);background:#fff;color:#37414f;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit}
+#hud button:hover{background:#f3f6fb}
+#mask{position:fixed;inset:0;z-index:9001;background:rgba(10,14,26,.34);display:none}
+#hole{position:fixed;z-index:9002;border-radius:10px;border:2.5px solid var(--esv);background:transparent;cursor:pointer;display:none;box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.34);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(47,107,237,.30),0 0 0 9999px rgba(10,14,26,.34)}50%{box-shadow:0 0 0 9px rgba(47,107,237,.15),0 0 0 9999px rgba(10,14,26,.34)}}
+#hole.shake{animation:shake .4s}@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+#hole .fg{position:absolute;right:-14px;bottom:-14px;font-size:24px;pointer-events:none;animation:fg 1.3s ease-in-out infinite;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
+@keyframes fg{0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,-5px)}}
+#bubble{position:fixed;z-index:9003;max-width:356px;background:#fff;border-radius:14px;padding:16px 18px 14px;border:1px solid #e4e2da;box-shadow:0 18px 50px rgba(10,14,26,.28);display:none;cursor:grab;animation:pop .28s cubic-bezier(.2,.9,.3,1.2)}
+#bubble:active{cursor:grabbing}
+@keyframes pop{from{opacity:0;transform:scale(.94) translateY(6px)}to{opacity:1;transform:none}}
+#bubble .grip{position:absolute;top:8px;right:10px;font-size:13px;color:#c3cbd6;pointer-events:none}
+#bubble .st{font-size:11px;font-weight:900;color:var(--esv);letter-spacing:.5px}
+#bubble .tt{font-size:16px;font-weight:900;color:#16151f;margin:5px 0 7px;padding-right:20px}
+#bubble .tx{font-size:13.5px;line-height:1.62;color:#3a4250}#bubble .tx b{color:#17161f}
+#bubble .tx .srv{color:var(--srv-deep)}#bubble .tx .front{color:var(--front-deep)}#bubble .tx .pm{color:var(--esv-deep)}
+#bubble .hint{margin-top:10px;font-size:11.5px;font-weight:800;color:var(--esv);display:flex;gap:10px;flex-wrap:wrap}#bubble .hint em{font-style:normal;color:#9aa4b2}
+#bubble .ar{position:absolute;width:14px;height:14px;background:#fff;border:1px solid #e4e2da;transform:rotate(45deg)}
+#center{position:fixed;inset:0;z-index:9003;display:none;align-items:center;justify-content:center;padding:24px}
+#center .card2{background:#fff;border-radius:20px;max-width:680px;width:100%;padding:30px 32px;box-shadow:0 24px 70px rgba(10,14,26,.35);animation:pop .3s cubic-bezier(.2,.9,.3,1.2)}
+#center .eb{font-size:12px;font-weight:900;letter-spacing:1px;color:var(--esv);text-transform:uppercase}
+#center h2{font-size:23px;font-weight:900;color:#16151f;margin:8px 0 10px}
+#center p{font-size:14px;line-height:1.7;color:#3a4250;margin:0}
+#center .chk{width:58px;height:58px;border-radius:50%;background:var(--green);display:grid;place-items:center;margin:0 auto 12px;color:#fff;font-size:28px}
+#center .acts{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;justify-content:center}
+#center .acts button{height:38px;padding:0 16px;border-radius:10px;border:1px solid var(--sk-border-strong);background:#fff;color:#2b3442;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}
+#center .acts button.pri{background:var(--sk-ink);border-color:var(--sk-ink);color:#fff}
+.sclist{display:grid;gap:10px;margin-top:18px;text-align:left}
+.sc-item{display:flex;align-items:center;gap:13px;padding:13px 15px;border:1.5px solid #e4e2da;border-radius:13px;cursor:pointer;background:#fff;transition:border-color .15s,background .15s}
+.sc-item:hover{border-color:var(--esv);background:var(--esv-soft)}
+.sc-no{width:30px;height:30px;flex:none;border-radius:9px;background:var(--sk-ink);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:900}
+.sc-tt{font-size:14px;font-weight:800;color:#16151f}.sc-ds{font-size:12px;color:#8a94a6;font-weight:700;margin-top:1px}
+.sc-done{margin-left:auto;font-size:16px;color:var(--green)}
+#toast{position:fixed;z-index:9004;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:#17161f;color:#fff;font-size:13px;font-weight:700;padding:11px 18px;border-radius:11px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <span class="ch">Chapter · <em>실행예산 승인요청</em></span>
+  <span class="sc" id="hud-sc"></span>
+  <div class="bar"><div class="fill" id="hud-fill"></div></div>
+  <span class="cnt" id="hud-cnt"></span>
+  <span class="sp"></span>
+  <button onclick="tPrev()">◀ 이전</button><button onclick="tRestart()">↻ 다시 시작</button><button onclick="openScenarios()">☰ 시나리오</button>
+</div>
+<div id="sysbar"><div class="sys"><span class="ic">📊</span><span>실행예산 · New MIS</span></div><span class="tag">편성은 자유 · 검사는 [승인요청]에서 몰아서</span><span class="flow"></span><span class="leg"><span class="lg esv"><i></i>실행예산</span><span class="lg front"><i></i>프론트 검증(안내)</span><span class="lg srv"><i></i>서버 검증(방어선)</span></span></div>
+
+<div id="sim"></div>
+
+<div id="mask" onclick="tWrong()"></div>
+<div id="hole"><span class="fg">👆</span></div>
+<div id="bubble"><span class="ar"></span><span class="grip">⠿</span><div class="st"></div><div class="tt"></div><div class="tx"></div><div class="hint"><span>👆 강조된 영역을 클릭</span><em>✋ 말풍선 드래그 이동</em></div></div>
+<div id="center"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   실행예산 승인요청 인터랙티브 튜토리얼 — 시뮬레이션
+   핵심: ① 저장마다 검사 않고 [승인요청]에 몰아서(편성 중 숫자 변동·결재는
+         되돌리기 어려운 지점) / ② 2층 검증(프론트=안내, 서버=진짜 방어선) /
+         ③ 순차 중단 — 관문이 순서대로, 하나 걸리면 뒤는 아예 안 돈다.
+   관문: 계약리뷰 최종 Cost · 보안점검 체크리스트 · 현장지원점검 · AS 본 PJT 종료.
+   ※ 모두 가상 데이터 시뮬레이션.
+   ===================================================================== */
+const won = n => n.toLocaleString('ko-KR') + '원';
+const sim = () => document.getElementById('sim');
+function setFlow(t){ const e=document.querySelector('#sysbar .flow'); if(e) e.textContent = t || ''; }
+function initState(){ return {}; }
+let S = initState();
+
+/* ---------- 화면 ---------- */
+function scrConcept() {
+  setFlow('왜 몰아서? · 2층 검증 · 순차 중단');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">왜 [승인요청]에서 몰아서 검사할까</h1>
+    <p class="scr-sub">편성 중에는 숫자가 계속 바뀝니다. 저장마다 검사하면 번거롭고 의미도 적어요. <b>결재에 올리는 순간</b>이 되돌리기 어려운 지점이라, 검사를 <b>[승인요청] 한 곳</b>에 몰아둡니다.</p>
+    <div class="banner esv">💡 이 한 가지만 이해하면 나머지가 다 따라옵니다 — <b>편성은 자유, 검사는 상신 시점</b>.</div>
+    <div class="g2">
+      <div class="layer front"><div class="t">🟠 프론트 검증</div><div class="d">사용자에게 <b>알려주고 안내</b>하는 층. 팝업·바로가기를 제공해 “여기서 막혔어요, 이걸 하세요”를 보여줍니다. 편의 기능이에요.</div></div>
+      <div class="layer srv"><div class="t">🔴 서버 검증 (진짜 방어선)</div><div class="d">화면을 거치지 않아도 <b>막아야 하는 것</b>. API를 직접 호출해도 통과되면 안 됩니다. <b>진짜 방어선은 서버</b>예요.</div></div>
+    </div>
+    <div class="proc-note">둘 다 필요합니다 — <b>프론트</b>는 친절한 안내, <b>서버</b>는 최후의 방어. 신입이 가장 헷갈리는 지점이에요. (서버만 있으면 불친절, 프론트만 있으면 뚫립니다.)</div>
+    <div class="card"><div class="sec">③ 순차 중단 구조 (가장 중요)</div>
+      <div class="flowd">
+        <div class="fn"><b>계약리뷰 Cost</b><span>관문 ①</span></div><div class="fa">→</div>
+        <div class="fn"><b>보안점검</b><span>관문 ②</span></div><div class="fa">→</div>
+        <div class="fn"><b>현장지원점검</b><span>관문 ③</span></div><div class="fa">→</div>
+        <div class="fn"><b>AS 본PJT 종료</b><span>관문 ④</span></div>
+      </div>
+      <div class="proc-note" style="margin-top:10px">관문이 <b>순서대로</b> 돌고, <b>하나 걸리면 뒤는 아예 안 돕니다</b>. 그래서 “왜 ③은 검사도 안 됐지?” 는 보통 <b>②에서 멈췄기</b> 때문이에요.</div>
+    </div>
+  </div>`;
+}
+
+function scrCost() {
+  setFlow('관문 ① 계약리뷰 최종 Cost');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">관문 ① 계약리뷰 최종 Cost</h1>
+    <p class="scr-sub">전체 예산이 <b>계약리뷰 단계에서 승인받은 최종 Cost</b> 합계를 넘는지 봅니다. 기준은 <b>프로젝트 유형</b>마다 달라요.</p>
+    <div class="card"><div class="sec">유형 A — 전체 Cost 기준</div>
+      <div class="cond y"><span class="ic">✓</span><span><b>전체 예산 ≤ 계약리뷰 최종 Cost 합계</b> — 넘으면 상신 불가(유형에 따라)</span></div>
+    </div>
+    <div class="card"><div class="sec">유형 B — 4대 예산 계정별 기준 (예산 간 쉐어 불가)</div>
+      <table class="t"><thead><tr><th>계정</th><th class="num">계획</th><th class="num">계약리뷰 Cost</th><th>판정</th></tr></thead>
+      <tbody>
+        <tr><td class="pname">인건비</td><td class="num">520,000,000</td><td class="num">500,000,000</td><td><span class="badge b-warn">초과 → 상신 불가</span></td></tr>
+        <tr><td>외주비</td><td class="num">860,000,000</td><td class="num">900,000,000</td><td><span class="badge b-ok">이내</span></td></tr>
+        <tr><td>재료비</td><td class="num">140,000,000</td><td class="num">150,000,000</td><td><span class="badge b-ok">이내</span></td></tr>
+        <tr><td>경비</td><td class="num">23,000,000</td><td class="num">25,000,000</td><td><span class="badge b-ok">이내</span></td></tr>
+      </tbody></table>
+      <div class="proc-note" style="margin-top:10px">전체 합계는 Cost 안이어도 <b>인건비만 Cost를 넘으면 상신 불가</b> — <b>예산 간 쉐어가 불가</b>하기 때문입니다. <span class="tbd">※ 초과해도 상신 가능 여부는 협의 중(추후 확정)</span></div>
+    </div>
+  </div>`;
+}
+
+function scrSecurity() {
+  setFlow('관문 ② 보안점검 체크리스트');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">관문 ② 보안점검 체크리스트</h1>
+    <p class="scr-sub">보안진단 <b>대상인지</b> 먼저 보고, 대상이면 <b>체크리스트 작성이 끝났는지</b> 확인합니다. 대상이 아니면 그냥 통과.</p>
+    <div class="card"><div class="sec">판정</div>
+      <div class="cond y"><span class="ic">✓</span><span><b>보안진단 대상</b> 여부 — 이 프로젝트는 <b>대상</b></span></div>
+      <div class="cond n"><span class="ic">!</span><span><b>체크리스트 작성 완료</b> — <b class="pname" style="color:var(--srv-deep)">미완료</b> → 관문 걸림</span></div>
+    </div>
+    <div class="banner srv">⚠ 보안 요건을 안 채운 채 예산을 확정하면, 나중에 <b>보안 조치 비용이 예산 밖</b>에서 발생합니다. 그래서 상신 조건이에요.</div>
+    <div class="card"><div class="sec">⚠ 함정 — 저장은 PM만 가능</div>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        <div style="flex:1;min-width:220px;font-size:13px;line-height:1.6;color:#3a4250">체크리스트를 <b>저장할 수 있는 사람은 PM뿐</b>입니다. <b>사업관리자</b>는 화면에서 <b>저장 버튼 자체가 안 보여요</b>. 사업관리자가 상신하려다 막히면 <b>PM에게 넘겨야</b> 합니다.</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn esv" id="pm-save">💾 체크리스트 저장 <span style="font-size:10px;margin-left:4px;opacity:.85">(PM 전용)</span></button>
+          <button class="btn" disabled>💾 저장 <span style="font-size:10px;margin-left:4px">(사업관리자 — 버튼 없음)</span></button>
+        </div>
+      </div>
+      <div class="proc-note" style="margin-top:12px">이 시스템에서 <b>PM 전용인 유일한 버튼</b>입니다. 역할에 따라 버튼이 아예 안 보이는 케이스라 꼭 기억하세요.</div>
+    </div>
+  </div>`;
+}
+
+function scrField() {
+  setFlow('관문 ③ 현장지원점검 체크리스트');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">관문 ③ 현장지원점검 체크리스트</h1>
+    <p class="scr-sub">아래 <b>세 조건을 모두</b> 만족하면 점검 대상이 됩니다. 외주 규모가 크고 오래 가는 프로젝트의 <b>현장 관리 리스크</b> 때문이에요.</p>
+    <div class="card"><div class="sec">대상 조건 (3개 모두 충족 시)</div>
+      <div class="cond y"><span class="ic">✓</span><span>계약검토원가의 <b>외주비 ≥ 기준 금액</b> <span class="dev">기본 5억 · 설정값</span> — 현재 8.6억 <b>충족</b></span></div>
+      <div class="cond y"><span class="ic">✓</span><span><b>수행기간 ≥ 기준 개월</b> <span class="dev">기본 6개월 · 설정값</span> — 현재 16개월 <b>충족</b></span></div>
+      <div class="cond y"><span class="ic">✓</span><span><b>진행률 ≥ 기준</b> <span class="dev">기본 30% · 설정값</span> — 현재 32% <b>충족</b></span></div>
+    </div>
+    <div class="banner front">🟠 <b>예외</b> — ‘보안 리스크 없음’이 선언돼 있으면 <b>대상에서 빠집니다</b>.</div>
+    <div class="card"><div class="sec">⏱ 시간이 지나면 대상이 된다</div>
+      <div style="font-size:13px;line-height:1.6;color:#3a4250"><b>진행률이 올라가면서</b> 어제는 통과하던 게 <b>오늘 막힐 수</b> 있어요. (예: 진행률 29% → 31%가 되는 순간 대상) — ③번 관문의 특징입니다.</div>
+      <div class="proc-note" style="margin-top:10px"><span class="dev">개발자</span> 위 기준값(5억·6개월·30%)은 <b>코드에 박힌 상수가 아니라 ‘설정값’</b>입니다. 기본값만 코드에 있어요. “5억이라고 들었는데 왜 안 걸리죠?” 문의가 오면 <b>설정부터 확인</b>하세요.</div>
+    </div>
+  </div>`;
+}
+
+function scrAS() {
+  setFlow('관문 ④ AS 본 프로젝트 종료 확인');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">관문 ④ AS 본 프로젝트 종료 확인</h1>
+    <p class="scr-sub"><b>AS 유형일 때만</b> 검사합니다. AS 프로젝트 번호에서 <b>원래(본) 프로젝트</b>를 찾아내 그 프로젝트가 <b>종료 상태</b>인지 확인해요.</p>
+    <div class="card"><div class="sec">본 프로젝트 조회 (번호 규칙 기반)</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px">
+        <span class="badge b-wait">AS 프로젝트</span><span class="mono">AS-30131234-D001</span>
+        <span style="color:#aab2c0;font-weight:900">→ 번호 규칙 →</span>
+        <span class="badge b-wait">본 프로젝트</span><span class="mono">30131234-D001</span>
+      </div>
+      <div class="cond n" style="margin-top:12px"><span class="ic">!</span><span>본 프로젝트 <b>종료 상태</b> — <b style="color:var(--srv-deep)">수행중(미종료)</b> → 관문 걸림</span></div>
+    </div>
+    <div class="banner srv">⚠ A/S는 본 사업이 끝난 뒤의 <b>하자보수</b>입니다. 본 프로젝트가 안 끝났는데 A/S 예산을 확정하면 <b>원가가 두 군데로 갈립니다</b>.</div>
+    <div class="card"><div class="sec">PM이 할 수 있는 게 없다</div>
+      <div style="font-size:13px;line-height:1.6;color:#3a4250">이 관문은 PM이 직접 풀 수 없어요. <b>본 프로젝트 담당자에게 종료를 요청</b>하는 것 외에는 방법이 없습니다.</div>
+      <div class="proc-note" style="margin-top:10px"><span class="dev">개발자</span> 본 프로젝트를 찾는 방식이 <b>프로젝트 번호 규칙에 의존</b>합니다. 번호 체계가 바뀌면 이 검사가 <b>조용히 깨져요</b> — “번호 규칙에 의존하는 로직”의 대표 예.</div>
+    </div>
+  </div>`;
+}
+
+function scrRun(phase) {
+  setFlow('[승인요청] — 순차 관문 검사');
+  const g = phase === 'done'
+    ? [['pass','① 계약리뷰 최종 Cost','전체/4대 계정 — 이내','통과'],
+       ['block','② 보안점검 체크리스트','대상인데 작성 미완료','걸림 — 여기서 중단'],
+       ['skip','③ 현장지원점검','—','미검사 (앞에서 중단)'],
+       ['skip','④ AS 본 PJT 종료','—','미검사 (앞에서 중단)']]
+    : [['wait','① 계약리뷰 최종 Cost','전체/4대 계정','대기'],
+       ['wait','② 보안점검 체크리스트','보안진단 대상 시','대기'],
+       ['wait','③ 현장지원점검','외주 5억·6개월·30%','대기'],
+       ['wait','④ AS 본 PJT 종료','AS 유형 시','대기']];
+  const rows = g.map((x,i)=>`<div class="gate ${x[0]}"><div class="gn">${x[0]==='pass'?'✓':x[0]==='block'?'✕':(i+1)}</div><div class="gm"><b>${x[1]}</b><span>${x[2]}</span></div><span class="badge ${x[0]==='pass'?'b-ok':x[0]==='block'?'b-warn':'b-wait'}">${x[3]}</span></div>`).join('');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">실행예산 승인요청 — 순차 관문 검사</h1>
+    <p class="scr-sub">[승인요청]을 누르면 관문이 <b>순서대로</b> 돌고, <b>하나 걸리면 뒤는 아예 안 돕니다</b>.</p>
+    <div class="card"><div class="sec">관문 (순차)</div>${rows}</div>
+    ${phase==='done'
+      ? '<div class="banner srv">⛔ <b>② 보안점검에서 중단</b> — ③·④는 <b>검사조차 되지 않았습니다</b>. 프론트가 <b class="front">“보안점검으로 이동”</b> 바로가기를 안내하지만, 통과 못하면 <b class="srv">서버가 상신을 막습니다</b>.</div>'
+      : '<div style="display:flex;justify-content:flex-end"><button class="btn esv" id="a-submit">실행예산 승인요청(상신)</button></div>'}
+  </div>`;
+}
+
+/* =====================================================================
+   시나리오
+   ===================================================================== */
+const SCEN = {
+  A: { name:'왜 몰아서? · 2층 검증 · 순차 중단', desc:'승인요청의 설계 의도 — 이 3가지면 나머지가 따라온다', steps:[
+    { render:scrConcept, spot:'.banner', pos:'bottom', title:'편성은 자유, 검사는 상신 시점', text:'저장마다 검사하지 않고 <b>[승인요청] 한 곳</b>에 몰아둡니다. 편성 중엔 숫자가 계속 바뀌고, <b>결재에 올리는 순간</b>이 되돌리기 어려운 지점이라서요.' },
+    { render:scrConcept, spot:'.g2', pos:'top', title:'2층 검증 — 서버가 진짜 방어선', text:'<b class="front">프론트</b>는 알려주고 안내(팝업·바로가기), <b class="srv">서버</b>는 화면을 안 거쳐도 막는 <b>진짜 방어선</b>. 둘 다 필요해요.' },
+    { render:scrConcept, spot:'.card', pos:'top', title:'순차 중단 (가장 중요)', text:'관문이 <b>순서대로</b> 돌고 <b>하나 걸리면 뒤는 아예 안 돕니다</b>. “③이 왜 검사도 안 됐지?”는 보통 <b>②에서 멈춘</b> 거예요.', mode:'done',
+      doneTitle:'1. 설계 의도', doneHtml:'<p>①<b>왜 몰아서</b>(되돌리기 어려운 결재 시점) ②<b>2층 검증</b>(프론트=안내 / <b>서버=진짜 방어선</b>) ③<b>순차 중단</b>(하나 걸리면 뒤는 안 돔). 이 셋만 이해하면 각 관문은 쉽게 따라옵니다.</p>' },
+  ]},
+  B: { name:'관문 ① 계약리뷰 최종 Cost', desc:'유형별 전체 Cost / 4대 계정별(쉐어 불가)', steps:[
+    { render:scrCost, spot:'.card:nth-of-type(1)', pos:'bottom', title:'전체 Cost 기준', text:'전체 예산이 <b>계약리뷰 최종 Cost</b> 합계를 넘는지 봅니다. 유형에 따라 <b>넘으면 상신 불가</b>.' },
+    { render:scrCost, spot:'.card:nth-of-type(2)', pos:'top', title:'4대 계정별 — 쉐어 불가', text:'특정 유형은 <b>4대 계정별</b> 비교. 전체는 이내여도 <b>인건비만 Cost 초과면 상신 불가</b> — <b>예산 간 쉐어 불가</b>이기 때문.', mode:'done',
+      doneTitle:'관문 ① 계약리뷰 Cost', doneHtml:'<p>전체 Cost 또는 4대 계정별로 <b>계약리뷰 최종 Cost</b> 초과를 봅니다. 4대 계정 기준에선 <b>인건비만 넘어도 상신 불가</b>(쉐어 불가). <span class="tbd">초과해도 상신 가능 여부는 협의 중</span></p>' },
+  ]},
+  C: { name:'관문 ② 보안점검 체크리스트', desc:'대상이면 작성 완료 확인 · 저장은 PM 전용', steps:[
+    { render:scrSecurity, spot:'.card:nth-of-type(1)', pos:'bottom', title:'대상 → 작성 완료?', text:'보안진단 <b>대상인지</b> 먼저 보고, 대상이면 <b>체크리스트 작성 완료</b>를 확인해요. 지금은 <b class="srv">미완료</b>라 걸립니다.' },
+    { render:scrSecurity, spot:'#pm-save', pos:'top', title:'저장은 PM뿐 (함정)', text:'체크리스트 <b>저장은 PM만</b> 가능해요. <b>사업관리자</b>는 저장 버튼 자체가 안 보입니다. 막히면 <b class="pm">PM에게 넘겨야</b> 해요 — 이 시스템 <b>유일한 PM 전용 버튼</b>.', mode:'done',
+      doneTitle:'관문 ② 보안점검', doneHtml:'<p>보안진단 대상이면 <b>체크리스트 작성 완료</b>가 상신 조건. 안 채우면 나중에 <b>보안 조치 비용이 예산 밖</b>에서 발생해요. <b>함정</b>: 저장은 <b>PM 전용</b> — 사업관리자는 버튼이 없어 PM에게 넘겨야 합니다.</p>' },
+  ]},
+  D: { name:'관문 ③ 현장지원점검', desc:'외주 5억·6개월·진행률 30% · 예외·설정값·시간', steps:[
+    { render:scrField, spot:'.card:nth-of-type(1)', pos:'bottom', title:'3조건 모두 충족 시 대상', text:'<b>외주비 ≥ 5억</b> · <b>수행기간 ≥ 6개월</b> · <b>진행률 ≥ 30%</b> — 셋 다 충족하면 점검 대상. (기본값, <b>설정값</b>)' },
+    { render:scrField, spot:'.banner', pos:'bottom', title:'예외 — 보안 리스크 없음', text:'<b>‘보안 리스크 없음’</b>이 선언돼 있으면 대상에서 <b>빠집니다</b>.' },
+    { render:scrField, spot:'.card:nth-of-type(2)', pos:'top', title:'시간이 지나면 대상이 된다', text:'<b>진행률이 올라가면서</b> 어제 통과하던 게 <b>오늘 막힐 수</b> 있어요. 기준값은 <b>설정값</b>(코드 상수 아님) — “5억인데 왜 안 걸리죠?”는 설정부터 확인.', mode:'done',
+      doneTitle:'관문 ③ 현장지원점검', doneHtml:'<p>외주 규모가 크고 오래 가는 프로젝트(외주 5억·6개월·진행률 30%, <b>설정값</b>)는 점검 대상. <b>보안 리스크 없음</b>이면 예외. <b>진행률이 오르면 나중에 대상</b>이 될 수 있는 게 특징이에요.</p>' },
+  ]},
+  E: { name:'관문 ④ AS 본 프로젝트 종료', desc:'AS 유형만 · 번호 규칙으로 본 PJT 찾아 종료 확인', steps:[
+    { render:scrAS, spot:'.card:nth-of-type(1)', pos:'bottom', title:'AS → 본 프로젝트 종료?', text:'AS 번호에서 <b>번호 규칙</b>으로 본 프로젝트를 찾아 <b>종료 상태</b>를 확인해요. 지금은 본 PJT가 <b class="srv">수행중</b>이라 걸립니다.' },
+    { render:scrAS, spot:'.card:nth-of-type(2)', pos:'top', title:'PM이 풀 수 없는 관문', text:'A/S는 본 사업 종료 후의 하자보수. 본 PJT가 안 끝났는데 확정하면 원가가 갈려요. <b>PM은 본 PJT 담당자에게 종료 요청</b>하는 것 외엔 방법이 없어요.', mode:'done',
+      doneTitle:'관문 ④ AS 본 PJT 종료', doneHtml:'<p>AS 유형만, <b>번호 규칙</b>으로 본 프로젝트를 찾아 <b>종료</b>를 확인합니다. 본 PJT 미종료면 상신 불가. <b>PM이 직접 풀 수 없고</b> 본 PJT 종료를 기다려야 해요. <span class="dev">개발</span> 번호 체계가 바뀌면 조용히 깨지는 로직입니다.</p>' },
+  ]},
+  F: { name:'순차 중단 실행 — [승인요청]', desc:'관문 순차 검사 · 하나 걸리면 뒤는 미검사', steps:[
+    { render:()=>scrRun('wait'), spot:'#a-submit', pos:'top', title:'[승인요청] 눌러보기', text:'이제 <b>[승인요청]</b>을 눌러 관문을 순차로 검사해봅니다.', act:()=>scrRun('done') },
+    { render:null, keep:true, spot:'.gate.block', pos:'bottom', title:'②에서 걸려 중단', text:'① 계약리뷰 Cost 통과 → <b>② 보안점검에서 걸림</b> → <b class="srv">③·④는 검사조차 안 됨</b>. 이게 순차 중단이에요.', mode:'done',
+      doneTitle:'순차 중단 실행', doneHtml:'<p>[승인요청]은 관문을 <b>순서대로</b> 돌리고 <b>처음 걸린 곳에서 멈춥니다</b>. 뒤 관문은 검사도 안 돼요. <b class="front" style="color:var(--front-deep)">프론트</b>는 “여기로 가서 해결하세요” 바로가기를 안내하고, 통과 전까지 <b class="srv" style="color:var(--srv-deep)">서버</b>가 상신을 막습니다(진짜 방어선).</p>' },
+  ]},
+};
+const SC_ORDER = ['A','B','C','D','E','F'];
+const done = {};
+
+/* =====================================================================
+   엔진
+   ===================================================================== */
+let curSc=null, step=0, steps=[], curTgt=null, curPos='bottom', bubMoved=false;
+const $ = id => document.getElementById(id);
+function lockScroll(){ const e=document.scrollingElement||document.documentElement; e.style.overflow='hidden'; $('sim').style.overflow='hidden'; }
+function unlockScroll(){ const e=document.scrollingElement||document.documentElement; e.style.overflow=''; $('sim').style.overflow='auto'; }
+
+function runScenario(key){ curSc=key; steps=SCEN[key].steps; step=0; $('center').style.display='none';
+  $('hud-sc').textContent='시나리오 · '+SCEN[key].name; renderStep(); }
+function renderStep(){
+  const s=steps[step];
+  curTgt=null; $('hole').style.display='none'; $('bubble').style.display='none';
+  if(s.render && !s.keep){ $('sim').style.opacity='0'; s.render(); }
+  if(s.enter){ try{ s.enter(); }catch(e){ console.warn(e); } }
+  setTimeout(()=>place(s), 70);
+  $('hud-cnt').textContent='단계 '+(step+1)+' / '+steps.length;
+  $('hud-fill').style.width=Math.round(step/steps.length*100)+'%';
+}
+function place(s){
+  $('sim').style.opacity='1';
+  const tgt=document.querySelector(s.spot);
+  $('center').style.display='none';
+  if(!tgt){ return setTimeout(()=>place(s),120); }
+  unlockScroll(); try{ tgt.scrollIntoView({block:'center',inline:'nearest'}); }catch(e){} lockScroll();
+  $('mask').style.display='block';
+  curTgt=tgt; curPos=s.pos||'bottom'; bubMoved=false;
+  drawHole(tgt.getBoundingClientRect());
+  $('hole').onclick=(e)=>{ e.stopPropagation(); if(s.act){ try{s.act();}catch(err){console.warn(err);} } if(s.mode==='done'){ finishScenario(s); } else { next(); } };
+  const b=$('bubble'); b.querySelector('.ar').style.display='block';
+  b.querySelector('.st').textContent='STEP '+(step+1)+' / '+steps.length;
+  b.querySelector('.tt').textContent=s.title; b.querySelector('.tx').innerHTML=s.text;
+  b.style.display='block'; posBub(b, tgt.getBoundingClientRect(), curPos);
+}
+function drawHole(r){ const h=$('hole'),p=7; h.style.display='block'; h.style.left=(r.left-p)+'px'; h.style.top=(r.top-p)+'px'; h.style.width=(r.width+p*2)+'px'; h.style.height=(r.height+p*2)+'px'; }
+function posBub(b,r,pos){
+  const bw=b.offsetWidth,bh=b.offsetHeight,g=18,vw=innerWidth,vh=innerHeight;let l,t;const a=b.querySelector('.ar');
+  const cl=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+  if(pos==='right'){l=r.right+g;t=r.top+r.height/2-bh/2;}else if(pos==='left'){l=r.left-bw-g;t=r.top+r.height/2-bh/2;}
+  else if(pos==='top'){l=r.left+r.width/2-bw/2;t=r.top-bh-g;}else{l=r.left+r.width/2-bw/2;t=r.bottom+g;}
+  if(l<12)l=12;if(l+bw>vw-12)l=vw-bw-12;if(t<100)t=100;if(t+bh>vh-12)t=vh-bh-12;
+  b.style.left=l+'px';b.style.top=t+'px';a.style.display='block';
+  if(pos==='right'){a.style.left='-8px';a.style.top=cl(r.top+r.height/2-t-7,10,bh-20)+'px';a.style.borderRight='none';a.style.borderBottom='none';}
+  else if(pos==='left'){a.style.left=(bw-6)+'px';a.style.top=cl(r.top+r.height/2-t-7,10,bh-20)+'px';a.style.borderLeft='none';a.style.borderTop='none';}
+  else if(pos==='top'){a.style.top=(bh-6)+'px';a.style.left=cl(r.left+r.width/2-l-7,14,bw-24)+'px';a.style.borderLeft='none';a.style.borderTop='none';}
+  else{a.style.top='-8px';a.style.left=cl(r.left+r.width/2-l-7,14,bw-24)+'px';a.style.borderRight='none';a.style.borderBottom='none';}
+}
+function next(){ if(step<steps.length-1){ step++; renderStep(); } else finishScenario(steps[steps.length-1]); }
+function tPrev(){ if(step>0){ step--; renderStep(); } else openScenarios(); }
+function tRestart(){ S=initState(); if(curSc) runScenario(curSc); else openScenarios(); }
+function sync(){ if(curTgt && $('hole').style.display==='block'){ const r=curTgt.getBoundingClientRect(); if(r.width||r.height){ drawHole(r); if(!bubMoved) posBub($('bubble'),r,curPos); } } requestAnimationFrame(sync); }
+requestAnimationFrame(sync);
+function maskOn(){ return $('mask').style.display==='block' && $('hole').style.display==='block'; }
+addEventListener('wheel', e=>{ if(maskOn()) e.preventDefault(); }, {passive:false,capture:true});
+addEventListener('touchmove', e=>{ if(maskOn() && !document.body.classList.contains('drag')) e.preventDefault(); }, {passive:false,capture:true});
+
+function finishScenario(s){
+  done[curSc]=true;
+  $('mask').style.display='none'; $('hole').style.display='none'; $('bubble').style.display='none'; curTgt=null; unlockScroll();
+  $('hud-fill').style.width='100%'; $('hud-cnt').textContent='단계 '+steps.length+' / '+steps.length;
+  const nextKey=SC_ORDER[SC_ORDER.indexOf(curSc)+1];
+  const c=$('center'); c.style.display='flex';
+  c.innerHTML='<div class="card2"><div style="text-align:center"><div class="chk">✓</div><div class="eb">실행예산 승인요청</div><h2>'+(s.doneTitle||'완료')+'</h2></div>'
+    +(s.doneHtml||'')
+    +'<div class="acts">'
+    +(nextKey?'<button class="pri" onclick="runScenario(\''+nextKey+'\')">다음 시나리오 →</button>':'')
+    +'<button onclick="openScenarios()">☰ 시나리오 목록</button>'
+    +'<button onclick="tRestart()">↻ 이 시나리오 다시</button></div></div>';
+}
+function tWrong(){ const h=$('hole'); if(h.style.display!=='block')return; h.classList.remove('shake'); void h.offsetWidth; h.classList.add('shake');
+  const t=$('toast'); t.textContent='👆 강조된 영역을 클릭하세요'; t.classList.add('show'); clearTimeout(window.__t); window.__t=setTimeout(()=>t.classList.remove('show'),1500); }
+
+/* 드래그 */
+(function(){ const b=$('bubble'); let d=null;
+  const st=(x,y)=>{ d={x,y,l:parseFloat(b.style.left)||0,t:parseFloat(b.style.top)||0}; bubMoved=true; b.querySelector('.ar').style.display='none'; document.body.classList.add('drag'); };
+  const mv=(x,y)=>{ if(!d)return; let nl=d.l+(x-d.x),nt=d.t+(y-d.y); nl=Math.max(6,Math.min(innerWidth-b.offsetWidth-6,nl)); nt=Math.max(100,Math.min(innerHeight-b.offsetHeight-6,nt)); b.style.left=nl+'px'; b.style.top=nt+'px'; };
+  const en=()=>{ if(d){ d=null; document.body.classList.remove('drag'); } };
+  b.addEventListener('mousedown',e=>{ st(e.clientX,e.clientY); e.preventDefault(); });
+  addEventListener('mousemove',e=>mv(e.clientX,e.clientY)); addEventListener('mouseup',en);
+  b.addEventListener('touchstart',e=>{ const t=e.touches[0]; st(t.clientX,t.clientY); },{passive:true});
+  addEventListener('touchmove',e=>{ if(!d)return; const t=e.touches[0]; mv(t.clientX,t.clientY); e.preventDefault(); },{passive:false}); addEventListener('touchend',en);
+})();
+
+/* 시나리오 선택 */
+function openScenarios(){
+  $('mask').style.display='none'; $('hole').style.display='none'; $('bubble').style.display='none'; curTgt=null; unlockScroll(); curSc=null;
+  $('hud-sc').textContent=''; $('hud-cnt').textContent=''; $('hud-fill').style.width='0'; setFlow(''); sim().innerHTML='';
+  const items=SC_ORDER.map((k,i)=>{ const sc=SCEN[k]; return '<button class="sc-item" onclick="runScenario(\''+k+'\')"><span class="sc-no">'+(i+1)+'</span><span><span class="sc-tt">'+sc.name+'</span><span class="sc-ds">'+sc.desc+'</span></span>'+(done[k]?'<span class="sc-done">✓</span>':'')+'</button>'; }).join('');
+  const flow='<div class="flowd">'
+    +'<div class="fn"><b>① 계약리뷰 Cost</b><span>전체/4대 계정</span></div><div class="fa">→</div>'
+    +'<div class="fn"><b>② 보안점검</b><span>대상 시 작성</span></div><div class="fa">→</div>'
+    +'<div class="fn"><b>③ 현장지원점검</b><span>외주5억·6개월·30%</span></div><div class="fa">→</div>'
+    +'<div class="fn"><b>④ AS 본PJT 종료</b><span>AS 유형 시</span></div>'
+    +'</div>'
+    +'<div class="proc-note">💡 저장마다 검사하지 않고 <b>[승인요청]에 몰아서</b> 봅니다(되돌리기 어려운 결재 시점). 검증은 <b style="color:var(--front-deep)">프론트(안내)</b>+<b style="color:var(--srv-deep)">서버(방어선)</b> 2층, 관문은 <b>순차로 돌고 하나 걸리면 뒤는 미검사</b>.</div>';
+  const c=$('center'); c.style.display='flex';
+  c.innerHTML='<div class="card2" style="max-width:900px"><div class="eb">실행예산 · 승인요청</div><h2>실행예산 승인요청 — 시나리오 선택</h2>'
+    +'<p>편성은 자유, <b>검사는 [승인요청] 한 곳</b>에서. <b style="color:var(--front-deep)">프론트=안내</b> / <b style="color:var(--srv-deep)">서버=진짜 방어선</b>, 관문은 <b>순차 중단</b> 구조예요.</p>'
+    +flow
+    +'<div class="sclist">'+items+'</div></div>';
+}
+
+openScenarios();
+</script>
+</body>
+</html>
