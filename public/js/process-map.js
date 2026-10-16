@@ -14,6 +14,7 @@ var PROCESS_MAP_PHASES = [
       { name: '수주형 프로젝트 등록', file: 'tutorial-si.html', dl: 'BudgetAI-튜토리얼-수주형등록.html' },
       { name: 'WG · 사내 개설', file: 'tutorial-wg.html', dl: 'BudgetAI-튜토리얼-WG사내개설.html' },
     ],
+    tutNote: '선투입 · 제안 · 투자 프로젝트 튜토리얼은 추후 추가 예정',
   },
   {
     key: 'bgt', title: '② 실행예산 수립', sub: '편성 · 상신 · 승인',
@@ -26,6 +27,7 @@ var PROCESS_MAP_PHASES = [
       { name: '외주비 계획(실투입)', file: 'tutorial-outsource.html', dl: 'BudgetAI-튜토리얼-외주비.html' },
       { name: '경비 계획', file: 'tutorial-expense.html', dl: 'BudgetAI-튜토리얼-경비.html' },
       { name: '재료비 계획', file: 'tutorial-material.html', dl: 'BudgetAI-튜토리얼-재료비.html' },
+      { name: 'A/S Cost 계획', file: 'tutorial-ascost.html', dl: 'BudgetAI-튜토리얼-ASCost.html' },
       { name: '실행예산 승인요청', file: 'tutorial-approval.html', dl: 'BudgetAI-튜토리얼-실행예산승인요청.html' },
       { name: '실행예산 버전 관리', file: 'tutorial-version.html', dl: 'BudgetAI-튜토리얼-실행예산버전.html' },
     ],
@@ -38,7 +40,19 @@ var PROCESS_MAP_PHASES = [
       { label: '프로젝트 종료', nav: 'showProjectClose', desc: '기간+30일 자동 배치 종료·사후점검' },
     ],
     tutorials: [
+      { name: '실적 현황 보는 법', file: 'tutorial-actuals.html', dl: 'BudgetAI-튜토리얼-실적현황.html' },
       { name: '프로젝트 종료 (자동 종료)', file: 'tutorial-close.html', dl: 'BudgetAI-튜토리얼-프로젝트종료.html' },
+    ],
+  },
+  {
+    key: 'insight', title: '④ 인사이트 · 분석', sub: '자연어 질의 · 맞춤 조회',
+    nodes: [
+      { label: 'AI 레포트', nav: 'showAiReport', desc: '자연어→SQL 변환해 실제 DB 조회(SELECT 전용)' },
+      { label: '맞춤 레포트', nav: 'showCustomReport', desc: '필요한 필드만 골라 조회·추출 + AI 필드 추천' },
+    ],
+    tutorials: [
+      { name: 'AI 레포트', file: 'tutorial-aireport.html', dl: 'BudgetAI-튜토리얼-AI레포트.html' },
+      { name: '맞춤 레포트', file: 'tutorial-customreport.html', dl: 'BudgetAI-튜토리얼-맞춤레포트.html' },
     ],
   },
 ];
@@ -58,6 +72,7 @@ function procmapInjectStyle() {
    .procmap-phase.reg{background:#fff5f5;border-color:#fed7d7}
    .procmap-phase.bgt{background:#fffaf0;border-color:#feebc8}
    .procmap-phase.act{background:#f0fff4;border-color:#c6f6d5}
+   .procmap-phase.insight{background:#f7f4ff;border-color:#e0d5fa}
    .procmap-ptitle{font-size:14px;font-weight:900;color:#0f172a}
    .procmap-psub{font-size:11px;color:#6b7280;margin:2px 0 12px}
    .procmap-nodes{display:flex;flex-direction:column;gap:8px}
@@ -70,12 +85,13 @@ function procmapInjectStyle() {
    .procmap-tuts{margin-top:12px;padding-top:11px;border-top:1px dashed #e5e7eb}
    .procmap-tuts-t{font-size:11px;font-weight:900;color:#1d4ed8;margin-bottom:7px;letter-spacing:.2px}
    .procmap-tut{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #d1d5db;border-radius:9px;padding:6px 7px 6px 10px;margin-bottom:6px}
-   .procmap-tut>b{flex:1;font-size:11.5px;font-weight:800;color:#0f172a;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+   .procmap-tut>b{flex:1;font-size:11.5px;font-weight:800;color:#0f172a;min-width:0;white-space:normal;line-height:1.35;word-break:keep-all}
    .procmap-tut a{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;text-decoration:none;border-radius:7px;padding:4px 8px;white-space:nowrap}
    .procmap-tut .run{background:#1d4ed8;color:#fff}
    .procmap-tut .run:hover{background:#1742a8}
    .procmap-tut .dl{background:#eef2ff;color:#1d4ed8;border:1px solid #c7d2fe}
    .procmap-tut .dl:hover{background:#dde6ff}
+   .procmap-tut-note{margin-top:3px;font-size:10.5px;font-weight:700;color:#9ca3af;background:#f8fafc;border:1px dashed #dbe2ea;border-radius:8px;padding:6px 9px;line-height:1.4}
    .procmap-foot{padding:10px 20px 18px;font-size:11.5px;color:#9ca3af}
    @media(max-width:760px){.procmap-flow{flex-wrap:wrap}.procmap-arrow{display:none}.procmap-phase{min-width:100%}}
   `;
@@ -98,10 +114,10 @@ function renderProcMapTuts(p) {
   if (!p.tutorials || !p.tutorials.length) return '';
   var rows = p.tutorials.map(function (t) {
     return '<div class="procmap-tut"><b>' + t.name + '</b>'
-      + '<a class="run" href="/tutorials/' + t.file + '" target="_blank" rel="noopener" title="새 탭에서 체험">▶ 체험</a>'
-      + '<a class="dl" href="/tutorials/' + t.file + '" download="' + t.dl + '" title="HTML 파일 다운로드">⬇ 다운로드</a></div>';
+      + '<a class="run" href="/tutorials/' + t.file + '" target="_blank" rel="noopener" title="새 탭에서 체험">▶ 체험</a></div>';
   }).join('');
-  return '<div class="procmap-tuts"><div class="procmap-tuts-t">📘 인터랙티브 튜토리얼</div>' + rows + '</div>';
+  var note = p.tutNote ? '<div class="procmap-tut-note">🕓 ' + p.tutNote + '</div>' : '';
+  return '<div class="procmap-tuts"><div class="procmap-tuts-t">📘 인터랙티브 튜토리얼</div>' + rows + note + '</div>';
 }
 
 function openProcessMap() {
