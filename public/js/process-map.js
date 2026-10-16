@@ -26,6 +26,7 @@ var PROCESS_MAP_PHASES = [
       { name: '외주비 계획(실투입)', file: 'tutorial-outsource.html', dl: 'AiBudget-튜토리얼-외주비.html' },
       { name: '경비 계획', file: 'tutorial-expense.html', dl: 'AiBudget-튜토리얼-경비.html' },
       { name: '재료비 계획', file: 'tutorial-material.html', dl: 'AiBudget-튜토리얼-재료비.html' },
+      { name: 'A/S Cost 계획', file: 'tutorial-ascost.html', dl: 'AiBudget-튜토리얼-ASCost.html' },
       { name: '실행예산 승인요청', file: 'tutorial-approval.html', dl: 'AiBudget-튜토리얼-실행예산승인요청.html' },
       { name: '실행예산 버전 관리', file: 'tutorial-version.html', dl: 'AiBudget-튜토리얼-실행예산버전.html' },
     ],
@@ -38,6 +39,7 @@ var PROCESS_MAP_PHASES = [
       { label: '프로젝트 종료', nav: 'showProjectClose', desc: '기간+30일 자동 배치 종료·사후점검' },
     ],
     tutorials: [
+      { name: '실적 현황 보는 법', file: 'tutorial-actuals.html', dl: 'AiBudget-튜토리얼-실적현황.html' },
       { name: '프로젝트 종료 (자동 종료)', file: 'tutorial-close.html', dl: 'AiBudget-튜토리얼-프로젝트종료.html' },
     ],
   },

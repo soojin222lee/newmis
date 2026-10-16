@@ -18,7 +18,9 @@
 | `tutorial-outsource.html` | **외주비(실투입)** — 자립형 시뮬레이션 튜토리얼(POP↔실행예산 2개 시스템, 시나리오 A~F). 실제 앱 인라인이 아니라 단독 HTML이므로 `build-tutorial.js` 대상이 아니며, 수정 시 `public/tutorials/tutorial-outsource.html` 로 복사한다. |
 | `tutorial-expense.html` | **경비** — 외주비와 동일 패턴의 자립형 시뮬레이션(견적 수취/수기·중분류·구매→ERP 전표). 단독 HTML, `public/tutorials/`로 복사. |
 | `tutorial-material.html` | **재료비** — 자립형 시뮬레이션(상품재료비 견적선정 Y/N·감가상각비 수기·구매→ERP 전표·Agent). 단독 HTML, `public/tutorials/`로 복사. |
-| `tutorial-approval.html` | **실행예산 승인요청** — 자립형 시뮬레이션(왜 몰아서·2층 검증 프론트/서버·순차 중단 관문: 계약리뷰 Cost·보안점검·현장지원·AS 종료). 단독 HTML, `public/tutorials/`로 복사. |
+| `tutorial-approval.html` | **실행예산 승인요청** — 자립형 시뮬레이션(왜 몰아서·2층 검증 프론트/서버·순차 중단 관문: 계약리뷰 Cost·보안점검·현장지원·AS 종료·승인완료). 단독 HTML, `public/tutorials/`로 복사. |
+| `tutorial-ascost.html` | **A/S Cost** — 자립형 시뮬레이션(본PJT AS여부=Y면 A/S 프로젝트 자동 생성·번호 규칙 파생·본PJT 예산의 A/S Cost 계정에서 수립·승인·본PJT 종료 후 A/S 집행). 단독 HTML, `public/tutorials/`로 복사. |
+| `tutorial-actuals.html` | **실적 현황 보는 법** — 자립형 시뮬레이션(기준월 STAC 과거=ERP 실적/미래=실행예산 계획·전표→계정코드 분기·계정별 실적 수취 방식·집행률/잔여). 단독 HTML, `public/tutorials/`로 복사. |
 | `build-tutorial.js` | 실제 목업(CSS+JS 전체) 인라인 + 엔진 + 설정 → 단독 HTML 생성 |
 | `build-all.sh` / `build-all.cmd` | 4종 전체 재생성 |
 
