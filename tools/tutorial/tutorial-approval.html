@@ -203,7 +203,7 @@ function scrCost() {
     <div class="card"><div class="sec">유형 A — 전체 Cost 기준</div>
       <div class="cond y"><span class="ic">✓</span><span><b>전체 예산 ≤ 계약리뷰 최종 Cost 합계</b> — 넘으면 상신 불가(유형에 따라)</span></div>
     </div>
-    <div class="card"><div class="sec">유형 B — 4대 예산 계정별 기준 (예산 간 쉐어 불가)</div>
+    <div class="card"><div class="sec">유형 B — <b>일부 유형만</b> 4대 예산 계정별 기준</div>
       <table class="t"><thead><tr><th>계정</th><th class="num">계획</th><th class="num">계약리뷰 Cost</th><th>판정</th></tr></thead>
       <tbody>
         <tr><td class="pname">인건비</td><td class="num">520,000,000</td><td class="num">500,000,000</td><td><span class="badge b-warn">초과 → 상신 불가</span></td></tr>
@@ -211,7 +211,7 @@ function scrCost() {
         <tr><td>재료비</td><td class="num">140,000,000</td><td class="num">150,000,000</td><td><span class="badge b-ok">이내</span></td></tr>
         <tr><td>경비</td><td class="num">23,000,000</td><td class="num">25,000,000</td><td><span class="badge b-ok">이내</span></td></tr>
       </tbody></table>
-      <div class="proc-note" style="margin-top:10px">전체 합계는 Cost 안이어도 <b>인건비만 Cost를 넘으면 상신 불가</b> — <b>예산 간 쉐어가 불가</b>하기 때문입니다. <span class="tbd">※ 초과해도 상신 가능 여부는 협의 중(추후 확정)</span></div>
+      <div class="proc-note" style="margin-top:10px"><b>일부 프로젝트 유형</b>에서는 전체 합계가 Cost 안이어도 <b>인건비만 Cost를 넘으면 상신 불가</b>할 수 있어요(예산 간 쉐어 불가). <b>모든 유형에 해당하는 건 아니고</b>, 어느 유형에 어떻게 적용할지는 <b>유형마다 달라</b>요. <span class="tbd">※ 적용 유형·쉐어 허용 여부는 추후 협의·확정</span></div>
     </div>
   </div>`;
 }
@@ -310,10 +310,10 @@ const SCEN = {
     { render:scrConcept, spot:'.card', pos:'top', title:'순차 중단 (가장 중요)', text:'관문이 <b>순서대로</b> 돌고 <b>하나 걸리면 뒤는 아예 안 돕니다</b>. “③이 왜 검사도 안 됐지?”는 보통 <b>②에서 멈춘</b> 거예요.', mode:'done',
       doneTitle:'1. 설계 의도', doneHtml:'<p>①<b>왜 몰아서</b>(되돌리기 어려운 결재 시점) ②<b>2층 검증</b>(프론트=안내 / <b>서버=진짜 방어선</b>) ③<b>순차 중단</b>(하나 걸리면 뒤는 안 돔). 이 셋만 이해하면 각 관문은 쉽게 따라옵니다.</p>' },
   ]},
-  B: { name:'관문 ① 계약리뷰 최종 Cost', desc:'유형별 전체 Cost / 4대 계정별(쉐어 불가)', steps:[
+  B: { name:'관문 ① 계약리뷰 최종 Cost', desc:'유형별 전체 Cost / 일부 유형은 4대 계정별', steps:[
     { render:scrCost, spot:'.card:nth-of-type(1)', pos:'bottom', title:'전체 Cost 기준', text:'전체 예산이 <b>계약리뷰 최종 Cost</b> 합계를 넘는지 봅니다. 유형에 따라 <b>넘으면 상신 불가</b>.' },
-    { render:scrCost, spot:'.card:nth-of-type(2)', pos:'top', title:'4대 계정별 — 쉐어 불가', text:'특정 유형은 <b>4대 계정별</b> 비교. 전체는 이내여도 <b>인건비만 Cost 초과면 상신 불가</b> — <b>예산 간 쉐어 불가</b>이기 때문.', mode:'done',
-      doneTitle:'관문 ① 계약리뷰 Cost', doneHtml:'<p>전체 Cost 또는 4대 계정별로 <b>계약리뷰 최종 Cost</b> 초과를 봅니다. 4대 계정 기준에선 <b>인건비만 넘어도 상신 불가</b>(쉐어 불가). <span class="tbd">초과해도 상신 가능 여부는 협의 중</span></p>' },
+    { render:scrCost, spot:'.card:nth-of-type(2)', pos:'top', title:'일부 유형은 4대 계정별', text:'<b>일부 유형</b>에서는 <b>4대 계정별</b>로도 봐요 — 전체는 이내여도 <b>인건비만 Cost 초과면 상신 불가</b>할 수 있습니다(쉐어 불가). <b>모든 유형은 아니고</b>, 유형마다 달라요.', mode:'done',
+      doneTitle:'관문 ① 계약리뷰 Cost', doneHtml:'<p>전체 예산이 <b>계약리뷰 최종 Cost</b>를 넘는지 봅니다. <b>일부 프로젝트 유형</b>에서는 추가로 <b>4대 계정별</b>로도 보며, 그 경우 <b>인건비만 넘어도 상신 불가</b>할 수 있어요(예산 간 쉐어 불가). <span class="tbd">※ 어느 유형에 적용할지·쉐어 허용 여부는 추후 협의·확정</span></p>' },
   ]},
   C: { name:'관문 ② 보안점검 체크리스트', desc:'대상이면 작성 완료 확인 · 저장은 PM 전용', steps:[
     { render:scrSecurity, spot:'.card:nth-of-type(1)', pos:'bottom', title:'대상 → 작성 완료?', text:'보안진단 <b>대상인지</b> 먼저 보고, 대상이면 <b>체크리스트 작성 완료</b>를 확인해요. 지금은 <b class="srv">미완료</b>라 걸립니다.' },
