@@ -44,6 +44,17 @@ var PROCESS_MAP_PHASES = [
       { name: '프로젝트 종료 (자동 종료)', file: 'tutorial-close.html', dl: 'AiBudget-튜토리얼-프로젝트종료.html' },
     ],
   },
+  {
+    key: 'insight', title: '④ 인사이트 · 분석', sub: '자연어 질의 · 맞춤 조회',
+    nodes: [
+      { label: 'AI 레포트', nav: 'showAiReport', desc: '자연어→SQL 변환해 실제 DB 조회(SELECT 전용)' },
+      { label: '맞춤 레포트', nav: 'showCustomReport', desc: '필요한 필드만 골라 조회·추출 + AI 필드 추천' },
+    ],
+    tutorials: [
+      { name: 'AI 레포트', file: 'tutorial-aireport.html', dl: 'AiBudget-튜토리얼-AI레포트.html' },
+      { name: '맞춤 레포트', file: 'tutorial-customreport.html', dl: 'AiBudget-튜토리얼-맞춤레포트.html' },
+    ],
+  },
 ];
 
 function procmapInjectStyle() {
@@ -61,6 +72,7 @@ function procmapInjectStyle() {
    .procmap-phase.reg{background:#fff5f5;border-color:#fed7d7}
    .procmap-phase.bgt{background:#fffaf0;border-color:#feebc8}
    .procmap-phase.act{background:#f0fff4;border-color:#c6f6d5}
+   .procmap-phase.insight{background:#f7f4ff;border-color:#e0d5fa}
    .procmap-ptitle{font-size:14px;font-weight:900;color:#0f172a}
    .procmap-psub{font-size:11px;color:#6b7280;margin:2px 0 12px}
    .procmap-nodes{display:flex;flex-direction:column;gap:8px}
