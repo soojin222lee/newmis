@@ -18,6 +18,7 @@
 | `tutorial-outsource.html` | **외주비(실투입)** — 자립형 시뮬레이션 튜토리얼(POP↔실행예산 2개 시스템, 시나리오 A~F). 실제 앱 인라인이 아니라 단독 HTML이므로 `build-tutorial.js` 대상이 아니며, 수정 시 `public/tutorials/tutorial-outsource.html` 로 복사한다. |
 | `tutorial-expense.html` | **경비** — 외주비와 동일 패턴의 자립형 시뮬레이션(견적 수취/수기·중분류·구매→ERP 전표). 단독 HTML, `public/tutorials/`로 복사. |
 | `tutorial-material.html` | **재료비** — 자립형 시뮬레이션(상품재료비 견적선정 Y/N·감가상각비 수기·구매→ERP 전표·Agent). 단독 HTML, `public/tutorials/`로 복사. |
+| `tutorial-approval.html` | **실행예산 승인요청** — 자립형 시뮬레이션(왜 몰아서·2층 검증 프론트/서버·순차 중단 관문: 계약리뷰 Cost·보안점검·현장지원·AS 종료). 단독 HTML, `public/tutorials/`로 복사. |
 | `build-tutorial.js` | 실제 목업(CSS+JS 전체) 인라인 + 엔진 + 설정 → 단독 HTML 생성 |
 | `build-all.sh` / `build-all.cmd` | 4종 전체 재생성 |
 
