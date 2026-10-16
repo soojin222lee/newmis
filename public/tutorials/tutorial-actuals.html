@@ -212,15 +212,16 @@ function scrVoucher() {
         <div class="fn act"><b>계정별 실적</b><span>인건·외주·재료·경비</span></div>
       </div>
     </div>
-    <div class="card" id="act-codes"><div class="sec">계정코드 → 계정 매핑 (예시)</div>
-      <table class="t"><thead><tr><th>전표번호</th><th>계정코드</th><th class="num">금액</th><th>→ 꽂히는 계정</th></tr></thead>
+    <div class="card" id="act-codes"><div class="sec">분기 로직 개념도 <span style="color:#aab2c0;font-weight:700">· 아래 기호는 실제 값이 아닙니다</span></div>
+      <table class="t"><thead><tr><th>전표 (가상 기호)</th><th>계정코드 (가상 기호)</th><th>→ 꽂히는 계정</th></tr></thead>
       <tbody>
-        <tr><td class="mono">881234501</td><td class="mono">701301</td><td class="num">5,200,000</td><td><span class="badge b-act">인건비(OT)</span></td></tr>
-        <tr><td class="mono">881234502</td><td class="mono">7xxxxx</td><td class="num">35,000,000</td><td><span class="badge b-act">외주비</span></td></tr>
-        <tr><td class="mono">881234503</td><td class="mono">7xxxxx</td><td class="num">1,800,000</td><td><span class="badge b-act">재료비</span></td></tr>
-        <tr><td class="mono">881234504</td><td class="mono">7xxxxx</td><td class="num">450,000</td><td><span class="badge b-act">경비</span></td></tr>
+        <tr><td class="mono">전표 ①</td><td class="mono">코드 A</td><td><span class="badge b-act">인건비</span></td></tr>
+        <tr><td class="mono">전표 ②</td><td class="mono">코드 B</td><td><span class="badge b-act">외주비</span></td></tr>
+        <tr><td class="mono">전표 ③</td><td class="mono">코드 C</td><td><span class="badge b-act">재료비</span></td></tr>
+        <tr><td class="mono">전표 ④</td><td class="mono">코드 D</td><td><span class="badge b-act">경비</span></td></tr>
       </tbody></table>
-      <div class="proc-note" style="margin-top:10px"><b>같은 ‘실적’이라도 계정코드가 달라서 다른 계정으로 갈라집니다.</b> 화면에서 인건비/외주비/재료비/경비가 나뉘어 보이는 건 이 분기 덕분이에요. <span class="tbd">※ 전표 → 계정 분기 상세 로직(코드 체계·매핑 규칙)은 별도 분석 대상</span></div>
+      <div class="banner erp" style="margin:12px 0 0">🔑 여기서 보여주려는 건 <b>단 하나의 로직</b> — <b>“전표에 달린 계정코드에 따라 어느 계정 실적인지 갈린다”</b>. 위 전표·코드 기호는 <b>설명용 가상값</b>이에요.</div>
+      <div class="proc-note" style="margin-top:10px"><b>실제 전표 번호 체계와 ‘계정코드 → 계정’ 매핑 규칙은 이 튜토리얼 범위가 아니며, 별도 데이터 분석이 필요합니다.</b> (가상 기호를 실제 번호·코드로 오해하지 마세요.) <span class="tbd">※ 전표 번호 체계 · 계정코드 매핑 = 별도 데이터 분석 대상</span></div>
     </div>
   </div>`;
 }
@@ -275,8 +276,8 @@ const SCEN = {
   ]},
   B: { name:'전표 → 계정코드 분기', desc:'ERP 전표가 계정코드로 인건·외주·재료·경비로 갈린다', steps:[
     { render:scrVoucher, spot:'#act-flow', pos:'bottom', title:'전표로 받아 코드로 가른다', text:'실적은 우리가 만들지 않아요. <b class="erp">ERP 전표</b>를 받으면 거기 달린 <b>계정코드</b>로 어느 계정 실적인지 갈립니다.' },
-    { render:scrVoucher, spot:'#act-codes', pos:'top', title:'계정코드 → 계정 매핑', text:'같은 ‘실적’이라도 <b>계정코드가 달라</b> 인건비·외주비·재료비·경비로 나뉩니다. 화면이 계정별로 보이는 이유예요.', mode:'done',
-      doneTitle:'2. 전표 → 계정코드 분기', doneHtml:'<p>실적은 <b>ERP 전표</b>로 들어오고, 전표의 <b>계정코드</b>에 따라 <b>인건비·외주비·재료비·경비</b> 중 어느 계정 실적인지 갈립니다. 화면이 계정별로 나뉘어 보이는 게 이 분기 덕분이에요. <span class="tbd">※ 전표→계정 분기 상세(코드 체계·매핑 규칙)는 별도 분석 대상</span></p>' },
+    { render:scrVoucher, spot:'#act-codes', pos:'top', title:'로직만: 코드로 계정이 갈린다', text:'핵심 로직은 하나 — <b>전표에 달린 계정코드에 따라 어느 계정 실적인지 갈린다</b>. 표의 전표·코드는 <b>가상 기호</b>이고, <b>실제 번호 체계·계정코드 매핑은 별도 데이터 분석</b>이 필요해요.', mode:'done',
+      doneTitle:'2. 전표 → 계정코드 분기', doneHtml:'<p>실적은 <b>ERP 전표</b>로 들어오고, 전표의 <b>계정코드</b>에 따라 <b>인건비·외주비·재료비·경비</b> 중 어느 계정 실적인지 갈립니다 — 이 <b>로직 하나</b>만 기억하세요. 화면이 계정별로 나뉘어 보이는 게 이 분기 덕분이에요.</p><p style="margin-top:10px"><b>실제 전표 번호 체계와 계정코드 매핑 규칙은 이 튜토리얼 범위가 아니며 별도 데이터 분석이 필요</b>합니다. (표의 전표·코드는 설명용 가상 기호) <span class="tbd">※ 전표 번호 체계 · 계정코드 매핑 = 별도 데이터 분석 대상</span></p>' },
   ]},
   C: { name:'계정마다 실적 받는 방식이 다르다', desc:'인건비=실투입 · 재료비=기검수(수량/금액) · 외주비=전표(88…)', steps:[
     { render:scrByAccount, spot:'#act-byacc', pos:'bottom', title:'실적이 되는 사건이 다르다', text:'인건비는 <b>실투입</b>, 외주비는 <b>구매→실투입 전표(88…)</b>, 재료비는 <b>기검수(수량/금액)</b>, 경비는 <b>집행</b>. 모두 ERP 전표로 받지만 계기가 달라요.' },
