@@ -14,6 +14,7 @@ var PROCESS_MAP_PHASES = [
       { name: '수주형 프로젝트 등록', file: 'tutorial-si.html', dl: 'AiBudget-튜토리얼-수주형등록.html' },
       { name: 'WG · 사내 개설', file: 'tutorial-wg.html', dl: 'AiBudget-튜토리얼-WG사내개설.html' },
     ],
+    tutNote: '선투입 · 제안 · 투자 프로젝트 튜토리얼은 추후 추가 예정',
   },
   {
     key: 'bgt', title: '② 실행예산 수립', sub: '편성 · 상신 · 승인',
@@ -78,6 +79,7 @@ function procmapInjectStyle() {
    .procmap-tut .run:hover{background:#1742a8}
    .procmap-tut .dl{background:#eef2ff;color:#1d4ed8;border:1px solid #c7d2fe}
    .procmap-tut .dl:hover{background:#dde6ff}
+   .procmap-tut-note{margin-top:3px;font-size:10.5px;font-weight:700;color:#9ca3af;background:#f8fafc;border:1px dashed #dbe2ea;border-radius:8px;padding:6px 9px;line-height:1.4}
    .procmap-foot{padding:10px 20px 18px;font-size:11.5px;color:#9ca3af}
    @media(max-width:760px){.procmap-flow{flex-wrap:wrap}.procmap-arrow{display:none}.procmap-phase{min-width:100%}}
   `;
@@ -103,7 +105,8 @@ function renderProcMapTuts(p) {
       + '<a class="run" href="/tutorials/' + t.file + '" target="_blank" rel="noopener" title="새 탭에서 체험">▶ 체험</a>'
       + '<a class="dl" href="/tutorials/' + t.file + '" download="' + t.dl + '" title="HTML 파일 다운로드">⬇ 다운로드</a></div>';
   }).join('');
-  return '<div class="procmap-tuts"><div class="procmap-tuts-t">📘 인터랙티브 튜토리얼</div>' + rows + '</div>';
+  var note = p.tutNote ? '<div class="procmap-tut-note">🕓 ' + p.tutNote + '</div>' : '';
+  return '<div class="procmap-tuts"><div class="procmap-tuts-t">📘 인터랙티브 튜토리얼</div>' + rows + note + '</div>';
 }
 
 function openProcessMap() {
