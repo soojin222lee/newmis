@@ -5447,7 +5447,7 @@ function leadCostBreak(sel) {
 //    AxgenticWire 셸 — 좌측 레일 / 중앙 히어로 / 기존 블록은 히어로 아래
 //
 //  레퍼런스에서 가져온 것
-//    · 상단 바 없음 → 브랜드(AXGENTIC WIRE + AiBudget)가 레일 최상단
+//    · 상단 바 없음 → 브랜드(AXGENTIC WIRE + BudgetAI)가 레일 최상단
 //    · 레일: 섹션 라벨 → 흰 카드 안에 행 + 카운트 배지 + chevron, 하단 유틸·사용자
 //    · 히어로: ✦ → "안녕하세요, OO님." → 현재 상태 한 문장(핵심어만 파랑) → 안내 필 → 점선 CTA
 //    · 두 레퍼런스는 모두 빈 상태 화면이라, 데이터가 있는 우리 블록은
@@ -6036,7 +6036,7 @@ function homeV2PjtRowHtml(p) {
 //
 //  [2] 브랜드 락업을 AiPMO·AiTeaming 과 같은 구성으로 맞춘다.
 //      마크(점 8개 별) + AXGENTIC(굵게) + WIRE(윗줄 + 회색) + 하위 명칭.
-//      하위 명칭만 AiBudget 으로 바꾼다.
+//      하위 명칭만 BudgetAI 으로 바꾼다.
 // ============================================================
 
 let homeV2Rail = (function () {
@@ -6108,11 +6108,11 @@ function v2BrandHtml() {
   const min = homeV2Rail === 'min';
   return `
     <div class="v2-brand">
-      <button class="v2-lock" onclick="showMain()" aria-label="AiBudget 홈">
+      <button class="v2-lock" onclick="showMain()" aria-label="BudgetAI 홈">
         ${v2BrandMarkSvg()}
         <span class="v2-lock-t">
-          <span class="v2-wm"><b>AXGENTIC</b><i>WIRE</i></span>
-          <span class="v2-sub">AiBudget</span>
+          <span class="v2-wm v2-wm-ko"><b>예산관리 시스템</b></span>
+          <span class="v2-sub">BudgetAI</span>
         </span>
       </button>
       <button class="v2-collapse" onclick="toggleV2Rail()"
@@ -6179,11 +6179,11 @@ function v2BrandHtml() {
   const min = homeV2Rail === 'min';
   return `
     <div class="v2-brand">
-      <button class="v2-lock" onclick="showMain()" aria-label="AXGENTIC WIRE AiBudget 홈">
+      <button class="v2-lock" onclick="showMain()" aria-label="예산관리 시스템 BudgetAI 홈">
         ${v2BrandMarkSvg()}
         <span class="v2-lock-t">
-          <span class="v2-wm"><b>AXGENTIC</b><i>WIRE</i></span>
-          <span class="v2-sub">AiBudget</span>
+          <span class="v2-wm v2-wm-ko"><b>예산관리 시스템</b></span>
+          <span class="v2-sub">BudgetAI</span>
         </span>
       </button>
       <button class="v2-collapse" onclick="toggleV2Rail()"
@@ -6228,8 +6228,8 @@ const V2_A = 11;                                  // px
 const V2_MARK_H = Math.round(V2_A * 2.5);         // 마크 높이 = 2.5A
 
 function v2BrandMarkSvg() {
-  // 이어진 노드 그래프 — 중심 노드에서 뻗은 연결선 + 끝점 노드.
-  // 시안 → 딥블루 대각 그라데이션.
+  // B 노드형 (2026-10-16) — B 한 획(세로 기둥 + 위·아래 둥근 배) 위에 노드 3개.
+  // 예전 '이어진 노드' 마크의 느낌을 잇고, 색은 같은 시안 → 딥블루 대각 그라데이션.
   // width/height 속성을 두면 그 값이 flex 아이템의 내재 크기가 되어 CSS 의 stretch 를 막는다.
   // 크기는 CSS(.v2-mk)가 텍스트 블록 높이에 맞춰 잡는다.
   return `<svg class="v2-mk" viewBox="0 0 40 40" preserveAspectRatio="xMidYMid meet"
@@ -6241,18 +6241,12 @@ function v2BrandMarkSvg() {
           <stop offset="1" stop-color="#141fb4"/>
         </linearGradient>
       </defs>
-      <g stroke="url(#v2mkG2)" stroke-width="4.6" stroke-linecap="round" fill="none">
-        <path d="M19.8 20.2 L8.6 10.4"/>
-        <path d="M19.8 20.2 L31.6 30.6"/>
-        <path d="M19.8 20.2 L9.4 30.2"/>
-      </g>
-      <g fill="url(#v2mkG2)">
-        <circle cx="19.8" cy="20.2" r="6.4"/>
-        <circle cx="8.6"  cy="10.4" r="4.4"/>
-        <circle cx="31.6" cy="30.6" r="4.9"/>
-        <circle cx="9.4"  cy="30.2" r="4.1"/>
-        <circle cx="31.4" cy="9.2"  r="3.4"/>
-        <circle cx="21.2" cy="4.6"  r="2.6"/>
+      <path d="M12 6v28M12 6h9a7 7 0 0 1 0 14h-9M12 20h11a7 7 0 0 1 0 14h-11"
+        stroke="url(#v2mkG2)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <g fill="#141fb4">
+        <circle cx="12" cy="6"  r="4"/>
+        <circle cx="12" cy="20" r="4.6"/>
+        <circle cx="12" cy="34" r="4"/>
       </g>
     </svg>`;
 }
@@ -6261,11 +6255,11 @@ function v2BrandHtml() {
   const min = homeV2Rail === 'min';
   return `
     <div class="v2-brand">
-      <button class="v2-lock" onclick="showMain()" aria-label="AXGENTIC WIRE AiBudget 홈">
+      <button class="v2-lock" onclick="showMain()" aria-label="예산관리 시스템 BudgetAI 홈">
         ${v2BrandMarkSvg()}
         <span class="v2-lock-t">
-          <span class="v2-wm"><b>AXGENTIC</b><i>WIRE</i></span>
-          <span class="v2-sub">AiBudget</span>
+          <span class="v2-wm v2-wm-ko"><b>예산관리 시스템</b></span>
+          <span class="v2-sub">BudgetAI</span>
         </span>
       </button>
       <button class="v2-collapse" onclick="toggleV2Rail()"

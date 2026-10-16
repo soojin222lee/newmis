@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>관리자 · BudgetAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<style>
+  /* 메인 앱(sk-theme)과 동일한 토큰 */
+  :root {
+    --sk-blue: #2f6bed; --sk-blue-deep: #1746a0; --sk-blue-soft: #eaf1fd;
+    --sk-ink: #17161f; --sk-page: #f2f2ee; --sk-card: #ffffff;
+    --sk-border: #e7eaef; --sk-border-strong: #d3d9e2; --sk-head: #eef2f7;
+    --sk-text: #1c2432; --sk-muted: #8a94a6;
+    --rail-bg: #eef1f6; --rail-mute: #6b7484;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  /* 메인 v2와 동일: 레일+콘텐츠가 같은 회청색(#eef1f6) 하나의 면, 그 위에 흰 카드 */
+  body { margin: 0; display: flex; background: var(--rail-bg); color: var(--sk-text);
+    font-family: 'Noto Sans KR','Malgun Gothic',sans-serif; -webkit-font-smoothing: antialiased; }
+
+  /* ── 좌측 레일 (메인 앱과 동일 톤) ── */
+  .asite-rail { width: 264px; flex: none; background: var(--rail-bg);
+    display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+  .asite-brand { display: flex; align-items: center; gap: 11px; padding: 18px 14px 12px; }
+  .asite-brand .v2-mk { width: 34px; height: 34px; flex: none; }
+  /* 접기/펴기 토글 — 메인 앱과 동일한 패널 아이콘 */
+  .asite-collapse { margin-left: auto; flex: 0 0 auto; width: 26px; height: 26px; padding: 0; border: 0;
+    background: transparent; cursor: pointer; display: grid; place-items: center; border-radius: 7px; }
+  .asite-collapse:hover { background: var(--sk-blue-soft); }
+  .asite-collapse .co-ic { display: block; width: 15px; height: 13px; border-radius: 3px; border: 1.6px solid #aab4c4; position: relative; transition: border-color .2s; }
+  .asite-collapse .co-ic::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: #aab4c4;
+    border-radius: 1.5px 0 0 1.5px; transition: left .26s cubic-bezier(.22,.61,.36,1), background .2s; }
+  .asite-collapse:hover .co-ic { border-color: var(--sk-blue); }
+  .asite-collapse:hover .co-ic::before { background: var(--sk-blue); }
+  body.asite-min .asite-collapse .co-ic::before { left: calc(100% - 5px); border-radius: 0 1.5px 1.5px 0; }
+
+  /* 메뉴 보기 버튼 */
+  .asite-menuview { display: flex; align-items: center; gap: 10px; width: calc(100% - 20px); margin: 2px 10px 6px;
+    border: 1px solid var(--sk-border); background: #fff; border-radius: 10px; padding: 9px 11px; cursor: pointer;
+    font-family: inherit; font-size: 12.5px; font-weight: 800; color: #334155; }
+  .asite-menuview:hover { border-color: var(--sk-blue); color: var(--sk-blue); }
+  .asite-menuview .mv-ic { font-size: 15px; width: 20px; text-align: center; }
+  .asite-wm { display: flex; flex-direction: column; line-height: 1.05; }
+  .asite-wm .wm-k { font-size: 14.5px; font-weight: 900; color: #0f172a; letter-spacing: .2px; }
+  .asite-wm .wm-k i { font-style: normal; font-weight: 700; color: #7c8699; margin-left: 4px; }
+  .asite-wm .wm-sub { font-size: 11.5px; font-weight: 700; color: var(--sk-blue); margin-top: 2px; }
+  .asite-wm .wm-sub em { font-style: normal; color: var(--rail-mute); }
+
+  .asite-nav { flex: 1; overflow-y: auto; padding: 6px 10px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .asite-nav-lbl { font-size: 10.5px; font-weight: 900; letter-spacing: .5px; color: #9aa3b2; padding: 8px 10px 4px; }
+  .asite-navi { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    border: 1px solid transparent; background: transparent; border-radius: 10px; padding: 9px 11px;
+    cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; color: var(--rail-mute); }
+  .asite-navi:hover { background: #e4e9f2; color: #0f172a; }
+  .asite-navi.on { background: var(--sk-blue-soft); color: var(--sk-blue-deep); border-color: #cfe0fb; }
+  .asite-navi-ic { font-size: 16px; width: 20px; text-align: center; }
+  .asite-navi-t { flex: 1; }
+
+  .asite-rail-bot { border-top: 1px solid var(--sk-border); padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .asite-home { display: flex; align-items: center; gap: 9px; text-decoration: none; border-radius: 10px;
+    padding: 9px 11px; font-size: 12.5px; font-weight: 700; color: var(--rail-mute); }
+  .asite-home:hover { background: #e4e9f2; color: #0f172a; }
+  .asite-me { display: flex; align-items: center; gap: 9px; padding: 9px 11px 4px; }
+  .asite-me .me-av { width: 28px; height: 28px; border-radius: 50%; background: var(--sk-ink); color: #fff;
+    display: grid; place-items: center; font-size: 12px; font-weight: 800; flex: none; }
+  .asite-me b { font-size: 12.5px; font-weight: 800; color: #0f172a; display: block; }
+  .asite-me em { font-style: normal; font-size: 11px; color: var(--rail-mute); }
+
+  /* ── 콘텐츠 ── */
+  .asite-main { flex: 1; min-width: 0; padding: 0; overflow-y: auto; height: 100vh; }
+
+  /* 탭 바 (여러 관리 화면) — 메인 앱 탭과 동일 디자인 */
+  .asite-tabbar { position: sticky; top: 0; z-index: 6; display: flex; align-items: center; gap: 4px;
+    padding: 8px 104px 0 24px; background: var(--sk-page); border-bottom: 1px solid #dfe3ea; overflow-x: auto; scrollbar-width: thin; }
+  .asite-tabbar::-webkit-scrollbar { height: 5px; }
+  .asite-tabbar::-webkit-scrollbar-thumb { background: #d4d8e0; border-radius: 3px; }
+  .asite-tab-clear { flex: none; width: 28px; height: 28px; margin-right: 4px; border: 1px solid #e3e7ec; border-radius: 8px;
+    background: #fff; color: #94a3b8; cursor: pointer; font-size: 13px; line-height: 1; display: grid; place-items: center; font-family: inherit; }
+  .asite-tab-clear:hover { border-color: #dc2626; color: #dc2626; background: #fef2f2; }
+  .asite-tab { display: inline-flex; align-items: center; gap: 7px; flex: 1 1 auto; min-width: 0; max-width: 230px;
+    border: 1px solid #e3e7ec; border-bottom: none; border-radius: 10px 10px 0 0; background: #f3f5f8;
+    padding: 8px 10px 8px 13px; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 700; color: #5b6472;
+    transition: background .12s, color .12s; }
+  .asite-tab:hover { background: #eaedf2; }
+  .asite-tab.on { background: #fff; color: #0f172a; border-color: #dfe3ea; box-shadow: 0 -2px 6px -4px rgba(16,24,40,.12); }
+  .asite-tab-ic { flex: none; font-size: 14px; }
+  .asite-tab-t { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .asite-tab-x { flex: none; width: 17px; height: 17px; border: 0; border-radius: 5px; background: transparent; color: #9aa3b2;
+    cursor: pointer; font-size: 13px; line-height: 1; display: grid; place-items: center; font-family: inherit; }
+  .asite-tab-x:hover { background: #e2e6ec; color: #334155; }
+  .asite-tab.solo .asite-tab-x { display: none; }
+  .asite-tab-new { flex: none; width: 30px; height: 30px; margin-left: 2px; border: 1px solid #e3e7ec; border-radius: 8px;
+    background: #fff; color: #64748b; cursor: pointer; font-size: 17px; line-height: 1; display: grid; place-items: center; font-family: inherit; }
+  .asite-tab-new:hover { border-color: #1d4ed8; color: #1d4ed8; }
+
+  .asite-page { padding: 22px 30px 56px; }
+  .asite-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .asite-h-ic { font-size: 26px; }
+  .asite-h-t { font-size: 20px; font-weight: 900; color: #0f172a; }
+  .asite-h-d { font-size: 12.5px; color: #64748b; margin-top: 2px; }
+  .asite-content { margin-top: 18px; max-width: 1040px; }
+
+  /* ── 관리 컴포넌트 (메인 톤: 흰 카드·블루 액센트) ── */
+  .adm-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; }
+  .adm-btn { border: 1px solid var(--sk-border-strong); background: #fff; border-radius: 8px; padding: 8px 13px; font-size: 12.5px; font-weight: 700; color: #334155; cursor: pointer; font-family: inherit; }
+  .adm-btn:hover { border-color: var(--sk-blue); color: var(--sk-blue); }
+  .adm-btn.pri { background: var(--sk-blue); border-color: var(--sk-blue); color: #fff; }
+  .adm-btn.pri:hover { background: var(--sk-blue-deep); border-color: var(--sk-blue-deep); }
+  .adm-table { width: 100%; border-collapse: collapse; background: var(--sk-card); border: 1px solid var(--sk-border); border-radius: 12px; overflow: hidden; font-size: 12.5px; }
+  .adm-table th { background: var(--sk-head); text-align: left; padding: 11px 12px; font-weight: 800; color: #475569; border-bottom: 1px solid var(--sk-border); white-space: nowrap; }
+  .adm-table td { padding: 10px 12px; border-bottom: 1px solid #f1f3f6; color: #1f2937; }
+  .adm-table tr:last-child td { border-bottom: 0; }
+  .adm-table tr:hover td { background: #fafbfc; }
+  .adm-table td.num, .adm-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .adm-chk { width: 16px; height: 16px; accent-color: var(--sk-blue); cursor: pointer; }
+  .adm-tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--sk-blue-soft); color: var(--sk-blue-deep); }
+  .adm-toggle { cursor: pointer; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 3px 10px; border: 1px solid; font-family: inherit; }
+  .adm-toggle.on { background: #e8f3ec; color: #167a4a; border-color: #c9e7d4; }
+  .adm-toggle.off { background: #f1f3f6; color: #94a3b8; border-color: var(--sk-border); }
+  .adm-org { border: 1px solid var(--sk-border); border-radius: 12px; background: var(--sk-card); padding: 8px 6px; }
+  .adm-org-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; }
+  .adm-org-row:hover { background: #fafbfc; }
+  .adm-org-name { font-weight: 800; color: #0f172a; font-size: 13px; }
+  .adm-org-head { font-size: 11.5px; color: #64748b; margin-left: auto; }
+  .adm-note { font-size: 11.5px; color: var(--sk-muted); margin-top: 14px; line-height: 1.6; }
+  .adm-tbd { display: inline-block; font-size: 9.5px; font-weight: 900; color: #94a3b8; background: #eef1f6; border: 1px solid #e0e5ec; border-radius: 5px; padding: 1px 5px; margin-left: 6px; vertical-align: middle; letter-spacing: .3px; }
+  .adm-tbd-box { border: 1px dashed var(--sk-border-strong); border-radius: 14px; background: #fafbfc; padding: 54px 20px; text-align: center; }
+  .adm-tbd-ic { font-size: 32px; }
+  .adm-tbd-t { font-size: 16px; font-weight: 900; color: #334155; margin: 12px 0 6px; }
+  .adm-tbd-d { font-size: 12.5px; color: var(--sk-muted); line-height: 1.7; }
+
+  /* 토스트 (메인 앱 톤) */
+  #toast { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(8px); z-index: 100;
+    background: var(--sk-ink); color: #fff; font-size: 13px; font-weight: 700; padding: 11px 18px; border-radius: 10px;
+    opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* 접힘(아이콘) 모드 — 토글 */
+  body.asite-min .asite-rail { width: 60px; }
+  body.asite-min .asite-wm,
+  body.asite-min .asite-nav-lbl,
+  body.asite-min .asite-navi-t,
+  body.asite-min .asite-home span:last-child,
+  body.asite-min .asite-me .me-t,
+  body.asite-min .asite-menuview .mv-t { display: none; }
+  body.asite-min .asite-brand { flex-direction: column; justify-content: center; gap: 8px; padding: 16px 0 10px; }
+  body.asite-min .asite-collapse { margin-left: 0; }
+  body.asite-min .asite-menuview { width: auto; justify-content: center; margin: 2px 8px 6px; padding: 9px 0; }
+  body.asite-min .asite-navi, body.asite-min .asite-home { justify-content: center; padding: 10px 0; }
+  body.asite-min .asite-me { justify-content: center; padding: 9px 0 4px; }
+
+  /* 메뉴 보기 팝업 */
+  .amenu-ov { position: fixed; inset: 0; z-index: 200; background: rgba(17,21,32,.42); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .amenu-panel { background: #fff; border-radius: 16px; width: 560px; max-width: 92vw; max-height: 86vh; overflow: auto;
+    box-shadow: 0 24px 60px -20px rgba(17,21,32,.5); font-family: inherit; }
+  .amenu-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--sk-border); position: sticky; top: 0; background: #fff; }
+  .amenu-head strong { font-size: 15px; font-weight: 900; color: #0f172a; flex: 1; }
+  .amenu-x { border: 0; background: #f1f3f6; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; font-size: 14px; color: #475569; }
+  .amenu-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 16px 18px; }
+  .amenu-item { display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid var(--sk-border); background: #fff;
+    border-radius: 10px; padding: 11px 12px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; color: #0f172a; }
+  .amenu-item:hover { border-color: var(--sk-blue); background: var(--sk-blue-soft); }
+  .amenu-item.on { border-color: var(--sk-blue); background: var(--sk-blue-soft); color: var(--sk-blue-deep); }
+  .amenu-ic { font-size: 17px; width: 22px; text-align: center; }
+  @media (max-width: 560px) { .amenu-list { grid-template-columns: 1fr; } }
+
+  @media (max-width: 620px) {
+    .asite-rail { width: 60px; }
+    .asite-wm, .asite-nav-lbl, .asite-navi-t, .asite-home span:last-child, .asite-me .me-t, .asite-menuview .mv-t, .asite-collapse { display: none; }
+    .asite-brand { justify-content: center; padding: 16px 0 10px; }
+    .asite-navi, .asite-home { justify-content: center; }
+    .asite-menuview { width: auto; justify-content: center; margin: 2px 8px 6px; padding: 9px 0; }
+    .asite-main { padding: 20px 14px 44px; }
+  }
+</style>
+</head>
+<body>
+  <aside class="asite-rail">
+    <div class="asite-brand">
+      <svg class="v2-mk" viewBox="0 0 40 40" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs><linearGradient id="amkG" x1="3" y1="2" x2="37" y2="38" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#2ec8f5"/><stop offset=".45" stop-color="#1f86e6"/><stop offset="1" stop-color="#141fb4"/>
+        </linearGradient></defs>
+        <!-- B 노드형 마크 (2026-10-16, 메인 앱과 같음) -->
+        <path d="M12 6v28M12 6h9a7 7 0 0 1 0 14h-9M12 20h11a7 7 0 0 1 0 14h-11"
+          stroke="url(#amkG)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <g fill="#141fb4"><circle cx="12" cy="6" r="4"/><circle cx="12" cy="20" r="4.6"/><circle cx="12" cy="34" r="4"/></g>
+      </svg>
+      <span class="asite-wm">
+        <span class="wm-k">예산관리 시스템</span>
+        <span class="wm-sub">BudgetAI · <em>관리자</em></span>
+      </span>
+      <button class="asite-collapse" onclick="adminToggleRail()" aria-label="메뉴 접기/펴기" title="메뉴 접기/펴기"><span class="co-ic" aria-hidden="true"></span></button>
+    </div>
+
+    <button class="asite-menuview" onclick="adminOpenMenu()" title="메뉴 보기"><span class="mv-ic" aria-hidden="true">☰</span><span class="mv-t">메뉴 보기</span></button>
+
+    <nav class="asite-nav" id="asite-nav" aria-label="관리자 메뉴"></nav>
+  </aside>
+
+  <main class="asite-main" id="asite-main"></main>
+  <div id="toast"></div>
+
+  <script src="/js/admin.js?v=20261015-adminsite3"></script>
+</body>
+</html>
