@@ -11,8 +11,8 @@ var PROCESS_MAP_PHASES = [
       { label: '프로젝트 현황', nav: 'showProjectStatus', desc: '수주형·제안·투자·선투입 자동연계 + 전 유형 통합 조회' },
     ],
     tutorials: [
-      { name: '수주형 프로젝트 등록', file: 'tutorial-si.html', dl: 'AiBudget-튜토리얼-수주형등록.html' },
-      { name: 'WG · 사내 개설', file: 'tutorial-wg.html', dl: 'AiBudget-튜토리얼-WG사내개설.html' },
+      { name: '수주형 프로젝트 등록', file: 'tutorial-si.html', dl: 'BudgetAI-튜토리얼-수주형등록.html' },
+      { name: 'WG · 사내 개설', file: 'tutorial-wg.html', dl: 'BudgetAI-튜토리얼-WG사내개설.html' },
     ],
   },
   {
@@ -22,12 +22,12 @@ var PROCESS_MAP_PHASES = [
       { label: '실행예산 승인(상신)', nav: 'showCostAdjust', desc: 'CP총액 검증 후 결재 상신' },
     ],
     tutorials: [
-      { name: '인건비 계획 수립', file: 'tutorial-labor.html', dl: 'AiBudget-튜토리얼-인건비.html' },
-      { name: '외주비 계획(실투입)', file: 'tutorial-outsource.html', dl: 'AiBudget-튜토리얼-외주비.html' },
-      { name: '경비 계획', file: 'tutorial-expense.html', dl: 'AiBudget-튜토리얼-경비.html' },
-      { name: '재료비 계획', file: 'tutorial-material.html', dl: 'AiBudget-튜토리얼-재료비.html' },
-      { name: '실행예산 승인요청', file: 'tutorial-approval.html', dl: 'AiBudget-튜토리얼-실행예산승인요청.html' },
-      { name: '실행예산 버전 관리', file: 'tutorial-version.html', dl: 'AiBudget-튜토리얼-실행예산버전.html' },
+      { name: '인건비 계획 수립', file: 'tutorial-labor.html', dl: 'BudgetAI-튜토리얼-인건비.html' },
+      { name: '외주비 계획(실투입)', file: 'tutorial-outsource.html', dl: 'BudgetAI-튜토리얼-외주비.html' },
+      { name: '경비 계획', file: 'tutorial-expense.html', dl: 'BudgetAI-튜토리얼-경비.html' },
+      { name: '재료비 계획', file: 'tutorial-material.html', dl: 'BudgetAI-튜토리얼-재료비.html' },
+      { name: '실행예산 승인요청', file: 'tutorial-approval.html', dl: 'BudgetAI-튜토리얼-실행예산승인요청.html' },
+      { name: '실행예산 버전 관리', file: 'tutorial-version.html', dl: 'BudgetAI-튜토리얼-실행예산버전.html' },
     ],
   },
   {
@@ -38,7 +38,7 @@ var PROCESS_MAP_PHASES = [
       { label: '프로젝트 종료', nav: 'showProjectClose', desc: '기간+30일 자동 배치 종료·사후점검' },
     ],
     tutorials: [
-      { name: '프로젝트 종료 (자동 종료)', file: 'tutorial-close.html', dl: 'AiBudget-튜토리얼-프로젝트종료.html' },
+      { name: '프로젝트 종료 (자동 종료)', file: 'tutorial-close.html', dl: 'BudgetAI-튜토리얼-프로젝트종료.html' },
     ],
   },
 ];

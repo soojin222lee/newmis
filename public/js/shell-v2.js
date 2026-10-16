@@ -103,7 +103,7 @@ function v2MountRail() {
     r = document.createElement('aside');
     r.id = 'v2-app-rail';
     r.className = 'v2-app-rail';
-    r.setAttribute('aria-label', 'AiBudget 메뉴');
+    r.setAttribute('aria-label', 'BudgetAI 메뉴');
     document.body.appendChild(r);
   }
   const sc = r.querySelector('.v2-rail-scroll');
@@ -160,7 +160,7 @@ function v2OnPlaceChange() {
 
 // ── 대화 화면 (Talent AX) — 입력창 안내 문구와 면책 문구 ──
 const V2_CHAT_PH = '질문은 자유롭게 입력해 주세요.';
-const V2_CHAT_DISC = 'AiBudget는 실수를 할 수 있습니다. 중요한 정보는 재차 확인하세요.';
+const V2_CHAT_DISC = 'BudgetAI는 실수를 할 수 있습니다. 중요한 정보는 재차 확인하세요.';
 function v2ChatDecorate() {
   const ov = document.getElementById('ai-chat-overlay');
   if (!ov) return;
