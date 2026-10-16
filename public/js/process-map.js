@@ -85,7 +85,7 @@ function procmapInjectStyle() {
    .procmap-tuts{margin-top:12px;padding-top:11px;border-top:1px dashed #e5e7eb}
    .procmap-tuts-t{font-size:11px;font-weight:900;color:#1d4ed8;margin-bottom:7px;letter-spacing:.2px}
    .procmap-tut{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #d1d5db;border-radius:9px;padding:6px 7px 6px 10px;margin-bottom:6px}
-   .procmap-tut>b{flex:1;font-size:11.5px;font-weight:800;color:#0f172a;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+   .procmap-tut>b{flex:1;font-size:11.5px;font-weight:800;color:#0f172a;min-width:0;white-space:normal;line-height:1.35;word-break:keep-all}
    .procmap-tut a{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;text-decoration:none;border-radius:7px;padding:4px 8px;white-space:nowrap}
    .procmap-tut .run{background:#1d4ed8;color:#fff}
    .procmap-tut .run:hover{background:#1742a8}
@@ -114,8 +114,7 @@ function renderProcMapTuts(p) {
   if (!p.tutorials || !p.tutorials.length) return '';
   var rows = p.tutorials.map(function (t) {
     return '<div class="procmap-tut"><b>' + t.name + '</b>'
-      + '<a class="run" href="/tutorials/' + t.file + '" target="_blank" rel="noopener" title="새 탭에서 체험">▶ 체험</a>'
-      + '<a class="dl" href="/tutorials/' + t.file + '" download="' + t.dl + '" title="HTML 파일 다운로드">⬇ 다운로드</a></div>';
+      + '<a class="run" href="/tutorials/' + t.file + '" target="_blank" rel="noopener" title="새 탭에서 체험">▶ 체험</a></div>';
   }).join('');
   var note = p.tutNote ? '<div class="procmap-tut-note">🕓 ' + p.tutNote + '</div>' : '';
   return '<div class="procmap-tuts"><div class="procmap-tuts-t">📘 인터랙티브 튜토리얼</div>' + rows + note + '</div>';
