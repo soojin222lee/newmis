@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AiBudget 업무 튜토리얼 · 실적 현황 보는 법</title>
+<meta name="description" content="원가/실적 현황 — 기준월(STAC) 과거는 ERP 실적·미래는 실행예산 계획, 전표가 계정코드로 분기되어 각 계정 실적에 꽂힌다. 계정별 실적 수취 방식. 인터랙티브 튜토리얼.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sk-ink:#17161f; --sk-page:#f2f2ee; --sk-border:#e7eaef; --sk-border-strong:#d3d9e2; --sk-head:#eef2f7;
+  --plan:#2f6bed; --plan-deep:#1746a0; --plan-soft:#eaf1fd;
+  --act:#0a8f5b; --act-deep:#076b44; --act-soft:#e4f6ec;
+  --erp:#b4740a; --erp-deep:#8a5905; --erp-soft:#fdf3e2;
+  --green:#22b07d; --amber:#b4740a; --red:#ea002c;
+  --font:'Pretendard','Noto Sans KR',-apple-system,system-ui,sans-serif; --mono:ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box;letter-spacing:-.1px}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);background:var(--sk-page);color:#1c2432;-webkit-font-smoothing:antialiased;overflow:hidden}
+
+#sysbar{position:fixed;top:50px;left:0;right:0;height:44px;z-index:50;display:flex;align-items:center;gap:12px;padding:0 20px;background:#fff;border-bottom:1px solid var(--sk-border)}
+#sysbar .sys{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:900;color:var(--act-deep)}
+#sysbar .sys .ic{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:#fff;font-size:14px;background:var(--act)}
+#sysbar .tag{font-size:11px;font-weight:800;color:#8a94a6}
+#sysbar .flow{margin-left:auto;font-size:11.5px;font-weight:800;color:#aab2c0}
+#sysbar .leg{display:flex;gap:7px;align-items:center;margin-left:12px}
+#sysbar .lg{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px}
+#sysbar .lg i{width:9px;height:9px;border-radius:3px;display:inline-block}
+#sysbar .lg.act{color:var(--act-deep);background:var(--act-soft)} #sysbar .lg.act i{background:var(--act)}
+#sysbar .lg.plan{color:var(--plan-deep);background:var(--plan-soft)} #sysbar .lg.plan i{background:var(--plan)}
+#sysbar .lg.erp{color:var(--erp-deep);background:var(--erp-soft)} #sysbar .lg.erp i{background:var(--erp)}
+
+#sim{position:fixed;top:94px;left:0;right:0;bottom:0;overflow:auto;padding:22px 26px 80px;transition:opacity .18s ease}
+.wrap{max-width:1000px;margin:0 auto}
+.scr-title{font-size:22px;font-weight:900;color:#16151f;margin:0 0 3px}
+.scr-sub{font-size:13px;color:#8a94a6;font-weight:600;margin:0 0 18px}
+.card{background:#fff;border:1px solid #e4e2da;border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.sec{font-size:12px;font-weight:900;color:#55606f;margin:0 0 10px;letter-spacing:.2px}
+
+.btn{height:38px;padding:0 16px;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--sk-border-strong);background:#fff;color:#2b3442}
+.btn:hover{background:#f3f6fb}
+.btn.act{background:var(--act);border-color:var(--act);color:#fff} .btn.act:hover{background:var(--act-deep)}
+.btn.sm{height:30px;padding:0 11px;font-size:12.5px;border-radius:8px}
+
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t thead th{background:var(--sk-head);color:#3d4a5c;font-weight:800;text-align:left;padding:10px 12px;border-bottom:1px solid var(--sk-border-strong);white-space:nowrap}
+table.t td{padding:10px 12px;border-bottom:1px solid #eef1f5;color:#2b3442;white-space:nowrap}
+table.t tbody tr:last-child td{border-bottom:0}
+table.t tr.hl td{background:var(--act-soft)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.pname{font-weight:700;color:#16151f}
+.mono{font-family:var(--mono);font-size:12px;color:#55606f}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800}
+.b-act{background:var(--act-soft);color:var(--act-deep)} .b-plan{background:var(--plan-soft);color:var(--plan-deep)} .b-quasi{background:#fff4e1;color:#8a5905}
+.b-ok{background:#eef7f1;color:#166534} .b-wait{background:#eef2f7;color:#55606f}
+.tbd{display:inline-block;font-size:11px;font-weight:800;color:#b4740a;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:1px 7px}
+.dev{display:inline-block;font-size:11px;font-weight:800;color:#5b21b6;background:#f3edff;border:1px solid #d9c9f5;border-radius:6px;padding:1px 7px}
+
+.banner{border-radius:12px;padding:13px 16px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.banner.act{background:var(--act-soft);border:1px solid #bce6cf;color:var(--act-deep)}
+.banner.plan{background:var(--plan-soft);border:1px solid #bcd3f7;color:var(--plan-deep)}
+.banner.erp{background:var(--erp-soft);border:1px solid #f3d9b5;color:var(--erp-deep)}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.layer{border:1.5px solid #e4e2da;border-radius:14px;padding:16px}
+.layer.plan{border-color:#bcd3f7;background:var(--plan-soft)} .layer.act{border-color:#bce6cf;background:var(--act-soft)}
+.layer .t{font-size:15px;font-weight:900;color:#16151f}.layer .d{font-size:12.5px;line-height:1.6;color:#3a4250;margin-top:6px}
+
+/* 기준월 타임라인 */
+.stac{display:flex;align-items:stretch;border:1px solid #e4e2da;border-radius:12px;overflow:hidden;margin-top:6px}
+.stac .half{flex:1;padding:14px 16px}
+.stac .past{background:var(--act-soft)}
+.stac .future{background:var(--plan-soft)}
+.stac .half .hl{font-size:13px;font-weight:900;color:#16151f}
+.stac .half .hs{font-size:11.5px;font-weight:700;color:#55606f;margin-top:3px;line-height:1.5}
+.stac .pin{width:2px;background:var(--red);position:relative}
+.stac .pin span{position:absolute;top:-1px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:10.5px;font-weight:900;color:#fff;background:var(--red);padding:2px 7px;border-radius:999px}
+.months{display:flex;gap:3px;margin-top:10px}
+.months .m{flex:1;text-align:center;font-size:10px;font-weight:800;padding:6px 2px;border-radius:7px;border:1px solid #e4e2da}
+.months .m.p{background:var(--act-soft);color:var(--act-deep);border-color:#bce6cf}
+.months .m.f{background:var(--plan-soft);color:var(--plan-deep);border-color:#bcd3f7}
+.months .m.now{outline:2px solid var(--red);outline-offset:1px}
+
+.flowd{display:flex;align-items:center;gap:0;overflow-x:auto;padding-bottom:4px;margin-top:6px}
+.flowd .fn{flex:1;min-width:120px;text-align:center;border:1px solid #e4e2da;border-radius:11px;padding:10px 8px;background:#f7f9fc}
+.flowd .fn b{display:block;font-size:12px;font-weight:800;color:#16151f}.flowd .fn span{font-size:10px;font-weight:800;color:var(--erp-deep)}
+.flowd .fn.erp{background:var(--erp-soft);border-color:#f3d9b5}
+.flowd .fn.act{background:var(--act-soft);border-color:#bce6cf}.flowd .fn.act span{color:var(--act-deep)}
+.flowd .fa{align-self:center;color:#c3cbd6;font-weight:900;font-size:15px;flex:0 0 auto;padding:0 4px}
+.proc-note{font-size:12.5px;line-height:1.6;color:#55606f;background:#f7f9fc;border:1px solid #e4e2da;border-radius:10px;padding:10px 13px;margin-top:10px}.proc-note b{color:#16151f}
+.rt{display:flex;align-items:center;gap:8px;margin-top:9px}
+.rt .bar{flex:1;height:10px;background:#eef1f5;border-radius:999px;overflow:hidden}
+.rt .bar i{display:block;height:100%;border-radius:999px;background:var(--act)}
+.rt b{font-size:12px;font-weight:900;color:var(--act-deep);width:44px;text-align:right}
+
+#hud{position:fixed;top:0;left:0;right:0;z-index:9000;height:50px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--sk-border);display:flex;align-items:center;gap:13px;padding:0 16px}
+#hud .ch{font-size:13px;font-weight:900;color:#16151f;white-space:nowrap}#hud .ch em{font-style:normal;color:var(--act)}
+#hud .sc{font-size:11.5px;font-weight:800;color:#8a94a6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+#hud .bar{flex:1;max-width:260px;height:7px;background:#e9ecf1;border-radius:999px;overflow:hidden}
+#hud .fill{height:100%;width:0;background:var(--act);border-radius:999px;transition:width .4s}
+#hud .cnt{font-size:12px;font-weight:800;color:#6b7480;white-space:nowrap}#hud .sp{flex:1}
+#hud button{height:31px;padding:0 12px;border-radius:8px;border:1px solid var(--sk-border-strong);background:#fff;color:#37414f;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit}
+#hud button:hover{background:#f3f6fb}
+#mask{position:fixed;inset:0;z-index:9001;background:rgba(10,14,26,.34);display:none}
+#hole{position:fixed;z-index:9002;border-radius:10px;border:2.5px solid var(--act);background:transparent;cursor:pointer;display:none;box-shadow:0 0 0 4px rgba(10,143,91,.30),0 0 0 9999px rgba(10,14,26,.34);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(10,143,91,.30),0 0 0 9999px rgba(10,14,26,.34)}50%{box-shadow:0 0 0 9px rgba(10,143,91,.15),0 0 0 9999px rgba(10,14,26,.34)}}
+#hole.shake{animation:shake .4s}@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+#hole .fg{position:absolute;right:-14px;bottom:-14px;font-size:24px;pointer-events:none;animation:fg 1.3s ease-in-out infinite;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
+@keyframes fg{0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,-5px)}}
+#bubble{position:fixed;z-index:9003;max-width:356px;background:#fff;border-radius:14px;padding:16px 18px 14px;border:1px solid #e4e2da;box-shadow:0 18px 50px rgba(10,14,26,.28);display:none;cursor:grab;animation:pop .28s cubic-bezier(.2,.9,.3,1.2)}
+#bubble:active{cursor:grabbing}
+@keyframes pop{from{opacity:0;transform:scale(.94) translateY(6px)}to{opacity:1;transform:none}}
+#bubble .grip{position:absolute;top:8px;right:10px;font-size:13px;color:#c3cbd6;pointer-events:none}
+#bubble .st{font-size:11px;font-weight:900;color:var(--act);letter-spacing:.5px}
+#bubble .tt{font-size:16px;font-weight:900;color:#16151f;margin:5px 0 7px;padding-right:20px}
+#bubble .tx{font-size:13.5px;line-height:1.62;color:#3a4250}#bubble .tx b{color:#17161f}
+#bubble .tx .act{color:var(--act-deep)}#bubble .tx .plan{color:var(--plan-deep)}#bubble .tx .erp{color:var(--erp-deep)}
+#bubble .hint{margin-top:10px;font-size:11.5px;font-weight:800;color:var(--act);display:flex;gap:10px;flex-wrap:wrap}#bubble .hint em{font-style:normal;color:#9aa4b2}
+#bubble .ar{position:absolute;width:14px;height:14px;background:#fff;border:1px solid #e4e2da;transform:rotate(45deg)}
+#center{position:fixed;inset:0;z-index:9003;display:none;align-items:center;justify-content:center;padding:24px}
+#center .card2{background:#fff;border-radius:20px;max-width:680px;width:100%;padding:30px 32px;box-shadow:0 24px 70px rgba(10,14,26,.35);animation:pop .3s cubic-bezier(.2,.9,.3,1.2)}
+#center .eb{font-size:12px;font-weight:900;letter-spacing:1px;color:var(--act);text-transform:uppercase}
+#center h2{font-size:23px;font-weight:900;color:#16151f;margin:8px 0 10px}
+#center p{font-size:14px;line-height:1.7;color:#3a4250;margin:0}
+#center .chk{width:58px;height:58px;border-radius:50%;background:var(--green);display:grid;place-items:center;margin:0 auto 12px;color:#fff;font-size:28px}
+#center .acts{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;justify-content:center}
+#center .acts button{height:38px;padding:0 16px;border-radius:10px;border:1px solid var(--sk-border-strong);background:#fff;color:#2b3442;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}
+#center .acts button.pri{background:var(--sk-ink);border-color:var(--sk-ink);color:#fff}
+.sclist{display:grid;gap:10px;margin-top:18px;text-align:left}
+.sc-item{display:flex;align-items:center;gap:13px;padding:13px 15px;border:1.5px solid #e4e2da;border-radius:13px;cursor:pointer;background:#fff;transition:border-color .15s,background .15s}
+.sc-item:hover{border-color:var(--act);background:var(--act-soft)}
+.sc-no{width:30px;height:30px;flex:none;border-radius:9px;background:var(--sk-ink);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:900}
+.sc-tt{font-size:14px;font-weight:800;color:#16151f}.sc-ds{font-size:12px;color:#8a94a6;font-weight:700;margin-top:1px}
+.sc-done{margin-left:auto;font-size:16px;color:var(--green)}
+#toast{position:fixed;z-index:9004;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:#17161f;color:#fff;font-size:13px;font-weight:700;padding:11px 18px;border-radius:11px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <span class="ch">Chapter · <em>실적 현황 보는 법</em></span>
+  <span class="sc" id="hud-sc"></span>
+  <div class="bar"><div class="fill" id="hud-fill"></div></div>
+  <span class="cnt" id="hud-cnt"></span>
+  <span class="sp"></span>
+  <button onclick="tPrev()">◀ 이전</button><button onclick="tRestart()">↻ 다시 시작</button><button onclick="openScenarios()">☰ 시나리오</button>
+</div>
+<div id="sysbar"><div class="sys"><span class="ic">📈</span><span>원가·실적 현황 · New MIS</span></div><span class="tag">과거=실적 · 미래=계획</span><span class="flow"></span><span class="leg"><span class="lg act"><i></i>실적(ERP)</span><span class="lg plan"><i></i>계획(실행예산)</span><span class="lg erp"><i></i>전표(ERP)</span></span></div>
+
+<div id="sim"></div>
+
+<div id="mask" onclick="tWrong()"></div>
+<div id="hole"><span class="fg">👆</span></div>
+<div id="bubble"><span class="ar"></span><span class="grip">⠿</span><div class="st"></div><div class="tt"></div><div class="tx"></div><div class="hint"><span>👆 강조된 영역을 클릭</span><em>✋ 말풍선 드래그 이동</em></div></div>
+<div id="center"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   실적 현황 보는 법 인터랙티브 튜토리얼 — 시뮬레이션
+   핵심: ① 기준월(STAC)로 갈라 본다 — 기준월 이전은 ERP 실적, 이후는 실행예산 계획
+         (budget-status.js: STAC 이전 ERP 실적 / 이후 계획으로 수행비용 계산) /
+         ② ERP 전표가 '계정코드'로 분기되어 인건비·외주비·재료비·경비 각 계정 실적에 꽂힌다
+         (전표 상세 로직은 별도 분석 — 여기선 개념) /
+         ③ 계정마다 실적을 받는 방식이 다르다 — 인건비=실투입, 재료비=기검수(수량/금액), 외주비=실투입전표(88…) /
+         ④ 집행률·잔여 읽는 법(실적+투입확정 vs 계획).
+   ※ 모두 가상 데이터 시뮬레이션.
+   ===================================================================== */
+const won = n => n.toLocaleString('ko-KR') + '원';
+const sim = () => document.getElementById('sim');
+function setFlow(t){ const e=document.querySelector('#sysbar .flow'); if(e) e.textContent = t || ''; }
+function initState(){ return {}; }
+let S = initState();
+
+/* ---------- 화면 ---------- */
+function scrStac() {
+  setFlow('기준월(STAC) — 과거=실적 · 미래=계획');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">실적 현황은 ‘기준월’로 갈라 본다</h1>
+    <p class="scr-sub">원가·실적 현황의 수행비용은 <b>기준월(STAC)</b>을 중심으로 계산됩니다. <b class="act">기준월 이전은 ERP 실적</b>, <b class="plan">이후는 실행예산 계획</b>이에요.</p>
+    <div class="card" id="act-stac"><div class="sec">기준월(STAC) 기준</div>
+      <div class="stac">
+        <div class="half past"><div class="hl">🟢 기준월 이전 — ERP 실적</div><div class="hs">이미 지난 달. ERP에서 받은 <b>실투입·기검수 실적</b>이 금액으로 꽂힙니다.</div></div>
+        <div class="pin"><span>기준월</span></div>
+        <div class="half future"><div class="hl">🔵 기준월 이후 — 실행예산 계획</div><div class="hs">아직 안 온 달. <b>실행예산에서 세운 계획</b>으로 채웁니다.</div></div>
+      </div>
+      <div class="months">
+        <div class="m p">7월</div><div class="m p">8월</div><div class="m p">9월</div><div class="m p now">10월</div><div class="m f">11월</div><div class="m f">12월</div><div class="m f">1월</div>
+      </div>
+      <div class="proc-note" style="margin-top:10px">그래서 같은 화면이라도 <b>과거 칸과 미래 칸의 숫자 성격이 다릅니다</b> — 과거는 ‘진짜 쓴 돈(실적)’, 미래는 ‘쓸 계획’. 이걸 모르면 “왜 미래월에 실적이 없지?”로 헷갈려요.</div>
+    </div>
+    <div class="banner act">📈 <b>핵심 한 줄</b> — 실적 현황 = <b class="act">지난 건 ERP 실적</b> + <b class="plan">남은 건 실행예산 계획</b>을 이어 붙인 수행비용 뷰.</div>
+  </div>`;
+}
+
+function scrVoucher() {
+  setFlow('전표 → 계정코드 분기');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">실적은 ‘전표’가 계정코드로 분기돼 꽂힌다</h1>
+    <p class="scr-sub">우리는 실적을 직접 만들지 않습니다. <b class="erp">ERP가 전표</b>를 주면, 전표에 달린 <b>계정코드</b>로 <b>어느 계정 실적인지</b>가 갈립니다.</p>
+    <div class="card" id="act-flow"><div class="sec">분기 흐름</div>
+      <div class="flowd">
+        <div class="fn erp"><b>ERP 전표</b><span>금액·계정코드</span></div><div class="fa">→</div>
+        <div class="fn"><b>계정코드 판정</b><span>코드로 분류</span></div><div class="fa">→</div>
+        <div class="fn act"><b>계정별 실적</b><span>인건·외주·재료·경비</span></div>
+      </div>
+    </div>
+    <div class="card" id="act-codes"><div class="sec">계정코드 → 계정 매핑 (예시)</div>
+      <table class="t"><thead><tr><th>전표번호</th><th>계정코드</th><th class="num">금액</th><th>→ 꽂히는 계정</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">881234501</td><td class="mono">701301</td><td class="num">5,200,000</td><td><span class="badge b-act">인건비(OT)</span></td></tr>
+        <tr><td class="mono">881234502</td><td class="mono">7xxxxx</td><td class="num">35,000,000</td><td><span class="badge b-act">외주비</span></td></tr>
+        <tr><td class="mono">881234503</td><td class="mono">7xxxxx</td><td class="num">1,800,000</td><td><span class="badge b-act">재료비</span></td></tr>
+        <tr><td class="mono">881234504</td><td class="mono">7xxxxx</td><td class="num">450,000</td><td><span class="badge b-act">경비</span></td></tr>
+      </tbody></table>
+      <div class="proc-note" style="margin-top:10px"><b>같은 ‘실적’이라도 계정코드가 달라서 다른 계정으로 갈라집니다.</b> 화면에서 인건비/외주비/재료비/경비가 나뉘어 보이는 건 이 분기 덕분이에요. <span class="tbd">※ 전표 → 계정 분기 상세 로직(코드 체계·매핑 규칙)은 별도 분석 대상</span></div>
+    </div>
+  </div>`;
+}
+
+function scrByAccount() {
+  setFlow('계정마다 실적 받는 방식이 다르다');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">계정마다 ‘실적을 받는 방식’이 다르다</h1>
+    <p class="scr-sub">모두 ERP 전표로 들어오지만, <b>어떤 사건이 실적이 되는지</b>는 계정마다 달라요. 그래서 읽는 포인트도 조금씩 다릅니다.</p>
+    <div class="card" id="act-byacc"><div class="sec">계정별 실적 수취 방식</div>
+      <table class="t"><thead><tr><th>계정</th><th>실적이 되는 사건</th><th>받는 경로</th></tr></thead>
+      <tbody>
+        <tr><td class="pname">인건비</td><td>인력 <b>실투입</b> 발생</td><td><span class="badge b-act">ERP 실투입 전표</span></td></tr>
+        <tr><td class="pname">외주비</td><td>구매→<b>실투입 전표</b>(88…)</td><td><span class="badge b-act">ERP 전표</span></td></tr>
+        <tr><td class="pname">재료비</td><td><b>기검수</b> — 수량검수 / 금액검수</td><td><span class="badge b-act">ERP 기검수 전표</span></td></tr>
+        <tr><td class="pname">경비</td><td>경비 집행</td><td><span class="badge b-act">ERP 전표</span></td></tr>
+      </tbody></table>
+      <div class="proc-note" style="margin-top:10px"><b>재료비</b>는 <b>수량검수</b>(몇 개 검수)와 <b>금액검수</b>(얼마 검수) 두 방식이 있고, 둘 다 ERP <b>기검수</b> 금액으로 받아요. <b>외주비</b>는 구매가 정의한 실투입을 ERP가 <b>88로 시작하는 전표</b>로 만들어 보냅니다. (외주비/재료비 튜토리얼 참고)</div>
+    </div>
+    <div class="banner act">🧾 공통점 — 우리는 <b>전표로 받은 금액</b>을 계정에 쌓고 <b>잔여를 계산</b>할 뿐, 실적 자체를 만들지 않습니다.</div>
+  </div>`;
+}
+
+function scrRead() {
+  setFlow('집행률·잔여 읽는 법');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">집행률·잔여 읽는 법</h1>
+    <p class="scr-sub">각 계정 행은 <b>계획(예산)</b> 대비 <b class="act">실적+투입확정</b>으로 집행률과 잔여를 보여줍니다.</p>
+    <div class="card" id="act-grid"><div class="sec">계정별 집행 현황 (기준월 반영)</div>
+      <table class="t"><thead><tr><th>계정</th><th class="num">계획(예산)</th><th class="num">실적</th><th class="num">투입확정</th><th class="num">잔여</th><th>집행률</th></tr></thead>
+      <tbody>
+        <tr class="hl"><td class="pname">인건비</td><td class="num">120,000,000</td><td class="num">78,400,000</td><td class="num">11,000,000</td><td class="num">30,600,000</td><td><div class="rt"><div class="bar"><i style="width:74%"></i></div><b>74%</b></div></td></tr>
+        <tr><td class="pname">외주비</td><td class="num">90,000,000</td><td class="num">62,000,000</td><td class="num">0</td><td class="num">28,000,000</td><td><div class="rt"><div class="bar"><i style="width:69%"></i></div><b>69%</b></div></td></tr>
+        <tr><td class="pname">재료비</td><td class="num">8,000,000</td><td class="num">2,800,000</td><td class="num">0</td><td class="num">5,200,000</td><td><div class="rt"><div class="bar"><i style="width:35%"></i></div><b>35%</b></div></td></tr>
+        <tr><td class="pname">경비</td><td class="num">4,000,000</td><td class="num">850,000</td><td class="num">0</td><td class="num">3,150,000</td><td><div class="rt"><div class="bar"><i style="width:21%"></i></div><b>21%</b></div></td></tr>
+      </tbody></table>
+      <div class="proc-note" style="margin-top:10px"><b>잔여 = 계획 − (실적 + 투입확정)</b>. <span class="badge b-act">실적</span>은 ERP로 확정된 금액, <span class="badge b-quasi">투입확정</span>은 아직 전표는 아니지만 곧 나갈 게 확정된 금액이에요. 집행률이 <b>100%를 넘기면 초과 집행</b> 신호.</div>
+    </div>
+    <div class="banner plan">🔎 드릴다운 — 계정을 누르면 <b>전표 단위 상세</b>(업체·품목·전표번호)까지 내려가 어디서 얼마가 나갔는지 확인할 수 있어요. <span class="tbd">※ 전표 상세·드릴다운 로직은 별도 분석</span></div>
+  </div>`;
+}
+
+/* =====================================================================
+   시나리오
+   ===================================================================== */
+const SCEN = {
+  A: { name:'기준월(STAC) — 과거=실적·미래=계획', desc:'실적 현황을 가르는 기준 · 과거/미래 숫자 성격이 다르다', steps:[
+    { render:scrStac, spot:'#act-stac', pos:'bottom', title:'기준월로 갈라 본다', text:'수행비용은 <b>기준월(STAC)</b> 기준으로 계산돼요. <b class="act">이전은 ERP 실적</b>, <b class="plan">이후는 실행예산 계획</b>.' },
+    { render:scrStac, spot:'.months', pos:'top', title:'과거 칸 ≠ 미래 칸', text:'과거월은 <b>진짜 쓴 돈(실적)</b>, 미래월은 <b>쓸 계획</b>. 숫자 성격이 달라서 “왜 미래월에 실적이 없지?”로 헷갈리면 안 돼요.' },
+    { render:scrStac, spot:'.banner', pos:'top', title:'핵심 한 줄', text:'실적 현황 = <b class="act">지난 건 ERP 실적</b> + <b class="plan">남은 건 실행예산 계획</b>을 이어 붙인 뷰.', mode:'done',
+      doneTitle:'1. 기준월(STAC)', doneHtml:'<p>원가·실적 현황은 <b>기준월(STAC)</b>으로 갈라 봅니다. <b>기준월 이전 = ERP 실적</b>(진짜 쓴 돈), <b>이후 = 실행예산 계획</b>(쓸 계획). 과거/미래 칸의 숫자 성격이 다르다는 걸 먼저 잡고 보세요.</p>' },
+  ]},
+  B: { name:'전표 → 계정코드 분기', desc:'ERP 전표가 계정코드로 인건·외주·재료·경비로 갈린다', steps:[
+    { render:scrVoucher, spot:'#act-flow', pos:'bottom', title:'전표로 받아 코드로 가른다', text:'실적은 우리가 만들지 않아요. <b class="erp">ERP 전표</b>를 받으면 거기 달린 <b>계정코드</b>로 어느 계정 실적인지 갈립니다.' },
+    { render:scrVoucher, spot:'#act-codes', pos:'top', title:'계정코드 → 계정 매핑', text:'같은 ‘실적’이라도 <b>계정코드가 달라</b> 인건비·외주비·재료비·경비로 나뉩니다. 화면이 계정별로 보이는 이유예요.', mode:'done',
+      doneTitle:'2. 전표 → 계정코드 분기', doneHtml:'<p>실적은 <b>ERP 전표</b>로 들어오고, 전표의 <b>계정코드</b>에 따라 <b>인건비·외주비·재료비·경비</b> 중 어느 계정 실적인지 갈립니다. 화면이 계정별로 나뉘어 보이는 게 이 분기 덕분이에요. <span class="tbd">※ 전표→계정 분기 상세(코드 체계·매핑 규칙)는 별도 분석 대상</span></p>' },
+  ]},
+  C: { name:'계정마다 실적 받는 방식이 다르다', desc:'인건비=실투입 · 재료비=기검수(수량/금액) · 외주비=전표(88…)', steps:[
+    { render:scrByAccount, spot:'#act-byacc', pos:'bottom', title:'실적이 되는 사건이 다르다', text:'인건비는 <b>실투입</b>, 외주비는 <b>구매→실투입 전표(88…)</b>, 재료비는 <b>기검수(수량/금액)</b>, 경비는 <b>집행</b>. 모두 ERP 전표로 받지만 계기가 달라요.' },
+    { render:scrByAccount, spot:'.banner', pos:'top', title:'우리는 받아서 계산만', text:'공통점 — 우리는 <b>전표로 받은 금액</b>을 쌓고 <b>잔여를 계산</b>할 뿐, 실적 자체를 만들지 않습니다.', mode:'done',
+      doneTitle:'3. 계정별 실적 수취 방식', doneHtml:'<p>모두 ERP 전표로 들어오지만 <b>실적이 되는 사건</b>이 다릅니다 — 인건비=<b>실투입</b>, 외주비=<b>구매→실투입 전표(88…)</b>, 재료비=<b>기검수(수량/금액)</b>, 경비=<b>집행</b>. 우리는 받은 금액을 쌓아 <b>잔여를 계산</b>할 뿐이에요.</p>' },
+  ]},
+  D: { name:'집행률·잔여 읽는 법', desc:'잔여 = 계획 −(실적+투입확정) · 드릴다운', steps:[
+    { render:scrRead, spot:'#act-grid', pos:'bottom', title:'계획 대비 실적+투입확정', text:'각 계정 행은 <b>계획(예산)</b> 대비 <b class="act">실적+투입확정</b>으로 집행률·잔여를 보여줍니다. <b>잔여=계획−(실적+투입확정)</b>.' },
+    { render:scrRead, spot:'.banner', pos:'top', title:'드릴다운으로 전표까지', text:'계정을 누르면 <b>전표 단위 상세</b>(업체·품목·전표번호)까지 내려가 어디서 얼마가 나갔는지 볼 수 있어요.', mode:'done',
+      doneTitle:'4. 집행률·잔여 읽는 법', doneHtml:'<p><b>잔여 = 계획 −(실적 + 투입확정)</b>. <b>실적</b>은 ERP로 확정된 금액, <b>투입확정</b>은 곧 나갈 게 확정된 금액. 집행률이 <b>100% 초과면 초과 집행</b> 신호예요. 계정을 누르면 <b>전표 단위 상세</b>로 드릴다운됩니다. <span class="tbd">※ 전표 상세 로직은 별도 분석</span></p>' },
+  ]},
+};
+const SC_ORDER = ['A','B','C','D'];
+const done = {};
+
+/* =====================================================================
+   엔진
+   ===================================================================== */
+let curSc=null, step=0, steps=[], curTgt=null, curPos='bottom', bubMoved=false;
+const $ = id => document.getElementById(id);
+function lockScroll(){ const e=document.scrollingElement||document.documentElement; e.style.overflow='hidden'; $('sim').style.overflow='hidden'; }
+function unlockScroll(){ const e=document.scrollingElement||document.documentElement; e.style.overflow=''; $('sim').style.overflow='auto'; }
+
+function runScenario(key){ curSc=key; steps=SCEN[key].steps; step=0; $('center').style.display='none';
+  $('hud-sc').textContent='시나리오 · '+SCEN[key].name; renderStep(); }
+function renderStep(){
+  const s=steps[step];
+  curTgt=null; $('hole').style.display='none'; $('bubble').style.display='none';
+  if(s.render && !s.keep){ $('sim').style.opacity='0'; s.render(); }
+  if(s.enter){ try{ s.enter(); }catch(e){ console.warn(e); } }
+  setTimeout(()=>place(s), 70);
+  $('hud-cnt').textContent='단계 '+(step+1)+' / '+steps.length;
+  $('hud-fill').style.width=Math.round(step/steps.length*100)+'%';
+}
+function place(s){
+  $('sim').style.opacity='1';
+  const tgt=document.querySelector(s.spot);
+  $('center').style.display='none';
+  if(!tgt){ return setTimeout(()=>place(s),120); }
+  unlockScroll(); try{ tgt.scrollIntoView({block:'center',inline:'nearest'}); }catch(e){} lockScroll();
+  $('mask').style.display='block';
+  curTgt=tgt; curPos=s.pos||'bottom'; bubMoved=false;
+  drawHole(tgt.getBoundingClientRect());
+  $('hole').onclick=(e)=>{ e.stopPropagation(); if(s.act){ try{s.act();}catch(err){console.warn(err);} } if(s.mode==='done'){ finishScenario(s); } else { next(); } };
+  const b=$('bubble'); b.querySelector('.ar').style.display='block';
+  b.querySelector('.st').textContent='STEP '+(step+1)+' / '+steps.length;
+  b.querySelector('.tt').textContent=s.title; b.querySelector('.tx').innerHTML=s.text;
+  b.style.display='block'; posBub(b, tgt.getBoundingClientRect(), curPos);
+}
+function drawHole(r){ const h=$('hole'),p=7; h.style.display='block'; h.style.left=(r.left-p)+'px'; h.style.top=(r.top-p)+'px'; h.style.width=(r.width+p*2)+'px'; h.style.height=(r.height+p*2)+'px'; }
+function posBub(b,r,pos){
+  const bw=b.offsetWidth,bh=b.offsetHeight,g=18,vw=innerWidth,vh=innerHeight;let l,t;const a=b.querySelector('.ar');
+  const cl=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+  if(pos==='right'){l=r.right+g;t=r.top+r.height/2-bh/2;}else if(pos==='left'){l=r.left-bw-g;t=r.top+r.height/2-bh/2;}
+  else if(pos==='top'){l=r.left+r.width/2-bw/2;t=r.top-bh-g;}else{l=r.left+r.width/2-bw/2;t=r.bottom+g;}
+  if(l<12)l=12;if(l+bw>vw-12)l=vw-bw-12;if(t<100)t=100;if(t+bh>vh-12)t=vh-bh-12;
+  b.style.left=l+'px';b.style.top=t+'px';a.style.display='block';
+  if(pos==='right'){a.style.left='-8px';a.style.top=cl(r.top+r.height/2-t-7,10,bh-20)+'px';a.style.borderRight='none';a.style.borderBottom='none';}
+  else if(pos==='left'){a.style.left=(bw-6)+'px';a.style.top=cl(r.top+r.height/2-t-7,10,bh-20)+'px';a.style.borderLeft='none';a.style.borderTop='none';}
+  else if(pos==='top'){a.style.top=(bh-6)+'px';a.style.left=cl(r.left+r.width/2-l-7,14,bw-24)+'px';a.style.borderLeft='none';a.style.borderTop='none';}
+  else{a.style.top='-8px';a.style.left=cl(r.left+r.width/2-l-7,14,bw-24)+'px';a.style.borderRight='none';a.style.borderBottom='none';}
+}
+function next(){ if(step<steps.length-1){ step++; renderStep(); } else finishScenario(steps[steps.length-1]); }
+function tPrev(){ if(step>0){ step--; renderStep(); } else openScenarios(); }
+function tRestart(){ S=initState(); if(curSc) runScenario(curSc); else openScenarios(); }
+function sync(){ if(curTgt && $('hole').style.display==='block'){ const r=curTgt.getBoundingClientRect(); if(r.width||r.height){ drawHole(r); if(!bubMoved) posBub($('bubble'),r,curPos); } } requestAnimationFrame(sync); }
+requestAnimationFrame(sync);
+function maskOn(){ return $('mask').style.display==='block' && $('hole').style.display==='block'; }
+addEventListener('wheel', e=>{ if(maskOn()) e.preventDefault(); }, {passive:false,capture:true});
+addEventListener('touchmove', e=>{ if(maskOn() && !document.body.classList.contains('drag')) e.preventDefault(); }, {passive:false,capture:true});
+
+function finishScenario(s){
+  done[curSc]=true;
+  $('mask').style.display='none'; $('hole').style.display='none'; $('bubble').style.display='none'; curTgt=null; unlockScroll();
+  $('hud-fill').style.width='100%'; $('hud-cnt').textContent='단계 '+steps.length+' / '+steps.length;
+  const nextKey=SC_ORDER[SC_ORDER.indexOf(curSc)+1];
+  const c=$('center'); c.style.display='flex';
+  c.innerHTML='<div class="card2"><div style="text-align:center"><div class="chk">✓</div><div class="eb">실적 현황</div><h2>'+(s.doneTitle||'완료')+'</h2></div>'
+    +(s.doneHtml||'')
+    +'<div class="acts">'
+    +(nextKey?'<button class="pri" onclick="runScenario(\''+nextKey+'\')">다음 시나리오 →</button>':'')
+    +'<button onclick="openScenarios()">☰ 시나리오 목록</button>'
+    +'<button onclick="tRestart()">↻ 이 시나리오 다시</button></div></div>';
+}
+function tWrong(){ const h=$('hole'); if(h.style.display!=='block')return; h.classList.remove('shake'); void h.offsetWidth; h.classList.add('shake');
+  const t=$('toast'); t.textContent='👆 강조된 영역을 클릭하세요'; t.classList.add('show'); clearTimeout(window.__t); window.__t=setTimeout(()=>t.classList.remove('show'),1500); }
+
+/* 드래그 */
+(function(){ const b=$('bubble'); let d=null;
+  const st=(x,y)=>{ d={x,y,l:parseFloat(b.style.left)||0,t:parseFloat(b.style.top)||0}; bubMoved=true; b.querySelector('.ar').style.display='none'; document.body.classList.add('drag'); };
+  const mv=(x,y)=>{ if(!d)return; let nl=d.l+(x-d.x),nt=d.t+(y-d.y); nl=Math.max(6,Math.min(innerWidth-b.offsetWidth-6,nl)); nt=Math.max(100,Math.min(innerHeight-b.offsetHeight-6,nt)); b.style.left=nl+'px'; b.style.top=nt+'px'; };
+  const en=()=>{ if(d){ d=null; document.body.classList.remove('drag'); } };
+  b.addEventListener('mousedown',e=>{ st(e.clientX,e.clientY); e.preventDefault(); });
+  addEventListener('mousemove',e=>mv(e.clientX,e.clientY)); addEventListener('mouseup',en);
+  b.addEventListener('touchstart',e=>{ const t=e.touches[0]; st(t.clientX,t.clientY); },{passive:true});
+  addEventListener('touchmove',e=>{ if(!d)return; const t=e.touches[0]; mv(t.clientX,t.clientY); e.preventDefault(); },{passive:false}); addEventListener('touchend',en);
+})();
+
+/* 시나리오 선택 */
+function openScenarios(){
+  $('mask').style.display='none'; $('hole').style.display='none'; $('bubble').style.display='none'; curTgt=null; unlockScroll(); curSc=null;
+  $('hud-sc').textContent=''; $('hud-cnt').textContent=''; $('hud-fill').style.width='0'; setFlow(''); sim().innerHTML='';
+  const items=SC_ORDER.map((k,i)=>{ const sc=SCEN[k]; return '<button class="sc-item" onclick="runScenario(\''+k+'\')"><span class="sc-no">'+(i+1)+'</span><span><span class="sc-tt">'+sc.name+'</span><span class="sc-ds">'+sc.desc+'</span></span>'+(done[k]?'<span class="sc-done">✓</span>':'')+'</button>'; }).join('');
+  const flow='<div class="flowd">'
+    +'<div class="fn erp"><b>ERP 전표</b><span>금액·계정코드</span></div><div class="fa">→</div>'
+    +'<div class="fn"><b>계정코드 분기</b><span>인건·외주·재료·경비</span></div><div class="fa">→</div>'
+    +'<div class="fn act"><b>계정별 실적</b><span>기준월 반영</span></div><div class="fa">→</div>'
+    +'<div class="fn"><b>집행률·잔여</b><span>계획 대비</span></div>'
+    +'</div>'
+    +'<div class="proc-note">💡 실적 현황은 <b>기준월(STAC)</b>으로 과거=<b style="color:var(--act-deep)">ERP 실적</b> / 미래=<b style="color:var(--plan-deep)">실행예산 계획</b>으로 갈라 봅니다. 실적은 <b>ERP 전표가 계정코드로 분기</b>돼 각 계정에 꽂히고, 우리는 받은 금액으로 <b>잔여를 계산</b>해요. <span class="tbd">※ 전표 상세 로직은 별도 분석</span></div>';
+  const c=$('center'); c.style.display='flex';
+  c.innerHTML='<div class="card2" style="max-width:900px"><div class="eb">원가·실적 현황</div><h2>실적 현황 보는 법 — 시나리오 선택</h2>'
+    +'<p><b style="color:var(--act-deep)">지난 건 실적</b>, <b style="color:var(--plan-deep)">남은 건 계획</b>. 실적이 <b>어디서 와서 어떻게 계정별로 갈리는지</b>, 그리고 <b>집행률·잔여 읽는 법</b>을 익혀봅니다.</p>'
+    +flow
+    +'<div class="sclist">'+items+'</div></div>';
+}
+
+openScenarios();
+</script>
+</body>
+</html>
