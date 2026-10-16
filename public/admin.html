@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>관리자 · AiBudget</title>
+<title>관리자 · BudgetAI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
 <style>
@@ -184,17 +184,14 @@
         <defs><linearGradient id="amkG" x1="3" y1="2" x2="37" y2="38" gradientUnits="userSpaceOnUse">
           <stop offset="0" stop-color="#2ec8f5"/><stop offset=".45" stop-color="#1f86e6"/><stop offset="1" stop-color="#141fb4"/>
         </linearGradient></defs>
-        <g stroke="url(#amkG)" stroke-width="4.6" stroke-linecap="round" fill="none">
-          <path d="M19.8 20.2 L8.6 10.4"/><path d="M19.8 20.2 L31.6 30.6"/><path d="M19.8 20.2 L9.4 30.2"/>
-        </g>
-        <g fill="url(#amkG)">
-          <circle cx="19.8" cy="20.2" r="6.4"/><circle cx="8.6" cy="10.4" r="4.4"/><circle cx="31.6" cy="30.6" r="4.9"/>
-          <circle cx="9.4" cy="30.2" r="4.1"/><circle cx="31.4" cy="9.2" r="3.4"/><circle cx="21.2" cy="4.6" r="2.6"/>
-        </g>
+        <!-- B 노드형 마크 (2026-10-16, 메인 앱과 같음) -->
+        <path d="M12 6v28M12 6h9a7 7 0 0 1 0 14h-9M12 20h11a7 7 0 0 1 0 14h-11"
+          stroke="url(#amkG)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <g fill="#141fb4"><circle cx="12" cy="6" r="4"/><circle cx="12" cy="20" r="4.6"/><circle cx="12" cy="34" r="4"/></g>
       </svg>
       <span class="asite-wm">
-        <span class="wm-k">AXGENTIC<i>WIRE</i></span>
-        <span class="wm-sub">AiBudget · <em>관리자</em></span>
+        <span class="wm-k">예산관리 시스템</span>
+        <span class="wm-sub">BudgetAI · <em>관리자</em></span>
       </span>
       <button class="asite-collapse" onclick="adminToggleRail()" aria-label="메뉴 접기/펴기" title="메뉴 접기/펴기"><span class="co-ic" aria-hidden="true"></span></button>
     </div>

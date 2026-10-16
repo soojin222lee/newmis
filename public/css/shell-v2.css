@@ -421,3 +421,7 @@ body.app-v2 .agai-say.v2-th .ai-act[onclick^="navGo("] { display: none; }
 body.app-v2.v2-rail-min .v2-app-rail .v2-procbar-t,
 body.app-v2.v2-rail-min .v2-app-rail .v2-procbar-lab { display: none; }
 body.app-v2.v2-rail-min .v2-app-rail .v2-procbar { padding: 7px 6px; }
+
+/* 브랜드 — 한글 명칭 "예산관리 시스템" (AXGENTIC WIRE 표기 삭제, 2026-10-16) */
+.v2-app-rail .v2-wm-ko { white-space: nowrap; }
+.v2-app-rail .v2-wm-ko b { letter-spacing: -.03em; }
