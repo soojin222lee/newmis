@@ -155,6 +155,18 @@
   .adm-code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #64748b; }
   .adm-grp-head td { background: #f6f8fb !important; font-weight: 900; color: #475569; font-size: 11.5px; }
 
+  /* 권한 관리 — 컴팩트 CRUD 칩 */
+  .adm-perm-table th, .adm-perm-table td { padding: 9px 10px; }
+  .adm-pchips { display: inline-flex; gap: 3px; }
+  .adm-pchip { display: inline-flex; align-items: center; justify-content: center; width: 23px; height: 23px; border-radius: 6px;
+    border: 1px solid #d7dce4; background: #fff; color: #aeb6c2; font-size: 11px; font-weight: 900; cursor: pointer; font-family: inherit; transition: background .1s, border-color .1s, color .1s; }
+  .adm-pchip:hover { border-color: var(--sk-blue); color: var(--sk-blue); }
+  .adm-pchip.on { background: var(--sk-blue); border-color: var(--sk-blue); color: #fff; box-shadow: 0 2px 6px -2px rgba(47,107,237,.5); }
+  .adm-perm-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 0 12px; font-size: 11.5px; color: #64748b; }
+  .adm-perm-legend span b { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; background: var(--sk-blue-soft);
+    color: var(--sk-blue-deep); font-size: 10.5px; margin-right: 4px; vertical-align: middle; }
+  .adm-perm-legend em { font-style: normal; color: #94a3b8; margin-left: auto; }
+
   .adm-modal-ov { position: fixed; inset: 0; z-index: 300; background: rgba(17,21,32,.42); display: flex; align-items: center; justify-content: center; padding: 20px; }
   .adm-modal { background: #fff; border-radius: 16px; width: 520px; max-width: 94vw; max-height: 88vh; overflow: auto;
     box-shadow: 0 24px 60px -18px rgba(17,21,32,.5); font-family: inherit; }
@@ -246,7 +258,7 @@
   <main class="asite-main" id="asite-main"></main>
   <div id="toast"></div>
 
-  <script src="/js/admin.js?v=20261019-crud"></script>
+  <script src="/js/admin.js?v=20261019-crud2"></script>
   <!-- 요구사항 노트(전 화면 공통, 좌하단 [요구사항] 버튼) — 메인과 동일 기능/저장소 -->
   <script src="/js/req-notes.js?v=20261012-1"></script>
 </body>

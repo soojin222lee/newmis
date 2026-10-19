@@ -17,7 +17,7 @@ var ADMIN_SECTIONS = [
   { key: 'perm',   icon: '🔑', title: '권한 관리',   desc: '역할별 메뉴 접근·CRUD 권한(C·R·U·D·승인)을 설정합니다.' },
   { key: 'org',    icon: '🏢', title: '조직도 관리', desc: '본부·사업부·팀 조직 구조와 조직장·인원을 관리합니다.' },
   { key: 'menu',   icon: '🗂', title: '메뉴 관리',   desc: '메뉴 노출/순서/경로/노출 역할을 관리합니다.' },
-  { key: 'price',  icon: '💲', title: 'P단가 관리',  desc: '직급·등급별 표준 인건비 단가(P단가)와 적용일을 관리합니다.' },
+  { key: 'price',  icon: '💲', title: 'P단가 관리',  desc: 'P레벨(P0~P10)별 표준 인건비 단가(P단가)와 적용일을 관리합니다.' },
   { key: 'fx',     icon: '💱', title: '환율 관리',   desc: '통화별 매매기준율·적용일·출처를 관리합니다.' },
   { key: 'code',   icon: '🔖', title: '코드 관리',   desc: '공통 코드 그룹·코드값·정렬·사용여부를 관리합니다.' },
   { key: 'notify', icon: '🔔', title: '알림 설정',   desc: '이벤트별 알림 채널·수신 대상·사용여부를 설정합니다.' },
@@ -69,11 +69,17 @@ var ADM_DEFAULTS = {
     { order: 99, name: '관리자',            path: '/admin.html',      roles: '시스템관리자',   vis: '노출' },
   ],
   price: [
-    { grade: 'S', pos: '수석', unit: 12500000, apply: '2026-01-01', note: '컨설팅/수석 아키텍트' },
-    { grade: 'A', pos: '책임', unit: 9800000,  apply: '2026-01-01', note: '프로젝트 리딩/설계' },
-    { grade: 'B', pos: '선임', unit: 7600000,  apply: '2026-01-01', note: '주요 개발/분석' },
-    { grade: 'C', pos: '전임', unit: 6100000,  apply: '2026-01-01', note: '개발 실무' },
-    { grade: 'D', pos: '사원', unit: 4800000,  apply: '2026-01-01', note: '지원/보조' },
+    { grade: 'P10', pos: '수석 컨설턴트', unit: 13500000, apply: '2026-01-01', note: '전사 수석/아키텍트' },
+    { grade: 'P9',  pos: '책임 컨설턴트', unit: 12000000, apply: '2026-01-01', note: '프로젝트 총괄' },
+    { grade: 'P8',  pos: '수석',          unit: 10800000, apply: '2026-01-01', note: '핵심 설계/리딩' },
+    { grade: 'P7',  pos: '책임',          unit: 9600000,  apply: '2026-01-01', note: '설계/리딩' },
+    { grade: 'P6',  pos: '선임',          unit: 8500000,  apply: '2026-01-01', note: '주요 개발/분석' },
+    { grade: 'P5',  pos: '선임',          unit: 7500000,  apply: '2026-01-01', note: '개발/분석' },
+    { grade: 'P4',  pos: '전임',          unit: 6600000,  apply: '2026-01-01', note: '개발 실무' },
+    { grade: 'P3',  pos: '전임',          unit: 5800000,  apply: '2026-01-01', note: '개발 실무' },
+    { grade: 'P2',  pos: '초급',          unit: 5100000,  apply: '2026-01-01', note: '개발 보조' },
+    { grade: 'P1',  pos: '초급',          unit: 4500000,  apply: '2026-01-01', note: '지원/보조' },
+    { grade: 'P0',  pos: '신입',          unit: 4000000,  apply: '2026-01-01', note: '신입/보조' },
   ],
   fx: [
     { cur: 'USD', name: '미국 달러',     rate: 1385.20, apply: '2026-10-14', source: '하나은행 매매기준율' },
@@ -126,11 +132,28 @@ var ADM_DEFAULTS = {
     { system: 'Finance',       type: '경비 전표 승인',   endpoint: 'https://fin.internal/voucher',  auth: 'API Key', status: '오류', lastSync: '2026-10-18 21:00' },
   ],
   batch: [
-    { name: '프로젝트 자동 종료',      schedule: '매일 02:00',    lastRun: '2026-10-19 02:00', nextRun: '2026-10-20 02:00', status: '정상', use: '사용' },
-    { name: '월마감 인건비 실적 생성', schedule: '매월 1일 03:00', lastRun: '2026-10-01 03:00', nextRun: '2026-11-01 03:00', status: '정상', use: '사용' },
-    { name: 'ERP 예산 전송',          schedule: '매일 08:00',    lastRun: '2026-10-19 08:00', nextRun: '2026-10-20 08:00', status: '정상', use: '사용' },
-    { name: '환율 동기화',            schedule: '매일 09:00',    lastRun: '2026-10-19 09:00', nextRun: '2026-10-20 09:00', status: '정상', use: '사용' },
-    { name: '실적 집계(STAC)',        schedule: '매일 01:00',    lastRun: '2026-10-19 01:00', nextRun: '2026-10-20 01:00', status: '실패', use: '사용' },
+    { name: '프로젝트 자동 종료',      schedule: '매일 02:00',    lastRun: '2026-10-19 02:00', nextRun: '2026-10-20 02:00', status: '정상', use: '사용', hist: [
+      { ts: '2026-10-19 02:00', result: '정상', dur: '4.2s', detail: '종료 3건' },
+      { ts: '2026-10-18 02:00', result: '정상', dur: '3.8s', detail: '종료 1건' },
+      { ts: '2026-10-17 02:00', result: '정상', dur: '4.0s', detail: '종료 0건' },
+    ] },
+    { name: '월마감 인건비 실적 생성', schedule: '매월 1일 03:00', lastRun: '2026-10-01 03:00', nextRun: '2026-11-01 03:00', status: '정상', use: '사용', hist: [
+      { ts: '2026-10-01 03:00', result: '정상', dur: '58.1s', detail: '실적 1,204건 생성' },
+      { ts: '2026-09-01 03:00', result: '정상', dur: '55.7s', detail: '실적 1,176건 생성' },
+    ] },
+    { name: 'ERP 예산 전송',          schedule: '매일 08:00',    lastRun: '2026-10-19 08:00', nextRun: '2026-10-20 08:00', status: '정상', use: '사용', hist: [
+      { ts: '2026-10-19 08:00', result: '정상', dur: '12.4s', detail: '전송 18건' },
+      { ts: '2026-10-18 08:00', result: '정상', dur: '11.9s', detail: '전송 16건' },
+    ] },
+    { name: '환율 동기화',            schedule: '매일 09:00',    lastRun: '2026-10-19 09:00', nextRun: '2026-10-20 09:00', status: '정상', use: '사용', hist: [
+      { ts: '2026-10-19 09:00', result: '정상', dur: '1.1s', detail: '4개 통화 갱신' },
+      { ts: '2026-10-18 09:00', result: '정상', dur: '1.0s', detail: '4개 통화 갱신' },
+    ] },
+    { name: '실적 집계(STAC)',        schedule: '매일 01:00',    lastRun: '2026-10-19 01:00', nextRun: '2026-10-20 01:00', status: '실패', use: '사용', hist: [
+      { ts: '2026-10-19 01:00', result: '실패', dur: '2.3s', detail: 'ERP 응답 지연(timeout)' },
+      { ts: '2026-10-18 01:00', result: '정상', dur: '33.5s', detail: '집계 완료' },
+      { ts: '2026-10-17 01:00', result: '정상', dur: '31.8s', detail: '집계 완료' },
+    ] },
   ],
 };
 
@@ -205,18 +228,18 @@ var ADM_SCHEMA = {
     note: '※ 순서 ▲▼로 메뉴 노출 순서를 바꿉니다. 노출 역할이 없는 사용자는 해당 메뉴가 숨겨집니다.',
   },
   price: {
-    noun: 'P단가', addLabel: '＋ 등급 등록',
+    noun: 'P단가', addLabel: '＋ P레벨 등록', search: true,
     cols: [
-      { k: 'grade', label: '등급' }, { k: 'pos', label: '직급' },
+      { k: 'grade', label: 'P레벨', tag: true }, { k: 'pos', label: '역할' },
       { k: 'unit', label: '월 표준단가(P단가)', align: 'num', money: true, suffix: ' 원' },
       { k: 'apply', label: '적용일' }, { k: 'note', label: '설명', muted: true },
     ],
     fields: [
-      { k: 'grade', label: '등급', type: 'text', req: true }, { k: 'pos', label: '직급', type: 'text', req: true },
+      { k: 'grade', label: 'P레벨', type: 'text', req: true }, { k: 'pos', label: '역할', type: 'text', req: true },
       { k: 'unit', label: '월 표준단가(원)', type: 'number', req: true }, { k: 'apply', label: '적용일', type: 'date', req: true },
       { k: 'note', label: '설명', type: 'text', full: true },
     ],
-    note: '※ P단가 = 인건비 산정 기준 직급·등급별 월 표준단가. 적용일 이후 신규 편성에 반영됩니다.',
+    note: '※ P단가 = 인건비 산정 기준 P레벨(P0~P10)별 월 표준단가. 적용일 이후 신규 편성에 반영됩니다.',
   },
   fx: {
     noun: '환율', addLabel: '＋ 통화 등록',
@@ -285,7 +308,7 @@ var ADM_SCHEMA = {
       { k: 'status', label: '상태', pill: true },
     ],
     toggle: { k: 'use', states: ['사용', '미사용'] },
-    rowBtns: function (row, idx) { return '<button class="adm-btn sm ghost" onclick="admBatchRun(' + idx + ')">즉시 실행</button>'; },
+    rowBtns: function (row, idx) { return '<button class="adm-btn sm ghost" onclick="admBatchRun(' + idx + ')">즉시 실행</button> <button class="adm-btn sm" onclick="admBatchHistory(' + idx + ')">이력</button>'; },
     fields: [
       { k: 'name', label: '작업명', type: 'text', req: true }, { k: 'schedule', label: '주기', type: 'text', req: true },
       { k: 'status', label: '상태', type: 'select', opts: ['정상', '실패', '대기'], def: '대기' },
@@ -462,10 +485,28 @@ function admBatchRun(idx) {
   var row = ADM.batch[idx]; if (!row) return;
   admToast(row.name + ' 즉시 실행…');
   setTimeout(function () {
-    row.lastRun = admNowStr(); row.status = '정상';
+    var ts = admNowStr();
+    row.lastRun = ts; row.status = '정상';
+    if (!row.hist) row.hist = [];
+    row.hist.unshift({ ts: ts, result: '정상', dur: (Math.random() * 20 + 2).toFixed(1) + 's', detail: '수동 실행' });
     admPersist(); asiteRender();
     admToast(row.name + ' 실행 완료');
   }, 700);
+}
+function admBatchHistory(idx) {
+  var row = ADM.batch[idx]; if (!row) return;
+  var hist = row.hist || [];
+  var body = hist.length ? hist.map(function (h) {
+    return '<tr><td class="adm-code">' + admEsc(h.ts) + '</td><td>' + admPill(h.result) + '</td>'
+      + '<td class="num">' + admEsc(h.dur) + '</td><td class="adm-muted">' + admEsc(h.detail || '-') + '</td></tr>';
+  }).join('') : '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:22px">실행 이력이 없습니다.</td></tr>';
+  admModal('<div class="adm-modal wide">'
+    + '<div class="adm-modal-head"><b>⏱ ' + admEsc(row.name) + ' — 실행 이력</b><button class="adm-modal-x" onclick="admCloseModal()">✕</button></div>'
+    + '<div style="padding:4px 20px 2px"><span class="adm-muted">주기 ' + admEsc(row.schedule) + ' · 최근 실행 ' + admEsc(row.lastRun || '-') + ' · 다음 실행 ' + admEsc(row.nextRun || '-') + '</span></div>'
+    + '<div style="padding:12px 20px 4px"><table class="adm-table"><thead><tr><th>실행 일시</th><th>결과</th><th class="num">소요</th><th>비고</th></tr></thead>'
+    + '<tbody>' + body + '</tbody></table></div>'
+    + '<div class="adm-modal-foot"><button class="adm-btn" onclick="admCloseModal()">닫기</button>'
+    + '<button class="adm-btn pri" onclick="admCloseModal();admBatchRun(' + idx + ')">지금 실행</button></div></div>');
 }
 function admNowStr() {
   var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
@@ -490,35 +531,45 @@ function admModalEsc(e) { if (e.key === 'Escape') admCloseModal(); }
 
 // ── 권한 관리 (역할 × 메뉴 매트릭스) ──
 function admPermHtml() {
-  var head = '<tr><th>역할</th>' + ADM_PERM_MENUS.map(function (m) { return '<th style="text-align:center">' + m + '</th>'; }).join('') + '<th></th></tr>';
+  var head = '<tr><th>역할</th>' + ADM_PERM_MENUS.map(function (m) { return '<th style="text-align:center;min-width:170px">' + m + '</th>'; }).join('') + '<th></th></tr>';
   var rows = ADM_ROLES.map(function (role) {
     var cells = ADM_PERM_MENUS.map(function (menu) {
       var have = (ADM.perm[role] && ADM.perm[role][menu]) || '';
       var chips = ADM_PERM_CRUD.map(function (c) {
         var code = c[0], on = have.indexOf(code) >= 0;
-        return '<label style="display:inline-flex;align-items:center;gap:2px;margin:0 3px;font-size:11px;color:#64748b">'
-          + '<input type="checkbox" class="adm-chk" ' + (on ? 'checked' : '') + ' onchange="admPermToggle(\'' + role + '\',\'' + menu + '\',\'' + code + '\',this.checked)"> ' + c[1] + '</label>';
+        return '<button class="adm-pchip' + (on ? ' on' : '') + '" title="' + c[1] + '" '
+          + 'onclick="admPermFlip(this,\'' + role + '\',\'' + menu + '\',\'' + code + '\')">' + code + '</button>';
       }).join('');
-      return '<td style="text-align:center">' + chips + '</td>';
+      return '<td style="text-align:center"><div class="adm-pchips">' + chips + '</div></td>';
     }).join('');
     var delBtn = (role === '시스템관리자') ? '<span class="adm-muted">기본</span>'
       : '<button class="adm-btn sm del" onclick="admPermDelRole(\'' + role + '\')">삭제</button>';
     return '<tr><td><b>' + role + '</b></td>' + cells + '<td style="white-space:nowrap">' + delBtn + '</td></tr>';
   }).join('');
+  var legend = '<div class="adm-perm-legend">'
+    + ADM_PERM_CRUD.map(function (c) { return '<span><b>' + c[0] + '</b> ' + c[1] + '</span>'; }).join('')
+    + '<em>칩을 눌러 켜고 끕니다 · 변경 즉시 저장</em></div>';
   return '<div class="adm-toolbar"><button class="adm-btn pri" onclick="admPermAddRole()">＋ 역할 등록</button>'
-    + '<button class="adm-btn" onclick="admSave(\'권한\')">저장</button></div>'
-    + '<table class="adm-table"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table>'
-    + '<div class="adm-note">※ 체크 = 해당 역할이 그 메뉴에서 수행할 수 있는 권한 (C등록·R조회·U수정·D삭제·A승인). 변경은 즉시 저장됩니다.</div>';
+    + '<button class="adm-btn" onclick="admSave(\'권한\')">저장</button>'
+    + '<span class="adm-count">' + ADM_ROLES.length + '개 역할</span></div>'
+    + legend
+    + '<table class="adm-table adm-perm-table"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table>'
+    + '<div class="adm-note">※ 역할이 각 메뉴에서 수행할 수 있는 권한을 칩으로 설정합니다 (C 등록·R 조회·U 수정·D 삭제·A 승인).</div>';
 }
-function admPermToggle(role, menu, code, on) {
+function admPermSet(role, menu, code, on) {
   if (!ADM.perm[role]) ADM.perm[role] = {};
   var cur = ADM.perm[role][menu] || '';
-  var order = 'CRUDA';
   var set = {};
   cur.split('').forEach(function (c) { set[c] = true; });
   if (on) set[code] = true; else delete set[code];
-  ADM.perm[role][menu] = order.split('').filter(function (c) { return set[c]; }).join('');
+  ADM.perm[role][menu] = 'CRUDA'.split('').filter(function (c) { return set[c]; }).join('');
   admPersist();
+}
+// 칩 클릭 — 데이터 토글 + 자기 자신 스타일만 반전(리렌더 없이 가볍게)
+function admPermFlip(btn, role, menu, code) {
+  var on = !btn.classList.contains('on');
+  btn.classList.toggle('on', on);
+  admPermSet(role, menu, code, on);
 }
 function admPermAddRole() {
   admModal('<div class="adm-modal" style="width:400px">'
