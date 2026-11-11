@@ -11,7 +11,7 @@ const PROPOSAL_PROJECTS = {
   'PP-001': {
     code:'30142101-P001', name:'클라우드 인프라 전환 확장 제안',
     parent:'30142101-D001', parentName:'2026년 클라우드 인프라 전환',
-    start:'2026-08-01', end:'2026-10-31', pm:'한민석', revOrg:'NOVA PMO팀',
+    start:'2026-08-01', end:'2026-09-20', pm:'한민석', revOrg:'NOVA PMO팀',
     projType:'제안프로젝트', stage:'수행중', contractType:'제안', mainDept:'NOVA PMO팀',
     customer:'SK C&C', ifSource:'ERP', lastSync:'2026-08-18 09:30',
     ifDetail:{
@@ -25,7 +25,7 @@ const PROPOSAL_PROJECTS = {
       basic:[
         { k:'제안 예상금액', v:'320,000,000 원', sys:'ERP', changed:'1일 전 변경', num:true },
         { k:'투입 인원', v:'6 명', sys:'SCM', changed:'2일 전 변경', num:true },
-        { k:'제안 기간', v:'2026-08-01 ~ 2026-10-31', sys:'ERP', num:true },
+        { k:'제안 기간', v:'2026-08-01 ~ 2026-09-20', sys:'ERP', num:true },
         { k:'수행 PM', v:'한민석', sys:'SCM' },
         { k:'매출귀속조직', v:'NOVA PMO팀', sys:'ERP' },
         { k:'프로젝트 유형', v:'제안프로젝트', sys:'ERP' },
@@ -182,8 +182,10 @@ function renderProposalDetail() {
   const p = PROPOSAL_PROJECTS[ppSelectedId];
   if (!el || !p) return;
   siActiveProject = p; // 동기화 팝업이 이 프로젝트를 보도록 지정
-  const extraMeta = `<span class="sifr-sep">|</span><span>원 수주 <b style="color:#0B6E55">${p.parent}</b></span>`;
-  el.innerHTML = siDetailHtml(p, "closeProposalDetail()", extraMeta);
+  // 원 수주 — 같은 코드의 수주형 프로젝트가 있으면 누르면 그 상세로 (프로젝트 현황 상세 조회와 같은 방식)
+  const parentKey = (typeof SI_PROJECTS !== 'undefined') ? Object.keys(SI_PROJECTS).find(k => SI_PROJECTS[k].code === p.parent) : null;
+  const extraMeta = `<span class="sifr-sep">|</span><span>원 수주 <b style="color:#0B6E55${parentKey ? ';cursor:pointer;text-decoration:underline' : ''}"${parentKey ? ` onclick="psvOpenDetail('수주형','${parentKey}')"` : ''}>${p.parent}</b></span>`;
+  el.innerHTML = siDetailHtml(p, "closeProposalDetail()", extraMeta, '제안', ppSelectedId);
 }
 
 // ── 신규/수정 입력 폼 (저장=U/C · 취소) ──
