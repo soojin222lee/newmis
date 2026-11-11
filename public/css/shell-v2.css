@@ -425,3 +425,12 @@ body.app-v2.v2-rail-min .v2-app-rail .v2-procbar { padding: 7px 6px; }
 /* 브랜드 — 한글 명칭 "예산관리 시스템" (AXGENTIC WIRE 표기 삭제, 2026-10-16) */
 .v2-app-rail .v2-wm-ko { white-space: nowrap; }
 .v2-app-rail .v2-wm-ko b { letter-spacing: -.03em; }
+
+/* 편성 전 프로젝트의 전체 현황 안내 한 줄 */
+body.app-v2 .v2-pre-note {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 10px 0 12px; padding: 10px 14px; border-radius: 10px;
+  background: #f5f7fb; border: 1px solid var(--v2-line, #e3e8f0);
+  font-size: 13px; color: var(--v2-ink-2, #344054);
+}
+body.app-v2 .v2-pre-note b { font-weight: 900; }
