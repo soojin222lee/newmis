@@ -132,6 +132,60 @@
   .adm-tbd-t { font-size: 16px; font-weight: 900; color: #334155; margin: 12px 0 6px; }
   .adm-tbd-d { font-size: 12.5px; color: var(--sk-muted); line-height: 1.7; }
 
+  /* ── CRUD 확장: 검색·필터·상태 pill·모달 폼 ── */
+  .adm-search { flex: 1 1 220px; min-width: 160px; max-width: 320px; border: 1px solid var(--sk-border-strong); border-radius: 8px;
+    padding: 8px 11px; font-size: 12.5px; font-family: inherit; color: #1f2937; background: #fff; }
+  .adm-search:focus { outline: none; border-color: var(--sk-blue); box-shadow: 0 0 0 3px var(--sk-blue-soft); }
+  .adm-filter { border: 1px solid var(--sk-border-strong); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; font-family: inherit; color: #334155; background: #fff; cursor: pointer; }
+  .adm-count { font-size: 11.5px; font-weight: 800; color: #94a3b8; margin-left: auto; white-space: nowrap; }
+  .adm-btn.sm { padding: 5px 9px; font-size: 11.5px; }
+  .adm-btn.del { color: #c40025; border-color: #f3c2cc; }
+  .adm-btn.del:hover { background: #fef2f2; border-color: #dc2626; color: #dc2626; }
+  .adm-btn.ghost { background: #f7f9fc; }
+  .adm-ord { display: inline-flex; flex-direction: column; gap: 2px; margin-right: 4px; vertical-align: middle; }
+  .adm-ord button { border: 1px solid var(--sk-border); background: #fff; color: #64748b; width: 20px; height: 15px; line-height: 1; border-radius: 4px; cursor: pointer; font-size: 9px; padding: 0; font-family: inherit; }
+  .adm-ord button:hover { border-color: var(--sk-blue); color: var(--sk-blue); }
+  .adm-pill { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 999px; border: 1px solid; }
+  .adm-pill.green { background: #e8f3ec; color: #167a4a; border-color: #c9e7d4; }
+  .adm-pill.gray { background: #f1f3f6; color: #94a3b8; border-color: var(--sk-border); }
+  .adm-pill.red { background: #fdecec; color: #b80022; border-color: #f5c2c0; }
+  .adm-pill.amber { background: #fff7ed; color: #b4740a; border-color: #fed7aa; }
+  .adm-pill.blue { background: var(--sk-blue-soft); color: var(--sk-blue-deep); border-color: #cfe0fb; }
+  .adm-muted { color: #94a3b8; font-size: 11.5px; }
+  .adm-code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #64748b; }
+  .adm-grp-head td { background: #f6f8fb !important; font-weight: 900; color: #475569; font-size: 11.5px; }
+
+  /* 권한 관리 — 컴팩트 CRUD 칩 */
+  .adm-perm-table th, .adm-perm-table td { padding: 9px 10px; }
+  .adm-pchips { display: inline-flex; gap: 3px; }
+  .adm-pchip { display: inline-flex; align-items: center; justify-content: center; width: 23px; height: 23px; border-radius: 6px;
+    border: 1px solid #d7dce4; background: #fff; color: #aeb6c2; font-size: 11px; font-weight: 900; cursor: pointer; font-family: inherit; transition: background .1s, border-color .1s, color .1s; }
+  .adm-pchip:hover { border-color: var(--sk-blue); color: var(--sk-blue); }
+  .adm-pchip.on { background: var(--sk-blue); border-color: var(--sk-blue); color: #fff; box-shadow: 0 2px 6px -2px rgba(47,107,237,.5); }
+  .adm-perm-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 0 12px; font-size: 11.5px; color: #64748b; }
+  .adm-perm-legend span b { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 5px; background: var(--sk-blue-soft);
+    color: var(--sk-blue-deep); font-size: 10.5px; margin-right: 4px; vertical-align: middle; }
+  .adm-perm-legend em { font-style: normal; color: #94a3b8; margin-left: auto; }
+
+  .adm-modal-ov { position: fixed; inset: 0; z-index: 300; background: rgba(17,21,32,.42); display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .adm-modal { background: #fff; border-radius: 16px; width: 520px; max-width: 94vw; max-height: 88vh; overflow: auto;
+    box-shadow: 0 24px 60px -18px rgba(17,21,32,.5); font-family: inherit; }
+  .adm-modal.wide { width: 720px; }
+  .adm-modal-head { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid var(--sk-border); position: sticky; top: 0; background: #fff; }
+  .adm-modal-head b { font-size: 15.5px; font-weight: 900; color: #0f172a; flex: 1; }
+  .adm-modal-head .adm-modal-x { border: 0; background: #f1f3f6; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; font-size: 14px; color: #475569; }
+  .adm-form { padding: 16px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+  .adm-field { display: flex; flex-direction: column; gap: 5px; }
+  .adm-field.full { grid-column: 1 / -1; }
+  .adm-field label { font-size: 11.5px; font-weight: 800; color: #64748b; }
+  .adm-field label .req { color: #dc2626; margin-left: 2px; }
+  .adm-field input, .adm-field select, .adm-field textarea { border: 1px solid var(--sk-border-strong); border-radius: 9px;
+    padding: 8px 11px; font: 13px/1.5 inherit; color: #1f2937; background: #fff; font-family: inherit; }
+  .adm-field input:focus, .adm-field select:focus, .adm-field textarea:focus { outline: none; border-color: var(--sk-blue); box-shadow: 0 0 0 3px var(--sk-blue-soft); }
+  .adm-field input[readonly] { background: #f7f9fc; color: #94a3b8; }
+  .adm-modal-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 14px 20px 18px; border-top: 1px solid var(--sk-border); position: sticky; bottom: 0; background: #fff; }
+  @media (max-width: 560px) { .adm-form { grid-template-columns: 1fr; } }
+
   /* 토스트 (메인 앱 톤) */
   #toast { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(8px); z-index: 100;
     background: var(--sk-ink); color: #fff; font-size: 13px; font-weight: 700; padding: 11px 18px; border-radius: 10px;
@@ -204,7 +258,7 @@
   <main class="asite-main" id="asite-main"></main>
   <div id="toast"></div>
 
-  <script src="/js/admin.js?v=20261015-adminsite3"></script>
+  <script src="/js/admin.js?v=20261019-crud2"></script>
   <!-- 관리자 > Golden Data set 관리(석완) — admin.js 뒤에 로드되어 메뉴·화면을 끼워 넣음 -->
   <script src="/js/admin-golden.js?v=20261028-1"></script>
   <!-- 요구사항 노트(전 화면 공통, 좌하단 [요구사항] 버튼) — 메인과 동일 기능/저장소 -->

@@ -1818,7 +1818,7 @@ function renderBudgetListView() {
 
   const rows = entries.map(p => {
     return `
-      <tr onclick="openBudgetProjectScreen('${p.key}')">
+      <tr onclick="exitBudgetListFullscreen();openBudgetProjectScreen('${p.key}')">
         <td class="eb-no">${p.no}</td>
         <td><div class="pt-name">${p.name}</div></td>
         <td class="pt-center"><span class="exec-chip type-${execTypeClass(p.type)}">${p.type}</span></td>
@@ -1874,8 +1874,9 @@ function renderBudgetListView() {
         <div class="exec-total">총 <strong>${fmt(40624)}</strong> 건</div>
         <div class="exec-actions">
           <button class="exec-text-btn">엑셀</button>
-          <button class="exec-primary-btn">프로젝트 등록</button>
-          <button class="exec-icon-btn">＋</button>
+          <button class="exec-icon-btn exec-fs-btn" onclick="toggleBudgetListFullscreen()"
+            title="${window.budgetListFullscreen ? '원래 크기로' : '전체화면으로 보기'}"
+            aria-label="${window.budgetListFullscreen ? '전체화면 종료' : '전체화면으로 보기'}">${window.budgetListFullscreen ? window.EXEC_FS_ICON_IN : window.EXEC_FS_ICON_OUT}</button>
         </div>
       </div>
     </div>
@@ -1895,8 +1896,54 @@ function renderBudgetListView() {
         </thead>
         <tbody>${rows || noResult}</tbody>
       </table>
-    </div>`;
+    </div>
+    <button class="exec-fs-exit" onclick="toggleBudgetListFullscreen()" title="원래 크기로" aria-label="전체화면 종료">${window.EXEC_FS_ICON_IN}<span>닫기</span></button>`;
+
+  injectExecFsStyle();
+  const _bb = document.getElementById('budget-body');
+  if (_bb) _bb.classList.toggle('exec-list-fs', !!window.budgetListFullscreen);
 }
+
+// ── 실행예산 목록 전체화면 보기 (＋ → 대각선 확장 화살표) ──
+window.budgetListFullscreen = window.budgetListFullscreen || false;
+window.EXEC_FS_ICON_OUT = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+window.EXEC_FS_ICON_IN = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
+
+function injectExecFsStyle() {
+  if (document.getElementById('exec-fs-style')) return;
+  const s = document.createElement('style');
+  s.id = 'exec-fs-style';
+  s.textContent = `
+    #budget-body.exec-list-fs .exec-table-card{position:fixed;inset:0;z-index:1200;margin:0;max-width:none;max-height:none;height:auto;border-radius:0;background:#fff;overflow:auto;padding:14px clamp(16px,3vw,40px);animation:execFsIn .18s ease;}
+    @keyframes execFsIn{from{opacity:.45;transform:scale(.995)}to{opacity:1;transform:none}}
+    body.exec-fs-lock{overflow:hidden;}
+    .exec-fs-btn{display:inline-flex;align-items:center;justify-content:center;}
+    .exec-fs-btn svg{display:block;}
+    .exec-fs-exit{display:none;position:fixed;top:14px;right:18px;z-index:1300;align-items:center;gap:6px;padding:8px 14px;border:1px solid #d7deea;border-radius:8px;background:#fff;color:#1e293b;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 12px rgba(15,23,42,.14);}
+    .exec-fs-exit:hover{background:#f1f5f9;}
+    .exec-fs-exit svg{display:block;}
+    #budget-body.exec-list-fs .exec-fs-exit{display:inline-flex;}
+  `;
+  document.head.appendChild(s);
+}
+
+function toggleBudgetListFullscreen() {
+  window.budgetListFullscreen = !window.budgetListFullscreen;
+  document.body.classList.toggle('exec-fs-lock', window.budgetListFullscreen);
+  renderBudgetListView();
+}
+
+function exitBudgetListFullscreen() {
+  if (!window.budgetListFullscreen) return;
+  window.budgetListFullscreen = false;
+  document.body.classList.remove('exec-fs-lock');
+  const bb = document.getElementById('budget-body');
+  if (bb) bb.classList.remove('exec-list-fs');
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && window.budgetListFullscreen) toggleBudgetListFullscreen();
+});
 
 function renderBudgetAccountEditor(data, account) {
   if (account === '인건비') {
