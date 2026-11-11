@@ -212,7 +212,6 @@ function renderProjectStatus() {
     + '<select class="psv-sel" onchange="psvSet(\'path\',this.value)">' + pathOpts + '</select>'
     + '<button class="psv-btn pri" onclick="psvSearchGo()">조회</button>'
     + '<button class="psv-btn" onclick="psvResetFilter()">초기화</button>'
-    + '<button class="psv-btn" onclick="psvDownload()">목록 다운로드</button>'
     + '</div>'
     + '<div class="psv-listhead"><div class="psv-total">총 <strong>' + rows.length + '</strong> 건</div>'
     + '<div class="psv-listact">'
@@ -268,6 +267,8 @@ function psvOpenDetail(type, key) {
   if (typeof window.tabOpenProjectHint === 'function') window.tabOpenProjectHint(desc);
   if (typeof window[meta.show] === 'function') window[meta.show]();
   if (typeof window[meta.detail] === 'function') window[meta.detail](key);
+  // 이 상세는 '프로젝트 현황'에서 진입 → [목록] 클릭 시 프로젝트 현황으로 복귀
+  window.psvFromStatus = true;
   // 탭에 "프로젝트번호 + 명칭" 태깅 (+ 즐겨찾기용 재진입 서술자)
   try {
     const store = psvStore(meta.data);
@@ -570,6 +571,35 @@ function psvRenderMember() {
     + '<div class="psv-mcol-r"><table class="psv-mt"><thead><tr><th>이름</th><th>사번</th><th>직책</th><th>부서</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   document.getElementById('psv-md-foot').innerHTML = psvFootHtml('psvMemSelectBtn()');
 }
+
+// ── 상세 '목록' 버튼 분기 ──
+// '프로젝트 현황'에서 상세로 진입한 경우에만 [목록] 클릭 시 #/project-status 로 복귀.
+// 유형 자체 리스트에서 진입하면 기존 동작(해당 유형 리스트)을 그대로 유지.
+// (project-status.js 는 모든 유형 파일 뒤에 로드되므로 close/open 함수를 감쌀 수 있다.)
+(function psvWireDetailBack() {
+  window.psvFromStatus = window.psvFromStatus || false;
+  const types = [
+    { open: 'openSIDetail',       close: 'closeSIDetail' },
+    { open: 'openProposalDetail', close: 'closeProposalDetail' },
+    { open: 'openWGDetail',       close: 'closeWGDetail' },
+    { open: 'openIPDetail',       close: 'closeIPDetail' },
+    { open: 'openInvDetail',      close: 'closeInvDetail' },
+    { open: 'openAdvDetail',      close: 'closeAdvDetail' },
+  ];
+  types.forEach(function (t) {
+    const origOpen = window[t.open];
+    if (typeof origOpen === 'function') {
+      window[t.open] = function () { window.psvFromStatus = false; return origOpen.apply(this, arguments); };
+    }
+    const origClose = window[t.close];
+    if (typeof origClose === 'function') {
+      window[t.close] = function () {
+        if (window.psvFromStatus) { window.psvFromStatus = false; showProjectStatus(); return; }
+        return origClose.apply(this, arguments);
+      };
+    }
+  });
+})();
 
 // 라우트 등록 (app.js 로드 뒤 실행되므로 전역 객체에 직접 추가)
 if (typeof SCREEN_ROUTES !== 'undefined') SCREEN_ROUTES['s-project-status'] = 'project-status';
