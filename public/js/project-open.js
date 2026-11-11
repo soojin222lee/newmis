@@ -291,7 +291,8 @@ function popenListHtml() {
   const up = popenUploaded.map(function (r, i) {
     const err = r.errors.length > 0;
     return '<tr class="' + (err ? 'err' : 'new') + '">'
-      + '<td><input type="checkbox"' + (err ? ' disabled' : (popenChecked['U' + i] ? ' checked' : '')) + ' onclick="event.stopPropagation();popenCheck(\'U' + i + '\',this.checked)"></td>'
+      // 오류 행도 체크 가능 — [선택삭제]로 지울 수 있게. [선택등록]에서는 오류 행을 건너뜀
+      + '<td><input type="checkbox"' + (popenChecked['U' + i] ? ' checked' : '') + ' onclick="event.stopPropagation();popenCheck(\'U' + i + '\',this.checked)"></td>'
       + '<td>' + popenEsc(r.no) + '</td><td class="l">' + popenEsc(r.name) + '<span class="popen-tbadge" style="background:#b4530922;color:#b45309">W/G</span></td>'
       + '<td>' + popenEsc(r.pm) + '</td><td>' + popenEsc(r.acct) + '</td><td class="r">' + popenWon(r.bgt) + '</td><td></td>'
       + '<td>' + (err ? '<button class="popen-errbtn" onclick="popenShowErr(' + i + ')">오류</button>' : '') + '</td><td></td></tr>';
@@ -564,10 +565,17 @@ function popenUpload() {
   ];
   popenChecked['U0'] = true;
   renderProjectOpen();
+  const errCnt = popenUploaded.filter(function (r) { return r.errors.length; }).length;
+  popenToast('엑셀 ' + popenUploaded.length + '행을 읽었습니다 (정상 ' + (popenUploaded.length - errCnt) + ' / 오류 ' + errCnt + '). [선택등록]을 눌러야 등록됩니다.');
 }
 function popenRegChecked() {
   const idx = popenUploaded.map(function (r, i) { return i; }).filter(function (i) { return popenChecked['U' + i] && !popenUploaded[i].errors.length; });
-  if (!idx.length) return;   // 현행: 체크한 행이 없으면 아무것도 하지 않음
+  if (!idx.length) {
+    // 오류 행만 체크했으면 안내 (체크한 행이 아예 없으면 현행처럼 아무것도 하지 않음)
+    const errOnly = popenUploaded.some(function (r, i) { return popenChecked['U' + i] && r.errors.length; });
+    if (errOnly) { popenConfirm = { msg: '오류가 있는 행은 등록할 수 없습니다.<br>엑셀을 고쳐 다시 올리거나 [선택삭제]하세요.' }; renderProjectOpen(); }
+    return;
+  }
   popenConfirm = { msg: "'" + idx.length + "'건의 WG프로젝트를 등록하시겠습니까?", ok: function () {
     const dup = idx.some(function (i) { return Object.keys(POPEN_APPS).some(function (k) { return POPEN_APPS[k].no === popenUploaded[i].no; }); });
     if (dup) { popenConfirm = { msg: '중복된 프로젝트가 있습니다.<br>확인후 다시 등록 바랍니다.' }; return; }
@@ -580,7 +588,8 @@ function popenRegChecked() {
     });
     popenUploaded = popenUploaded.filter(function (r, i) { return idx.indexOf(i) < 0; });
     popenChecked = {};
-    popenToast('저장했습니다.');
+    const left = popenUploaded.length;   // 등록 안 된 행(오류 행)은 고쳐서 다시 올리거나 선택삭제할 때까지 남김
+    popenToast(left ? '저장했습니다. 오류 ' + left + '행은 등록되지 않았습니다 — 엑셀을 고쳐 다시 올리거나 [선택삭제]하세요.' : '저장했습니다.');
   } };
   renderProjectOpen();
 }
