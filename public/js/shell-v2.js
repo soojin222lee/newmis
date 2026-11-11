@@ -686,3 +686,46 @@ window.initDashboard = function () {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
 })();
+
+// ── 수행원가 메뉴별 첫 화면 (2026-11-11 사용자 결정) ──
+//   원가 현황 → 프로젝트를 누르면 항상 '전체 현황'
+//   원가 조정 → 프로젝트를 누르면 '예산 조정안 + Agent와 대화하기'
+// 최초 편성(편성 전) 프로젝트는 budget-agent-console.js 가 메뉴와 상관없이 원가조정으로 보냈다.
+// 원가 현황에서는 그 예외를 건너뛰고(편성 데이터 준비만 하고) 전체 현황으로 연다. 석완님 파일은 고치지 않는다.
+var openBudgetProjectScreenBeforeShell = (typeof openBudgetProjectScreen === 'function') ? openBudgetProjectScreen : null;
+if (openBudgetProjectScreenBeforeShell) {
+  window.openBudgetProjectScreen = function (projectKey) {
+    const pre = (typeof AGENT_PJT_CP_FINAL !== 'undefined') && AGENT_PJT_CP_FINAL[projectKey];
+    if (pre && typeof costMode !== 'undefined' && costMode === 'status'
+        && typeof openBudgetProjectScreenBeforeAgentFinal === 'function') {
+      if (typeof agentEnsureCreditFinal === 'function') agentEnsureCreditFinal();
+      return openBudgetProjectScreenBeforeAgentFinal(projectKey);
+    }
+    return openBudgetProjectScreenBeforeShell.apply(this, arguments);
+  };
+}
+
+// 편성 전 프로젝트의 전체 현황 — 금액이 전부 0원이라 이유와 갈 곳을 한 줄로 알려 준다
+var showBudgetSummaryGridBeforeShell = (typeof showBudgetSummaryGrid === 'function') ? showBudgetSummaryGrid : null;
+if (showBudgetSummaryGridBeforeShell) {
+  window.showBudgetSummaryGrid = function () {
+    const r = showBudgetSummaryGridBeforeShell.apply(this, arguments);
+    const k = (typeof currentBudgetProj !== 'undefined') ? currentBudgetProj : '';
+    const pre = (typeof AGENT_PJT_CP_FINAL !== 'undefined') && AGENT_PJT_CP_FINAL[k];
+    const head = document.querySelector('#budget-body .budget-process-head');
+    if (pre && head && !document.getElementById('v2-pre-note')) {
+      const n = document.createElement('div');
+      n.id = 'v2-pre-note';
+      n.className = 'v2-pre-note';
+      n.innerHTML = '<span><b>아직 편성 전입니다.</b> 실행예산을 편성하면 이 화면에 월별 계획과 실적이 채워집니다.</span>'
+        + '<button class="exec-text-btn" onclick="v2OpenCostAdjustFor(\'' + escAttr(k) + '\')">원가 조정에서 편성 →</button>';
+      head.insertAdjacentElement('afterend', n);
+    }
+    return r;
+  };
+}
+function v2OpenCostAdjustFor(k) {                  // crud N — 편성 전 프로젝트를 원가 조정(편성) 화면으로
+  costMode = 'adjust';
+  openBudgetProjectScreen(k);
+}
+

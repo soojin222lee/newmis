@@ -300,6 +300,29 @@ function scrRun(phase) {
   </div>`;
 }
 
+function scrApprovalDone() {
+  setFlow('승인완료 → 프로젝트 ‘수행중’ (★)');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">실행예산 승인완료 — 그 다음 무슨 일이?</h1>
+    <p class="scr-sub">결재가 완료되면 <b>화면에 보이는 변화</b>와, 화면엔 안 보이는 <b>백엔드 처리</b>가 함께 일어납니다.</p>
+    <div class="banner esv" id="ad-star">★ <b>프로젝트를 실제로 출발시키는 건 ‘프로젝트 등록’이 아니라 ‘실행예산 승인’</b>입니다. 예산이 확정돼야 비로소 수행이 시작돼요 — <b>화면만 보면 절대 안 보이는</b> 포인트.</div>
+    <div class="g2">
+      <div class="layer" id="ad-screen" style="border-color:#bcd3f7;background:var(--esv-soft)"><div class="t">🖥 화면에서 보이는 것</div><div class="d">승인된 <b>버전이 ‘확정(읽기 전용)’</b>으로 잠깁니다. 바꾸려면 <b>새 버전을 생성(버전 업)</b> 해야 해요. <span style="color:#8a94a6">(실행예산 버전 관리 튜토리얼 참고)</span></div></div>
+      <div class="layer srv" id="ad-backend"><div class="t">⚙ 백엔드에서 벌어지는 일 (★)</div><div class="d"><b>승인완료 이벤트</b>를 수신하면 <b>리스너가 프로젝트를 다시 읽어</b> 상태를 <b style="color:var(--srv-deep)">‘수행중(활성)’</b>으로 바꿔 <b>저장</b>합니다. 화면엔 안 보이지만 <b>여기서 프로젝트가 출발</b>해요.</div></div>
+    </div>
+    <div class="card" id="ad-erp"><div class="sec">📤 ERP 전송 (백엔드)</div>
+      <div style="font-size:13px;line-height:1.6;color:#3a4250">확정된 <b>예산 전체 상세내역(계정별 · 월별 금액)</b>을 <b>ERP로 전송</b>합니다. <b>얼마를·어떻게</b> 보내는지는 로직에서 정하지만, 핵심은 <b>백엔드가 보낸다</b>는 것.</div>
+      <table class="t" style="margin-top:10px"><thead><tr><th>계정</th><th>월</th><th class="num">금액</th><th>ERP</th></tr></thead>
+        <tbody>
+          <tr><td class="pname">인건비</td><td>2026-10</td><td class="num">43,000,000</td><td><span class="badge b-ok">전송</span></td></tr>
+          <tr><td>외주비</td><td>2026-10</td><td class="num">72,000,000</td><td><span class="badge b-ok">전송</span></td></tr>
+          <tr><td>경비</td><td>2026-10</td><td class="num">400,000</td><td><span class="badge b-ok">전송</span></td></tr>
+          <tr><td colspan="4" style="color:#8a94a6;font-size:12px">… 계정별·월별 전체 내역 전송 <span class="tbd">※ 전송 금액·방식 상세는 로직 확인</span></td></tr>
+        </tbody></table>
+    </div>
+  </div>`;
+}
+
 /* =====================================================================
    시나리오
    ===================================================================== */
@@ -336,8 +359,15 @@ const SCEN = {
     { render:null, keep:true, spot:'.gate.block', pos:'bottom', title:'②에서 걸려 중단', text:'① 계약리뷰 Cost 통과 → <b>② 보안점검에서 걸림</b> → <b class="srv">③·④는 검사조차 안 됨</b>. 이게 순차 중단이에요.', mode:'done',
       doneTitle:'순차 중단 실행', doneHtml:'<p>[승인요청]은 관문을 <b>순서대로</b> 돌리고 <b>처음 걸린 곳에서 멈춥니다</b>. 뒤 관문은 검사도 안 돼요. <b class="front" style="color:var(--front-deep)">프론트</b>는 “여기로 가서 해결하세요” 바로가기를 안내하고, 통과 전까지 <b class="srv" style="color:var(--srv-deep)">서버</b>가 상신을 막습니다(진짜 방어선).</p>' },
   ]},
+  G: { name:'승인완료 → 프로젝트 ‘수행중’', desc:'결재 완료 후: 버전 확정·프로젝트 수행중·ERP 전송', steps:[
+    { render:scrApprovalDone, spot:'#ad-star', pos:'bottom', title:'★ 출발점은 ‘승인’이다', text:'프로젝트를 실제로 출발시키는 건 <b>‘프로젝트 등록’이 아니라 ‘실행예산 승인’</b>이에요. <b>예산이 확정돼야 수행이 시작</b>됩니다 — 화면만 보면 안 보이는 포인트.' },
+    { render:scrApprovalDone, spot:'#ad-backend', pos:'left', title:'백엔드 — 프로젝트 ‘수행중’으로', text:'<b>승인완료 이벤트</b>를 수신하면 <b>리스너가 프로젝트를 다시 읽어</b> 상태를 <b class="srv">‘수행중(활성)’</b>으로 바꿔 저장합니다. 여기서 프로젝트가 출발해요.' },
+    { render:scrApprovalDone, spot:'#ad-screen', pos:'right', title:'화면 — 버전 확정(잠김)', text:'화면에선 승인된 <b>버전이 ‘확정(읽기 전용)’</b>으로 잠깁니다. 바꾸려면 <b>새 버전을 생성(버전 업)</b> 해야 해요.' },
+    { render:scrApprovalDone, spot:'#ad-erp', pos:'top', title:'ERP 전송 (백엔드)', text:'확정된 <b>예산 전체 상세(계정별·월별 금액)</b>를 <b>ERP로 전송</b>합니다. 얼마를·어떻게는 로직에서, 핵심은 <b>백엔드가 보낸다</b>는 것.', mode:'done',
+      doneTitle:'승인완료 → 수행중', doneHtml:'<p>실행예산이 승인되면 — <b>화면</b>: 버전이 <b>확정(잠김)</b>, 바꾸려면 <b>버전 업</b>. <b>백엔드</b>: <b>승인완료 이벤트 → 리스너가 프로젝트를 ‘수행중(활성)’</b>으로. <b>ERP</b>: 예산 <b>전체 상세(계정/월별)를 전송</b>.</p><p style="margin-top:10px">★ <b>프로젝트를 출발시키는 건 등록이 아니라 실행예산 승인</b>입니다. (ERP 전송 금액·방식 상세는 로직 확인)</p>' },
+  ]},
 };
-const SC_ORDER = ['A','B','C','D','E','F'];
+const SC_ORDER = ['A','B','C','D','E','F','G'];
 const done = {};
 
 /* =====================================================================

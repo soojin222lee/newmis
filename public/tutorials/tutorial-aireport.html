@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AiBudget 업무 튜토리얼 · AI 레포트</title>
+<meta name="description" content="AI 레포트 — 자연어로 물어보면 LLM이 SQL로 변환해 실제 DB를 조회(SELECT 전용). 조건 칩으로 WHERE 자동 반영, 생성 SQL은 운영자만 확인. 인터랙티브 튜토리얼.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sk-ink:#17161f; --sk-page:#f2f2ee; --sk-border:#e7eaef; --sk-border-strong:#d3d9e2; --sk-head:#eef2f7;
+  --ai:#7c3aed; --ai-deep:#5b21b6; --ai-soft:#f3edff;
+  --db:#0a8f5b; --db-deep:#076b44; --db-soft:#e4f6ec;
+  --op:#b4740a; --op-deep:#8a5905; --op-soft:#fdf3e2;
+  --green:#22b07d; --amber:#b4740a; --red:#ea002c;
+  --font:'Pretendard','Noto Sans KR',-apple-system,system-ui,sans-serif; --mono:ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box;letter-spacing:-.1px}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);background:var(--sk-page);color:#1c2432;-webkit-font-smoothing:antialiased;overflow:hidden}
+
+#sysbar{position:fixed;top:50px;left:0;right:0;height:44px;z-index:50;display:flex;align-items:center;gap:12px;padding:0 20px;background:#fff;border-bottom:1px solid var(--sk-border)}
+#sysbar .sys{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:900;color:var(--ai-deep)}
+#sysbar .sys .ic{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:#fff;font-size:14px;background:var(--ai)}
+#sysbar .tag{font-size:11px;font-weight:800;color:#8a94a6}
+#sysbar .flow{margin-left:auto;font-size:11.5px;font-weight:800;color:#aab2c0}
+#sysbar .leg{display:flex;gap:7px;align-items:center;margin-left:12px}
+#sysbar .lg{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px}
+#sysbar .lg i{width:9px;height:9px;border-radius:3px;display:inline-block}
+#sysbar .lg.ai{color:var(--ai-deep);background:var(--ai-soft)} #sysbar .lg.ai i{background:var(--ai)}
+#sysbar .lg.db{color:var(--db-deep);background:var(--db-soft)} #sysbar .lg.db i{background:var(--db)}
+#sysbar .lg.op{color:var(--op-deep);background:var(--op-soft)} #sysbar .lg.op i{background:var(--op)}
+
+#sim{position:fixed;top:94px;left:0;right:0;bottom:0;overflow:auto;padding:22px 26px 80px;transition:opacity .18s ease}
+.wrap{max-width:1000px;margin:0 auto}
+.scr-title{font-size:22px;font-weight:900;color:#16151f;margin:0 0 3px}
+.scr-sub{font-size:13px;color:#8a94a6;font-weight:600;margin:0 0 18px}
+.card{background:#fff;border:1px solid #e4e2da;border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.sec{font-size:12px;font-weight:900;color:#55606f;margin:0 0 10px;letter-spacing:.2px}
+
+.btn{height:38px;padding:0 16px;border-radius:10px;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--sk-border-strong);background:#fff;color:#2b3442}
+.btn:hover{background:#f3f6fb}
+.btn.ai{background:var(--ai);border-color:var(--ai);color:#fff} .btn.ai:hover{background:var(--ai-deep)}
+.btn.sm{height:30px;padding:0 11px;font-size:12.5px;border-radius:8px}
+
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t thead th{background:var(--sk-head);color:#3d4a5c;font-weight:800;text-align:left;padding:10px 12px;border-bottom:1px solid var(--sk-border-strong);white-space:nowrap}
+table.t td{padding:10px 12px;border-bottom:1px solid #eef1f5;color:#2b3442;white-space:nowrap}
+table.t tbody tr:last-child td{border-bottom:0}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.pname{font-weight:700;color:#16151f}
+.mono{font-family:var(--mono);font-size:12px;color:#55606f}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800}
+.b-ai{background:var(--ai-soft);color:var(--ai-deep)} .b-db{background:var(--db-soft);color:var(--db-deep)} .b-op{background:var(--op-soft);color:var(--op-deep)}
+.b-ok{background:#eef7f1;color:#166534} .b-wait{background:#eef2f7;color:#55606f}
+.tbd{display:inline-block;font-size:11px;font-weight:800;color:#b4740a;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:1px 7px}
+
+.banner{border-radius:12px;padding:13px 16px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.banner.ai{background:var(--ai-soft);border:1px solid #ddccfa;color:var(--ai-deep)}
+.banner.db{background:var(--db-soft);border:1px solid #bce6cf;color:var(--db-deep)}
+.banner.op{background:var(--op-soft);border:1px solid #f3d9b5;color:var(--op-deep)}
+
+.flowd{display:flex;align-items:center;gap:0;overflow-x:auto;padding-bottom:4px;margin-top:6px}
+.flowd .fn{flex:1;min-width:130px;text-align:center;border:1px solid #e4e2da;border-radius:11px;padding:10px 8px;background:#f7f9fc}
+.flowd .fn b{display:block;font-size:12px;font-weight:800;color:#16151f}.flowd .fn span{font-size:10px;font-weight:800;color:var(--ai-deep)}
+.flowd .fn.ai{background:var(--ai-soft);border-color:#ddccfa}
+.flowd .fn.db{background:var(--db-soft);border-color:#bce6cf}.flowd .fn.db span{color:var(--db-deep)}
+.flowd .fa{align-self:center;color:#c3cbd6;font-weight:900;font-size:15px;flex:0 0 auto;padding:0 4px}
+.proc-note{font-size:12.5px;line-height:1.6;color:#55606f;background:#f7f9fc;border:1px solid #e4e2da;border-radius:10px;padding:10px 13px;margin-top:10px}.proc-note b{color:#16151f}
+
+/* AI 패널 모사 */
+.ai-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.ai-chip{font-size:11px;font-weight:900;color:#fff;background:var(--ai);border-radius:999px;padding:4px 10px}
+.ai-ttl{font-size:13.5px;font-weight:800;color:#16151f}.ai-ttl b{color:var(--ai-deep)}
+.ai-tag2{font-size:10.5px;font-weight:800;color:var(--ai-deep);background:var(--ai-soft);border-radius:6px;padding:2px 7px;margin-left:6px}
+.op-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--op-soft);border:1px solid #f3d9b5;border-radius:10px;padding:9px 12px;margin-bottom:12px}
+.op-note{font-size:11.5px;font-weight:700;color:var(--op-deep);flex:1;min-width:180px}.op-note b{color:#7a4e04}
+.op-toggle{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;color:#55606f;border:1px solid var(--sk-border-strong);background:#fff;border-radius:999px;padding:5px 11px;cursor:pointer}
+.op-toggle i{width:30px;height:16px;border-radius:999px;background:#d3d9e2;position:relative;transition:background .15s}
+.op-toggle i::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:left .15s}
+.op-toggle.on{color:var(--op-deep)} .op-toggle.on i{background:var(--op)} .op-toggle.on i::after{left:16px}
+.cond-title{font-size:12px;font-weight:900;color:#55606f;margin:2px 0 8px}.cond-title span{font-weight:700;color:#aab2c0;font-size:11px;margin-left:6px}
+.cond-row{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px}
+.cond-label{font-size:11.5px;font-weight:800;color:#55606f;width:92px;flex:none;padding-top:5px}
+.cond-chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:11px;font-weight:800;color:#55606f;border:1px solid var(--sk-border-strong);background:#fff;border-radius:999px;padding:4px 10px;cursor:pointer}
+.chip.on{color:#fff;background:var(--ai);border-color:var(--ai)}
+.ai-inputrow{display:flex;gap:8px;margin-top:12px}
+.ai-inputrow input{flex:1;height:40px;border:1px solid var(--sk-border-strong);border-radius:10px;padding:0 13px;font-size:13.5px;font-family:inherit;background:#fff}
+.ai-ex{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.ai-ex button{font-size:11.5px;font-weight:700;color:var(--ai-deep);background:var(--ai-soft);border:1px solid #ddccfa;border-radius:999px;padding:5px 11px;cursor:pointer}
+.sqlbox{background:#1c1630;border-radius:10px;padding:12px 14px;margin-top:4px}
+.sqlbox .h{font-size:11px;font-weight:900;color:#c4b5fd;margin-bottom:7px;display:flex;align-items:center;gap:8px}
+.sqlbox .op-only{font-size:10px;font-weight:800;color:#1c1630;background:#c4b5fd;border-radius:5px;padding:1px 6px}
+.sqlbox pre{margin:0;font-family:var(--mono);font-size:12px;line-height:1.6;color:#e9e3ff;white-space:pre-wrap}
+.sql-hidden{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#8a94a6;background:#f1f0ea;border:1px dashed #d3d9e2;border-radius:10px;padding:11px 13px}
+.cnt{font-size:12px;font-weight:900;color:var(--db-deep);margin:8px 0}
+
+#hud{position:fixed;top:0;left:0;right:0;z-index:9000;height:50px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--sk-border);display:flex;align-items:center;gap:13px;padding:0 16px}
+#hud .ch{font-size:13px;font-weight:900;color:#16151f;white-space:nowrap}#hud .ch em{font-style:normal;color:var(--ai)}
+#hud .sc{font-size:11.5px;font-weight:800;color:#8a94a6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+#hud .bar{flex:1;max-width:260px;height:7px;background:#e9ecf1;border-radius:999px;overflow:hidden}
+#hud .fill{height:100%;width:0;background:var(--ai);border-radius:999px;transition:width .4s}
+#hud .cnt{font-size:12px;font-weight:800;color:#6b7480;white-space:nowrap}#hud .sp{flex:1}
+#hud button{height:31px;padding:0 12px;border-radius:8px;border:1px solid var(--sk-border-strong);background:#fff;color:#37414f;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit}
+#hud button:hover{background:#f3f6fb}
+#mask{position:fixed;inset:0;z-index:9001;background:rgba(10,14,26,.34);display:none}
+#hole{position:fixed;z-index:9002;border-radius:10px;border:2.5px solid var(--ai);background:transparent;cursor:pointer;display:none;box-shadow:0 0 0 4px rgba(124,58,237,.30),0 0 0 9999px rgba(10,14,26,.34);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(124,58,237,.30),0 0 0 9999px rgba(10,14,26,.34)}50%{box-shadow:0 0 0 9px rgba(124,58,237,.15),0 0 0 9999px rgba(10,14,26,.34)}}
+#hole.shake{animation:shake .4s}@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+#hole .fg{position:absolute;right:-14px;bottom:-14px;font-size:24px;pointer-events:none;animation:fg 1.3s ease-in-out infinite;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
+@keyframes fg{0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,-5px)}}
+#bubble{position:fixed;z-index:9003;max-width:356px;background:#fff;border-radius:14px;padding:16px 18px 14px;border:1px solid #e4e2da;box-shadow:0 18px 50px rgba(10,14,26,.28);display:none;cursor:grab;animation:pop .28s cubic-bezier(.2,.9,.3,1.2)}
+#bubble:active{cursor:grabbing}
+@keyframes pop{from{opacity:0;transform:scale(.94) translateY(6px)}to{opacity:1;transform:none}}
+#bubble .grip{position:absolute;top:8px;right:10px;font-size:13px;color:#c3cbd6;pointer-events:none}
+#bubble .st{font-size:11px;font-weight:900;color:var(--ai);letter-spacing:.5px}
+#bubble .tt{font-size:16px;font-weight:900;color:#16151f;margin:5px 0 7px;padding-right:20px}
+#bubble .tx{font-size:13.5px;line-height:1.62;color:#3a4250}#bubble .tx b{color:#17161f}
+#bubble .tx .ai{color:var(--ai-deep)}#bubble .tx .db{color:var(--db-deep)}#bubble .tx .op{color:var(--op-deep)}
+#bubble .hint{margin-top:10px;font-size:11.5px;font-weight:800;color:var(--ai);display:flex;gap:10px;flex-wrap:wrap}#bubble .hint em{font-style:normal;color:#9aa4b2}
+#bubble .ar{position:absolute;width:14px;height:14px;background:#fff;border:1px solid #e4e2da;transform:rotate(45deg)}
+#center{position:fixed;inset:0;z-index:9003;display:none;align-items:center;justify-content:center;padding:24px}
+#center .card2{background:#fff;border-radius:20px;max-width:680px;width:100%;padding:30px 32px;box-shadow:0 24px 70px rgba(10,14,26,.35);animation:pop .3s cubic-bezier(.2,.9,.3,1.2)}
+#center .eb{font-size:12px;font-weight:900;letter-spacing:1px;color:var(--ai);text-transform:uppercase}
+#center h2{font-size:23px;font-weight:900;color:#16151f;margin:8px 0 10px}
+#center p{font-size:14px;line-height:1.7;color:#3a4250;margin:0}
+#center .chk{width:58px;height:58px;border-radius:50%;background:var(--green);display:grid;place-items:center;margin:0 auto 12px;color:#fff;font-size:28px}
+#center .acts{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;justify-content:center}
+#center .acts button{height:38px;padding:0 16px;border-radius:10px;border:1px solid var(--sk-border-strong);background:#fff;color:#2b3442;font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit}
+#center .acts button.pri{background:var(--sk-ink);border-color:var(--sk-ink);color:#fff}
+.sclist{display:grid;gap:10px;margin-top:18px;text-align:left}
+.sc-item{display:flex;align-items:center;gap:13px;padding:13px 15px;border:1.5px solid #e4e2da;border-radius:13px;cursor:pointer;background:#fff;transition:border-color .15s,background .15s}
+.sc-item:hover{border-color:var(--ai);background:var(--ai-soft)}
+.sc-no{width:30px;height:30px;flex:none;border-radius:9px;background:var(--sk-ink);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:900}
+.sc-tt{font-size:14px;font-weight:800;color:#16151f}.sc-ds{font-size:12px;color:#8a94a6;font-weight:700;margin-top:1px}
+.sc-done{margin-left:auto;font-size:16px;color:var(--green)}
+#toast{position:fixed;z-index:9004;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:#17161f;color:#fff;font-size:13px;font-weight:700;padding:11px 18px;border-radius:11px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <span class="ch">Chapter · <em>AI 레포트</em></span>
+  <span class="sc" id="hud-sc"></span>
+  <div class="bar"><div class="fill" id="hud-fill"></div></div>
+  <span class="cnt" id="hud-cnt"></span>
+  <span class="sp"></span>
+  <button onclick="tPrev()">◀ 이전</button><button onclick="tRestart()">↻ 다시 시작</button><button onclick="openScenarios()">☰ 시나리오</button>
+</div>
+<div id="sysbar"><div class="sys"><span class="ic">✦</span><span>AI 레포트 · New MIS</span></div><span class="tag">자연어 → SQL → 실제 조회</span><span class="flow"></span><span class="leg"><span class="lg ai"><i></i>AI(LLM→SQL)</span><span class="lg db"><i></i>실제 DB 조회</span><span class="lg op"><i></i>운영자 전용</span></span></div>
+
+<div id="sim"></div>
+
+<div id="mask" onclick="tWrong()"></div>
+<div id="hole"><span class="fg">👆</span></div>
+<div id="bubble"><span class="ar"></span><span class="grip">⠿</span><div class="st"></div><div class="tt"></div><div class="tx"></div><div class="hint"><span>👆 강조된 영역을 클릭</span><em>✋ 말풍선 드래그 이동</em></div></div>
+<div id="center"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   AI 레포트 인터랙티브 튜토리얼 — 시뮬레이션
+   핵심: ① 자연어로 물어보면 LLM이 SQL로 변환해 실제 DB를 조회(SELECT 전용) /
+         ② 조건 칩(프로젝트 유형·매출귀속부문·프로젝트 상태)을 고르면 질문에 WHERE 자동 반영
+            — '뭘 물어볼 수 있는지' 힌트 역할 /
+         ③ 생성된 SQL은 일반 사용자에게 노출되지 않고 운영자만 토글로 확인.
+   근거: custom-report.js(renderAiReport·crConditionPanelHtml·crOperatorBarHtml·runNl2Sql → /api/nl2sql).
+   ※ 모두 가상 데이터 시뮬레이션.
+   ===================================================================== */
+const sim = () => document.getElementById('sim');
+function setFlow(t){ const e=document.querySelector('#sysbar .flow'); if(e) e.textContent = t || ''; }
+function initState(){ return { showSql:false }; }
+let S = initState();
+
+/* ---------- 화면 ---------- */
+function scrAsk() {
+  setFlow('자연어 질의 — 조건 선택 + 질문');
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">자연어로 물어보면, SQL로 변환해 실제 조회</h1>
+    <p class="scr-sub">질문을 한국어로 입력하면 <b class="" style="color:var(--ai-deep)">AI가 SQL로 변환</b>해 <b style="color:var(--db-deep)">실제 DB를 조회</b>합니다. 안전하게 <b>조회(SELECT) 전용</b>으로만 실행돼요.</p>
+    <div class="card">
+      <div class="ai-top"><span class="ai-chip">✦ AI</span><span class="ai-ttl">자연어로 물어보면 <b>SQL로 변환해 실제 조회</b><span class="ai-tag2">LLM → SQL</span></span></div>
+      <div class="op-bar" id="ai-opbar">
+        <span class="op-note">🔒 생성되는 SQL은 <b>일반 사용자에게 노출되지 않습니다.</b> 운영자만 확인용으로 볼 수 있어요.</span>
+        <span class="op-toggle" id="ai-optoggle"><i></i>운영자 보기 · SQL 숨김</span>
+      </div>
+      <div id="ai-cond">
+        <div class="cond-title">조건 선택 <span>선택한 조건은 질문에 자동 반영돼요 (복수 선택 가능)</span></div>
+        <div class="cond-row"><div class="cond-label">프로젝트 유형</div><div class="cond-chips"><span class="chip">투자-개발</span><span class="chip on">원가-선투입</span><span class="chip">SI-컨설팅</span><span class="chip">제안-본제안</span></div></div>
+        <div class="cond-row"><div class="cond-label">매출귀속부문</div><div class="cond-chips"><span class="chip">Cloud부문</span><span class="chip">제조서비스부문</span><span class="chip">전략기획부문</span></div></div>
+        <div class="cond-row"><div class="cond-label">프로젝트 상태</div><div class="cond-chips"><span class="chip on">수행</span><span class="chip">착수완료</span></div></div>
+      </div>
+      <div class="ai-inputrow"><input id="ai-input" value="재료비가 가장 큰 프로젝트 3개" placeholder="예) 외주비가 4억 넘는 프로젝트 보여줘"><button class="btn ai" id="ai-run">질의 실행</button></div>
+      <div class="ai-ex" id="ai-ex"><button>상태가 수행인 프로젝트의 PM과 인건비</button><button>재료비가 가장 큰 프로젝트 3개</button><button>김민수 PM이 맡은 프로젝트</button></div>
+    </div>
+  </div>`;
+}
+
+function scrResult() {
+  setFlow('결과 — 실제 DB SELECT 조회' + (S.showSql ? ' · SQL 표시(운영자)' : ''));
+  const sqlBlock = S.showSql
+    ? `<div class="sqlbox"><div class="h">생성된 SQL <span class="op-only">운영자 전용</span> <span class="badge b-ai">✦ AI 생성 SQL</span></div><pre>SELECT projectName, materialCost
+FROM budget JOIN projects USING(projectNo)
+WHERE projects.projectType = '원가-선투입'
+  AND projects.projectStatus = '수행'
+ORDER BY materialCost DESC
+LIMIT 3;</pre></div>`
+    : `<div class="sql-hidden">🔒 생성된 SQL은 <b style="color:#55606f">일반 사용자에게 숨김</b>입니다. (운영자 보기 토글 시 확인)</div>`;
+  sim().innerHTML = `<div class="wrap">
+    <h1 class="scr-title">결과 — 실제 DB에서 SELECT로 조회</h1>
+    <p class="scr-sub">AI가 만든 SQL이 <b style="color:var(--db-deep)">실제 DB에서 그대로 실행</b>됩니다. 조회 전용이라 데이터가 바뀌지 않아요.</p>
+    <div class="card"><div class="sec">SQL 영역 <span style="color:#aab2c0;font-weight:700">· 운영자 보기 토글로 제어</span></div>
+      <div class="op-bar" id="ai-opbar2">
+        <span class="op-note">🔒 생성 SQL은 일반 사용자에게 숨김 · <b>운영자만 확인</b></span>
+        <span class="op-toggle ${S.showSql?'on':''}" id="ai-optoggle2"><i></i>운영자 보기 · SQL ${S.showSql?'표시':'숨김'}</span>
+      </div>
+      ${sqlBlock}
+    </div>
+    <div class="card" id="ai-grid"><div class="cnt">3건 조회</div>
+      <table class="t"><thead><tr><th>프로젝트명</th><th class="num">재료비</th></tr></thead>
+      <tbody>
+        <tr><td class="pname">이엔에스 시티가스 Skyline 구축</td><td class="num">6,297,997,200</td></tr>
+        <tr><td class="pname">SKT 26년 Tdic EOS 보안 운영</td><td class="num">1,998,457,000</td></tr>
+        <tr><td class="pname">SKT 26년 Tdic EOS 보안 고도화</td><td class="num">810,880,000</td></tr>
+      </tbody></table>
+      <div class="proc-note" style="margin-top:10px">조건 칩(원가-선투입 · 수행)이 <b>WHERE로 반영</b>되고, "가장 큰 3개"가 <b>ORDER BY … LIMIT 3</b>로 변환됐어요. <span class="tbd">※ 실제 SQL 변환·스키마 매핑은 LLM + 서버(/api/nl2sql) 로직</span></div>
+    </div>
+  </div>`;
+}
+
+/* =====================================================================
+   시나리오
+   ===================================================================== */
+const SCEN = {
+  A: { name:'자연어 → SQL → 실제 조회', desc:'한국어로 물어보면 LLM이 SQL로 바꿔 실제 DB를 SELECT 조회', steps:[
+    { render:scrAsk, spot:'.ai-top', pos:'bottom', title:'자연어 질의 = LLM → SQL', text:'질문을 한국어로 입력하면 <b class="ai">AI가 SQL로 변환</b>해 <b class="db">실제 DB를 조회</b>합니다. 리포트 유형을 외울 필요 없이 그냥 물어보면 돼요.' },
+    { render:scrAsk, spot:'#ai-input', pos:'top', title:'질문 입력 → 질의 실행', text:'예) <b>“재료비가 가장 큰 프로젝트 3개”</b>. [질의 실행]을 누르면 AI가 SQL로 바꿔 실제로 조회해요.', act:scrResult },
+    { render:null, keep:true, spot:'#ai-grid', pos:'top', title:'실제 DB SELECT 결과', text:'AI가 만든 SQL이 <b class="db">실제 DB에서 그대로 SELECT 실행</b>된 결과예요. 조회 전용이라 데이터는 바뀌지 않습니다.', mode:'done',
+      doneTitle:'1. 자연어 → SQL → 실제 조회', doneHtml:'<p>AI 레포트는 <b>한국어 질문</b>을 받아 <b>LLM이 SQL로 변환</b>하고, 그 SQL을 <b>실제 DB에서 SELECT로 실행</b>해 결과를 보여줍니다. 리포트 유형을 외우지 않아도 그냥 물어보면 돼요. <span class="tbd">※ SQL 변환·스키마 매핑은 서버(/api/nl2sql)+LLM 로직</span></p>' },
+  ]},
+  B: { name:'조건 선택으로 좁히기 (WHERE 자동)', desc:'유형·부문·상태 칩 = 뭘 물어볼 수 있는지 힌트 + WHERE 자동 반영', steps:[
+    { render:scrAsk, spot:'#ai-cond', pos:'bottom', title:'조건 칩 = 질문 힌트', text:'프로젝트 <b>유형·매출귀속부문·상태</b> 칩은 “이런 걸 물어볼 수 있어요”라는 <b>힌트</b>예요. 고르면 질문에 <b>자동으로 조건(WHERE)이 반영</b>됩니다.' },
+    { render:scrAsk, spot:'#ai-input', pos:'top', title:'칩 + 자연어를 함께', text:'칩으로 범위를 좁히고(예: <b>원가-선투입 · 수행</b>) 자연어로 “재료비 큰 3개”처럼 물으면, 둘이 합쳐져 정확한 질의가 돼요.', mode:'done',
+      doneTitle:'2. 조건 선택으로 좁히기', doneHtml:'<p>조건 칩(<b>프로젝트 유형 · 매출귀속부문 · 프로젝트 상태</b>)은 무엇을 물어볼 수 있는지 알려주는 <b>힌트</b>이자, 선택하면 <b>질문에 WHERE로 자동 반영</b>되는 필터예요. 복수 선택도 가능하고, 자연어 질문과 합쳐져 조회됩니다.</p>' },
+  ]},
+  C: { name:'생성 SQL은 운영자만 (일반 사용자 숨김)', desc:'SQL은 기본 숨김 · 운영자 토글로만 확인 · SELECT 전용', steps:[
+    { render:()=>{ S.showSql=false; scrResult(); }, spot:'#ai-opbar2', pos:'bottom', title:'SQL은 기본 숨김', text:'생성된 SQL은 <b>일반 사용자에게 노출되지 않습니다</b>. 복잡한 SQL로 혼란을 주지 않으려고요. 결과만 깔끔히 보면 돼요.' },
+    { render:null, keep:true, spot:'#ai-optoggle2', pos:'left', title:'운영자 보기 토글', text:'<b class="op">운영자</b>는 이 토글로 생성된 SQL을 <b>확인용</b>으로 볼 수 있어요. 눌러볼게요.', act:()=>{ S.showSql=true; scrResult(); } },
+    { render:null, keep:true, spot:'.sqlbox', pos:'top', title:'운영자에게만 보이는 SQL', text:'운영자 보기를 켜면 <b>AI가 생성한 SQL</b>이 보입니다. 조회는 항상 <b>SELECT 전용</b>이라 안전해요(데이터 변경 불가).', mode:'done',
+      doneTitle:'3. 생성 SQL은 운영자만', doneHtml:'<p>생성된 SQL은 <b>기본적으로 일반 사용자에게 숨김</b>이고, <b>운영자 보기 토글</b>을 켤 때만 확인용으로 노출됩니다. 실행은 언제나 <b>조회(SELECT) 전용</b>이라 데이터가 바뀌지 않아요 — 안전하게 묻고 결과만 받는 구조.</p>' },
+  ]},
+};
+const SC_ORDER = ['A','B','C'];
+const done = {};
+
+/* =====================================================================
+   엔진
+   ===================================================================== */
+let curSc=null, step=0, steps=[], curTgt=null, curPos='bottom', bubMoved=false;
+const $ = id => document.getElementById(id);
+function lockScroll(){ const e=document.scrollingElement||document.documentElement; e.style.overflow='hidden'; $('sim').style.overflow='hidden'; }
+function unlockScroll(){ const e=document.scrollingElement||document.documentElement; e.style.overflow=''; $('sim').style.overflow='auto'; }
+
+function runScenario(key){ curSc=key; steps=SCEN[key].steps; step=0; $('center').style.display='none';
+  $('hud-sc').textContent='시나리오 · '+SCEN[key].name; renderStep(); }
+function renderStep(){
+  const s=steps[step];
+  curTgt=null; $('hole').style.display='none'; $('bubble').style.display='none';
+  if(s.render && !s.keep){ $('sim').style.opacity='0'; s.render(); }
+  if(s.enter){ try{ s.enter(); }catch(e){ console.warn(e); } }
+  setTimeout(()=>place(s), 70);
+  $('hud-cnt').textContent='단계 '+(step+1)+' / '+steps.length;
+  $('hud-fill').style.width=Math.round(step/steps.length*100)+'%';
+}
+function place(s){
+  $('sim').style.opacity='1';
+  const tgt=document.querySelector(s.spot);
+  $('center').style.display='none';
+  if(!tgt){ return setTimeout(()=>place(s),120); }
+  unlockScroll(); try{ tgt.scrollIntoView({block:'center',inline:'nearest'}); }catch(e){} lockScroll();
+  $('mask').style.display='block';
+  curTgt=tgt; curPos=s.pos||'bottom'; bubMoved=false;
+  drawHole(tgt.getBoundingClientRect());
+  $('hole').onclick=(e)=>{ e.stopPropagation(); if(s.act){ try{s.act();}catch(err){console.warn(err);} } if(s.mode==='done'){ finishScenario(s); } else { next(); } };
+  const b=$('bubble'); b.querySelector('.ar').style.display='block';
+  b.querySelector('.st').textContent='STEP '+(step+1)+' / '+steps.length;
+  b.querySelector('.tt').textContent=s.title; b.querySelector('.tx').innerHTML=s.text;
+  b.style.display='block'; posBub(b, tgt.getBoundingClientRect(), curPos);
+}
+function drawHole(r){ const h=$('hole'),p=7; h.style.display='block'; h.style.left=(r.left-p)+'px'; h.style.top=(r.top-p)+'px'; h.style.width=(r.width+p*2)+'px'; h.style.height=(r.height+p*2)+'px'; }
+function posBub(b,r,pos){
+  const bw=b.offsetWidth,bh=b.offsetHeight,g=18,vw=innerWidth,vh=innerHeight;let l,t;const a=b.querySelector('.ar');
+  const cl=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+  if(pos==='right'){l=r.right+g;t=r.top+r.height/2-bh/2;}else if(pos==='left'){l=r.left-bw-g;t=r.top+r.height/2-bh/2;}
+  else if(pos==='top'){l=r.left+r.width/2-bw/2;t=r.top-bh-g;}else{l=r.left+r.width/2-bw/2;t=r.bottom+g;}
+  if(l<12)l=12;if(l+bw>vw-12)l=vw-bw-12;if(t<100)t=100;if(t+bh>vh-12)t=vh-bh-12;
+  b.style.left=l+'px';b.style.top=t+'px';a.style.display='block';
+  if(pos==='right'){a.style.left='-8px';a.style.top=cl(r.top+r.height/2-t-7,10,bh-20)+'px';a.style.borderRight='none';a.style.borderBottom='none';}
+  else if(pos==='left'){a.style.left=(bw-6)+'px';a.style.top=cl(r.top+r.height/2-t-7,10,bh-20)+'px';a.style.borderLeft='none';a.style.borderTop='none';}
+  else if(pos==='top'){a.style.top=(bh-6)+'px';a.style.left=cl(r.left+r.width/2-l-7,14,bw-24)+'px';a.style.borderLeft='none';a.style.borderTop='none';}
+  else{a.style.top='-8px';a.style.left=cl(r.left+r.width/2-l-7,14,bw-24)+'px';a.style.borderRight='none';a.style.borderBottom='none';}
+}
+function next(){ if(step<steps.length-1){ step++; renderStep(); } else finishScenario(steps[steps.length-1]); }
+function tPrev(){ if(step>0){ step--; renderStep(); } else openScenarios(); }
+function tRestart(){ S=initState(); if(curSc) runScenario(curSc); else openScenarios(); }
+function sync(){ if(curTgt && $('hole').style.display==='block'){ const r=curTgt.getBoundingClientRect(); if(r.width||r.height){ drawHole(r); if(!bubMoved) posBub($('bubble'),r,curPos); } } requestAnimationFrame(sync); }
+requestAnimationFrame(sync);
+function maskOn(){ return $('mask').style.display==='block' && $('hole').style.display==='block'; }
+addEventListener('wheel', e=>{ if(maskOn()) e.preventDefault(); }, {passive:false,capture:true});
+addEventListener('touchmove', e=>{ if(maskOn() && !document.body.classList.contains('drag')) e.preventDefault(); }, {passive:false,capture:true});
+
+function finishScenario(s){
+  done[curSc]=true;
+  $('mask').style.display='none'; $('hole').style.display='none'; $('bubble').style.display='none'; curTgt=null; unlockScroll();
+  $('hud-fill').style.width='100%'; $('hud-cnt').textContent='단계 '+steps.length+' / '+steps.length;
+  const nextKey=SC_ORDER[SC_ORDER.indexOf(curSc)+1];
+  const c=$('center'); c.style.display='flex';
+  c.innerHTML='<div class="card2"><div style="text-align:center"><div class="chk">✓</div><div class="eb">AI 레포트</div><h2>'+(s.doneTitle||'완료')+'</h2></div>'
+    +(s.doneHtml||'')
+    +'<div class="acts">'
+    +(nextKey?'<button class="pri" onclick="runScenario(\''+nextKey+'\')">다음 시나리오 →</button>':'')
+    +'<button onclick="openScenarios()">☰ 시나리오 목록</button>'
+    +'<button onclick="tRestart()">↻ 이 시나리오 다시</button></div></div>';
+}
+function tWrong(){ const h=$('hole'); if(h.style.display!=='block')return; h.classList.remove('shake'); void h.offsetWidth; h.classList.add('shake');
+  const t=$('toast'); t.textContent='👆 강조된 영역을 클릭하세요'; t.classList.add('show'); clearTimeout(window.__t); window.__t=setTimeout(()=>t.classList.remove('show'),1500); }
+
+/* 드래그 */
+(function(){ const b=$('bubble'); let d=null;
+  const st=(x,y)=>{ d={x,y,l:parseFloat(b.style.left)||0,t:parseFloat(b.style.top)||0}; bubMoved=true; b.querySelector('.ar').style.display='none'; document.body.classList.add('drag'); };
+  const mv=(x,y)=>{ if(!d)return; let nl=d.l+(x-d.x),nt=d.t+(y-d.y); nl=Math.max(6,Math.min(innerWidth-b.offsetWidth-6,nl)); nt=Math.max(100,Math.min(innerHeight-b.offsetHeight-6,nt)); b.style.left=nl+'px'; b.style.top=nt+'px'; };
+  const en=()=>{ if(d){ d=null; document.body.classList.remove('drag'); } };
+  b.addEventListener('mousedown',e=>{ st(e.clientX,e.clientY); e.preventDefault(); });
+  addEventListener('mousemove',e=>mv(e.clientX,e.clientY)); addEventListener('mouseup',en);
+  b.addEventListener('touchstart',e=>{ const t=e.touches[0]; st(t.clientX,t.clientY); },{passive:true});
+  addEventListener('touchmove',e=>{ if(!d)return; const t=e.touches[0]; mv(t.clientX,t.clientY); e.preventDefault(); },{passive:false}); addEventListener('touchend',en);
+})();
+
+/* 시나리오 선택 */
+function openScenarios(){
+  $('mask').style.display='none'; $('hole').style.display='none'; $('bubble').style.display='none'; curTgt=null; unlockScroll(); curSc=null;
+  $('hud-sc').textContent=''; $('hud-cnt').textContent=''; $('hud-fill').style.width='0'; setFlow(''); sim().innerHTML='';
+  const items=SC_ORDER.map((k,i)=>{ const sc=SCEN[k]; return '<button class="sc-item" onclick="runScenario(\''+k+'\')"><span class="sc-no">'+(i+1)+'</span><span><span class="sc-tt">'+sc.name+'</span><span class="sc-ds">'+sc.desc+'</span></span>'+(done[k]?'<span class="sc-done">✓</span>':'')+'</button>'; }).join('');
+  const flow='<div class="flowd">'
+    +'<div class="fn"><b>자연어 질문</b><span>+조건 칩</span></div><div class="fa">→</div>'
+    +'<div class="fn ai"><b>LLM → SQL</b><span>SELECT 생성</span></div><div class="fa">→</div>'
+    +'<div class="fn db"><b>실제 DB 조회</b><span>SELECT 실행</span></div><div class="fa">→</div>'
+    +'<div class="fn"><b>결과 표</b><span>N건 조회</span></div>'
+    +'</div>'
+    +'<div class="proc-note">💡 리포트 유형을 외울 필요 없이 <b>한국어로 질문</b>하면 AI가 <b>SQL로 변환해 실제 조회</b>합니다. 조건 칩으로 범위를 좁히면 <b>WHERE 자동 반영</b>, 생성 SQL은 <b style="color:var(--op-deep)">운영자만</b> 확인(일반 사용자 숨김), 실행은 <b>SELECT 전용</b>이라 안전해요.</div>';
+  const c=$('center'); c.style.display='flex';
+  c.innerHTML='<div class="card2" style="max-width:900px"><div class="eb">AI 레포트</div><h2>AI 레포트 — 시나리오 선택</h2>'
+    +'<p>한국어로 물어보면 <b style="color:var(--ai-deep)">AI가 SQL로 변환</b>해 <b style="color:var(--db-deep)">실제 DB를 조회</b>합니다. 조건 선택·운영자 SQL까지 익혀봅니다.</p>'
+    +flow
+    +'<div class="sclist">'+items+'</div></div>';
+}
+
+openScenarios();
+</script>
+</body>
+</html>
