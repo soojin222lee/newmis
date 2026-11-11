@@ -994,6 +994,7 @@ function agentChatSendFinal() {
 /* [2026.09.04] Agent 답변에 붙는 동작 버튼.
    "이 방안으로 확정해줘"라고 되받아 쓰게 하지 않고 바로 누르게 합니다. */
 function renderAgentChatActionFinal(d) {
+  if (d && d.cpgap && typeof renderAgentCpGapFinal === 'function') return renderAgentCpGapFinal(d.cpgap);
   if (!d || d.action !== 'commit') return '';
   // 이미 확정했거나 되돌렸으면 버튼을 지웁니다.
   if (typeof agentSimActiveFinal === 'function' && !agentSimActiveFinal()) return '';
@@ -1075,7 +1076,8 @@ function renderAgentGaCardFinal(p) {
   const legs = cur.legs || [];
   const title = g ? g.problem : cur.title;
   // [2026.10.13] 출처를 구분합니다 — 대화로 들어온 것(💬) · 화면에서 직접 입력한 것(✎) · Agent 감지(🤖)
-  const tag = cur.sim ? ['sim', '💬 대화로 추가'] : (cur.hand || cur.manual) ? ['manual', '✎ 수기 입력'] : ['agent', '🤖 Agent 제안'];
+  // [2026.10.28] 계정 상세에서 고친 Agent 제안 · 대화 건(edited)도 ✎ 수기 입력입니다
+  const tag = cur.sim ? ['sim', '💬 대화로 추가'] : (cur.hand || cur.manual || cur.edited) ? ['manual', '✎ 수기 입력'] : ['agent', '🤖 Agent 제안'];
   const at = src.ifAt || cur.detectedAt || '';
 
   const amount = (g && !sel)
@@ -1095,7 +1097,20 @@ function renderAgentGaCardFinal(p) {
       : `<button class="agai-yes ${on ? 'on' : ''}"
            onclick="agentAiPickFinal('${p.id}',${on ? 'false' : 'true'})">${on ? '✓ 반영됨' : '반영'}</button>`}
     ${(g && sel) ? `<button class="agga-no" onclick="agentAiPickFinal('${sel}',false)">보류</button>` : ''}
-    <button class="agga-why ${open ? 'on' : ''}" onclick="agentAiCardToggleFinal('${p.id}')">근거 ${open ? '∧' : '∨'}</button>`;
+    <button class="agga-why ${open ? 'on' : ''}" onclick="agentAiCardToggleFinal('${p.id}')">근거 ${open ? '∧' : '∨'}</button>
+    ${agentIsExecFinal() ? '' : `<button class="agga-del" onclick="agentGaDeleteAskFinal('${p.id}')" title="예산 조정안에서 삭제" aria-label="조정안 삭제">삭제</button>`}`;
+  // [2026.10.28] 삭제 확인 — 출처마다 지운 뒤 어떻게 되는지 알려 줍니다
+  const delMsg = tag[0] === 'agent' ? '[제안 다시 불러오기]로 되살릴 수 있습니다.'
+    : cur.edited ? (cur.origin === 'agent' ? '고친 내역이 사라지고, 원래 Agent 제안은 [제안 다시 불러오기]로 되살릴 수 있습니다.' : '고친 내역이 사라집니다.')
+    : cur.hand ? '상세 화면에 입력한 값은 그대로 남고 결재에만 올라가지 않습니다. 값까지 되돌리려면 계정 상세에서 고쳐 주세요.'
+    : cur.manual ? '직접 고친 월별 계획이 Agent 초안으로 돌아갑니다.'
+    : '대화로 만든 조정 내역이 사라집니다.';
+  const delBox = agentGaDelArmFinal === p.id ? `
+      <div class="agga-delask" role="alert">
+        <span><b>이 조정안을 삭제할까요?</b> ${delMsg}</span>
+        <button class="go" onclick="agentGaDeleteFinal('${p.id}')">삭제</button>
+        <button onclick="agentGaDeleteCancelFinal()">취소</button>
+      </div>` : '';
 
   return `
     <div class="agga-card ${on ? 'on' : ''} ${tag[0]}">
@@ -1114,6 +1129,7 @@ function renderAgentGaCardFinal(p) {
           <div class="agga-acts">${acts}</div>
         </div>
       </div>
+      ${delBox}
       ${open ? `
         <div class="agga-whybox">
           ${g ? `<p class="agai-gwhy">${escHtml(g.why || '')}</p>` : ''}
@@ -1132,6 +1148,7 @@ function renderAgentGaCardFinal(p) {
 
 function renderAgentGaTodoFinal(roll) {
   const pend = agentProposalsFinal('pending');
+  const dismissed = agentProposalsFinal('dismissed');
   const subD = agentDraftsFinal('submitted');
   const confD = agentDraftsFinal('confirmed');
   const retD = agentDraftsFinal('returned');
@@ -1167,6 +1184,10 @@ function renderAgentGaTodoFinal(roll) {
             onclick="agentPickClearBtnFinal()">전부 해제</button>
           <button class="agga-draft ${cpWarn ? 'over' : ''}" ${selN ? '' : 'disabled'} title="${cpWarn ? 'CP총액 초과 — 누르면 조정 방법을 안내합니다' : ''}" onclick="agentSimDraftFinal()">기안 ${selN || ''}${selN ? '건 ' : ''}→</button>` : ''}
         ${(exec && subD.length) ? `<em class="agga-simtag">결재 대기 ${subD.length}건</em>` : ''}
+        ${agentAiSheetFinal ? '' : `
+          <button class="agga-swap ${agentGaWideFinal ? 'on' : ''}" onclick="agentGaWideToggleFinal()"
+            title="${agentGaWideFinal ? '예산 조정안 30% · Agent와 대화하기 70% 로 되돌리기' : '예산 조정안 70% · Agent와 대화하기 30% 로 넓게 보기'}"
+            aria-label="${agentGaWideFinal ? '예산 조정안 좁게 보기' : '예산 조정안 넓게 보기'}">${agentGaWideFinal ? '‹ 좁게' : '넓게 ›'}</button>`}
         ${agentAiSheetFinal ? `
           <button class="agga-fold x ${(!exec && !past && cards.length) || (exec && subD.length) ? 'after' : ''}"
             onclick="agentGaTodoOpenSetFinal(false)"
@@ -1179,6 +1200,11 @@ function renderAgentGaTodoFinal(roll) {
           ? subD.map(d => renderAgentDraftRowFinal(d, 'exec')).join('')
           : '<div class="ag-empty">PM이 상신하면 여기에서 결재하실 수 있습니다.</div>') : ''}
         ${(!exec && !past && !cards.length) ? `<div class="ag-empty">검토가 필요한 건이 없습니다.<br>Agent가 구매 PO · SCM 투입계획 · ERP 가용예산 · 월 마감을 계속 보고 있습니다.</div>` : ''}
+        ${(!exec && !past && dismissed.length) ? `
+          <div class="agga-restore">
+            <span>삭제한 Agent 제안 <b>${dismissed.length}</b>건</span>
+            <button onclick="agentGaRestoreBtnFinal()">제안 다시 불러오기</button>
+          </div>` : ''}
         ${(!exec && cards.length) ? `
           <div class="agga-group">
             <div class="agga-group-head">
@@ -1994,7 +2020,12 @@ function agentHandOpenFinal(pid) {
   return !!p && p.status !== 'confirmed' && p.status !== 'rejected';
 }
 function agentHandBadgeFinal(x) {
-  return (x && x.handPid && agentHandOpenFinal(x.handPid)) ? '<em class="aglb-st hand">수기 입력(결재전)</em>' : '';
+  if (!(x && x.handPid && agentHandOpenFinal(x.handPid))) return '';
+  // [2026.10.28] 조정안에서 지운 수기 입력은 상세 값만 남고 승인 대상이 아닙니다
+  const p = agentFindProposalFinal(x.handPid);
+  return (p && p.status === 'deleted')
+    ? '<em class="aglb-st hand" title="예산 조정안에서 삭제해 결재에 올라가지 않습니다">수기 입력(조정안 삭제)</em>'
+    : '<em class="aglb-st hand">수기 입력(결재전)</em>';
 }
 function agentMonthsDiffFinal(after, before) {
   const out = {};
@@ -3304,7 +3335,7 @@ function agentExpStatFinal(year) {
     const past = sum(r, closed);
     const actual = closed.length ? Number(r.actual || 0) : 0;
     const row = {
-      id: r.id, name: r.name, code: r.code, avail: Number(r.erpAvailable || 0),
+      id: r.id, name: r.name, code: r.code, avail: Number(r.erpAvailable || 0), handPid: r.handPid,
       annual, past, actual, unused: Math.max(past - actual, 0), rest: sum(r, rest),
     };
     let g = groups.find(x => x.name === r.middleName);
@@ -3329,6 +3360,129 @@ function agentExpCarryStateFinal() {
   if (p.status === 'submitted') return 'sub';
   if (p.status === 'pending' && agentMiniSelFinal['ap-06']) return 'pick';
   return 'wait';
+}
+
+/* [2026.10.16] 경비 편집 — 세부계정별 월 계획을 고치거나(수정) 새로 잡거나(편성) 남은 달을 비웁니다(삭제).
+   경비 세부계정은 ERP 계정 코드라 행을 새로 만들지 않고, 이미 있는 세부계정의 월 금액만 다룹니다.
+     · 마감된 달(AGENT_EXP_CLOSED_THRU_FINAL 이전)은 실적으로 확정돼 고칠 수 없습니다
+     · 저장하면 바뀐 월별 금액이 ✎ 수기 입력으로 [예산 조정안]에 올라가 바로 반영됩니다(다른 계정과 같은 흐름)
+     · 통제 계정은 남은 달 계획이 ERP 가용예산을 넘으면 안내합니다(저장은 막지 않음 — 가용예산 증액 협의 대상)
+   데이터는 공유 목업 EXPENSE_ACCOUNT_ROWS_FINAL(budget-area-expense.js)의 monthly 배열입니다. */
+var agentExpEdFinal = null;          // { id: 세부계정 id | '' (편성할 세부계정 고르기) }
+function agentExpRowsFinal() {
+  return (typeof EXPENSE_ACCOUNT_ROWS_FINAL !== 'undefined') ? EXPENSE_ACCOUNT_ROWS_FINAL : [];
+}
+function agentExpMonthsFinal() {
+  return (typeof EXPENSE_PLAN_MONTHS !== 'undefined') ? EXPENSE_PLAN_MONTHS : [];
+}
+function agentExpEdOpenFinal(id) { agentExpEdFinal = { id: id || '' }; renderBudgetPage(); }
+function agentExpEdPickFinal(id) { agentExpEdFinal = { id: id || '' }; renderBudgetPage(); }
+function agentExpEdCloseFinal() { agentExpEdFinal = null; renderBudgetPage(); }
+// 남은 달(입력 가능한 칸)에 같은 금액 채우기 · 합계 다시 쓰기 — 재렌더 없이 DOM만 바꿉니다
+function agentExpEdFillFinal(y) {
+  const box = document.querySelector('.agv-pop.agexe');
+  if (!box) return;
+  const v = Math.abs(parseBudgetAmount((box.querySelector('#agexe-fill-' + y) || {}).value || 0));
+  box.querySelectorAll('.agexe-m input:not([disabled])').forEach(el => {
+    if (el.dataset.m.slice(0, 4) === y) el.value = v ? fmt(v) : '0';
+  });
+  agentExpEdSumFinal();
+}
+function agentExpEdSumFinal() {
+  const box = document.querySelector('.agv-pop.agexe');
+  if (!box) return;
+  const by = {};
+  box.querySelectorAll('.agexe-m input').forEach(el => {
+    const y = el.dataset.m.slice(0, 4);
+    by[y] = (by[y] || 0) + Math.abs(parseBudgetAmount(el.value || 0));
+  });
+  Object.keys(by).forEach(y => { const t = box.querySelector('#agexe-sum-' + y); if (t) t.textContent = fmt(by[y]) + '원'; });
+}
+function agentExpEdSaveFinal(clear) {
+  const e = agentExpEdFinal;
+  const row = e && e.id ? agentExpRowsFinal().find(r => r.id === e.id) : null;
+  if (!row) { showToast('편성할 세부계정을 골라 주세요.'); return; }
+  const ms = agentExpMonthsFinal();
+  const before = (row.monthly || []).slice();
+  const after = before.slice();
+  ms.forEach((m, i) => {
+    if (m <= AGENT_EXP_CLOSED_THRU_FINAL) return;            // 마감 월은 그대로
+    if (clear) { after[i] = 0; return; }
+    const el = document.getElementById('agexe-m-' + i);
+    if (el) after[i] = Math.abs(parseBudgetAmount(el.value || 0));
+  });
+  const months = {};
+  ms.forEach((m, i) => { const d = (after[i] || 0) - (before[i] || 0); if (d) months[m] = d; });
+  if (!Object.keys(months).length) { showToast(clear ? '남은 달에 비울 계획이 없습니다.' : '바뀐 금액이 없습니다.'); return; }
+  if (clear && !confirm(`${row.name} 남은 달 계획을 모두 0원으로 비울까요? 마감된 달(실적)은 그대로 둡니다.`)) return;
+  const wasEmpty = before.reduce((t, v, i) => t + (ms[i] > AGENT_EXP_CLOSED_THRU_FINAL ? (v || 0) : 0), 0) === 0;
+  row.monthly = after;
+  const net = Object.keys(months).reduce((t, m) => t + months[m], 0);
+  const verb = clear ? '편성 삭제' : wasEmpty ? '편성' : '수정';
+  agentHandRecordFinal('경비', row.middleName, `${verb} · ${row.middleName} › ${row.name}(${row.code})`, months, [row]);
+  // 통제 계정 — 남은 달 계획이 ERP 가용예산을 넘으면 알려 줍니다
+  const restNow = after.reduce((t, v, i) => t + (ms[i] > AGENT_EXP_CLOSED_THRU_FINAL && ms[i].slice(0, 4) === AGENT_EXP_CLOSED_THRU_FINAL.slice(0, 4) ? (v || 0) : 0), 0);
+  const warn = (row.controlled && row.erpAvailable && restNow > row.erpAvailable)
+    ? ` (주의: ${AGENT_EXP_CLOSED_THRU_FINAL.slice(0, 4)}년 남은 달 계획 ${fmt(restNow)}원이 ERP 가용예산 ${fmt(row.erpAvailable)}원을 넘습니다)` : '';
+  agentExpEdFinal = null;
+  agentExpOpenFinal[row.middleName] = true;
+  agentHandToastFinal(`${row.name} 계획을 ${verb === '수정' ? '수정' : verb === '편성' ? '편성' : '비웠'}했습니다${warn}`);
+  renderBudgetPage();
+}
+function renderAgentExpEdPopFinal() {
+  const e = agentExpEdFinal;
+  if (!e || agentAiSheetFinal !== '경비') return '';
+  const rows = agentExpRowsFinal();
+  const row = e.id ? rows.find(r => r.id === e.id) : null;
+  const ms = agentExpMonthsFinal();
+  const mids = [];
+  rows.forEach(r => { if (mids.indexOf(r.middleName) < 0) mids.push(r.middleName); });
+  const years = [];
+  ms.forEach(m => { const y = m.slice(0, 4); if (years.indexOf(y) < 0) years.push(y); });
+  const sumY = y => ms.reduce((t, m, i) => t + (m.slice(0, 4) === y ? Number(((row && row.monthly) || [])[i] || 0) : 0), 0);
+  const picker = `
+    <label class="agexe-pick"><span>세부계정</span>
+      <select onchange="agentExpEdPickFinal(this.value)">
+        <option value="">— 세부계정을 고르세요 —</option>
+        ${mids.map(md => `<optgroup label="${escHtml(md)}">${rows.filter(r => r.middleName === md).map(r =>
+          `<option value="${r.id}" ${row && row.id === r.id ? 'selected' : ''}>${escHtml(r.name)} (${escHtml(r.code)})${r.controlled ? ' · 통제' : ''}</option>`).join('')}</optgroup>`).join('')}
+      </select></label>`;
+  const grid = row ? years.map(y => `
+      <div class="agexe-year">
+        <div class="agexe-yh"><b>${y}년</b><span>연간 <em id="agexe-sum-${y}">${fmt(sumY(y))}원</em></span>
+          <span class="agexe-fill">남은 달 같은 금액
+            <input id="agexe-fill-${y}" inputmode="numeric" placeholder="예: 500000">
+            <button type="button" onclick="agentExpEdFillFinal('${y}')">채우기</button></span></div>
+        <div class="agexe-grid">${ms.map((m, i) => m.slice(0, 4) !== y ? '' : `
+          <label class="agexe-m ${m <= AGENT_EXP_CLOSED_THRU_FINAL ? 'closed' : ''}">
+            <span>${Number(m.slice(5, 7))}월${m <= AGENT_EXP_CLOSED_THRU_FINAL ? ' · 마감' : ''}</span>
+            <input id="agexe-m-${i}" data-m="${m}" inputmode="numeric" value="${fmt(Number((row.monthly || [])[i] || 0))}"
+              ${m <= AGENT_EXP_CLOSED_THRU_FINAL ? 'disabled title="마감된 달은 실적으로 확정되어 고칠 수 없습니다"' : ''}
+              oninput="agentExpEdSumFinal()" onfocus="this.select()">
+          </label>`).join('')}</div>
+      </div>`).join('') : '<div class="agexe-empty">세부계정을 고르면 월별 계획을 편성할 수 있습니다.</div>';
+  return `
+    <div class="agv-pop-dim" onclick="if(event.target===this)agentExpEdCloseFinal()">
+      <div class="agv-pop agexe wide" role="dialog" aria-modal="true" aria-label="경비 계획 ${row ? '수정' : '편성'}">
+        <div class="agv-pop-head">
+          <div>
+            <strong>${row ? `${escHtml(row.middleName)} › ${escHtml(row.name)}` : '경비 편성'}</strong>
+            <span>${row ? `계정코드 ${escHtml(row.code)}${row.controlled ? ` · 통제 계정 · ERP 가용 ${fmt(row.erpAvailable || 0)}원` : ' · 비통제'} · 마감(${AGENT_EXP_CLOSED_THRU_FINAL})까지는 실적으로 확정`
+              : '편성할 세부계정을 고른 뒤 월별 계획을 입력합니다.'}</span>
+          </div>
+          <button class="agv-pop-x" onclick="agentExpEdCloseFinal()">✕</button>
+        </div>
+        <div class="agv-pop-body">
+          ${e.id ? '' : picker}
+          ${grid}
+        </div>
+        <div class="agv-pop-foot">
+          ${row ? `<button class="agv-ok" onclick="agentExpEdSaveFinal(false)">저장</button>` : ''}
+          ${(row && e.id) ? `<button class="agv-cancel agexe-del" onclick="agentExpEdSaveFinal(true)">남은 달 비우기</button>` : ''}
+          <button class="agv-cancel" onclick="agentExpEdCloseFinal()">닫음</button>
+        </div>
+      </div>
+    </div>`;
 }
 
 function renderAgentExpenseDetailFinal(viewData, roll) {
@@ -3379,6 +3533,7 @@ function renderAgentExpenseDetailFinal(viewData, roll) {
       <th class="num">${hasClosed ? `남은 달(${restL}) 계획` : '월별 계획 합계'}</th>
       <th>상태</th>
     </tr>`;
+  const expCan = agentCanEditFinal();
   const body = st.live.map(g => {
     const open = !!agentExpOpenFinal[g.name];
     const c = cell(g);
@@ -3399,16 +3554,18 @@ function renderAgentExpenseDetailFinal(viewData, roll) {
               <thead><tr>
                 <th>세부계정</th><th>계정코드</th><th class="num">연간 예산</th><th class="num">실적</th>
                 <th class="num">미사용</th><th class="num">${hasClosed ? '남은 달 계획' : '월별 계획 합계'}</th><th class="num">ERP 가용</th>
+                ${expCan ? '<th class="ctr">관리</th>' : ''}
               </tr></thead>
               <tbody>${g.rows.map(x => `
                 <tr>
-                  <td><b>${escHtml(x.name)}</b></td>
+                  <td><b>${escHtml(x.name)}</b>${agentHandBadgeFinal(x)}</td>
                   <td>${escHtml(x.code || '')}</td>
                   <td class="num">${fmt(x.annual)}원</td>
                   <td class="num">${hasClosed ? fmt(x.actual) + '원' : '–'}</td>
                   <td class="num">${hasClosed ? fmt(x.unused) + '원' : '–'}</td>
                   <td class="num">${(carried && x.unused) ? `${fmt(x.rest)} → <b>${fmt(x.rest + x.unused)}원</b>` : fmt(x.rest) + '원'}</td>
                   <td class="num">${fmt(x.avail)}원</td>
+                  ${expCan ? `<td class="ctr"><button class="agos-ed" onclick="event.stopPropagation();agentExpEdOpenFinal('${x.id}')">수정</button></td>` : ''}
                 </tr>`).join('')}</tbody>
             </table>
           </div>
@@ -3416,8 +3573,12 @@ function renderAgentExpenseDetailFinal(viewData, roll) {
   }).join('');
 
   return `
-    ${yearTabs}
+    <div class="agex-bar">
+      ${yearTabs}
+      ${expCan ? '<button class="aglb-add" onclick="agentExpEdOpenFinal(\'\')">＋ 경비 편성</button>' : ''}
+    </div>
     ${alert}
+    ${renderAgentExpEdPopFinal()}
     <div class="aglb-wrap">
       <table class="aglb agos agex">
         <thead>${head}</thead>
@@ -3506,6 +3667,14 @@ function agentGaTodoOpenSetFinal(on) {
   agentGaTodoOpenFinal = !!on;
   renderBudgetPage();
 }
+/* [2026.11.10] 메인 화면 좌우 비율 바꾸기 — 기본 30%(예산 조정안) : 70%(대화하기)
+   대화하기를 쓰지 않고 조정안 상세를 넓게 보고 싶을 때 70% : 30% 로 뒤집습니다. 선택은 브라우저에 기억합니다. */
+var agentGaWideFinal = (function () { try { return localStorage.getItem('agga-wide') === '1'; } catch (e) { return false; } })();
+function agentGaWideToggleFinal() {
+  agentGaWideFinal = !agentGaWideFinal;
+  try { localStorage.setItem('agga-wide', agentGaWideFinal ? '1' : '0'); } catch (e) {}
+  renderBudgetPage();
+}
 function agentGaPendingCntFinal() {
   if (agentIsExecFinal()) return agentDraftsFinal('submitted').length;
   const seen = {};
@@ -3539,12 +3708,14 @@ function agentAcctToneStyleFinal(acct) {
 function renderAgentGaDetailFinal(viewData, data, roll) {
   const acct = agentAiSheetFinal;
   const r = (roll.rows || []).find(x => x.acct === acct) || { plan: 0, done: 0, cp: 0 };
-  const body = acct === '인건비' ? renderAgentLaborDetailFinal(viewData, roll)
+  const applied = (typeof agentSimReflectFinal === 'function') ? (agentSimReflectFinal().by[acct] || 0) : 0;
+  const body = renderAgentAcctAppliedFinal(acct)
+    + (acct === '인건비' ? renderAgentLaborDetailFinal(viewData, roll)
     : acct === '외주비' ? renderAgentOutsourceDetailFinal(viewData, roll)
     : acct === '재료비' ? renderAgentMaterialDetailFinal(viewData, roll)
     : acct === '경비' ? renderAgentExpenseDetailFinal(viewData, roll)
     : acct === 'A/S Cost' ? renderAgentAsDetailFinal(viewData, roll)
-    : renderBudgetAccountEditor(viewData, acct);
+    : renderBudgetAccountEditor(viewData, acct));
   return `
     <div class="agga-col detail acc" style="${agentAcctToneStyleFinal(acct)}">
       <div class="agga-col-head">
@@ -3556,6 +3727,7 @@ function renderAgentGaDetailFinal(viewData, data, roll) {
           title="계정 상세를 닫고 프로젝트 메인(예산 조정안 · Agent와 대화하기)으로 돌아갑니다">← 프로젝트 메인</button>
         <strong>${acct} 예산내역</strong>
         <em class="agga-dnum">${fmt(r.plan)}원</em>
+        ${applied ? `<em class="agga-dafter ${applied > 0 ? 'up' : 'down'}" title="예산 조정안에서 반영한 금액을 더한 값">반영 후 ${fmt(r.plan + applied)}원 (${agentDeltaFinal(applied)})</em>` : ''}
         <span class="agga-dsub">실적(확정) ${fmt(r.done)}원 · CP 승인액 ${fmt(r.cp)}원</span>
         <button class="aglm-btn" onclick="agentAcctMonthlySetFinal('${acct}')">월별 계획/실적 보기</button>
         ${agentGaChatFoldFinal ? `
@@ -3576,7 +3748,7 @@ function renderAgentGaChatFinal(roll) {
     ? [['기안해줘', 1], ['방안 저장해줘', 1], ['되돌려줘', 1]]
     : n
       ? [['기안해줘', 1], ['외주비 3천만원 늘려줘', 0], ['재료비에서 외주비로 1천만원 옮겨줘', 0], ['지금 CP 여유 얼마야?', 1]]
-      : [['전부 반영해줘', 1], ['외주비 3천만원 늘려줘', 0], ['경비 300만원 줄여줘', 0], ['인건비 상세 보여줘', 1]];
+      : [['전부 반영해줘', 1], ['외주비 3천만원 늘려줘', 0], ['경비 300만원 줄여줘', 0], ['지금 CP 여유 얼마야?', 1]];
   if (n) items.splice(1, 0, ['전부 해제해줘', 1]);
   // [2026.10.12] 요구사항 노트 — 대화로 기능별 요구사항을 씁니다(req-notes.js)
   if (typeof rqnChatHandleFinal === 'function' && !window.REQ_NOTES_EXPORT) items.push(['요구사항 작성', 1]);
@@ -3627,11 +3799,11 @@ function renderAgentGaViewFinal(viewData, data, projInfo, roll) {
           ${renderAgentGaDetailFinal(viewData, data, roll)}
           ${agentGaChatFoldFinal ? '' : renderAgentGaChatFinal(roll)}
         </div>` : `
-        <div class="agga-grid">
+        <div class="agga-grid ${agentGaWideFinal ? 'wide' : ''}">
           ${renderAgentGaTodoFinal(roll)}
           ${renderAgentGaChatFinal(roll)}
         </div>`}
-      ${renderAgentHistLinkFinal()}
+      ${''/* [2026.10.13] 하단 '이력 · 결재 이력 · 변경 이력' 줄은 없앴습니다 — 상단 바 우측 [이력]과 같은 기능입니다. */}
     </div>
     ${agentApprovalPopupFinal.length ? renderAgentApprovalPopupFinal() : ''}
     ${renderAgentReturnNoticeFinal()}
@@ -3734,8 +3906,14 @@ function renderAgentAiTopFinal(viewData, data, roll) {
   const row = (typeof EXEC_BUDGET_PROJECTS !== 'undefined')
     ? EXEC_BUDGET_PROJECTS.find(x => x.key === currentBudgetProj) : null;
 
+  const compact = agentTopCompactFinal && agentViewFinal === 'agent';
   return `
-    <div class="agai-top ${over ? 'over' : ''}">
+    <div class="agai-top-sentinel" aria-hidden="true"></div>
+    <div class="agai-top ${over ? 'over' : ''} ${compact ? 'compact stuck' : (agentTopStuckFinal && agentViewFinal === 'agent' ? 'stuck' : '')}">
+      <div class="agai-ctitle">
+        <b>${escHtml((row && row.name) || (data.projName || ''))}</b>
+        <span>${agentAiSheetFinal ? escHtml(agentAiSheetFinal) + ' 상세' : '프로젝트 메인'}</span>
+      </div>
       <div class="agai-top-line">
         <strong>${escHtml((row && row.name) || (data.projName || ''))}</strong>
         ${cur ? `<button class="agai-ver" onclick="agentVerPopToggleFinal()">
@@ -3766,8 +3944,49 @@ function renderAgentAiTopFinal(viewData, data, roll) {
         </div>
         <div class="agai-accts ${agentAiSheetFinal ? 'has-view' : ''}">${chips}</div>
       </div>
-    </div>`;
+    </div>
+    <div class="agai-top-spacer" aria-hidden="true" style="height:${compact ? agentTopDeltaFinal : 0}px"></div>`;
 }
+
+/* [2026.10.14] 스크롤하면 상단 바를 계정 탭 한 줄로 접습니다 ─────────────────────────
+   아래로 내렸다는 건 상세 내역을 고치려는 것이라 금액 요약은 접고, 계정 이동 탭(4대 계정 + A/S Cost)만 남깁니다.
+     · 기준점(sentinel)은 바 바로 앞에 있어 바 높이가 바뀌어도 위치가 흔들리지 않습니다 → 깜빡임 없음
+     · 접히며 줄어든 높이만큼 바 뒤 간격(spacer)을 늘려 아래 내용이 튀어 오르지 않게 합니다
+   렌더마다 innerHTML 이 바뀌므로 상태(agentTopCompactFinal · agentTopDeltaFinal)는 전역에 둡니다. */
+var agentTopCompactFinal = false;
+var agentTopDeltaFinal = 0;
+var agentTopStuckFinal = false;       // 바가 위에 붙은 상태(위쪽 빈틈 가림 막을 켭니다)
+function agentTopStickCheckFinal() {
+  const sen = document.querySelector('.agent-ga .agai-top-sentinel');
+  const bar = document.querySelector('.agent-ga .agai-top');
+  if (!sen || !bar) { agentTopCompactFinal = false; return; }
+  const stickTop = parseFloat(getComputedStyle(bar).top) || 0;
+  const senTop = sen.getBoundingClientRect().top;
+  agentTopStuckFinal = senTop < stickTop + 0.5;
+  bar.classList.toggle('stuck', agentTopStuckFinal);
+  const want = senTop < stickTop - 24;
+  if (want === bar.classList.contains('compact')) return;
+  const spacer = bar.nextElementSibling && bar.nextElementSibling.classList.contains('agai-top-spacer')
+    ? bar.nextElementSibling : null;
+  if (want) {
+    const h1 = bar.offsetHeight;
+    bar.classList.add('compact');
+    agentTopDeltaFinal = Math.max(h1 - bar.offsetHeight, 0);
+    if (spacer) spacer.style.height = agentTopDeltaFinal + 'px';
+  } else {
+    bar.classList.remove('compact');
+    if (spacer) spacer.style.height = '0px';
+  }
+  agentTopCompactFinal = want;
+}
+(function agentTopStickInitFinal() {
+  if (window.__agentTopStickFinal) return;
+  window.__agentTopStickFinal = true;
+  let q = false;
+  const run = () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; agentTopStickCheckFinal(); }); };
+  window.addEventListener('scroll', run, { passive: true });
+  window.addEventListener('resize', run);
+})();
 
 /* ── 결정 카드 — Agent 제안 하나가 대화 속 카드 하나입니다 ── */
 
@@ -4102,6 +4321,12 @@ var agentSimDetailFinal = {};   // 대화로 받은 계정별 상세(업체·기
 /* ── 대화 한 줄을 시뮬레이션 명령으로 읽습니다 ── */
 function agentSimReadFinal(text) {
   const t = String(text || '');
+  // [2026.10.28] 금액 없이 CP 여유를 물으면 세 단계 GAP으로 답합니다 — "지금 CP 여유 얼마야?"
+  const cpAsk = /(cp|씨피)/i.test(t) || (/여유/.test(t) && !agentSimAcctsFinal(t).length);
+  if (cpAsk && /(여유|갭|gap|차이|남았|남은|잔여|얼마)/i.test(t) && !agentSimAmountFinal(t)) {
+    return { kind: 'cpgap' };
+  }
+  if (/(제안|조정안).*(다시\s*불러|복원|되살)/.test(t)) return { kind: 'restore' };
   if (/(초기화|되돌려|되돌리|원래대로|리셋)/.test(t)) return { kind: 'reset' };
   if (/(방안).*(저장|담아|보관)|저장해\s*줘/.test(t)) return { kind: 'save' };
   if (/(방안|안)\s*([1-9])\s*(번)?\s*(불러|적용|로 해|으로 해|로가|보여)/.test(t)) {
@@ -4196,6 +4421,14 @@ function agentSimSayImpactFinal(head) {
 
 /* ── 명령 실행 ── */
 function agentSimApplyFinal(cmd) {
+  if (cmd.kind === 'cpgap') { agentCpGapSayFinal(); return true; }
+  if (cmd.kind === 'restore') {
+    const n = agentGaRestoreFinal();
+    AGENT_CHAT_FINAL.push({ who: 'agent', text: n
+      ? `삭제했던 Agent 제안 ${n}건을 [예산 조정안]에 다시 불러왔습니다. 반영은 직접 골라 주세요.`
+      : '삭제한 Agent 제안이 없습니다.' });
+    return true;
+  }
   if (cmd.kind === 'reset') {
     agentSimClearFinal(true);
     AGENT_CHAT_FINAL.push({ who: 'agent', text:
@@ -4390,7 +4623,7 @@ function agentSimDraftFinal() {
     return true;
   }
   const bySrc = { agent: 0, sim: 0, manual: 0 };
-  items.forEach(p => { bySrc[p.sim ? 'sim' : (p.manual || p.hand) ? 'manual' : 'agent'] += 1; });
+  items.forEach(p => { bySrc[p.sim ? 'sim' : (p.manual || p.hand || p.edited) ? 'manual' : 'agent'] += 1; });
   const src = [
     bySrc.agent ? `🤖 Agent 제안 ${bySrc.agent}건` : '',
     bySrc.sim ? `💬 대화로 추가 ${bySrc.sim}건` : '',
@@ -4429,6 +4662,256 @@ function agentSimReflectFinal() {
   });
   const net = Object.keys(by).reduce((t, k) => t + by[k], 0);
   return { by, net, cnt, pendN, wait: [] };
+}
+
+/* [2026.10.28] "지금 CP 여유 얼마야?" — CP총액 대비 GAP을 세 단계로 답합니다.
+   ① 최종 승인된 실행예산(기준선 roll.plan — 결재 전 수기 입력은 빠져 있음)
+   ② [예산 조정안]에서 반영을 눌러 둔 건까지 승인됐을 때
+   ③ 조정안을 모두 반영했을 때 — 택1 묶음은 고른 안(없으면 1안)만 셉니다. 둘 다 넣으면 중복 증액입니다. */
+function agentCpGapFinal() {
+  const roll = agentRollCacheFinal;
+  if (!roll || !roll.cp) return null;
+  const pend = agentProposalsFinal('pending');
+  const done = {}, all = [];
+  pend.forEach(p => {
+    const g = (typeof agentExGroupFinal === 'function') ? agentExGroupFinal(p.id) : null;
+    if (!g) { all.push(p); return; }
+    if (done[g.key]) return;
+    done[g.key] = true;
+    const o = agentFindProposalFinal(g.ids.find(x => agentMiniSelFinal[x]) || g.ids[0]);
+    if (o && o.status === 'pending') all.push(o);
+  });
+  const cp = roll.cp, base = roll.plan;
+  const step = list => {
+    const delta = list.reduce((t, p) => t + agentNetFinal(p), 0);
+    return { n: list.length, delta, plan: base + delta, gap: cp - base - delta };
+  };
+  return {
+    cp, approved: { plan: base, gap: cp - base },
+    picked: step(pend.filter(p => agentMiniSelFinal[p.id])),
+    all: Object.assign(step(all), { groups: Object.keys(done).length }),
+  };
+}
+function agentCpGapSayFinal() {
+  const c = agentCpGapFinal();
+  if (!c) {
+    AGENT_CHAT_FINAL.push({ who: 'agent', text: '이 프로젝트의 CP총액을 찾지 못했습니다. 실행예산 버전을 고른 뒤 다시 물어 주세요.' });
+    return;
+  }
+  const gap = v => v >= 0 ? `여유 ${fmt(v)}원` : `${fmt(-v)}원 초과`;
+  AGENT_CHAT_FINAL.push({ who: 'agent', cpgap: c, text:
+    `CP총액 ${fmt(c.cp)}원 기준입니다. `
+    + `① 최종 승인된 실행예산은 ${fmt(c.approved.plan)}원으로 ${gap(c.approved.gap)}입니다. `
+    + (c.picked.n
+      ? `② [예산 조정안]에서 반영해 둔 ${c.picked.n}건(${agentDeltaFinal(c.picked.delta)})이 승인되면 실행예산 ${fmt(c.picked.plan)}원, ${gap(c.picked.gap)}입니다. `
+      : '② 반영해 둔 조정안이 없어 ①과 같습니다. ')
+    + `③ 조정안 ${c.all.n}건을 모두 반영하면 실행예산 ${fmt(c.all.plan)}원, ${gap(c.all.gap)}입니다.`
+    + (c.all.groups ? ' 택1 제안은 고른 안(없으면 1안)만 셌습니다.' : '')
+    + (c.all.gap < 0 ? ' 모두 반영하면 CP총액을 넘으니 일부만 반영하시거나 AI PMO에서 CP 증액을 먼저 받아 주세요.' : '') });
+}
+// 대화 답변 아래 세 단계 GAP 표
+function renderAgentCpGapFinal(c) {
+  const gap = v => `<em class="${v >= 0 ? 'ok' : 'over'}">${v >= 0 ? '여유 ' + fmt(v) : '초과 ' + fmt(-v)}원</em>`;
+  const row = (no, label, s) => `
+    <div class="agcpg-row"><i>${no}</i><span>${label}</span><b>${fmt(s.plan)}원</b>${gap(s.gap)}</div>`;
+  return `
+    <div class="agcpg" role="table" aria-label="CP총액 대비 GAP">
+      <div class="agcpg-head"><span>CP총액</span><b>${fmt(c.cp)}원</b></div>
+      ${row('①', '최종 승인 실행예산', c.approved)}
+      ${row('②', `반영해 둔 조정안 ${c.picked.n}건 승인 시`, c.picked)}
+      ${row('③', `조정안 ${c.all.n}건 모두 반영 시`, c.all)}
+    </div>`;
+}
+
+/* [2026.10.28] 예산 조정안 삭제 · 제안 다시 불러오기 ─────────────────────────────
+   조정안은 🤖 Agent 제안 · 💬 대화로 추가 · ✎ 수기 입력이 함께 쌓여 같은 내용이 겹칠 수 있습니다.
+     · 🤖 Agent 제안 → 'dismissed'. 데이터 기반 제안이라 [제안 다시 불러오기]로 되살립니다
+     · 💬 대화로 추가 → 목록에서 지웁니다
+     · ✎ 수동 개입(manual) → 편집을 Agent 초안으로 되돌리며 지웁니다
+     · ✎ 수기 입력(hand) → 'deleted'. 상세 화면 값은 남고, 결재 전 기준선에서도 계속 빠져 승인 예산은 그대로입니다
+   택1 묶음은 카드 하나라 묶음째 지웁니다. 첫 클릭은 확인 상태로만 바꿉니다. */
+var agentGaDelArmFinal = '';
+function agentGaDeleteAskFinal(id) { agentGaDelArmFinal = id; renderBudgetPage(); }
+function agentGaDeleteCancelFinal() { agentGaDelArmFinal = ''; renderBudgetPage(); }
+function agentGaDeleteFinal(id) {
+  agentGaDelArmFinal = '';
+  const g = (typeof agentExGroupFinal === 'function') ? agentExGroupFinal(id) : null;
+  let n = 0, agent = 0;
+  (g ? g.ids : [id]).forEach(x => {
+    const o = agentFindProposalFinal(x);
+    if (!o || o.status !== 'pending') return;
+    agentMiniSelFinal[x] = false;
+    delete agentAiCardOpenFinal[x];
+    n += 1;
+    if (o.sim) AGENT_PROPOSALS_FINAL.splice(AGENT_PROPOSALS_FINAL.indexOf(o), 1);
+    else if (o.edited) {
+      // 상세에서 고친 건 — 고친 내역은 지우고, 원래 Agent 제안은 되살릴 수 있게 둡니다
+      AGENT_PROPOSALS_FINAL.splice(AGENT_PROPOSALS_FINAL.indexOf(o), 1);
+      const org = agentFindProposalFinal(o.editedFrom);
+      if (org && org.status === 'converted') { org.status = 'dismissed'; delete org.convertedTo; agent += 1; }
+    }
+    else if (o.manual) { delete agentManualEditFinal[agentManualKeyFinal(o.acct)]; agentManualSyncProposalFinal(o.acct); }
+    else if (o.hand) { o.status = 'deleted'; o.deletedAt = agentHandNowFinal(); }
+    else { o.status = 'dismissed'; o.deletedAt = agentHandNowFinal(); agent += 1; }
+  });
+  if (n) showToast(agent ? '조정안에서 삭제했습니다. [제안 다시 불러오기]로 되살릴 수 있습니다.' : '조정안에서 삭제했습니다.');
+  renderBudgetPage();
+}
+function agentGaRestoreFinal() {
+  const list = agentProposalsFinal('dismissed');
+  list.forEach(p => { p.status = 'pending'; delete p.deletedAt; });
+  return list.length;
+}
+function agentGaRestoreBtnFinal() {
+  const n = agentGaRestoreFinal();
+  showToast(n ? `삭제했던 Agent 제안 ${n}건을 다시 불러왔습니다.` : '다시 불러올 Agent 제안이 없습니다.');
+  renderBudgetPage();
+}
+
+/* [2026.10.28] 계정 상세 — 예산 조정안 반영 내역 ─────────────────────────────────
+   상단 계정 칩은 [반영]한 조정안만큼 +/− 를 보여 주는데, 상세 표는 승인된 예산(기준선)이라
+   무엇이 더해졌는지 상세에서 확인할 수 없었습니다. 상세 머리 아래에 이 계정에 걸린 반영 내역을 펼쳐 둡니다.
+     · 🤖 Agent 제안 · 💬 대화로 추가 건은 여기서 월별 금액을 고칠 수 있습니다
+       → 고치면 원래 건은 조정안에서 빠지고(Agent 제안 'converted' · 대화 건은 교체)
+         같은 내용의 ✎ 수기 입력(edited) 조정안이 반영 상태로 올라갑니다. 택1 묶음의 다른 안은 'superseded'
+     · ✎ 계정 상세 수기 입력(hand) 건은 표 안의 '수기 입력(결재전)' 행에서 고칩니다(여기선 보기만)
+   이관처럼 여러 계정에 걸친 건은 월 배분 없이 이 계정 금액만 고칩니다. */
+var agentAppliedEdFinal = null;      // { pid, acct }
+var agentAppliedSeqFinal = 0;
+function agentAppliedLegFinal(p, acct) {
+  return ((p.legs || []).find(l => l.acct === acct) || { delta: 0 }).delta;
+}
+function agentAppliedOpenMonthsFinal() {
+  const vd = agentViewDataCacheFinal;
+  return ((vd && vd.months) || []).map(x => x.m).filter(m => m > AGENT_EXP_CLOSED_THRU_FINAL);
+}
+function renderAgentAcctAppliedFinal(acct) {
+  if (agentIsExecFinal() || ((typeof agentVerIsPastFinal === 'function') && agentVerIsPastFinal())) return '';
+  const mine = agentProposalsFinal('pending').filter(p => (p.legs || []).some(l => l.acct === acct));
+  if (!mine.length) return '';
+  const on = mine.filter(p => agentMiniSelFinal[p.id]);
+  const off = mine.length - on.length;
+  const sum = on.reduce((t, p) => t + agentAppliedLegFinal(p, acct), 0);
+  const row = p => {
+    const tag = p.sim ? ['sim', '💬 대화로 추가'] : (p.hand || p.manual || p.edited) ? ['manual', '✎ 수기 입력'] : ['agent', '🤖 Agent 제안'];
+    const d = agentAppliedLegFinal(p, acct);
+    const single = (p.legs || []).length === 1;
+    const ms = single ? (p.monthly || []).filter(x => x.delta) : [];
+    const canEdit = !p.hand && !p.manual;
+    if (agentAppliedEdFinal && agentAppliedEdFinal.pid === p.id) return renderAgentAppliedEditFinal(p, acct);
+    return `
+      <div class="agap-row">
+        <i class="agai-tag ${tag[0]}">${tag[1]}</i>
+        <b class="agap-t">${escHtml(p.title || '')}</b>
+        <em class="agap-amt ${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d === 0 ? '±0원' : agentDeltaFinal(d)}</em>
+        ${canEdit ? `<button class="agap-ed" onclick="agentAppliedEdOpenFinal('${p.id}','${acct}')">수정</button>`
+          : '<span class="agap-hint">표의 수기 입력 행에서 수정</span>'}
+        ${ms.length ? `<div class="agap-ms">${ms.map(x => `<span>${x.m} <b>${agentDeltaFinal(x.delta)}</b></span>`).join('')}</div>`
+          : (!single ? `<div class="agap-ms"><span>${(p.legs || []).map(l => `${l.acct} ${agentDeltaFinal(l.delta)}`).join(' · ')}</span></div>`
+            : '<div class="agap-ms"><span class="none">월 배분 전 — [수정]에서 월별로 나눠 주세요</span></div>')}
+        ${p.edited && p.origDelta !== undefined ? `<div class="agap-from">원래 ${p.origin === 'sim' ? '대화' : 'Agent'} 제안 ${agentDeltaFinal(p.origDelta)} → ${agentDeltaFinal(d)}</div>` : ''}
+      </div>`;
+  };
+  return `
+    <div class="agap">
+      <div class="agap-head">
+        <b>예산 조정안 반영 내역</b>
+        <span>${acct} · 반영 ${on.length}건</span>
+        <em class="${sum > 0 ? 'up' : sum < 0 ? 'down' : ''}">${sum === 0 ? '±0원' : agentDeltaFinal(sum)}</em>
+      </div>
+      ${on.length ? on.map(row).join('') : '<div class="agap-empty">반영한 조정안이 없습니다.</div>'}
+      <div class="agap-foot">
+        <span>아래 표는 승인된 예산입니다. 반영한 조정안은 결재 승인 후 표에 들어갑니다${on.some(p => p.hand) ? ' (✎ 상세에서 직접 입력한 내역은 표에 \'수기 입력(결재전)\'으로 보입니다)' : ''}.</span>
+        ${off ? `<button onclick="agentGaTodoOpenSetFinal(true)">반영 안 한 조정안 ${off}건 보기</button>` : ''}
+      </div>
+    </div>`;
+}
+function renderAgentAppliedEditFinal(p, acct) {
+  const single = (p.legs || []).length === 1;
+  const d = agentAppliedLegFinal(p, acct);
+  const by = {};
+  if (single) (p.monthly || []).forEach(x => { by[x.m] = (by[x.m] || 0) + x.delta; });
+  const months = agentAppliedOpenMonthsFinal();
+  return `
+    <div class="agap-row ed" data-pid="${p.id}">
+      <b class="agap-t">${escHtml(p.title || '')}</b>
+      <div class="agap-edbox">
+        ${single ? `
+          <div class="agap-grid">${months.map(m => `
+            <label><span>${m}</span><input type="text" inputmode="numeric" data-m="${m}" value="${by[m] ? fmt(by[m]) : ''}"
+              oninput="agentAppliedEdSumFinal()" placeholder="0"></label>`).join('')}</div>
+          <p class="agap-note">마감된 달(${AGENT_EXP_CLOSED_THRU_FINAL} 이전)은 고칠 수 없습니다. 감액은 −를 붙여 입력하세요.</p>` : `
+          <p class="agap-note">${(p.legs || []).map(l => `${l.acct} ${agentDeltaFinal(l.delta)}`).join(' · ')} — 여러 계정에 걸친 건이라 ${acct} 금액만 고칩니다.</p>`}
+        <label class="agap-total"><span>${acct} 합계</span>
+          <input type="text" inputmode="numeric" id="agap-total" value="${fmt(d)}" ${single && Object.keys(by).length ? 'readonly' : ''}></label>
+        <div class="agap-bar">
+          <span>저장하면 이 건은 ✎ 수기 입력 조정안으로 바뀌어 반영됩니다.</span>
+          <button onclick="agentAppliedEdCloseFinal()">취소</button>
+          <button class="go" onclick="agentAppliedEdSaveFinal('${p.id}','${acct}')">저장</button>
+        </div>
+      </div>
+    </div>`;
+}
+function agentAppliedEdOpenFinal(pid, acct) { agentAppliedEdFinal = { pid, acct }; renderBudgetPage(); }
+function agentAppliedEdCloseFinal() { agentAppliedEdFinal = null; renderBudgetPage(); }
+// 월 칸을 고치면 합계를 다시 씁니다 — 재렌더 없이 DOM만
+function agentAppliedEdSumFinal() {
+  const box = document.querySelector('.agap-row.ed');
+  if (!box) return;
+  const ins = [...box.querySelectorAll('.agap-grid input')];
+  const any = ins.some(el => String(el.value).trim() !== '');
+  const tot = box.querySelector('#agap-total');
+  if (!tot) return;
+  tot.readOnly = any;
+  if (any) tot.value = fmt(ins.reduce((t, el) => t + parseBudgetAmount(el.value || 0), 0));
+}
+function agentAppliedEdSaveFinal(pid, acct) {
+  const p = agentFindProposalFinal(pid);
+  const box = document.querySelector('.agap-row.ed');
+  if (!p || !box) return;
+  const months = [];
+  box.querySelectorAll('.agap-grid input').forEach(el => {
+    const v = parseBudgetAmount(el.value || 0);
+    if (v) months.push({ m: el.dataset.m, delta: v });
+  });
+  const total = months.length ? months.reduce((t, x) => t + x.delta, 0)
+    : parseBudgetAmount((box.querySelector('#agap-total') || {}).value || 0);
+  const before = agentAppliedLegFinal(p, acct);
+  const sameMonths = JSON.stringify((p.monthly || []).filter(x => x.delta)) === JSON.stringify(months);
+  if (total === before && (sameMonths || (p.legs || []).length > 1)) { agentAppliedEdCloseFinal(); showToast('바뀐 금액이 없습니다.'); return; }
+
+  let np = p;
+  if (!p.edited) {
+    np = JSON.parse(JSON.stringify(p));
+    agentAppliedSeqFinal += 1;
+    np.id = 'ed-' + agentAppliedSeqFinal + '-' + p.id;
+    np.edited = true; np.editedFrom = p.id; np.origin = p.sim ? 'sim' : 'agent';
+    np.origDelta = before;
+    delete np.sim;
+    const idx = AGENT_PROPOSALS_FINAL.indexOf(p);
+    if (p.sim) AGENT_PROPOSALS_FINAL.splice(idx, 1, np);
+    else { p.status = 'converted'; p.convertedTo = np.id; AGENT_PROPOSALS_FINAL.splice(idx + 1, 0, np); }
+    // 택1 묶음 — 다른 안은 더 이상 고를 대상이 아닙니다
+    const g = (typeof agentExGroupFinal === 'function') ? agentExGroupFinal(p.id) : null;
+    if (g) g.ids.forEach(x => {
+      const o = agentFindProposalFinal(x);
+      if (o && x !== p.id && o.status === 'pending') { o.status = 'superseded'; agentMiniSelFinal[x] = false; }
+    });
+    agentMiniSelFinal[p.id] = false;
+    delete agentAiCardOpenFinal[p.id];
+  }
+  np.legs = (np.legs || []).map(l => l.acct === acct ? Object.assign({}, l, { delta: total }) : l);
+  if ((np.legs || []).length === 1) np.monthly = months;
+  np.detectedAt = agentHandNowFinal();
+  np.trigger = `PM ${acct} 상세 수정`;
+  np.why = `PM이 ${acct} 상세에서 ${np.origin === 'sim' ? '대화로 추가한 조정' : 'Agent 제안'} 금액을 `
+    + `${agentDeltaFinal(np.origDelta)} → ${agentDeltaFinal(total)}로 고쳤습니다. `
+    + (p.edited ? '' : (p.why || ''));
+  np.source = { main: `${acct} 상세 수정`, facts: months.map(x => `${x.m} ${agentDeltaFinal(x.delta)}`) };
+  agentMiniSelFinal[np.id] = true;
+  agentAppliedEdFinal = null;
+  showToast(`${acct} 조정안을 고쳤습니다 — ✎ 수기 입력 ${agentDeltaFinal(total)}로 반영됩니다.`);
+  renderBudgetPage();
 }
 
 /* ── 전체 계정 표 — 6안 예산 현황 보기의 본체 ──────────────────────────────
@@ -7424,6 +7907,13 @@ function renderAgentDraftRowFinal(d, mode) {
   .agent-ga .agai-top { top:66px; }
   .agga-grid { display:grid; grid-template-columns:minmax(320px,30%) minmax(0,1fr);
     gap:12px; align-items:start; }
+  /* [2026.11.10] 좌우 비율 뒤집기 — 예산 조정안 70% · 대화하기 30% */
+  .agga-grid.wide { grid-template-columns:minmax(0,1fr) minmax(320px,30%); }
+  .agga-swap { flex:0 0 auto; border:1px solid var(--ai-line); background:#fff; color:#475569;
+    border-radius:999px; padding:5px 10px; font:inherit; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .agga-swap:hover { border-color:#c7d2fe; color:#3730a3; }
+  .agga-swap.on { border-color:#c7d2fe; background:#eef2ff; color:#3730a3; }
+  .agga-col-head strong + .agga-swap, .agga-simtag + .agga-swap { margin-left:auto; }
   .agga-col { display:flex; flex-direction:column; min-width:0;
     border:1px solid var(--ai-line); border-radius:16px; background:#fff; overflow:hidden;
     height:clamp(430px, calc(100vh - 372px), 900px);
@@ -7470,9 +7960,10 @@ function renderAgentDraftRowFinal(d, mode) {
   .agga-card.manual { border-left-color:#a45b06; }
   .agga-card.on { background:#f8fdfa; border-left-color:#0f9d63; }
   /* 좌측은 정보, 우측은 금액과 그 바로 아래 버튼 */
-  .agga-body { display:flex; align-items:flex-start; gap:10px; }
-  .agga-left { flex:1 1 auto; min-width:0; }
-  .agga-right { flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+  /* [2026.11.10] 칸이 좁아 버튼 줄이 길면 우측을 다음 줄로 내립니다 — 제목이 한 글자씩 세로로 쪼개지지 않게 최소 폭 확보 */
+  .agga-body { display:flex; align-items:flex-start; gap:8px 10px; flex-wrap:wrap; }
+  .agga-left { flex:1 1 180px; min-width:180px; }
+  .agga-right { flex:0 1 auto; max-width:100%; margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
   .agga-head { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .agga-amt { font-style:normal; font-size:15px; font-weight:900;
     font-variant-numeric:tabular-nums; color:#64748b; white-space:nowrap; }
@@ -7491,6 +7982,77 @@ function renderAgentDraftRowFinal(d, mode) {
   .agga-acts button:hover { border-color:#94a3b8; color:var(--ai-ink); }
   .agga-acts .agai-seg { min-width:0; }
   .agga-why.on { background:#f5f6ff !important; border-color:#c7d2fe !important; color:#3730a3 !important; }
+  /* [2026.10.28] 조정안 삭제 · 제안 다시 불러오기 */
+  .agga-acts .agga-del { color:#94a3b8; border-color:transparent; background:transparent; }
+  .agga-acts .agga-del:hover { color:#c40025; border-color:#f6c3ce; background:#fff1f3; }
+  .agga-delask { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:9px; padding:8px 10px;
+    border-radius:9px; background:#fff1f3; border:1px solid #f6c3ce; }
+  .agga-delask span { flex:1 1 180px; min-width:0; font-size:11.5px; line-height:1.55; color:#7f1d1d; }
+  .agga-delask b { color:#c40025; font-weight:900; }
+  .agga-delask button { border:1px solid #f6c3ce; background:#fff; color:#7f1d1d; border-radius:8px;
+    padding:4px 10px; font:inherit; font-size:11px; font-weight:800; cursor:pointer; }
+  .agga-delask button.go { background:#c40025; border-color:#c40025; color:#fff; }
+  .agga-restore { display:flex; align-items:center; gap:8px; margin:0 0 10px; padding:7px 10px;
+    border-radius:9px; background:#f8fafc; border:1px dashed var(--ai-line); font-size:11.5px; color:#64748b; }
+  .agga-restore b { color:var(--ai-ink); font-weight:900; }
+  .agga-restore button { margin-left:auto; border:1px solid #c7d2fe; background:#f5f6ff; color:#3730a3;
+    border-radius:8px; padding:4px 10px; font:inherit; font-size:11px; font-weight:800; cursor:pointer; }
+  /* [2026.10.28] 계정 상세 — 예산 조정안 반영 내역 */
+  .agga-dafter { font-style:normal; font-size:12px; font-weight:900; font-variant-numeric:tabular-nums; }
+  .agga-dafter.up { color:#c1122f; } .agga-dafter.down { color:#1d4ed8; }
+  .agap { border:1px solid #c7d2fe; border-radius:12px; background:#f7f8ff; padding:10px 13px; margin:0 0 12px; }
+  .agap-head { display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; margin-bottom:4px; }
+  .agap-head b { font-size:13.5px; font-weight:900; color:#3730a3; }
+  .agap-head span { font-size:12px; color:#64748b; }
+  .agap-head em { margin-left:auto; font-style:normal; font-size:14px; font-weight:900; font-variant-numeric:tabular-nums; }
+  .agap-head em.up, .agap-amt.up { color:#c1122f; } .agap-head em.down, .agap-amt.down { color:#1d4ed8; }
+  .agap-row { display:grid; grid-template-columns:auto minmax(0,1fr) auto auto; gap:4px 9px; align-items:center;
+    padding:8px 0; border-top:1px solid #e3e7fb; }
+  .agap-row:first-of-type { border-top:0; }
+  .agap-t { font-size:12.5px; font-weight:800; color:var(--ai-ink); line-height:1.5; min-width:0; }
+  .agap-amt { font-style:normal; font-size:13px; font-weight:900; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .agap-ed { border:1px solid #c7d2fe; background:#fff; color:#3730a3; border-radius:8px; padding:4px 10px;
+    font:inherit; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .agap-ed:hover { background:#eef0ff; }
+  .agap-hint { font-size:10.5px; color:#94a3b8; font-weight:700; white-space:nowrap; }
+  .agap-ms, .agap-from { grid-column:2 / -1; display:flex; flex-wrap:wrap; gap:4px 10px; font-size:11px; color:#64748b;
+    font-variant-numeric:tabular-nums; }
+  .agap-ms b { color:#334155; font-weight:800; }
+  .agap-ms .none { color:#a45b06; font-weight:700; }
+  .agap-from { color:#7c3aed; font-weight:700; }
+  .agap-empty { font-size:12px; color:#64748b; padding:6px 0; }
+  .agap-foot { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; padding-top:7px;
+    border-top:1px dashed #d4d9f7; font-size:11px; color:#64748b; line-height:1.55; }
+  .agap-foot span { flex:1 1 240px; min-width:0; }
+  .agap-foot button { border:1px solid #c7d2fe; background:#fff; color:#3730a3; border-radius:8px; padding:4px 10px;
+    font:inherit; font-size:11px; font-weight:800; cursor:pointer; }
+  .agap-row.ed { display:block; }
+  .agap-edbox { margin-top:7px; padding:10px; border-radius:10px; background:#fff; border:1px solid #c7d2fe; }
+  .agap-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(104px, 1fr)); gap:6px; }
+  .agap-grid label, .agap-total { display:grid; gap:2px; font-size:10.5px; font-weight:700; color:#64748b; }
+  .agap-grid input, .agap-total input { font:inherit; font-size:12px; text-align:right; border:1px solid var(--ai-line);
+    border-radius:7px; padding:5px 7px; min-width:0; font-variant-numeric:tabular-nums; }
+  .agap-total { margin-top:8px; max-width:220px; }
+  .agap-total input[readonly] { background:#f8fafc; color:#334155; font-weight:800; }
+  .agap-note { margin:6px 0 0; font-size:11px; color:#64748b; line-height:1.55; }
+  .agap-bar { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:9px; }
+  .agap-bar span { flex:1 1 200px; font-size:11px; color:#7c3aed; font-weight:700; }
+  .agap-bar button { border:1px solid var(--ai-line); background:#fff; color:#475569; border-radius:8px; padding:5px 12px;
+    font:inherit; font-size:11.5px; font-weight:800; cursor:pointer; }
+  .agap-bar button.go { background:#3730a3; border-color:#3730a3; color:#fff; }
+  /* [2026.10.28] CP총액 대비 GAP 표 — 대화 답변 아래 */
+  .agcpg { margin:6px 0 0; max-width:82%; border:1px solid #dcdffb; border-radius:12px; background:#fff;
+    overflow:hidden; font-variant-numeric:tabular-nums; }
+  .agcpg-head, .agcpg-row { display:grid; grid-template-columns:22px minmax(0,1fr) auto auto; gap:4px 10px;
+    align-items:baseline; padding:7px 12px; font-size:12.5px; }
+  .agcpg-head { grid-template-columns:minmax(0,1fr) auto; background:#f5f6ff; color:#3730a3; font-weight:800; }
+  .agcpg-row + .agcpg-row, .agcpg-head + .agcpg-row { border-top:1px solid #eef0fb; }
+  .agcpg-row i { font-style:normal; font-weight:900; color:#6366f1; }
+  .agcpg-row span { color:#475569; font-weight:700; }
+  .agcpg-row b { color:var(--ai-ink); font-weight:800; text-align:right; }
+  .agcpg-row em { font-style:normal; font-weight:900; text-align:right; min-width:9em; }
+  .agcpg-row em.ok { color:#0f9d63; }
+  .agcpg-row em.over { color:#c40025; }
   .agga-whybox { margin-top:9px; padding-top:9px; border-top:1px dashed var(--ai-line); }
   .agga-whybox p { margin:0; font-size:12px; color:#334155; line-height:1.75; }
   .agga-whybox p.agai-impact { margin-top:7px; font-size:11.5px; }
@@ -7502,6 +8064,9 @@ function renderAgentDraftRowFinal(d, mode) {
   /* ── 계정 상세(좌 70%) ── */
   .agga-grid.detail { grid-template-columns:minmax(0,1fr) minmax(300px,30%); }
   .agga-grid.detail.no-chat { grid-template-columns:minmax(0,1fr); }
+  /* [2026.10.13] 계정 상세 칸은 안쪽 스크롤 없이 내용만큼 늘어나고, 짧아도 화면 아래까지 채웁니다(페이지가 스크롤). */
+  .agga-grid.detail > .agga-col.detail { height:auto; min-height:calc(100vh - 290px); min-height:calc(100dvh - 290px); }
+  .agga-grid.detail > .agga-col.detail > .agga-col-body.detail { overflow:visible; }
 
   /* 계정 상세 표시 — 상세 칸 계정색 + [← 프로젝트 메인] */
   .agga-home { flex:0 0 auto; display:inline-flex; align-items:center; gap:4px; cursor:pointer;
@@ -7757,6 +8322,30 @@ function renderAgentDraftRowFinal(d, mode) {
   .aglb-st.carry { background:#e9f8f1; color:#12724f; }
   .agex-panel { border-left-color:var(--acc, #12724f); }
   .agex-idle { margin:8px 2px 0; font-size:11.5px; color:#94a3b8; }
+  /* 경비 편집 */
+  .agex-bar { display:flex; align-items:center; gap:10px; margin:0 0 10px; }
+  .agex-bar .agex-years { margin:0; }
+  .agex-bar .aglb-add { margin-left:auto; }
+  .agexe .agexe-pick { display:flex; flex-direction:column; gap:5px; margin:0 0 12px; }
+  .agexe .agexe-pick span { font-size:11.5px; font-weight:800; color:#64748b; }
+  .agexe .agexe-pick select { border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; font:inherit; font-size:13px; }
+  .agexe-fill { display:inline-flex; align-items:center; gap:6px; margin-left:auto; font-size:11.5px; font-weight:800; color:#475569; }
+  .agexe-fill input { width:120px; border:1px solid #cbd5e1; border-radius:8px; padding:6px 9px; font:inherit; font-size:12.5px; text-align:right; }
+  .agexe-fill button { border:1px solid #1c2432; background:#1c2432; color:#fff; border-radius:8px; padding:6px 12px;
+    font:inherit; font-size:12px; font-weight:900; cursor:pointer; }
+  .agexe-year + .agexe-year { margin-top:12px; }
+  .agexe-yh { display:flex; align-items:center; gap:12px; margin:0 0 6px; }
+  .agexe-yh b { font-size:13px; font-weight:900; color:#0b1220; }
+  .agexe-yh span { font-size:12px; color:#64748b; } .agexe-yh em { font-style:normal; font-weight:900; color:#12724f; }
+  .agexe-grid { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:8px; }
+  .agexe-m { display:flex; flex-direction:column; gap:4px; }
+  .agexe-m span { font-size:11px; font-weight:800; color:#64748b; }
+  .agexe-m input { width:100%; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:8px; padding:7px 8px;
+    font:inherit; font-size:12.5px; text-align:right; font-variant-numeric:tabular-nums; }
+  .agexe-m.closed input { background:#f1f5f9; color:#94a3b8; }
+  .agexe-empty { padding:24px; text-align:center; font-size:12.5px; color:#94a3b8; }
+  .agv-pop-foot .agexe-del { color:#c40025; border-color:#f3c2cc; }
+  @media (max-width:640px) { .agexe-grid { grid-template-columns:repeat(3, minmax(0,1fr)); } .agex-bar { flex-wrap:wrap; } }
   .agos-empty { padding:16px; text-align:center; font-size:12px; color:#94a3b8;
     border:1px dashed var(--ai-line); border-radius:10px; background:#fff; }
   .agos-warn { margin:9px 0 0; padding:8px 11px; border:1px solid #f6c3ce; border-radius:9px;
@@ -7857,7 +8446,7 @@ function renderAgentDraftRowFinal(d, mode) {
   .agga-input .agai-send { height:40px; padding:0 17px; font-size:13.5px; border-radius:10px; }
 
   @media (max-width:1100px) {
-    .agga-grid, .agga-grid.detail.with-todo, .agga-grid.detail.with-todo.no-chat,
+    .agga-grid, .agga-grid.wide, .agga-grid.detail.with-todo, .agga-grid.detail.with-todo.no-chat,
     .agga-grid.detail.no-chat { grid-template-columns:1fr; }
     .agga-col { height:auto; max-height:620px; }
   }
@@ -7871,6 +8460,27 @@ function renderAgentDraftRowFinal(d, mode) {
     border:1px solid var(--ai-line); border-radius:20px; background:#fff;
     box-shadow:0 18px 44px -30px rgba(11,18,32,.5); padding:14px 18px 12px; }
   .agai-top.over { border-color:#f6b8b8; }
+  /* [2026.10.14] 바가 위에 붙었을 때 그 위 빈틈(top 만큼)으로 아래 내용이 비치지 않게 가립니다 */
+  .agai-top.stuck::before { content:''; position:absolute; left:-24px; right:-24px; bottom:100%; height:80px;
+    background:var(--agai-cover, #fff); pointer-events:none; }
+  .agai-top-sentinel { height:0; }
+  .agai-top-spacer { height:0; }
+  .agai-ctitle { display:none; }
+  /* 접힌 상태 — 프로젝트명 · 지금 보는 곳 + 계정 탭 한 줄(금액 없음) */
+  .agai-top.compact { padding:8px 14px; border-radius:14px; display:flex; align-items:center; gap:14px; }
+  .agai-top.compact .agai-ctitle { display:flex; flex-direction:column; gap:1px; flex:0 1 auto; min-width:0; max-width:240px; }
+  .agai-top.compact .agai-ctitle b { font-size:12.5px; font-weight:900; color:var(--ai-ink);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .agai-top.compact .agai-ctitle span { font-size:11px; font-weight:800; color:#64748b; }
+  .agai-top.compact .agai-top-line, .agai-top.compact .agai-verwrap,
+  .agai-top.compact .agai-fig, .agai-top.compact .agai-arrow { display:none; }
+  .agai-top.compact .agai-figs { margin:0; flex:1 1 auto; min-width:0; }
+  .agai-top.compact .agai-accts { display:flex; gap:6px; margin:0; }
+  .agent-ga .agai-top.compact .agai-acct { flex:1 1 0; flex-direction:row; align-items:center; justify-content:center;
+    padding:7px 10px; border-radius:10px; min-height:0; box-shadow:none; }
+  .agai-top.compact .agai-acct b, .agai-top.compact .agai-acct span, .agai-top.compact .agai-viewing { display:none; }
+  .agai-top.compact .agai-acct em { font-size:12.5px; padding:2px 8px; align-self:center; }
+  .agai-top.compact .agai-accts.has-view .agai-acct:not(.viewing) { opacity:.8; }
   .agai-top-line { display:flex; align-items:center; gap:9px; }
   .agai-top-line > strong { font-size:14px; font-weight:900; color:var(--ai-ink);
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

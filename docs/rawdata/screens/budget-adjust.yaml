@@ -169,6 +169,22 @@ elements:
     result: "총액 자체 변경은 이 화면 불가 — Cost 재산정으로 안내(이관은 총액 내에서만)"
 
 
+  # ── [2026.11.10] 예산관리 Agent ON · 메인 — 좌우 비율 바꾸기 ──
+  - id: btn-agent-main-wide-toggle
+    label: "넓게 › / ‹ 좁게 (예산 조정안 폭 전환)"
+    type: button
+    crud: N
+    area: "메인 화면 · 예산 조정안 칸 머리 우측"
+    event: onclick
+    front:
+      handler: agentGaWideToggleFinal()
+      file: "budget-agent-console.js:agentGaWideToggleFinal (그리드 조합 renderAgentGaViewFinal)"
+      logic: "기본 예산 조정안 30% · Agent와 대화하기 70% 를 70% · 30% 로 뒤집고, 다시 누르면 되돌린다. 선택은 브라우저(localStorage 'agga-wide')에 기억한다. 계정 상세 화면에서는 보이지 않는다. 1100px 이하 좁은 화면은 위아래 1단 그대로"
+      validation: null
+      state_writes: [agentGaWideFinal]
+    backend: null
+    result: "예산 조정안 칸이 넓어져(70%) 카드 제목·근거를 한눈에 본다 / 다시 누르면 30%로 복귀"
+
   # ── [2026.10.12] 예산관리 Agent ON · 계정 상세(5대 계정 공통) — 양옆 칸 접기/펼치기 ──
   - id: btn-agent-detail-chat-fold
     label: "접기 ›(Agent와 대화하기)"
@@ -271,6 +287,155 @@ elements:
     backend: null
     result: "{계정} 월별 계획 / 실적 팝업"
 
+  - id: btn-agent-proposal-delete
+    label: 삭제
+    type: button
+    crud: N
+    area: "예산 조정안 카드 동작 줄(반영 · 근거 다음)"
+    event: onclick
+    front:
+      handler: "agentGaDeleteAskFinal(id)"
+      file: "budget-agent-console.js:4717 (카드 renderAgentGaCardFinal:1068)"
+      logic: "카드 안에 삭제 확인 띠를 연다. 출처별로 지운 뒤 결과(되살리기 가능 · 상세 값 유지 · 초안 복귀 · 사라짐)를 안내한다. 직책자(결재 화면)에는 보이지 않는다"
+      validation: null
+      state_writes: [agentGaDelArmFinal]
+    backend: null
+    result: "삭제 확인 띠 열림"
+
+  - id: btn-agent-proposal-delete-confirm
+    label: 삭제(확인)
+    type: button
+    crud: D
+    area: "예산 조정안 카드 삭제 확인 띠"
+    event: onclick
+    front:
+      handler: "agentGaDeleteFinal(id)"
+      file: "budget-agent-console.js:4719"
+      logic: >
+        반영을 풀고 출처별로 지운다 — 🤖 Agent 제안: status='dismissed'(되살리기 대상) ·
+        💬 대화로 추가(sim): 목록에서 제거 · ✎ 수동 개입(manual): 편집을 Agent 초안으로 되돌림 ·
+        ✎ 수기 입력(hand): status='deleted' — 상세 화면 값은 남고 결재 전 기준선에서도 계속 빠져 승인 예산은 그대로.
+        택1 묶음은 묶음 전체를 지운다
+      validation: "검토 대기(pending) 건만"
+      state_writes: [AGENT_PROPOSALS_FINAL, agentMiniSelFinal, agentManualEditFinal]
+    backend: null
+    result: "조정안에서 빠짐 · LIVE 바/기안 대상에서 제외"
+
+  - id: btn-agent-proposal-delete-cancel
+    label: 취소
+    type: button
+    crud: N
+    area: "예산 조정안 카드 삭제 확인 띠"
+    event: onclick
+    front:
+      handler: "agentGaDeleteCancelFinal()"
+      file: "budget-agent-console.js:4718"
+      logic: "삭제 확인 띠를 닫는다"
+      validation: null
+      state_writes: [agentGaDelArmFinal]
+    backend: null
+    result: "삭제 취소"
+
+  - id: btn-agent-proposal-restore
+    label: 제안 다시 불러오기
+    type: button
+    crud: U
+    area: "예산 조정안 목록 위 '삭제한 Agent 제안 N건' 띠(삭제한 Agent 제안이 있을 때만)"
+    event: onclick
+    front:
+      handler: "agentGaRestoreBtnFinal()"
+      file: "budget-agent-console.js:4742 (agentGaRestoreFinal:4737)"
+      logic: "현재 프로젝트의 dismissed Agent 제안을 모두 pending 으로 되돌린다. 반영(선택)은 하지 않는다. 대화로 '삭제한 제안 다시 불러와줘'도 같은 동작(agentSimReadFinal kind=restore)"
+      validation: null
+      state_writes: [AGENT_PROPOSALS_FINAL]
+    backend: null
+    result: "삭제했던 Agent 제안이 예산 조정안에 다시 표시"
+
+  - id: panel-acct-applied
+    label: "예산 조정안 반영 내역 (계정 상세 머리 아래) + 머리 '반영 후 N원'"
+    type: panel
+    crud: R
+    area: "계정 상세 칸(인건비·외주비·재료비·경비·A/S Cost 공통) 맨 위"
+    event: null
+    front:
+      handler: "renderAgentAcctAppliedFinal(acct)"
+      file: "budget-agent-console.js:4776 (마운트 renderAgentGaDetailFinal:3696)"
+      logic: >
+        이 계정에 걸린 검토 대기 조정안 중 [반영]한 건을 출처 표시 · 제목 · 이 계정 금액 · 월별 배분과 함께 보여 준다.
+        머리에는 승인 예산 옆에 '반영 후 N원(±)'을 붙여 상단 계정 칩의 ± 와 같은 숫자를 상세에서도 확인하게 한다.
+        반영 안 한 건은 건수와 [반영 안 한 조정안 N건 보기](예산 조정안 펼치기)로 안내한다. 결재 화면·과거 버전에서는 숨긴다
+      validation: null
+      state_writes: []
+    backend: null
+    result: "반영된 조정안이 상세 표의 어떤 금액으로 들어갈지 확인"
+
+  - id: btn-acct-applied-edit
+    label: 수정
+    type: button
+    crud: N
+    area: "예산 조정안 반영 내역 행(🤖 Agent 제안 · 💬 대화로 추가 건만)"
+    event: onclick
+    front:
+      handler: "agentAppliedEdOpenFinal(pid, acct)"
+      file: "budget-agent-console.js:4843"
+      logic: "행 자리에 월별 금액 편집기를 연다 — 마감월(AGENT_EXP_CLOSED_THRU_FINAL) 이후 달만, 여러 계정 건(이관)은 이 계정 합계만. ✎ 수기 입력 건은 표의 수기 입력 행에서 고친다(안내만)"
+      validation: null
+      state_writes: [agentAppliedEdFinal]
+    backend: null
+    result: "월별 금액 편집기"
+
+  - id: btn-acct-applied-save
+    label: 저장
+    type: button
+    crud: U
+    area: "예산 조정안 반영 내역 편집기"
+    event: onclick
+    front:
+      handler: "agentAppliedEdSaveFinal(pid, acct)"
+      file: "budget-agent-console.js:4856"
+      logic: >
+        바뀐 금액이 없으면 닫기만 한다. 처음 고치면 같은 내용의 ✎ 수기 입력 조정안(edited, id 'ed-N-원id', origin agent|sim, origDelta)을
+        반영 상태로 만들고 원래 건은 빼낸다 — Agent 제안은 status='converted', 대화 건은 교체. 택1 묶음의 다른 안은 'superseded'.
+        이미 고친 건은 그 자리에서 다시 고친다. 조정안 카드·기안 요약은 edited 를 ✎ 수기 입력으로 센다.
+        고친 건을 조정안에서 삭제하면 원래 Agent 제안은 dismissed 로 돌아가 [제안 다시 불러오기] 대상이 된다
+      validation: "월 칸 합계(없으면 합계 칸) 사용"
+      state_writes: [AGENT_PROPOSALS_FINAL, agentMiniSelFinal, agentAppliedEdFinal]
+    backend: null
+    result: "예산 조정안에 ✎ 수기 입력으로 바뀌어 반영 · '원래 Agent 제안 +A → +B' 표시"
+
+  - id: btn-acct-applied-cancel
+    label: 취소
+    type: button
+    crud: N
+    area: "예산 조정안 반영 내역 편집기"
+    event: onclick
+    front:
+      handler: "agentAppliedEdCloseFinal()"
+      file: "budget-agent-console.js:4844"
+      logic: "편집기를 닫는다"
+      validation: null
+      state_writes: [agentAppliedEdFinal]
+    backend: null
+    result: "편집 취소"
+
+  - id: chat-cp-gap
+    label: "지금 CP 여유 얼마야? (대화 · 추천 칩)"
+    type: input(chat) + chip
+    crud: R
+    area: "Agent와 대화하기 입력창 · 추천 칩"
+    event: onclick / Enter
+    front:
+      handler: "agentChatSendFinal() → agentSimReadFinal(q) kind='cpgap' → agentCpGapSayFinal()"
+      file: "budget-agent-console.js:4305 (계산 agentCpGapFinal:4654, 표 renderAgentCpGapFinal:4696)"
+      logic: >
+        CP총액(roll.cp) 기준 GAP을 세 단계로 답하고 답변 아래 표를 붙인다 —
+        ① 최종 승인 실행예산(roll.plan, 결재 전 수기 입력 제외) ② [반영]해 둔 조정안이 승인됐을 때
+        ③ 조정안을 모두 반영했을 때(택1 묶음은 고른 안, 없으면 1안). 금액이 들어 있거나 계정명만 있는 '여유' 질문은 해당하지 않는다
+      validation: "CP총액을 못 찾으면 버전 선택 안내"
+      state_writes: [AGENT_CHAT_FINAL]
+    backend: null
+    result: "CP총액 · 단계별 실행예산 · GAP(여유/초과) 답변"
+
 # ── 비즈니스 로직 & 규칙 ──
 rules:
   transfer_total_invariant: "이관 저장은 총액 불변 — 조정배분 합계 = 총액(plan 합)"
@@ -327,3 +492,10 @@ requirements:
   - { id: FR-BAD-12, text: "Agent ON 화면에서 계정 상세에 들어가면 계정색 강조로 프로젝트 메인 화면과 구분되어야 하며, [← 프로젝트 메인]으로 한 번에 돌아갈 수 있어야 한다" }
   - { id: FR-BAD-13, text: "Agent ON 화면의 모든 계정 상세에서 [월별 계획/실적 보기] 팝업으로 상세계정별 계획·실적·미집행과 월별 금액을 볼 수 있어야 한다" }
   - { id: FR-BAD-14, text: "메인에서 계정 상세로 들어가면 예산 조정안과 Agent와 대화하기가 모두 접힌 상태로 열려야 한다(계정 상세를 넓게)" }
+  - { id: FR-BAD-15, text: "Agent에게 CP 여유를 물으면 CP총액 대비 ① 최종 승인 실행예산 ② 반영해 둔 조정안 승인 시 ③ 조정안 모두 반영 시의 실행예산과 GAP을 함께 답해야 한다" }
+  - { id: FR-BAD-16, text: "예산 조정안에는 Agent 데이터 기반 제안 · Agent 대화로 들어온 조정 · 계정 상세에서 사용자가 직접 조정한 내역이 출처 표시와 함께 모두 보여야 한다" }
+  - { id: FR-BAD-17, text: "사용자는 중복된 조정안을 출처와 관계없이 확인 후 삭제할 수 있어야 하며, 삭제한 건은 반영·기안 대상에서 빠져야 한다" }
+  - { id: FR-BAD-18, text: "삭제한 Agent 제안은 [제안 다시 불러오기](또는 대화)로 예산 조정안에 되살릴 수 있어야 한다" }
+  - { id: FR-BAD-19, text: "계정 상세 수기 입력 조정안을 삭제해도 승인된 실행예산(기준선)은 바뀌지 않아야 하며, 상세 화면에 '조정안 삭제' 상태로 표시되어야 한다" }
+  - { id: FR-BAD-20, text: "예산 조정안에서 반영한 내역은 출처와 관계없이 해당 계정 상세에서 금액·월별 배분과 반영 후 계정 예산으로 확인할 수 있어야 한다" }
+  - { id: FR-BAD-21, text: "사용자는 계정 상세에서 반영된 Agent 제안·대화 조정의 월별 금액을 고칠 수 있어야 하며, 고친 건은 예산 조정안에 ✎ 수기 입력으로 바뀌어 반영되어야 한다(원래 금액 표시)" }
