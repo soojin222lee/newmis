@@ -9,9 +9,9 @@
 // - 수정 : 팝업 대신 그 행의 칸이 바로 입력칸으로 바뀝니다. 여러 행을 동시에 고칠 수 있습니다.
 //          (경비는 월별 편성이라 그 행 바로 아래에 월 입력칸을 펼침)
 // - 입력 중인 행은 "임시 행(BIE_DRAFTS)"으로 들고 있어서, 다른 행을 추가 · 수정하거나 화면이 다시 그려져도 입력값이 남습니다.
-// - 삭제 : 행마다 있던 [삭제]를 없애고, 맨 앞 체크박스로 고른 뒤 표 위 [선택삭제]로 한 번에 지웁니다.
+// - 삭제 : 행마다 있던 [삭제]를 없애고, 맨 앞 체크박스로 고른 뒤 표 위 [선택삭제]를 누르면 "삭제 예정"(취소선 · [↺] 되돌리기)으로만 표시합니다.
 //          (경비는 삭제 대신 "남은 달 비우기"라 [선택 비우기])
-// - 저장 : 등록 · 수정은 표 위 [저장]을 눌러야만 반영됩니다(화면의 입력 행 전부를 한 번에). 행마다 저장 버튼은 없고 [취소]만 있습니다
+// - 저장 : 일반 표처럼 추가 · 수정 · 삭제 모두 표 위 [저장]을 눌러야만 반영됩니다(추가 · 수정 먼저, 삭제는 그다음). 행마다 저장 버튼은 없고 [취소]만 있습니다
 //          — 입력할 때마다 등록 API 를 부르지 않고, 저장 한 번에 모아서 보냅니다.
 // - 방법 : 공유 파일(budget-agent-console.js · budget-direct-edit.js)은 고치지 않습니다.
 //          ① [＋ 등록] · [수정]을 누르면 원래 함수가 정한 편집 상태(예: agentLabEditFinal)를 받아 임시 행으로 옮기고 상태는 비웁니다.
@@ -26,6 +26,9 @@ var BIE_DRAFTS = [];         // 입력 중인 행 { id, flow, state, isNew, valu
 var bieDraftSeq = 0;
 var bieMute = false;         // 원래 함수가 부르는 renderBudgetPage 를 잠시 막음(열기 · 일괄 저장 중)
 var bieShown = [];           // 이번에 화면에 그린 임시 행 id
+var BIE_DELS = [];           // 삭제 예정 행 { id, call(원래 삭제 함수 호출), isExp }
+var bieDelSeq = 0;
+var bieShownDels = [];       // 이번에 화면에 그린 삭제 예정 id
 
 /* ── 열기 흐름 — 원래 열기 함수 · 편집 상태 · 팝업 렌더 · 저장 함수 ───────────── */
 function bieAsPop(vd) {   // A/S 는 지금 보고 있는 그룹일 때만 양식을 그립니다(원래 renderAgentAsDetailFinal 규칙)
@@ -142,6 +145,7 @@ function bieTransform(html, viewData) {
   tpl.innerHTML = html;
   const root = tpl.content;
   bieShown = [];
+  bieShownDels = [];
   try {
     bieAddChecks(root);
     BIE_DRAFTS.forEach(function (d) { bieDraftRow(root, d, viewData); });
@@ -195,7 +199,19 @@ function bieAddChecks(root) {
         let call = '';
         if (del) { call = (bieParseCall(del.getAttribute('onclick')) || {}).text || ''; del.remove(); }
         else if (exp) call = `bieExpClear('${exp.args[0]}')`;
-        if (call) {
+        const pend = call ? BIE_DELS.find(function (x) { return x.call === call; }) : null;
+        if (pend) {
+          // 삭제 예정 — 취소선 + [↺ 되돌리기]. [저장]을 눌러야 실제로 지웁니다
+          r.classList.add('bie-del');
+          r.setAttribute('data-del-id', pend.id);
+          td.innerHTML = `<button class="bie-undo" title="${pend.isExp ? '비우기' : '삭제'} 취소" onclick="event.stopPropagation();bieUndoDel('${pend.id}')">↺</button>`;
+          const mark = document.createElement('em');
+          mark.className = 'bie-delmark';
+          mark.textContent = pend.isExp ? '비우기 예정' : '삭제 예정';
+          if (r.lastElementChild) r.lastElementChild.appendChild(mark);
+          bieShownDels.push(pend.id);
+          cnt++;
+        } else if (call) {
           td.innerHTML = `<input type="checkbox" class="bie-ck" data-scope="${scope}" title="선택">`;
           td.firstChild.setAttribute('data-del', call);
           cnt++;
@@ -217,7 +233,7 @@ function bieDelButton(scope, isExp) {
   b.className = 'bie-delsel';
   b.setAttribute('onclick', `event.stopPropagation();bieDeleteChecked('${scope}',${isExp ? 'true' : 'false'})`);
   b.textContent = isExp ? '선택 비우기' : '선택삭제';
-  b.title = isExp ? '체크한 세부계정의 남은 달 계획을 0원으로 비웁니다' : '체크한 행을 삭제합니다';
+  b.title = isExp ? '체크한 세부계정을 비우기 예정으로 표시합니다([저장]을 눌러야 반영)' : '체크한 행을 삭제 예정으로 표시합니다([저장]을 눌러야 반영)';
   return b;
 }
 function bieCheckAll(el, scope) {
@@ -228,19 +244,17 @@ function bieCheckAll(el, scope) {
 function bieDeleteChecked(scope, isExp) {
   const boxes = Array.prototype.slice.call(document.querySelectorAll(`input.bie-ck[data-scope="${scope}"]:checked`));
   if (!boxes.length) { showToast(isExp ? '비울 세부계정을 체크해 주세요.' : '삭제할 행을 체크해 주세요.'); return; }
-  const n = boxes.length;
-  if (!confirm(isExp ? `체크한 ${n}개 세부계정의 남은 달 계획을 0원으로 비울까요? 마감된 달(실적)은 그대로 둡니다.`
-                     : `체크한 ${n}건을 삭제할까요?`)) return;
-  // 뒤에서부터 지웁니다(구매계획처럼 순번으로 지우는 건 앞을 먼저 지우면 순번이 밀림)
-  const calls = boxes.map(function (b) { return b.getAttribute('data-del'); }).reverse();
-  const keep = window.confirm;
-  window.confirm = function () { return true; };   // 건별 확인창은 위에서 한 번에 받았습니다
-  try {
-    calls.forEach(function (c) { try { (new Function(c))(); } catch (e) { if (typeof console !== 'undefined') console.warn(e); } });
-  } finally { window.confirm = keep; }
+  // 바로 지우지 않고 "삭제 예정"으로만 표시합니다 — 일반 표처럼 [저장]에서 추가 · 수정과 함께 반영
+  boxes.forEach(function (b) {
+    const call = b.getAttribute('data-del');
+    if (!BIE_DELS.some(function (x) { return x.call === call; })) BIE_DELS.push({ id: 'x' + (++bieDelSeq), call: call, isExp: !!isExp });
+  });
   renderBudgetPage();
-  const msg = isExp ? `${n}개 세부계정의 남은 달 계획을 비웠습니다` : `${n}건을 삭제했습니다`;
-  if (typeof agentHandToastFinal === 'function') agentHandToastFinal(msg); else showToast(msg);
+  showToast(`${boxes.length}건을 ${isExp ? '비우기' : '삭제'} 예정으로 표시했습니다. [저장]을 눌러야 반영됩니다.`);
+}
+function bieUndoDel(id) {
+  BIE_DELS = BIE_DELS.filter(function (x) { return x.id !== id; });
+  renderBudgetPage();
 }
 // 경비 — 세부계정 남은 달 비우기(원래 [남은 달 비우기]와 같은 저장 함수)
 function bieExpClear(id) {
@@ -253,28 +267,46 @@ function bieExpClear(id) {
 function bieAddSaveButton(root) {
   const bar = root.querySelector('.aglb-bar, .agex-bar');
   if (!bar || !bar.querySelector('.aglb-add')) return;      // 편집 권한이 없으면(버튼 없음) 두지 않습니다
-  const n = bieShown.length;
+  const n = bieShown.length + bieShownDels.length;
   const b = document.createElement('button');
   b.className = 'bie-savebar' + (n ? '' : ' off');
   b.setAttribute('onclick', 'event.stopPropagation();bieSaveAll()');
-  b.title = n ? `입력 중인 ${n}개 행을 저장합니다` : '[＋ 등록]이나 [수정]으로 행을 연 뒤 저장할 수 있습니다';
+  b.title = n ? `추가 · 수정 ${bieShown.length}건, 삭제 ${bieShownDels.length}건을 저장합니다`
+    : '[＋ 등록] · [수정] · [선택삭제] 뒤 저장할 수 있습니다';
   b.innerHTML = '저장' + (n ? ` <em>${n}</em>` : '');
   bar.appendChild(b);
 }
 function bieSaveAll() {
-  if (!bieShown.length) { showToast('저장할 입력 행이 없습니다. [＋ 등록]이나 [수정]을 먼저 눌러 주세요.'); return; }
-  bieSaveDrafts(bieShown.slice());
+  const nd = bieShownDels.length;
+  if (!bieShown.length && !nd) { showToast('저장할 변경이 없습니다. [＋ 등록] · [수정] · [선택삭제] 뒤 저장해 주세요.'); return; }
+  if (nd && !confirm(`${bieShown.length ? `추가 · 수정 ${bieShown.length}건과 ` : ''}삭제 ${nd}건을 저장할까요?`)) return;
+  bieSaveDrafts(bieShown.slice(), bieShownDels.slice());
 }
-// 임시 행들을 차례로 원래 저장 함수로 저장합니다. 검증에 걸린 행에서 멈추고 나머지는 그대로 남깁니다.
-function bieSaveDrafts(ids) {
+// 삭제 예정 행을 원래 삭제 함수로 지웁니다 — 화면 아래 행부터(구매계획처럼 순번으로 지우는 건 앞을 먼저 지우면 순번이 밀림)
+function bieRunDels(delIds) {
+  const order = Array.prototype.slice.call(document.querySelectorAll('tr.bie-del[data-del-id]')).map(function (tr) { return tr.getAttribute('data-del-id'); });
+  const list = BIE_DELS.filter(function (x) { return delIds.indexOf(x.id) >= 0; })
+    .sort(function (a, b) { return order.indexOf(b.id) - order.indexOf(a.id); });
+  const keep = window.confirm;
+  window.confirm = function () { return true; };   // 건별 확인창은 [저장]에서 한 번에 받았습니다
+  try {
+    list.forEach(function (x) { try { (new Function(x.call))(); } catch (e) { if (typeof console !== 'undefined') console.warn(e); } });
+  } finally { window.confirm = keep; }
+  BIE_DELS = BIE_DELS.filter(function (x) { return list.indexOf(x) < 0; });
+  return list.length;
+}
+// 임시 행들을 차례로 원래 저장 함수로 저장한 뒤 삭제 예정 행을 지웁니다.
+// 검증에 걸린 행이 있으면 거기서 멈추고, 남은 입력 행 · 삭제 예정은 그대로 둡니다.
+function bieSaveDrafts(ids, delIds) {
+  delIds = delIds || [];
   bieCapture();
   // 화면 위쪽 행부터(표에 보이는 순서) 저장합니다
   const order = Array.prototype.slice.call(document.querySelectorAll('tr.bie-row[data-bie-key]')).map(function (tr) { return tr.getAttribute('data-bie-key'); });
   const list = ids.map(function (id) { return BIE_DRAFTS.find(function (d) { return d.id === id; }); }).filter(Boolean)
     .sort(function (a, b) { return order.indexOf(a.id) - order.indexOf(b.id); });
-  if (!list.length) return;
+  if (!list.length && !delIds.length) return;
   BIE_DRAFTS.forEach(function (d) { d.err = false; });
-  let ok = 0, fail = null;
+  let ok = 0, fail = null, del = 0;
   bieMute = true;
   try {
     for (let i = 0; i < list.length; i++) {
@@ -289,13 +321,16 @@ function bieSaveDrafts(ids) {
       BIE_DRAFTS = BIE_DRAFTS.filter(function (x) { return x !== d; });
       ok++;
     }
+    if (!fail && delIds.length) del = bieRunDels(delIds);
   } finally { bieMute = false; }
   renderBudgetPage();
   if (fail) {
     bieFocusRow(fail.id);
-    if (ok) setTimeout(function () { showToast(`${ok}개 행을 저장했고, 빨간 행에서 멈췄습니다. 고친 뒤 다시 저장해 주세요.`); }, 1200);
-  } else if (ok > 1) {
-    const msg = `${ok}개 행을 저장했습니다 — [예산 조정안]에 ✎ 수기 입력으로 반영`;
+    if (ok || delIds.length) setTimeout(function () {
+      showToast(`${ok ? ok + '개 행을 저장했고, ' : ''}빨간 행에서 멈췄습니다${delIds.length ? '(삭제 예정은 아직 그대로)' : ''}. 고친 뒤 다시 저장해 주세요.`);
+    }, 1200);
+  } else if (ok + del > 1 || del) {
+    const msg = `저장했습니다 — ${ok ? `추가 · 수정 ${ok}건` : ''}${ok && del ? ', ' : ''}${del ? `삭제 ${del}건` : ''} · [예산 조정안]에 ✎ 수기 입력으로 반영`;
     if (typeof agentHandToastFinal === 'function') agentHandToastFinal(msg); else showToast(msg);
   }
 }
@@ -609,6 +644,14 @@ function bieInjectStyle() {
   .bie-savebar:hover { background:#1d4ed8; }
   .bie-savebar em { font-style:normal; margin-left:4px; padding:0 6px; border-radius:999px; background:#fff; color:#2563eb; font-size:11px; }
   .bie-savebar.off { background:#fff; color:#94a3b8; border-color:#cbd5e1; cursor:default; }
+  tr.bie-del > td:not(.bie-ckc) { text-decoration:line-through; color:#94a3b8 !important; background:#fff7f8 !important; }
+  tr.bie-del > td:not(.bie-ckc) * { color:#94a3b8 !important; }
+  tr.bie-del button:not(.bie-undo) { display:none !important; }
+  tr.bie-del .bie-delmark { display:inline-block; margin-left:6px; text-decoration:none; font-style:normal; font-size:11px; font-weight:800;
+    color:#c40025 !important; background:#ffe4e8; border-radius:999px; padding:1px 8px; }
+  .bie-undo { border:1px solid #f3c2cc; background:#fff; color:#c40025; border-radius:6px; width:24px; height:22px; padding:0;
+    font-size:13px; font-weight:900; cursor:pointer; line-height:1; }
+  .bie-undo:hover { background:#fff1f3; }
   .agos-panel-head .bie-delsel { margin-left:auto; padding:4px 10px; font-size:11.5px; }
   .agos-panel-head:has(.bie-delsel) { display:flex; align-items:center; gap:10px; }
   tr.bie-row > td { background:#eef5ff !important; vertical-align:top; padding-top:7px !important; padding-bottom:7px !important; }

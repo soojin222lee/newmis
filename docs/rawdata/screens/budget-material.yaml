@@ -330,11 +330,11 @@ elements:
     front:
       handler: "bieSaveAll()"
       file: "budget-inline-edit.js:bieAddSaveButton · bieSaveAll → bieSaveDrafts"
-      logic: "[2026.11.12] 등록 · 수정은 이 버튼을 눌러야만 반영된다(행별 저장 없음 — 저장 전까지 [예산 조정안] 기록 · 등록 API 호출 없음). 화면의 입력 행(등록 · 수정)을 위에서부터 차례로 원래 저장 함수로 저장한다(버튼에 입력 행 수 표시). 검증에 걸린 행에서 멈추고 그 행을 빨갛게 표시하며, 나머지 행은 입력값 그대로 남긴다. 열린 행이 없으면 흐리게 보이고, 누르면 안내 토스트. 직책자 화면 · 과거 확정 버전 조회 중에는 숨김"
+      logic: "[2026.11.12] 일반 표처럼 추가 · 수정 · 삭제 모두 이 버튼을 눌러야만 반영된다(행별 저장 없음 — 저장 전까지 [예산 조정안] 기록 · API 호출 없음). 삭제 예정이 있으면 확인창 1번. 추가 · 수정을 먼저 저장하고 삭제는 그다음(순번이 밀리지 않게 화면 아래 행부터). 화면의 입력 행(등록 · 수정)을 위에서부터 차례로 원래 저장 함수로 저장한다(버튼에 입력 행 수 표시). 검증에 걸린 행에서 멈추고 그 행을 빨갛게 표시하며, 나머지 행은 입력값 그대로 남긴다. 열린 행이 없으면 흐리게 보이고, 누르면 안내 토스트. 직책자 화면 · 과거 확정 버전 조회 중에는 숨김"
       validation: "열린 입력 행이 없으면 '저장할 입력 행이 없습니다. [＋ 등록]이나 [수정]을 먼저 눌러 주세요.' 토스트 · 그 밖의 검증은 원래 저장 함수와 같음"
-      state_writes: []
+      state_writes: [BIE_DRAFTS, BIE_DELS]
     backend: null
-    result: "입력 행 저장 + [예산 조정안] 수기 입력 반영 + 토스트"
+    result: "추가 · 수정 · 삭제 일괄 반영 + [예산 조정안] 수기 입력 반영 + 토스트"
 
   - id: btn-agent-mat-edit
     label: "수정"
@@ -390,11 +390,11 @@ elements:
     front:
       handler: "bieDeleteChecked(scope, false)"
       file: "budget-inline-edit.js:bieDeleteChecked → 행마다 agentMatDelFinal(subIndex, id) (budget-agent-console.js:3724)"
-      logic: "[2026.11.11] 행마다 있던 [삭제] 대신, 체크한 행을 확인창 1번 뒤 뒤에서부터 원래 삭제 함수 agentMatDelFinal(subIndex, id) 로 차례로 지운다(건별 검증 · [예산 조정안] 수기 입력 기록은 원래 함수 그대로). 원래 규칙: confirm 후 제거하고 그 금액만큼 소계정 계획에서 뺀다"
+      logic: "[2026.11.12] 누르면 바로 지우지 않고 체크한 행을 '삭제 예정'(취소선 · 맨 앞 [↺] 되돌리기)으로만 표시한다. 실제 삭제는 표 위 [저장]을 눌렀을 때 추가 · 수정을 먼저 저장한 뒤 화면 아래 행부터 원래 함수로 처리한다. [2026.11.11] 행마다 있던 [삭제] 대신, 체크한 행을 확인창 1번 뒤 뒤에서부터 원래 삭제 함수 agentMatDelFinal(subIndex, id) 로 차례로 지운다(건별 검증 · [예산 조정안] 수기 입력 기록은 원래 함수 그대로). 원래 규칙: confirm 후 제거하고 그 금액만큼 소계정 계획에서 뺀다"
       validation: "실적이 생긴 품목 · 집행완료 이관 · 상각이 시작된 자산은 삭제 불가(버튼 숨김 + 토스트) · 체크한 행이 없으면 '삭제할 행을 체크해 주세요.' 토스트"
       state_writes: [getMaterialRows, AGENT_MAT_SUB_FINAL, AGENT_MAT_DELTA_FINAL]
     backend: null
-    result: "표 · 탭 금액 · 재료비 합계 감소 + 토스트"
+    result: "'삭제 예정' 표시 → [저장] 시 반영 + 토스트"
 
   - id: chk-agent-mat-row
     label: "행 선택 체크박스 / 머리 전체 선택"
@@ -410,6 +410,21 @@ elements:
       state_writes: []
     backend: null
     result: "선택 표시 — [선택삭제]가 체크한 행을 지움"
+
+  - id: btn-agent-mat-undo-del
+    label: "↺ (삭제 취소)"
+    type: button
+    crud: N
+    area: "'삭제 예정' 행 맨 앞(체크박스 자리)"
+    event: onclick
+    front:
+      handler: "bieUndoDel(id)"
+      file: "budget-inline-edit.js:bieUndoDel"
+      logic: "저장 전 삭제 예정 표시를 풀고 원래 행으로 되돌린다(아무것도 반영되지 않은 상태)"
+      validation: null
+      state_writes: [BIE_DELS]
+    backend: null
+    result: "삭제 예정 해제"
 
   - id: sum-agent-mat-transfer
     label: "이관재료비 요약 — 계획(받을·보낼·순 이관) / 실적(받은·보낸·순 이관)"
@@ -531,3 +546,4 @@ requirements:
   - { id: FR-MAT-22, text: "Agent 화면 재료비 상세는 표 위 [저장] 버튼으로 열려 있는 입력 행(등록 · 수정)을 저장할 수 있어야 하며, 열린 행이 없으면 저장 버튼이 흐리게 보여야 한다" }
   - { id: FR-MAT-23, text: "Agent 화면 재료비 상세는 입력 행을 여러 개 동시에 추가 · 수정할 수 있어야 하며, 다른 행을 추가하거나 화면이 다시 그려져도 입력 중인 값이 유지되어야 한다" }
   - { id: FR-MAT-24, text: "[2026.11.12] Agent 화면 재료비 상세의 등록 · 수정은 표 위 [저장]을 눌렀을 때만 한 번에 반영되어야 하며, 입력 행마다 따로 저장(등록 API 호출)하지 않아야 한다" }
+  - { id: FR-MAT-25, text: "[2026.11.12] Agent 화면 재료비 상세의 선택삭제는 바로 반영하지 않고 '삭제 예정'으로 표시해야 하며(되돌리기 가능), 표 위 [저장]을 눌렀을 때 추가 · 수정과 함께 한 번에 반영되어야 한다" }
