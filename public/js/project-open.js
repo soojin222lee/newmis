@@ -586,10 +586,12 @@ function popenRegChecked() {
         versions:[ { ver:1, date:'2026-11-04', status:'저장', cost:popenCost(12, 120000000, 6, 54000000, 0, 12000000, 0, 0) } ], memo:'' };
       POPEN_APPS[id].versions[0].lines = popenLines(true, POPEN_APPS[id].pm);
     });
-    popenUploaded = popenUploaded.filter(function (r, i) { return idx.indexOf(i) < 0; });
+    // [2026.11.12] 선택등록이 끝나면 이번에 올린 엑셀 행은 모두 목록에서 정리합니다(오류 행도 남기지 않음).
+    //   오류 행은 등록되지 않았으니, 엑셀을 고쳐 다시 올리면 됩니다.
+    const left = popenUploaded.filter(function (r, i) { return idx.indexOf(i) < 0; }).length;
+    popenUploaded = [];
     popenChecked = {};
-    const left = popenUploaded.length;   // 등록 안 된 행(오류 행)은 고쳐서 다시 올리거나 선택삭제할 때까지 남김
-    popenToast(left ? '저장했습니다. 오류 ' + left + '행은 등록되지 않았습니다 — 엑셀을 고쳐 다시 올리거나 [선택삭제]하세요.' : '저장했습니다.');
+    popenToast(idx.length + '건을 저장했습니다.' + (left ? ' 등록하지 않은 ' + left + '행(오류 포함)은 목록에서 뺐습니다 — 엑셀을 고쳐 다시 올려 주세요.' : ''));
   } };
   renderProjectOpen();
 }
