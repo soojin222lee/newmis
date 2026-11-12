@@ -93,7 +93,7 @@ BIE_FLOWS.forEach(function (F) {
       const hit = isNew ? null : BIE_DRAFTS.find(function (d) { return !d.isNew && d.flow === F && F.key(d.state).join('|') === k; });
       if (hit) focusId = hit.id;
       else {
-        const d = { id: 'd' + (++bieDraftSeq), flow: F, state: JSON.parse(JSON.stringify(s)), isNew: isNew, values: null, err: false };
+        const d = { id: 'd' + (++bieDraftSeq), flow: F, state: JSON.parse(JSON.stringify(s)), isNew: isNew, values: null, err: false, ctx: bieCtx() };
         BIE_DRAFTS.push(d);
         focusId = d.id;
       }
@@ -145,6 +145,15 @@ function bieDropDraft(id) {
   window[name] = function (viewData) { return bieTransform(before.apply(this, arguments), viewData); };
 });
 
+// [2026.11.12] 입력 행이 속한 탭 — 계정 + 상세계정 탭(인건비는 이관/OT, 경비는 연도). 다른 탭으로 가면 그 행은 숨고(지워지지 않음)
+//   돌아오면 다시 보이며, [저장]은 지금 탭에 보이는 행만 저장합니다.
+function bieCtx() {
+  const acct = (typeof agentAiSheetFinal !== 'undefined' && agentAiSheetFinal) || '';
+  const sub = acct === '인건비' ? (typeof agentLabKindFinal !== 'undefined' ? agentLabKindFinal : '')
+    : acct === '경비' ? (typeof agentExpYearFinal !== 'undefined' ? agentExpYearFinal : '')
+    : ((typeof agentAcctKindFinal !== 'undefined' && agentAcctKindFinal[acct]) || 0);
+  return acct + '|' + sub;
+}
 function bieTransform(html, viewData) {
   if (!html || typeof document === 'undefined' || !document.createElement) return html;
   const tpl = document.createElement('template');
@@ -156,7 +165,8 @@ function bieTransform(html, viewData) {
   bieShownDels = [];
   try {
     bieAddChecks(root);
-    BIE_DRAFTS.forEach(function (d) { bieDraftRow(root, d, viewData); });
+    const ctx = bieCtx();
+    BIE_DRAFTS.forEach(function (d) { if (!d.ctx || d.ctx === ctx) bieDraftRow(root, d, viewData); });   // 그 행을 만든 탭에서만
     bieAddSaveButton(root);
   } catch (e) { if (typeof console !== 'undefined') console.warn('[budget-inline-edit]', e); }
   return tpl.innerHTML;
@@ -421,9 +431,6 @@ function bieApplyValues(pop, v) {
   });
   const qs = v.__q || [];
   pop.querySelectorAll('.agos-q').forEach(function (b) { b.classList.toggle('on', qs.indexOf(b.getAttribute('data-q')) >= 0); });
-  if (qs.length) {
-    pop.querySelectorAll('[data-oid="agos-po-start"],[data-oid="agos-po-end"]').forEach(function (el) { el.setAttribute('disabled', ''); });
-  }
   if (typeof bopRestore === 'function') bopRestore(pop);   // 구매계획 [분기 | 월별] 단위 복원(budget-os-po.js)
 }
 function bieOid(box, k) { return box ? box.querySelector(`[data-oid="${k}"]`) : null; }
