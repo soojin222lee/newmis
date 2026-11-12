@@ -18,6 +18,9 @@ screen:
     - public/js/budget-status-3.js     # renderTotalBudgetBar·renderBudgetListView·최종 renderBudgetPage
     - public/js/budget-status-4.js     # isPastActualMonth·showActualDetailModal·actualCellHtml
     - public/js/budget-status-5.js     # openBudgetProjectScreen 최종 override(status → showBudgetSummaryGrid)
+    - public/js/budget-status-view.js  # [2026.11.12] 전체 현황 그리드 재정의(renderProjectPlanSummary → bsvSummary) — 원가조정 월별 팝업과 같은 UI
+    - public/js/budget-monthly-view.js # bmvColumns · bmvTools · bmvHead · bmvNum (보기 · 연도 · 단위 · 실적 접기 공통)
+    - public/js/budget-excel-export.js # bxeMonthly · bxeActual · .bxe-btn(공통 엑셀 버튼)
     - public/js/app.js                 # SCREEN_ROUTES['s-budget']·updateHashForScreen·routeQueryParam
   purpose: >
     프로젝트 실행예산의 집행 현황을 조회한다(편집 없음). 목록 → 프로젝트 상세 → 전체 현황(월별 계획/실적 그리드).
@@ -110,6 +113,90 @@ elements:
       file: "budget-status-2.js:2691 (actualCellHtml budget-status-4.js:72~80)"
     backend: null
     result: 투입계획(조직·성명·MM·단가·상태) 조회 모달
+  - id: seg-summary-mode
+    label: "[월별] [분기별] [연도별]"
+    type: tab
+    crud: R
+    area: "전체 현황 그리드 위 도구줄 왼쪽"
+    event: onclick
+    front:
+      handler: "bmvSet('mode','month'|'quarter'|'year')"
+      file: "budget-status-view.js:bsvSummary → budget-monthly-view.js:bmvSet · bmvRerender(전체 현황이면 showBudgetSummaryGrid)"
+      logic: "[2026.11.12] 달 열을 월 · 분기 · 연도로 묶는다. 월별은 연도 머리줄 + 11월처럼 짧은 이름, 연도마다 연도 합계 칸. 원가조정 [월별 계획/실적] 팝업과 같은 UI · 같은 상태"
+      validation: null
+      state_writes: [bmvMode]
+    backend: null
+    result: "고른 단위로 묶인 열"
+  - id: select-summary-year
+    label: "연도"
+    type: select
+    crud: R
+    area: "전체 현황 그리드 위 도구줄"
+    event: onchange
+    front:
+      handler: "bmvSet('year', value)"
+      file: "budget-status-view.js:bsvSummary → budget-monthly-view.js:bmvSet · bmvRerender(전체 현황이면 showBudgetSummaryGrid)"
+      logic: "전체 또는 연도 하나의 달만 보이게 한다"
+      validation: null
+      state_writes: [bmvYear]
+    backend: null
+    result: "고른 연도의 열만 표시"
+  - id: select-summary-unit
+    label: "단위 (원 / 만원 / 억원)"
+    type: select
+    crud: R
+    area: "전체 현황 그리드 위 도구줄"
+    event: onchange
+    front:
+      handler: "bmvSet('unit', value)"
+      file: "budget-status-view.js:bsvSummary → budget-monthly-view.js:bmvSet · bmvRerender(전체 현황이면 showBudgetSummaryGrid)"
+      logic: "금액 표시 단위. 기본 만원, 억원은 소수 둘째 자리. 위 KPI(총 계획예산 · 실적 · 잔여예산)는 원 단위 그대로"
+      validation: null
+      state_writes: [bmvUnit]
+    backend: null
+    result: "단위가 바뀐 금액"
+  - id: btn-summary-actual-fold
+    label: "실적 {기간} 펼치기 ▾ / 접기 ▴"
+    type: button
+    crud: N
+    area: "전체 현황 그리드 위 도구줄(월별 · 분기별)"
+    event: onclick
+    front:
+      handler: "bmvSet('act')"
+      file: "budget-status-view.js:bsvSummary → budget-monthly-view.js:bmvSet · bmvRerender(전체 현황이면 showBudgetSummaryGrid)"
+      logic: "지난 달(확정 실적)은 기본으로 실적 합계 한 칸으로 접고, 펼치면 월별로 보인다. 펼친 지난 달 실적 금액은 기존처럼 실적조회 팝업 링크(summaryActualCell)"
+      validation: null
+      state_writes: [bmvActOpen]
+    backend: null
+    result: "실적 열 접힘 / 펼침"
+  - id: btn-summary-excel
+    label: "⬇ 엑셀 다운로드"
+    type: button
+    crud: R
+    area: "전체 현황 그리드 위 도구줄 오른쪽 끝(원래 타이틀 [엑셀] · [월별] 자리 대체)"
+    event: onclick
+    front:
+      handler: "bxeMonthly('전체 현황', this)"
+      file: "budget-excel-export.js:bxeMonthly · bxeTableRows · bxeXlsx"
+      logic: "[2026.11.12] 지금 보이는 그리드(보기 · 연도 · 단위 · 실적 접기 그대로)를 .xlsx로 내려받는다. 제목 · 단위 줄, 병합 머리, 숫자 셀, 머리 틀 고정. 파일명 전체 현황_월별계획실적_YYYYMMDD.xlsx. 공통 엑셀 버튼 디자인(.bxe-btn)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "전체 현황_월별계획실적_YYYYMMDD.xlsx 다운로드"
+  - id: btn-modal-excel
+    label: "⬇ 엑셀 다운로드"
+    type: button
+    crud: R
+    area: "실적조회 · 인건비 투입계획 조회 팝업 표 위"
+    event: onclick
+    front:
+      handler: "bxeActual()"
+      file: "budget-excel-export.js:bxeWireModalButton · bxeActual (showActualDetailModal · showLaborPlanDetailModal 감싸기)"
+      logic: "[2026.11.12] 원래 동작이 없던 팝업 [엑셀]에 내려받기와 공통 디자인(.bxe-btn)을 붙인다. 지금 탭의 표(합계 줄 포함)를 .xlsx로. 파일명 {팝업 제목}_{월}_YYYYMMDD.xlsx"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "{팝업 제목}_{월}_YYYYMMDD.xlsx 다운로드"
   - id: btn-goto-confirm
     label: "예산 확정 화면 →"
     type: button
@@ -156,7 +243,7 @@ data:
     source: "getProjectSummaryGridRows / makeSummaryRow (budget-status-2.js:2575)"
     hierarchy: "총실행비용 → 5계정 → 소계정"
     subaccounts: "인건비(실투입/이관/증업OT) · 외주비(실투입/공사·MA/기타) · 재료비(재료비/감가상각비) · 경비(A/S Cost)"
-    columns: "종합 4열(계획·실적·잔여예산·진행률) + 월별 2열(계획·실적) 반복 (monthHeaders budget-status-2.js:2600~2601)"
+    columns: "[2026.11.12 변경] 왼쪽 고정 5열(계정·계획·실적·잔여예산·진행률) + 달마다 1칸(지난 달=실적, 이후 달=계획). 지난 달은 기본으로 '실적 합계' 한 칸으로 접고, 연도마다 '연도 합계' 칸. 월별/분기별/연도별 · 연도 · 단위(원/만원/억원, 기본 만원) 선택 (budget-status-view.js:bsvSummary). 이전: 월별 2열(계획·실적) 반복(budget-status-2.js:2600~2601)"
 
 # ── 대표 플로우 ──
 flows:
@@ -170,12 +257,14 @@ flows:
 
 # ── 요구사항 후보(FR) ──
 requirements:
-  - { id: FR-BST-01, text: 사용자는 실행예산 프로젝트 목록을 검색·필터(유형/상태/고객/수행조직/PM)로 조회할 수 있어야 한다 }
-  - { id: FR-BST-02, text: 원가현황은 #/budget-status?pj=<key> 딥링크로 특정 프로젝트에 바로 진입할 수 있어야 하고, 화면 상태 변화가 URL에 반영되어야 한다 }
-  - { id: FR-BST-03, text: 프로젝트 상세는 총액 대비 실집행/투입확정/투입미정을 KPI(금액+비율+진행바)로 제시해야 한다 }
-  - { id: FR-BST-04, text: 수행비용은 기준월 이전은 ERP 실적, 이후는 계획/투입확정으로 산정해 월별 계획·실적을 병렬 표시해야 한다 }
-  - { id: FR-BST-05, text: 계정은 총실행비용 → 5대 계정 → 소계정 계층으로 집계·표시해야 한다 }
-  - { id: FR-BST-06, text: 과거월 실적 금액은 클릭 시 계정별 상세 실적 내역(항목·금액·합계)을 모달로 드릴다운 조회할 수 있어야 한다 }
-  - { id: FR-BST-07, text: 인건비 계획월 금액 클릭 시 투입계획(조직·성명·MM·단가·상태) 조회를 제공해야 한다 }
-  - { id: FR-BST-08, text: 원가현황은 읽기 위주이며 예산 확정 단계로 이동할 수 있어야 한다(편집은 원가조정 소메뉴 소관) }
+  - { id: FR-BST-01, text: "사용자는 실행예산 프로젝트 목록을 검색·필터(유형/상태/고객/수행조직/PM)로 조회할 수 있어야 한다" }
+  - { id: FR-BST-02, text: "원가현황은 #/budget-status?pj=<key> 딥링크로 특정 프로젝트에 바로 진입할 수 있어야 하고, 화면 상태 변화가 URL에 반영되어야 한다" }
+  - { id: FR-BST-03, text: "프로젝트 상세는 총액 대비 실집행/투입확정/투입미정을 KPI(금액+비율+진행바)로 제시해야 한다" }
+  - { id: FR-BST-04, text: "수행비용은 기준월 이전은 ERP 실적, 이후는 계획/투입확정으로 산정해 달마다 한 칸(지난 달=실적, 이후 달=계획)으로 표시해야 한다 (2026.11.12 월별 2열 병렬 → 1칸)" }
+  - { id: FR-BST-05, text: "계정은 총실행비용 → 5대 계정 → 소계정 계층으로 집계·표시해야 한다" }
+  - { id: FR-BST-06, text: "과거월 실적 금액은 클릭 시 계정별 상세 실적 내역(항목·금액·합계)을 모달로 드릴다운 조회할 수 있어야 한다" }
+  - { id: FR-BST-07, text: "인건비 계획월 금액 클릭 시 투입계획(조직·성명·MM·단가·상태) 조회를 제공해야 한다" }
+  - { id: FR-BST-08, text: "원가현황은 읽기 위주이며 예산 확정 단계로 이동할 수 있어야 한다(편집은 원가조정 소메뉴 소관)" }
   - { id: FR-BST-09, text: "[AS-IS] 실적/계획 경계는 기준월(STAC, data.current = 레거시 lastStacYm/planDcidDt 대응)에서 도출한다 — 기준월 이하 월은 실적(actual), 초과 월은 계획(plan). 목업은 isBudgetActualMonth/getBudgetStacYm 헬퍼로 이 경계를 명시하며, 월별 type이 명시된 경우 데이터 값을 권위로 둔다. (근거: TotalExecutionBudgetCalcLogic STAC-01/02, budget-status.js:catVal/calcActual/calcPlanTotal)" }
+  - { id: FR-BST-10, text: "[2026.11.12] 전체 현황 그리드는 원가조정 월별 계획/실적 팝업과 같은 UI로 월별 · 분기별 · 연도별 보기, 연도 선택, 단위(원 · 만원 · 억원), 확정 실적 접기, 연도 합계, 왼쪽 고정 열을 제공해야 한다" }
+  - { id: FR-BST-11, text: "[2026.11.12] 전체 현황 그리드와 실적조회 · 투입계획 조회 팝업은 지금 보이는 표를 엑셀(.xlsx)로 다운로드할 수 있어야 하며, 엑셀 버튼은 원가조정과 같은 공통 디자인이어야 한다" }
