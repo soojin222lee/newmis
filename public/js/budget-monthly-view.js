@@ -163,6 +163,7 @@ function bmvTable(viewData, acct) {
       ${(bmvMode !== 'year' && pastList.length) ? `<button class="bmv-act ${bmvActOpen ? 'on' : ''}" onclick="bmvSet('act')"
         title="지난 달(확정 실적)을 ${bmvActOpen ? '실적 합계 한 칸으로 접습니다' : '월별로 펼칩니다'}">실적 ${pastLabel} ${bmvActOpen ? '접기 ▴' : '펼치기 ▾'}</button>` : ''}
       <em class="bmv-unit">단위: ${bmvUnit === 1 ? '원' : bmvUnit === 1000 ? '천원' : '백만원'}</em>
+      ${typeof bxeMonthly === 'function' ? `<button class="bmv-xls" onclick="bxeMonthly('${escHtml(acct)}')" title="지금 보이는 표(보기 · 연도 · 단위 그대로)를 엑셀(.xlsx)로 내려받습니다">⬇ 엑셀 다운로드</button>` : ''}
     </div>`;
   return `${tools}
     <div class="bmv-scroll">
@@ -189,6 +190,8 @@ function bmvInjectStyle() {
   .bmv-act { border:1px solid #cbd5e1; background:#fff; color:#334155; border-radius:8px; padding:6px 12px; font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; }
   .bmv-act.on { border-color:#94a3b8; background:#f8fafc; }
   .bmv-unit { margin-left:auto; font-style:normal; font-size:11.5px; font-weight:800; color:#94a3b8; }
+  .bmv-xls { border:1px solid #86efac; background:#f0fdf4; color:#166534; border-radius:8px; padding:6px 12px; font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; }
+  .bmv-xls:hover { background:#dcfce7; }
   .bmv-scroll { overflow:auto; max-height:min(62vh, 560px); border:1px solid #e2e8f0; border-radius:12px; }
   .bmv-table { border-collapse:separate; border-spacing:0; width:max-content; min-width:100%; font-size:12.5px; }
   .bmv-table th, .bmv-table td { padding:7px 10px; border-bottom:1px solid #eef2f7; white-space:nowrap; background:#fff; }
