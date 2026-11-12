@@ -11,6 +11,7 @@
 // - 방법 : 공유 파일(budget-agent-console.js · budget-direct-edit.js)은 고치지 않습니다.
 //          계정 상세 렌더러를 데코레이터로 감싸, 그려진 HTML 안의 팝업 입력칸(같은 id)을 표 행 안으로 옮깁니다.
 //          저장 · 검증 · [예산 조정안] 수기 입력 기록은 원래 저장 함수가 같은 id 를 읽어 그대로 처리합니다.
+// - 저장 : 입력 행의 [등록]/[수정 저장] 말고도 표 위 [저장]으로 열린 입력 행을 저장합니다(열린 행이 없으면 흐리게).
 // - Enter = 저장, Esc = 취소.
 
 var bieSeq = 0;              // 체크박스 묶음(scope) 번호
@@ -74,6 +75,7 @@ function bieTransform(html) {
   try {
     bieAddChecks(root);
     Array.prototype.slice.call(root.querySelectorAll('.agv-pop-dim')).forEach(function (pop) { bieInline(root, pop); });
+    bieAddSaveButton(root);
   } catch (e) { if (typeof console !== 'undefined') console.warn('[budget-inline-edit]', e); }
   return tpl.innerHTML;
 }
@@ -175,6 +177,24 @@ function bieExpClear(id) {
   agentExpEdFinal = { id: id };
   agentExpEdSaveFinal(true);
   agentExpEdFinal = null;
+}
+
+/* ── 표 위 [저장] — 열려 있는 입력 행(등록 · 수정)을 저장 ───────────────────── */
+function bieAddSaveButton(root) {
+  const bar = root.querySelector('.aglb-bar, .agex-bar');
+  if (!bar || !bar.querySelector('.aglb-add')) return;      // 편집 권한이 없으면(버튼 없음) 두지 않습니다
+  const open = !!root.querySelector('tr.bie-row .bie-save');
+  const b = document.createElement('button');
+  b.className = 'bie-savebar' + (open ? '' : ' off');
+  b.setAttribute('onclick', 'event.stopPropagation();bieSaveOpen()');
+  b.title = open ? '입력 중인 행을 저장합니다 (Enter)' : '[＋ 등록]이나 [수정]으로 행을 연 뒤 저장할 수 있습니다';
+  b.textContent = '저장';
+  bar.appendChild(b);
+}
+function bieSaveOpen() {
+  const b = document.querySelector('tr.bie-row .bie-save');
+  if (!b) { showToast('저장할 입력 행이 없습니다. [＋ 등록]이나 [수정]을 먼저 눌러 주세요.'); return; }
+  b.click();
 }
 
 /* ── 팝업 → 표 안 입력 행 ───────────────────────────────────────────────── */
@@ -401,6 +421,10 @@ function bieInjectStyle() {
   .bie-delsel { border:1px solid #f3c2cc; background:#fff; color:#c40025; border-radius:8px; padding:7px 12px;
     font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
   .bie-delsel:hover { background:#fff1f3; }
+  .bie-savebar { border:1px solid #2563eb; background:#2563eb; color:#fff; border-radius:8px; padding:7px 16px;
+    font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .bie-savebar:hover { background:#1d4ed8; }
+  .bie-savebar.off { background:#fff; color:#94a3b8; border-color:#cbd5e1; cursor:default; }
   .agos-panel-head .bie-delsel { margin-left:auto; padding:4px 10px; font-size:11.5px; }
   .agos-panel-head:has(.bie-delsel) { display:flex; align-items:center; gap:10px; }
   tr.bie-row > td { background:#eef5ff !important; vertical-align:top; padding-top:7px !important; padding-bottom:7px !important; }

@@ -216,6 +216,21 @@ elements:
     backend: null
     result: "표 맨 위에 편성 행 추가"
 
+  - id: btn-agent-exp-savebar
+    label: 저장
+    type: button
+    crud: U
+    area: "경비 상세 연도 탭 오른쪽 버튼 줄 맨 오른쪽([＋ 등록] 옆)"
+    event: onclick
+    front:
+      handler: "bieSaveOpen()"
+      file: "budget-inline-edit.js:bieAddSaveButton · bieSaveOpen"
+      logic: "열려 있는 입력 행(등록 · 수정)의 저장 버튼을 대신 눌러 원래 저장 함수로 저장한다. 열린 행이 없으면 흐리게 보이고, 누르면 안내 토스트. 직책자 화면 · 과거 확정 버전 조회 중에는 숨김"
+      validation: "열린 입력 행이 없으면 '저장할 입력 행이 없습니다. [＋ 등록]이나 [수정]을 먼저 눌러 주세요.' 토스트 · 그 밖의 검증은 원래 저장 함수와 같음"
+      state_writes: []
+    backend: null
+    result: "입력 행 저장 + [예산 조정안] 수기 입력 반영 + 토스트"
+
   - id: select-agent-exp-pick
     label: 세부계정
     type: select
@@ -465,3 +480,4 @@ requirements:
   - { id: FR-EXP-31, text: "[2026.11.11] Agent 화면 경비 편성은 팝업이 아니라 중분류 표 맨 위에 편성 행을 추가하는 방식이어야 하며, 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서가 있어야 한다" }
   - { id: FR-EXP-32, text: "Agent 화면 경비 세부계정의 수정은 팝업 없이 그 행 바로 아래에 펼친 월 입력칸에서 바로 할 수 있어야 한다(마감된 달은 잠김 · Enter 저장 · Esc 취소)" }
   - { id: FR-EXP-33, text: "Agent 화면 경비 세부계정은 체크박스로 여러 개를 골라 [선택 비우기]로 남은 달 계획을 한 번에 0원으로 비울 수 있어야 한다" }
+  - { id: FR-EXP-34, text: "Agent 화면 경비 상세는 표 위 [저장] 버튼으로 열려 있는 입력 행(등록 · 수정)을 저장할 수 있어야 하며, 열린 행이 없으면 저장 버튼이 흐리게 보여야 한다" }
