@@ -15,6 +15,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 var PCI_IS_ADMIN = true;          // 목업: 관리자로 보고 관리자 전용 버튼을 보여 줌(실서비스는 권한으로 판단)
+var PCI_NEAR_DAYS = 30;           // 종료일 며칠 전부터 종료 영역 전체를 보여 줄지(2026.11.12 결정: 30일)
 
 /* ── 종료 조건 — 입금 제외(2026.11.12) ─────────────────────────────────── */
 if (typeof pcConditions === 'function') {
@@ -100,6 +101,27 @@ function pciSection(s) {
     return `<div class="pci-field"><span>${label}</span><b>${esc(v || '-')}</b>${btn ? `<button class="pci-link" onclick="pcFieldAction(this)">${btn}</button>` : ''}</div>`;
   };
   const stColor = (typeof PC_STATUS_COLOR !== 'undefined' && PC_STATUS_COLOR[st]) || '#1d4ed8';
+  // [2026.11.12] 평소엔 숨김 — 종료일 30일 전부터(지난 경우 포함) · 자동종료 예외 등록 건만 영역 전체를 보여 줍니다.
+  //   이미 종료된 건은 한 줄 안내, 그 밖에는 관리자에게만 [강제종료] [예외 등록] 한 줄. 일찍 끝내려면 [종료연기]로 종료일을 앞당기면 나타납니다.
+  const left = pcDays(PC_TODAY, p.projectEnd);
+  if (closed) {
+    return `<div class="sifr-sec pci-sec pci-mini" id="pci-sec"><div class="pci-line ok"><b>프로젝트 종료</b>${esc(p.closed.date)} ${esc(p.closed.by)} · ERP 종료 전송 완료</div></div>`;
+  }
+  if (left > PCI_NEAR_DAYS && !p.exception) {
+    // 일찍 끝내야 하면 [종료일 변경]으로 종료일을 앞당김 → 30일 안으로 들어오면 영역 전체가 보임
+    return `
+    <div class="sifr-sec pci-sec pci-mini" id="pci-sec">
+      <div class="pci-line">
+        <b>프로젝트 종료</b><span>종료일 ${PCI_NEAR_DAYS}일 전부터 종료 조건 · [종료 신청]이 보입니다(종료일까지 ${left}일)</span>
+        <button class="sifr-btn" onclick="pcOpenDelay('${k}')" title="종료일을 늦추거나 앞당깁니다(결재)">종료일 변경</button>
+        ${PCI_IS_ADMIN ? `<div class="pci-admin">
+          <em title="관리자(PMO · 시스템관리자)에게만 보이는 버튼입니다">관리자 전용</em>
+          <button class="sifr-btn pci-danger" onclick="pcForceClose('${k}')">⚠ 강제종료</button>
+          <button class="sifr-btn" onclick="pcOpenException('${k}')">자동종료 예외 등록</button>
+        </div>` : ''}
+      </div>
+    </div>`;
+  }
   const admin = (!closed && PCI_IS_ADMIN) ? `
       <div class="pci-admin">
         <em title="관리자(PMO · 시스템관리자)에게만 보이는 버튼입니다">관리자 전용</em>
@@ -175,6 +197,12 @@ function pciInjectStyle() {
   .pci-cond.ng { border-color:#fecaca; background:#fffafa; }
   .pci-cond.ng i { background:#fee2e2; color:#b91c1c; }
   .pci-cond .pci-link { margin-left:auto; }
+  .pci-mini { margin-top:18px; }
+  .pci-line { display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px solid #e2e8f0; border-radius:12px; background:#fafbfc; padding:8px 12px; font-size:12.5px; color:#64748b; }
+  .pci-line > b { color:#1c2432; font-size:13px; }
+  .pci-line .pci-admin { margin-left:6px; }
+  .pci-line > span { margin-right:auto; }
+  .pci-line.ok { background:#f0fdf4; border-color:#bbf7d0; color:#14532d; }
   .pci-fields { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:6px 18px; margin:14px 0 4px; padding-top:12px; border-top:1px dashed #e2e8f0; }
   .pci-field { display:flex; align-items:center; gap:8px; font-size:13px; min-height:28px; }
   .pci-field > span { color:#64748b; font-weight:700; min-width:110px; }
