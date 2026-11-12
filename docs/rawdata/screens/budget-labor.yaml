@@ -250,7 +250,7 @@ elements:
     result: "그 행에서 바로 수정(입력칸으로 바뀜 · 여러 행 동시 수정 가능) · Enter 저장 · Esc 취소"
 
   - id: frm-agent-labor-sub
-    label: "입력 행 — 이관 구분(받을 인건비/보낼 인건비, 이관만) · 발생 예정월/대상 월 · 금액(원) · 내용"
+    label: "입력 행 — 이관 구분(받을 인건비/보낼 인건비, 이관만) · 상대 프로젝트(이관 필수) · 보낼 인력(우리 실투입 인력 선택)/받을 인력·소속(입력) · 발생 예정월/대상 월 · 금액(원) · 내용"
     type: [input, select]
     crud: N
     area: "이관인건비/OT비 표 안 입력 행(등록=맨 위 · 수정=그 행)"
@@ -258,7 +258,7 @@ elements:
     front:
       handler: renderAgentLabEditPopFinal(viewData)
       file: "budget-agent-console.js:2150"
-      logic: "월 선택지는 프로젝트 기간 월(viewData.months). 입력 id: aglb-ed-type(이관만) / aglb-ed-month / aglb-ed-amount / aglb-ed-desc"
+      logic: "월 선택지는 프로젝트 기간 월(viewData.months). 입력 id: aglb-ed-type · aglb-ed-cp · aglb-ed-pid(보낼) · aglb-ed-pname/aglb-ed-porg(받을) (이관만) / aglb-ed-month / aglb-ed-amount / aglb-ed-desc. [2026.11.11] 구분·인력·월·금액을 바꾸면 agentLabTrFormSyncFinal()이 인력 칸을 바꾸고 안내(aglb-ed-hint)를 갱신 — 보낼: 그 사람 그 달 실투입 계획(단가×MM) · 이미 잡은 보낼 이관 · 보낼 수 있는 금액, 받을: 우리 실투입 계획에 같은 인력·같은 달이 있으면 중복 경고"
       validation: null
       state_writes: []
     backend: null
@@ -293,10 +293,25 @@ elements:
         보낼 인건비=Sender Project(−금액). 입력은 양수로 받고 구분에 따라 부호를 붙인다(AGENT_LAB_TR_KIND_FINAL).
         OT비는 Agent 화면 전용 목록 agentLaborOtRowsFinal()에 {month, amount, memo} 추가/수정 → 재렌더.
         인건비 상세 금액(getMonthlyBudgetRows 재정의:9126 부근)이 등록 내역 합계라 탭 금액·상단 LIVE 바가 함께 바뀐다.
-      validation: "월 미선택·금액 0·내용 공란이면 저장 거부 + 토스트, 잠긴 이관 건은 수정 불가"
+      validation: "월 미선택·금액 0·내용 공란이면 저장 거부 + 토스트, 잠긴 이관 건은 수정 불가. [2026.11.11] 이관: 상대 프로젝트 필수(지금 프로젝트 불가), 보낼 이관은 우리 실투입 인력 선택 필수 + (같은 인력·같은 달 보낼 이관 합계 ≤ 그 달 실투입 계획 단가×MM) 넘으면 저장 거부, 받을 이관은 인력 이름 필수 + 우리 실투입 계획에 같은 인력·같은 달이 있으면 confirm 경고(취소 시 저장 안 함)"
       state_writes: ["laborTransferRowsByProjectFinal[proj]", "AGENT_LABOR_OT_FINAL[proj]", agentLabEditFinal]
     backend: null
     result: 표·탭 금액·인건비 합계 갱신 + 토스트
+
+  - id: grid-agent-labor-transfer-cols
+    label: "이관인건비 표 — 이관 구분 · 발생 예정월 · 인력 · 상대 프로젝트 · 내용 · 계획 · 실적 · 상태 · 관리"
+    type: grid
+    crud: R
+    area: "Agent 콘솔 인건비 상세 · 이관인건비 탭 표"
+    event: null
+    front:
+      handler: renderAgentLaborDetailFinal(viewData, roll)
+      file: "budget-agent-console.js:renderAgentLaborDetailFinal (인력 칸 whoCell)"
+      logic: "[2026.11.11] 인력 칸: 보낼 이관은 '11월 실투입 18,000,000원 중 8,000,000원 이관'처럼 그 달 실투입 계획 대비를 함께 보이고 넘으면 빨간 '실투입 초과', 받을 이관은 우리 실투입과 겹치면 '우리 실투입 계획에도 있음(중복 가능)' 경고. 상대 프로젝트는 →(보낼)/←(받을)로 표시. 인력·상대 프로젝트가 없는 기존 건은 '미지정'. 목업 원본(budget-status-4.js)에 없는 인력·상대 프로젝트는 AGENT_LAB_TR_SEED_FINAL로 채운다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: null
 
   - id: btn-agent-labor-sub-delete
     label: 선택삭제
@@ -550,7 +565,7 @@ apis:
     pipeline:
       - "kind별 규칙 기반 기본 해설 매핑(labor-ot / labor-prate / labor-scm 등, ai-proxy.js:69-94)"
       - "OPENAI_API_KEY 있으면 LLM 호출(cause/impact/action JSON), 없으면 로컬 폴백(source:'fallback')"
-    response: { ok: boolean, cause: string, impact: string, action: string, source: "ai|fallback", model?, cached? }
+    response: "{ ok: boolean, cause: string, impact: string, action: string, source: ai|fallback, model?, cached? }"
     security:
       - "API 키는 서버(.env)만 보유, 브라우저엔 숫자·상황만 전송(budget-area-outsource.js:215)"
   - id: if-scm-inbound
@@ -633,8 +648,8 @@ requirements:
   - { id: FR-LAB-07, text: "동일 SCM 문서번호(scmNo) 인력은 중복 등록을 차단해야 한다" }
   - { id: FR-LAB-08, text: "SCM 확정완료(done) 상태 인력만 월별 예산의 투입확정(q) 금액으로 반영해야 한다" }
   - { id: FR-LAB-09, text: "인건비 계획 금액은 해당 월 투입확정 금액보다 작게 저장할 수 없어야 한다(저장 거부 + 안내)" }
-  - { id: FR-LAB-10, text: "이관인건비 신규 계획은 Receiver Project만 등록 가능하고 금액은 양수로 정규화되어야 한다" }
-  - { id: FR-LAB-11, text: "Sender Project/집행완료/actualized 이관 건은 조회 전용이며 수정할 수 없어야 한다" }
+  - { id: FR-LAB-10, text: "이관인건비 계획은 받을 인건비(Receiver, +)와 보낼 인건비(Sender, −)로 등록할 수 있어야 하며, 금액은 양수로 입력받아 구분에 따라 부호를 붙여야 한다" }
+  - { id: FR-LAB-11, text: "실적이 생긴(집행완료/actualized) 이관 건은 조회 전용이며 수정·삭제할 수 없어야 한다" }
   - { id: FR-LAB-12, text: "이관인건비 요약은 건수·받은(+)·보낸(−)·순 이관금액을 구분 표시하고, 순액을 예산내역 이관인건비 행에 반영해야 한다" }
   - { id: FR-LAB-13, text: "OT비는 월별 계획금액을 직접 키인해 저장하고 예산내역 OT비 행에 반영해야 한다(계정 701301 단일 사용)" }
   - { id: FR-LAB-14, text: "SCM I/F로 확정 수신된 미등록 인력이 있을 때 알림과 [확정 인력 등록] 진입을 제공해야 한다" }
@@ -642,6 +657,10 @@ requirements:
   - { id: FR-LAB-16, text: "P레벨 단가 확정으로 인한 예산 초과 가능성을 위험 알림으로 안내해야 한다(인력·MM 변동 없어도 초과 가능)" }
   - { id: FR-LAB-17, text: "등록된 인력 배정 상태는 localStorage에 영속화하고 재진입 시 복원해야 한다" }
   - { id: FR-LAB-18, text: "각 알림에 대해 AI 해설(원인/영향/조치)을 요청·표시할 수 있어야 하며, API 키는 서버에만 보관해야 한다" }
+  - { id: FR-LAB-20, text: "이관인건비(받을 +/보낼 −)는 실투입인건비 계획과 별도 행으로 관리하고, 실투입 계획을 직접 줄이거나 늘리지 않아야 한다 (인건비 예상 원가 = 실투입 + OT비 + 순 이관)" }
+  - { id: FR-LAB-21, text: "보낼 이관인건비는 우리 실투입 인력을 선택해야 하며, 같은 인력·같은 달 보낼 이관 합계가 그 달 실투입 계획(단가×MM)을 넘으면 저장을 거부해야 한다" }
+  - { id: FR-LAB-22, text: "받을 이관인건비 인력이 같은 달 우리 실투입 계획에도 있으면 중복 원가 경고를 표시하고 사용자 확인 후에만 저장해야 한다" }
+  - { id: FR-LAB-23, text: "이관인건비는 상대 프로젝트(보낼 곳/받을 곳)를 필수로 입력해야 하며, 지금 프로젝트는 상대로 지정할 수 없어야 한다" }
   - { id: FR-LAB-19, text: "Agent 화면의 실투입인건비는 SCM이 선행되어야 하며, 화면에서 인력을 직접 등록할 수 없어야 한다(SCM 수신분은 [예산 조정안] Agent 제안으로 올라와야 한다)" }
   - { id: FR-LAB-20, text: "PM이 [예산 조정안]에서 인건비 제안을 [반영]하면 실투입인건비 인력표에 '반영(결재전)'으로 신규·철수 변동이 표시되어야 한다" }
   - { id: FR-LAB-21, text: "Agent 화면에서 이관인건비와 OT비를 건 단위로 등록·수정·삭제할 수 있어야 하며, 결과가 인건비 상세 금액에 즉시 반영되어야 한다" }
