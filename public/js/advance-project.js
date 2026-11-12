@@ -4,7 +4,8 @@
 
 // AI GUIDE: 선투입 프로젝트 정보 화면입니다.
 // - 사내 프로젝트와 동일한 화면 구조를 기반으로 선투입 프로젝트 라벨과 데이터를 보여줍니다.
-// - 목록, 등록, 상세, 결재 상신/승인 처리 흐름을 목업으로 확인합니다.
+// - 목록, 상세, 결재 상신/승인 처리 흐름을 목업으로 확인합니다.
+// - [2026.11.12] 선투입은 개설하지 않습니다(사내 중 선투입 유형 제외) → 목록의 [+ 신규 생성]을 없앴습니다. 생성 양식은 [수정]에서만 씁니다.
 // - AI 화면 가이드는 선투입 프로젝트 등록 기준, 예산 항목, 승인 상태를 중심으로 설명해야 합니다.
 
 let advView = 'list';
@@ -144,9 +145,9 @@ function renderAdvList() {
     <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
       <div>
         <div class="page-title">선투입 프로젝트</div>
-        <div class="page-sub">선투입 프로젝트 생성·조회</div>
+        <div class="page-sub">선투입 프로젝트 조회 (개설 대상 아님 — 선행 시스템에서 자동 등록)</div>
       </div>
-      <button class="save-btn" onclick="advBudgetRows=[{name:'',materials:0,labor:0,outsource:0,expense:0}];advView='register';renderAdvRegister()" style="margin-top:4px;font-size:14px;padding:6px 14px">+ 신규 생성</button>
+      <span title="선투입은 개설 대상이 아닙니다(사내 중 선투입 유형은 개설하지 않음). 화면에서 신규 생성하지 않습니다." style="margin-top:6px;font-size:13px;font-weight:700;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:99px;padding:5px 12px;white-space:nowrap">🔄 선행 시스템에서 자동 등록</span>
     </div>
 
     <div class="proj-list-toolbar">
