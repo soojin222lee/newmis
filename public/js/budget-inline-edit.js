@@ -61,7 +61,8 @@ var BIE_FLOWS = [
    cols: 표 열 순서대로. 배열 = 그 칸에 놓을 입력칸 id(또는 .클래스), 'k' = 원래 칸 유지(신규는 –), 'a' = 저장/취소,
          { t: '글자' } = 신규 행에 보일 고정 글자. 입력칸을 못 찾으면 'k' 처럼 원래 칸을 둡니다. full = 한 행 전체 폭(경비) */
 var BIE_FORMS = [
-  { probe: '#aglb-ed-type',   cols: [['aglb-ed-type'], ['aglb-ed-month'], ['aglb-ed-desc'], ['aglb-ed-amount'], 'k', 'k', 'a'] },   // 이관인건비
+  { probe: '#aglb-ed-type',   cols: [['aglb-ed-type'], ['aglb-ed-month'], ['aglb-ed-person-send', 'aglb-ed-person-recv'], ['aglb-ed-cp', 'aglb-ed-cp-list'],
+                                     ['aglb-ed-desc', 'aglb-ed-hint'], ['aglb-ed-amount'], 'k', 'k', 'a'] },   // 이관인건비(인력 · 상대 프로젝트 열 — 석완 11.12)
   { probe: '#aglb-ed-month',  cols: [{ t: 'OT' }, ['aglb-ed-month'], ['aglb-ed-desc'], ['aglb-ed-amount'], 'k', 'a'] },             // OT비
   { probe: '#agos-ed-vendor', cols: [['agos-ed-vendor', 'agos-ed-contract', 'agos-ed-start', 'agos-ed-end'], ['agos-ed-amount'], 'k', 'k', 'k', 'k', 'a'] },  // 외주비 업체
   { probe: '#agos-ed-type',   cols: [['agos-ed-type'], ['agos-ed-month'], ['agos-ed-desc'], ['agos-ed-amount'], 'k', 'k', 'a'] },   // 이관외주비
@@ -108,8 +109,15 @@ var bieRenderBefore = renderBudgetPage;
 renderBudgetPage = function () {
   if (bieMute) return;
   bieCapture();
-  return bieRenderBefore.apply(this, arguments);
+  const r = bieRenderBefore.apply(this, arguments);
+  bieAfterRender();
+  return r;
 };
+// 그린 뒤에 해야 하는 일 — 이관인건비 입력 행의 안내(보낼 수 있는 금액 · 중복 경고)를 채웁니다
+function bieAfterRender() {
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  document.querySelectorAll('tr.bie-row [data-oid="aglb-ed-hint"]').forEach(function (h) { try { bieLabTrSync(h); } catch (e) {} });
+}
 function bieCapture() {
   if (typeof document === 'undefined' || !document.querySelectorAll) return;
   Array.prototype.slice.call(document.querySelectorAll('tr.bie-row[data-bie-key]')).forEach(function (tr) {
@@ -386,6 +394,7 @@ function bieRekey(pop, d) {
     el.setAttribute('data-oid', el.id);
     el.id = el.id + '__' + d.id;
   });
+  pop.querySelectorAll('[list]').forEach(function (el) { el.setAttribute('list', el.getAttribute('list') + '__' + d.id); });   // 자동완성 목록 연결 유지
   pop.querySelectorAll('[onclick],[oninput],[onchange]').forEach(function (el) {
     ['onclick', 'oninput', 'onchange'].forEach(function (a) {
       const s = el.getAttribute(a);
@@ -396,7 +405,8 @@ function bieRekey(pop, d) {
         .replace('bdeAsCalc()', 'bieAsCalc(this)')
         .replace(/agentExpEdFillFinal\(/, 'bieExpFill(this,')
         .replace('agentExpEdSumFinal()', 'bieExpSum(this)')
-        .replace('agentExpEdPickFinal(this.value)', `bieExpPick(this,'${d.id}')`));
+        .replace('agentExpEdPickFinal(this.value)', `bieExpPick(this,'${d.id}')`)
+        .replace('agentLabTrFormSyncFinal()', 'bieLabTrSync(this)'));
     });
   });
 }
@@ -595,6 +605,45 @@ function biePoHint(el) {
   const amt = Math.abs(parseBudgetAmount((bieOid(box, 'agos-po-amount') || {}).value || 0));
   if (hint) hint.textContent = n ? `합계 ${fmt(amt * n)}원 = ${fmt(amt)}원 × ${n}개 분기` : '';
 }
+// 인건비 › 이관인건비 — 보낼/받을에 따라 인력 칸 바꾸기 + 안내(원래 agentLabTrFormSyncFinal 을 행 안에서)
+function bieLabTrSync(el) {
+  const box = el.closest('tr.bie-row');
+  if (!box) return;
+  const v = function (k) { return ((bieOid(box, k) || {}).value || '').trim(); };
+  const send = v('aglb-ed-type') === 'Sender Project';
+  const a = bieOid(box, 'aglb-ed-person-send'), b = bieOid(box, 'aglb-ed-person-recv');
+  if (a) a.style.display = send ? '' : 'none';
+  if (b) b.style.display = send ? 'none' : '';
+  const hint = bieOid(box, 'aglb-ed-hint');
+  if (!hint) return;
+  const d = BIE_DRAFTS.find(function (x) { return x.id === box.getAttribute('data-bie-key'); });
+  const editId = d && d.state ? d.state.id : null;
+  const month = v('aglb-ed-month');
+  const amt = Math.abs(parseBudgetAmount(v('aglb-ed-amount') || 0));
+  let html = '', cls = '';
+  if (send) {
+    const pid = v('aglb-ed-pid');
+    const p = pid ? agentLabDirectPlanFinal(pid, month) : null;
+    if (!p) html = '보낼 인력을 고르면 그 달 실투입 계획과 보낼 수 있는 금액을 보여 드립니다.';
+    else {
+      const sent = agentLabSentOfFinal(pid, month, editId);
+      const can = Math.max(p.amount - sent, 0);
+      html = `<b>${escHtml(p.row.name)}</b> · ${month} 실투입 계획 <b>${fmt(p.amount)}원</b> (${p.mm}MM × ${fmt(p.row.unitPrice)}원)`
+        + (sent ? ` · 이미 보낼 이관 ${fmt(sent)}원` : '') + ` → 보낼 수 있는 금액 <b>${fmt(can)}원</b>`;
+      if (!p.amount) { html = `<b>${escHtml(p.row.name)}</b> 님은 ${month}에 실투입 계획이 없어 보낼 원가가 없습니다.`; cls = 'bad'; }
+      else if (amt > can) { html += ` · 입력 금액이 ${fmt(amt - can)}원 많습니다`; cls = 'bad'; }
+      else if (amt) cls = 'ok';
+    }
+  } else {
+    const dup = agentLabRecvDupFinal(v('aglb-ed-pname'), month);
+    html = dup
+      ? `⚠ <b>${escHtml(dup.name)}</b> 님은 ${month} 우리 실투입 계획에도 있습니다. 받을 이관으로도 등록하면 같은 원가가 두 번 더해집니다.`
+      : '받을 이관은 상대 프로젝트 실투입 인력의 원가입니다. 우리 실투입 계획에 있는 인력이면 등록하지 마세요.';
+    cls = dup ? 'warn' : '';
+  }
+  hint.className = 'aglb-hint wide ' + cls;
+  hint.innerHTML = html;
+}
 // A/S — 수량 × 단가
 function bieAsCalc(el) {
   const box = el.closest('tr.bie-row');
@@ -674,6 +723,11 @@ function bieInjectStyle() {
   tr.bie-row .agos-qs > div { display:flex; flex-wrap:wrap; gap:4px; }
   tr.bie-row .agos-po-hint { display:block; margin-top:3px; font-size:11px; font-style:normal; color:#2563eb; }
   .bie-na { color:#94a3b8; }
+  tr.bie-row .bie-cell label:not(.bie-f) { display:flex; flex-direction:column; gap:2px; margin:0 0 4px; }
+  tr.bie-row .bie-cell label:not(.bie-f) > span { font-size:10.5px; font-weight:800; color:#64748b; }
+  tr.bie-row .bie-cell .aglb-form-pair { display:flex; flex-direction:column; gap:4px; }
+  tr.bie-row .aglb-hint { margin:5px 0 0; font-size:11px; line-height:1.45; color:#64748b; white-space:normal; min-width:180px; }
+  tr.bie-row .aglb-hint.bad { color:#c40025; } tr.bie-row .aglb-hint.warn { color:#b45309; } tr.bie-row .aglb-hint.ok { color:#0f9d63; }
   .bie-acts { display:flex; gap:4px; justify-content:center; flex-wrap:wrap; }
   .bie-acts button { border-radius:7px; padding:5px 10px; font:inherit; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
   .bie-acts .bie-cancel { border:1px solid #cbd5e1; background:#fff; color:#334155; }
