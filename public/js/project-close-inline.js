@@ -2,8 +2,8 @@
 //  프로젝트 > 수주형 프로젝트 상세 — [프로젝트 종료] 영역 (종료 페이지를 상세 안으로)   작성: 남주
 // ───────────────────────────────────────────────────────────────────────────
 // AI GUIDE: 따로 있던 '프로젝트 종료' 화면(project-close.js)을 프로젝트 상세 안의 한 영역으로 옮깁니다(2026.11.12, 담당자 없음 → 상세로 통합).
-//   - 수주형 상세(siDetailHtml, backType '수주형') 진행 단계 카드 바로 아래에 [프로젝트 종료] 영역을 넣고,
-//     머리의 [종료 처리 →]는 별도 화면 대신 이 영역으로 스크롤합니다.
+//   - 수주형 상세(siDetailHtml, backType '수주형') 맨 아래에 [프로젝트 종료] 영역을 넣고(2026.11.12 맨 위 → 맨 아래),
+//     머리의 [종료 처리 →] 버튼은 뺍니다(종료는 끝에 한 번 하는 일 — 주요 버튼으로 맨 위에 둘 필요 없음).
 //   - 영역 구성: 상태 · 종료 조건 체크(입금 제외) · 계약/프로젝트 종료일 · 산출물 · 자동종료 예외(등록된 경우) · 사후점검 결과보고서
 //     버튼: [종료연기] [종료 신청]  |  관리자 전용: [강제종료] [자동종료 예외 등록/해제]
 //   - 결정 사항(2026.11.12): 입금 여부 표시 안 함 · 임시종료일/자동종료 예정일 표기 안 함 ·
@@ -144,15 +144,14 @@ if (typeof siDetailHtml === 'function') {
   siDetailHtml = function (p, backOnclick, extraMeta, backType, backKey) {
     let html = siDetailHtmlBeforePci.apply(this, arguments);
     if (backType !== '수주형' || typeof html !== 'string') return html;
-    // 착수 전(등록완료)은 종료 대상이 아니므로 영역 · [종료 처리] 버튼을 두지 않습니다
-    if (typeof siPhase === 'function' && siPhase(p.stage) === 0) {
-      return html.replace(/\s*<button class="sifr-btn sifr-btn-primary" onclick="showProjectClose\(\)">종료 처리 →<\/button>/, '');
-    }
+    // 머리의 [종료 처리 →]는 두지 않습니다(종료는 끝에 한 번 하는 일 — 맨 아래 영역에서 처리)
+    html = html.replace(/\s*<button class="sifr-btn sifr-btn-primary" onclick="showProjectClose\(\)">종료 처리 →<\/button>/, '');
+    // 착수 전(등록완료)은 종료 대상이 아니므로 영역을 두지 않습니다
+    if (typeof siPhase === 'function' && siPhase(p.stage) === 0) return html;
     let sec = '';
     try { sec = pciSection(p); } catch (e) { if (typeof console !== 'undefined') console.warn('[project-close-inline]', e); }
-    html = html.replace('onclick="showProjectClose()">종료 처리 →', 'onclick="pciGoto()">종료 처리 ↓');
     if (!sec) return html;
-    const at = html.indexOf('<div class="sifr-sec">');          // 진행 단계 카드 다음, 첫 섹션(선행 시스템 동기화) 앞
+    const at = html.lastIndexOf('</div>');                       // 상세 맨 마지막 섹션 다음(.sifr 닫기 앞)
     return at < 0 ? html + sec : html.slice(0, at) + sec + html.slice(at);
   };
 }
