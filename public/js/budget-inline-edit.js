@@ -424,6 +424,7 @@ function bieApplyValues(pop, v) {
   if (qs.length) {
     pop.querySelectorAll('[data-oid="agos-po-start"],[data-oid="agos-po-end"]').forEach(function (el) { el.setAttribute('disabled', ''); });
   }
+  if (typeof bopRestore === 'function') bopRestore(pop);   // 구매계획 [분기 | 월별] 단위 복원(budget-os-po.js)
 }
 function bieOid(box, k) { return box ? box.querySelector(`[data-oid="${k}"]`) : null; }
 
