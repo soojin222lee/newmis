@@ -34,13 +34,14 @@ if (typeof getProjectCloseRows === 'function') {
       const s = SI_PROJECTS[id];
       if (!s || !s.code || rows.some(function (r) { return r.key === s.code; })) return;
       const ex = PROJECT_CLOSE_EXTRA[s.code] || {};
-      const end = ex.projectEnd || s.end;
+      const end = s.end;                                     // 프로젝트 종료일 = 기본정보 프로젝트기간 끝(한 곳에서만 관리)
+      if (!s.contractEnd) s.contractEnd = s.end;             // 계약 종료일 — 처음 값을 고정(종료연기로 프로젝트 기간이 바뀌어도 그대로)
       const row = {
         key: s.code, no: s.code, name: s.name, closeNo: s.code, closeName: s.name,
         purchaseInspection: ex.purchaseInspection || '완료', deliverables: ex.deliverables || '미완료',
         billing: ex.billing || '완료', payment: '완료', staffing: ex.staffing || (s.stage === '종료완료' ? '완료' : '미완료'),
         expense: ex.expense || '완료', budgetInProgress: !!ex.budgetInProgress, rentalEquip: !!ex.rentalEquip,
-        contractEnd: ex.contractEnd || end, projectEnd: end, exception: ex.exception || null,
+        contractEnd: ex.contractEnd || s.contractEnd, projectEnd: end, exception: ex.exception || null,
         closed: ex.closed || (s.stage === '종료완료' ? { date: end, by: '종료' } : null), reportStatus: '계획',
       };
       row.tmpCloseDt = pcAddDays(end, 30);
@@ -117,8 +118,7 @@ function pciSection(s) {
         ${note}
         <div class="pci-conds">${condHtml}</div>
         <div class="pci-fields">
-          ${field('계약 종료일', p.contractEnd)}
-          ${field('프로젝트 종료일', p.projectEnd)}
+          ${pciContractField(p, esc)}
           ${field('산출물 등록(선택)', p.deliverables, '산출물 등록')}
           ${field('종료 선언일', closed ? p.closed.date + ' (' + p.closed.by + ')' : '')}
           ${field('사후점검 결과보고서', p.reportStatus, '작성')}
@@ -182,6 +182,9 @@ function pciInjectStyle() {
   .pci-link { border:0; background:none; padding:0; font:inherit; font-size:12px; font-weight:800; color:#2563eb; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
   .pci-exc { margin:10px 0 0; font-size:12.5px; color:#0f766e; background:#f0fdfa; border:1px solid #99f6e4; border-radius:8px; padding:8px 12px; }
   .pci-exc span { color:#64748b; }
+  .pci-field.wide { grid-column:span 2; }
+  .pci-field > b { white-space:nowrap; }
+  .pci-diff { white-space:nowrap; font-style:normal; font-size:11px; font-weight:800; color:#b45309; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:2px 7px; }
   .pci-help { margin:10px 0 0; font-size:11.5px; color:#94a3b8; line-height:1.6; }
   .pci-foot { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; padding-top:12px; border-top:1px solid #eef2f7; }
   .pci-admin { display:flex; align-items:center; gap:6px; padding:4px 8px 4px 4px; border:1px dashed #fca5a5; border-radius:10px; background:#fffafa; }
@@ -215,3 +218,40 @@ function pciInjectStyle() {
     return before.apply(this, arguments);
   };
 });
+
+/* ── 계약 종료일 — 프로젝트 종료일(기본정보 프로젝트기간 끝)과 다를 때만 표시 ──────────
+   프로젝트 종료일은 기본정보에 있으므로 종료 영역에는 두지 않습니다(2026.11.12). */
+function pciContractField(p, esc) {
+  const diff = p.contractEnd && p.projectEnd && p.contractEnd !== p.projectEnd;
+  return `<div class="pci-field${diff ? ' wide' : ''}"><span>계약 종료일</span><b>${esc(p.contractEnd || '-')}</b>`
+    + (diff ? `<em class="pci-diff" title="기본정보의 프로젝트기간 끝(${esc(p.projectEnd)})과 다릅니다">프로젝트 종료일 ${esc(p.projectEnd)}과 다름</em>` : '')
+    + '</div>';
+}
+
+/* ── 종료연기 — 기본정보 프로젝트기간 끝을 바꾸고 변경이력에 남김 ─────────────────
+   원래 pcSaveDelay 는 종료 데이터(PROJECT_CLOSE_EXTRA.projectEnd)만 바꿔 기본정보와 날짜가 갈렸습니다. */
+if (typeof pcSaveDelay === 'function') {
+  var pcSaveDelayBeforePci = pcSaveDelay;
+  pcSaveDelay = function (key) {
+    const s = (typeof SI_PROJECTS !== 'undefined') ? Object.keys(SI_PROJECTS).map(function (id) { return SI_PROJECTS[id]; }).find(function (x) { return x.code === key; }) : null;
+    if (!s) return pcSaveDelayBeforePci.apply(this, arguments);
+    const ex0 = PROJECT_CLOSE_EXTRA[key] && PROJECT_CLOSE_EXTRA[key].projectEnd;
+    const keepRender = renderProjectClose, keepToast = window.showToast;
+    renderProjectClose = function () {};
+    window.showToast = function () {};
+    try { pcSaveDelayBeforePci.apply(this, arguments); } finally { renderProjectClose = keepRender; window.showToast = keepToast; }
+    const ex = PROJECT_CLOSE_EXTRA[key];
+    const dt = ex && ex.projectEnd;
+    if (!dt || dt === ex0) return;                     // 검증에 걸려 바뀌지 않음(원래 함수가 안내)
+    delete ex.projectEnd;                              // 날짜는 기본정보(SI_PROJECTS.end) 한 곳에서만
+    const before = s.end;
+    if (!s.contractEnd) s.contractEnd = before;
+    s.end = dt;
+    const now = new Date(), z = function (n) { return String(n).padStart(2, '0'); };
+    const stamp = now.getFullYear() + '-' + z(now.getMonth() + 1) + '-' + z(now.getDate()) + ' ' + z(now.getHours()) + ':' + z(now.getMinutes());
+    s.misHistory = s.misHistory || [];
+    s.misHistory.unshift({ field: '프로젝트기간', before: s.start + ' ~ ' + before, after: s.start + ' ~ ' + dt, by: (s.pm || 'PM') + ' (종료연기)', date: stamp });
+    renderProjectClose();
+    if (typeof showToast === 'function') showToast('종료연기 결재가 승인됐다고 보고 프로젝트기간 끝을 ' + dt + '로 바꿨습니다(기본정보 · 변경이력 반영, 목업).');
+  };
+}
