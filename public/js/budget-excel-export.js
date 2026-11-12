@@ -6,6 +6,8 @@
 //   - 표 → 행 변환(bxeTableRows)은 colspan/rowspan을 병합 셀로 옮기고, 체크박스 · 관리 열과
 //     아직 저장하지 않은 입력 행(bie-row)은 뺍니다. "1,234" 같은 금액은 숫자 셀(#,##0)로 넣습니다.
 //   - bxeMonthly(acct): [월별 계획/실적 보기] 팝업 표(지금 고른 보기 · 연도 · 단위 그대로)
+//   - bxeDetail(btn): 계정 상세 예산내역 표(지금 고른 상세계정 탭) — 표 위 막대의 [⬇ 엑셀]
+//   - bxeActual(acct, month): 실적조회 팝업의 [엑셀](원래 동작 없던 버튼)에 연결
 //   공유 파일은 고치지 않습니다. budget-monthly-view.js 뒤에 로드합니다.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -49,7 +51,7 @@ function bxeCellText(el) {
     Array.prototype.forEach.call(n.childNodes, walk);
     if (block) parts.push(' ');
   })(c);
-  return parts.join('').replace(/\s+/g, ' ').trim();
+  return parts.join('').replace(/\s+/g, ' ').trim().replace(/^[∨∧▾▴▸›]\s*/, '');   // 펼침 표시는 뺍니다
 }
 function bxeValue(text) {
   const t = String(text).replace(/−/g, '-').replace(/원$/, '').trim();
@@ -263,4 +265,101 @@ function bxeZip(files) {
   const out = new Uint8Array(all.reduce(function (t, p) { return t + p.length; }, 0));
   let p = 0; all.forEach(function (x) { out.set(x, p); p += x.length; });
   return out;
+}
+
+/* ── 계정 예산내역 표 ─────────────────────────────────────────────────────
+   계정 상세(인건비 · 외주비 · 재료비 · 경비 · A/S Cost) 표 위 막대에 [⬇ 엑셀]을 둡니다.
+   budget-inline-edit.js가 감싼 렌더러를 한 번 더 감싸므로, 체크박스 · 입력 행이 붙은 뒤의 표를 받습니다.
+   내려받을 때는 화면 DOM에서 표를 읽고(bxeTableRows), 저장 전 입력 행 · 체크박스 · 관리 열은 뺍니다. */
+['renderAgentLaborDetailFinal', 'renderAgentOutsourceDetailFinal', 'renderAgentMaterialDetailFinal',
+ 'renderAgentExpenseDetailFinal', 'renderAgentAsDetailFinal'].forEach(function (name) {
+  const before = window[name];
+  if (typeof before !== 'function') return;
+  window[name] = function () { return bxeAddDetailButton(before.apply(this, arguments)); };
+});
+function bxeAddDetailButton(html) {
+  if (!html || typeof document === 'undefined' || !document.createElement) return html;
+  try {
+    const tpl = document.createElement('template');
+    if (!tpl.content) return html;
+    bxeInjectStyle();
+    tpl.innerHTML = html;
+    const root = tpl.content;
+    const wrap = root.querySelector('.aglb-wrap');
+    if (!wrap || !wrap.querySelector('table')) return html;
+    let bar = Array.prototype.find.call(root.querySelectorAll('.aglb-bar, .agex-bar'), function (b) { return !b.closest('.agos-panel, table'); });
+    if (!bar) {                                                         // 실투입인건비처럼 막대가 없는 표
+      bar = document.createElement('div');
+      bar.className = 'aglb-bar';
+      wrap.parentNode.insertBefore(bar, wrap);
+    }
+    const b = document.createElement('button');
+    b.className = 'bxe-btn';
+    b.setAttribute('onclick', 'event.stopPropagation();bxeDetail(this)');
+    b.title = '이 표(저장된 내역)를 엑셀(.xlsx)로 내려받습니다 — 저장 전 입력 행은 빠집니다';
+    b.textContent = '⬇ 엑셀';
+    bar.insertBefore(b, bar.querySelector('.bie-delsel, .aglb-add, .bie-savebar') || null);
+    return tpl.innerHTML;
+  } catch (e) { if (typeof console !== 'undefined') console.warn('[budget-excel-export]', e); return html; }
+}
+function bxeDetail(btn) {
+  const body = btn.closest('.agga-col-body') || btn.parentNode.parentNode;
+  const acct = (typeof agentAiSheetFinal !== 'undefined' && agentAiSheetFinal) || '계정';
+  const on = body.querySelector('.aglb-tabs button.on');
+  const tab = on ? bxeCellText(on.querySelector('.aglb-tabname') || on) : '';
+  const yr = body.querySelector('.agex-bar button.on');
+  const label = tab || (yr ? bxeCellText(yr) : '') || '예산내역';
+  const tables = Array.prototype.filter.call(body.querySelectorAll('.aglb-wrap table'), function (t) {
+    return t.tHead && !t.parentNode.closest('table') && !t.closest('.agv-pop');
+  });
+  if (!tables.length) { bxeToastMsg('내려받을 표가 없습니다.'); return; }
+  const proj = bxeProjName();
+  const sub = '단위: 원 · 저장된 내역 기준(저장 전 입력 행 제외) · 내려받은 날: ' + bxeToday();
+  const sheets = tables.map(function (t, i) {
+    const panel = t.closest('.agos-panel');
+    const head = panel && panel.querySelector('.agos-panel-head');
+    const nm = i === 0 ? label : (head ? bxeCellText(head).replace(/선택삭제/g, '').trim() : label + ' ' + (i + 1));
+    return bxeSheet(nm, (proj ? proj + ' · ' : '') + acct + ' 예산내역 — ' + nm, sub, bxeTableRows(t));
+  });
+  bxeSave(bxeSafeName(acct) + '_' + bxeSafeName(label) + '_예산내역_' + bxeToday() + '.xlsx', sheets);
+}
+
+/* ── 실적조회 팝업 [엑셀] ─────────────────────────────────────────────────
+   월별 표의 실적 금액을 누르면 뜨는 실적조회 팝업(showActualDetailModal)의 [엑셀] 버튼은 동작이 없었습니다.
+   팝업을 그린 뒤 그 버튼에만 내려받기를 연결합니다(공유 렌더러는 그대로). */
+if (typeof showActualDetailModal === 'function') {
+  const bxeActualBefore = showActualDetailModal;
+  showActualDetailModal = function (account, month, detailName) {
+    const r = bxeActualBefore.apply(this, arguments);
+    try {
+      const btn = document.querySelector('#actual-detail-modal .actual-detail-toolbar button');
+      if (btn) {
+        const q = function (s) { return "'" + String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"; };
+        btn.setAttribute('onclick', 'bxeActual(' + q(account) + ',' + q(month) + ')');
+        btn.textContent = '⬇ 엑셀 다운로드';
+      }
+    } catch (e) { /* 버튼이 없으면 그대로 */ }
+    return r;
+  };
+}
+function bxeActual(account, month) {
+  const t = document.querySelector('#actual-detail-modal .actual-detail-table');
+  if (!t) { bxeToastMsg('내려받을 표가 없습니다.'); return; }
+  const tab = document.querySelector('#actual-detail-modal .actual-detail-tabs button.active');
+  const nm = (tab ? bxeCellText(tab) : '') || '실적';
+  bxeSave(bxeSafeName(account) + '_실적조회_' + bxeSafeName(month) + '_' + bxeToday() + '.xlsx',
+    [bxeSheet(nm, account + ' 실적조회 — ' + month + ' · ' + nm, '단위: 원 · 내려받은 날: ' + bxeToday(), bxeTableRows(t))]);
+}
+
+function bxeInjectStyle() {
+  if (document.getElementById('bxe-style')) return;
+  const st = document.createElement('style');
+  st.id = 'bxe-style';
+  st.textContent = `
+  .bxe-btn { border:1px solid #86efac; background:#f0fdf4; color:#166534; border-radius:8px; padding:6px 12px;
+    font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .bxe-btn:hover { background:#dcfce7; }
+  .agex-bar .bxe-btn { margin-left:auto; }
+  .agex-bar .bxe-btn ~ .aglb-add, .agex-bar .bxe-btn ~ .bie-delsel { margin-left:0; }`;
+  document.head.appendChild(st);
 }

@@ -447,6 +447,21 @@ elements:
     backend: null
     result: "실적 열 접힘 / 펼침"
 
+  - id: btn-actual-detail-excel
+    label: "⬇ 엑셀 다운로드"
+    type: button
+    crud: R
+    area: "실적조회 팝업(월별 표의 지난 달 실적 금액 클릭) 표 위"
+    event: onclick
+    front:
+      handler: "bxeActual(계정, 월)"
+      file: "budget-excel-export.js:showActualDetailModal 감싸기 · bxeActual"
+      logic: "[2026.11.12] 원래 동작이 없던 실적조회 팝업 [엑셀] 버튼에 내려받기를 연결한다(공유 렌더러는 그대로, 팝업을 그린 뒤 버튼의 onclick만 붙임). 지금 탭의 실적 표(합계 줄 포함)를 .xlsx로. 파일명 {계정}_실적조회_{월}_YYYYMMDD.xlsx"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "{계정}_실적조회_{월}_YYYYMMDD.xlsx 다운로드"
+
   - id: btn-agent-monthly-excel
     label: "⬇ 엑셀 다운로드"
     type: button
@@ -631,3 +646,4 @@ requirements:
   - { id: FR-BAD-23, text: "[2026.11.12] 예산 조정안 칸은 [전체] · [검토 대기] · [반영] 탭으로 상태별 조정안을 건수와 함께 조회할 수 있어야 하며, 기본은 전체여야 한다" }
   - { id: FR-BAD-24, text: "[2026.11.12] 월별 계획/실적 팝업은 월별 · 분기별 · 연도별 보기, 연도 선택, 금액 단위(원 · 천원 · 백만원)를 제공하고, 확정 실적(지난 달)은 기본으로 합계 한 칸으로 접혀야 하며, 연도마다 합계를 보여야 한다" }
   - { id: FR-BAD-25, text: "[2026.11.12] 월별 계획/실적 팝업은 지금 보이는 표(보기 · 연도 · 단위 그대로)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
+  - { id: FR-BAD-26, text: "[2026.11.12] 실적조회 팝업은 지금 탭의 실적 표를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }

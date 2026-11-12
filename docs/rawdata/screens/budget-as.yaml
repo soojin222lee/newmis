@@ -125,6 +125,21 @@ elements:
     backend: null
     result: "표 맨 위에 입력 행 추가(누를 때마다 한 행씩 더 쌓이고 입력값 유지) — 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서"
 
+  - id: btn-agent-as-excel
+    label: "⬇ 엑셀"
+    type: button
+    crud: R
+    area: "A/S Cost 표 위 버튼 줄([선택삭제] 왼쪽)"
+    event: onclick
+    front:
+      handler: "bxeDetail(this)"
+      file: "budget-excel-export.js:bxeAddDetailButton · bxeDetail · bxeTableRows · bxeXlsx"
+      logic: "[2026.11.12] 지금 고른 상세계정 탭의 A/S Cost 예산내역 표를 .xlsx로 내려받는다. 저장된 내역만 담고 저장 전 입력 행 · 체크박스 · 관리 열은 뺀다. 1행 제목(프로젝트 · 계정 · 탭), 2행 단위(원) · 내려받은 날, 금액은 숫자 셀(#,##0), 머리 줄 틀 고정. 파일명 {계정}_{탭}_예산내역_YYYYMMDD.xlsx. 외부 라이브러리 없이 브라우저에서 생성(목업)"
+      validation: "표가 없으면 '내려받을 표가 없습니다.' 토스트"
+      state_writes: []
+    backend: { note: "실서비스는 서버 엑셀 생성 API로 대체 가능 — 목업은 화면 표 기준 클라이언트 생성" }
+    result: "{계정}_{탭}_예산내역_YYYYMMDD.xlsx 다운로드"
+
   - id: btn-agent-as-savebar
     label: 저장
     type: button
@@ -326,3 +341,4 @@ requirements:
   - { id: FR-AS-16, text: "Agent 화면 A/S Cost 상세는 입력 행을 여러 개 동시에 추가 · 수정할 수 있어야 하며, 다른 행을 추가하거나 화면이 다시 그려져도 입력 중인 값이 유지되어야 한다" }
   - { id: FR-AS-17, text: "[2026.11.12] Agent 화면 A/S Cost 상세의 등록 · 수정은 표 위 [저장]을 눌렀을 때만 한 번에 반영되어야 하며, 입력 행마다 따로 저장(등록 API 호출)하지 않아야 한다" }
   - { id: FR-AS-18, text: "[2026.11.12] Agent 화면 A/S Cost 상세의 선택삭제는 바로 반영하지 않고 '삭제 예정'으로 표시해야 하며(되돌리기 가능), 표 위 [저장]을 눌렀을 때 추가 · 수정과 함께 한 번에 반영되어야 한다" }
+  - { id: FR-AS-19, text: "[2026.11.12] Agent 화면 A/S Cost 상세는 지금 고른 상세계정의 예산내역 표(저장된 내역)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
