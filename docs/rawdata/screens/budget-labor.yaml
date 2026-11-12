@@ -212,8 +212,8 @@ elements:
     event: onclick
     front:
       handler: "agentLabEditOpenFinal('transfer'|'ot', '')"
-      file: "budget-agent-console.js:2063 (팝업 렌더 renderAgentLabEditPopFinal:2150) → 입력 행 변환 budget-inline-edit.js:bieInline · bieFocusRow"
-      logic: "[2026.11.11] 팝업 대신 표 맨 위에 입력 행을 추가한다(budget-inline-edit.js:bieInline). 신규 입력 행 오픈. 직책자 화면·과거 확정 버전 조회 중에는 버튼과 관리 열을 숨긴다(열람 전용)"
+      file: "budget-agent-console.js:2063 (팝업 렌더 renderAgentLabEditPopFinal:2150) → 입력 행 변환 budget-inline-edit.js:bieDraftRow · bieFocusRow"
+      logic: "[2026.11.11] 팝업 대신 표 맨 위에 입력 행을 추가한다(budget-inline-edit.js:bieDraftRow). 신규 입력 행 오픈. 직책자 화면·과거 확정 버전 조회 중에는 버튼과 관리 열을 숨긴다(열람 전용)"
       validation: null
       state_writes: [agentLabEditFinal]
     backend: null
@@ -228,7 +228,7 @@ elements:
     front:
       handler: "bieSaveAll()"
       file: "budget-inline-edit.js:bieAddSaveButton · bieSaveAll → bieSaveDrafts"
-      logic: "화면의 입력 행(등록 · 수정)을 위에서부터 차례로 원래 저장 함수로 저장한다(버튼에 입력 행 수 표시). 검증에 걸린 행에서 멈추고 그 행을 빨갛게 표시하며, 나머지 행은 입력값 그대로 남긴다. 열린 행이 없으면 흐리게 보이고, 누르면 안내 토스트. 직책자 화면 · 과거 확정 버전 조회 중에는 숨김"
+      logic: "[2026.11.12] 등록 · 수정은 이 버튼을 눌러야만 반영된다(행별 저장 없음 — 저장 전까지 [예산 조정안] 기록 · 등록 API 호출 없음). 화면의 입력 행(등록 · 수정)을 위에서부터 차례로 원래 저장 함수로 저장한다(버튼에 입력 행 수 표시). 검증에 걸린 행에서 멈추고 그 행을 빨갛게 표시하며, 나머지 행은 입력값 그대로 남긴다. 열린 행이 없으면 흐리게 보이고, 누르면 안내 토스트. 직책자 화면 · 과거 확정 버전 조회 중에는 숨김"
       validation: "열린 입력 행이 없으면 '저장할 입력 행이 없습니다. [＋ 등록]이나 [수정]을 먼저 눌러 주세요.' 토스트 · 그 밖의 검증은 원래 저장 함수와 같음"
       state_writes: []
     backend: null
@@ -242,8 +242,8 @@ elements:
     event: onclick
     front:
       handler: "agentLabEditOpenFinal(kind, id)"
-      file: "budget-agent-console.js:2063 → budget-inline-edit.js:bieInline"
-      logic: "[2026.11.11] 팝업 대신 그 행의 칸이 바로 입력칸으로 바뀐다(budget-inline-edit.js:bieInline). 해당 건 값을 채운 수정 입력 행 오픈(금액은 양수로 표시). 실적이 생긴(집행완료·actualized) 이관 건은 버튼 대신 '조회 전용' 표시"
+      file: "budget-agent-console.js:2063 → budget-inline-edit.js:bieDraftRow"
+      logic: "[2026.11.11] 팝업 대신 그 행의 칸이 바로 입력칸으로 바뀐다(budget-inline-edit.js:bieDraftRow). 해당 건 값을 채운 수정 입력 행 오픈(금액은 양수로 표시). 실적이 생긴(집행완료·actualized) 이관 건은 버튼 대신 '조회 전용' 표시"
       validation: "잠긴 건이면 '실적(집행완료)이 생긴 이관 건은 조회만 가능합니다.' 토스트"
       state_writes: [agentLabEditFinal]
     backend: null
@@ -268,7 +268,7 @@ elements:
     label: 수정 저장
     type: button
     crud: U
-    area: "이관인건비/OT비 수정 입력 행 관리 칸"
+    area: "이관인건비/OT비 수정 입력 행 → 표 위 [저장](입력 행 일괄)"
     event: onclick
     front:
       handler: agentLabEditSaveFinal()
@@ -283,7 +283,7 @@ elements:
     label: 등록
     type: button
     crud: C
-    area: 이관인건비/OT비 등록 입력 행 관리 칸
+    area: "이관인건비/OT비 등록 입력 행 → 표 위 [저장](입력 행 일괄)"
     event: onclick
     front:
       handler: agentLabEditSaveFinal()
@@ -332,12 +332,12 @@ elements:
     label: "취소"
     type: button
     crud: N
-    area: "표 안 입력 행 관리 칸 [취소] / Esc"
+    area: "표 안 입력 행 [취소] / Esc"
     event: onclick
     front:
       handler: agentLabEditCloseFinal()
       file: "budget-agent-console.js:2072"
-      logic: "입력 행 닫기(입력값 버림). 입력 행에서 Esc 를 눌러도 같다(budget-inline-edit.js:bieKey)"
+      logic: "입력 행 닫기(입력값 버림). 입력 행에서 Esc 를 눌러도 같다(budget-inline-edit.js:bieKey) — 입력 중인 값은 버리고 아무것도 반영되지 않음"
       validation: null
       state_writes: [agentLabEditFinal]
     backend: null
@@ -638,3 +638,4 @@ requirements:
   - { id: FR-LAB-27, text: "Agent 화면 인건비(이관인건비 · OT비) 상세의 삭제는 행 맨 앞 체크박스로 여러 건을 골라 표 위 [선택삭제]로 한 번에 할 수 있어야 하며, 실적이 생긴 건은 체크할 수 없어야 한다" }
   - { id: FR-LAB-28, text: "Agent 화면 인건비(이관인건비 · OT비) 상세는 표 위 [저장] 버튼으로 열려 있는 입력 행(등록 · 수정)을 저장할 수 있어야 하며, 열린 행이 없으면 저장 버튼이 흐리게 보여야 한다" }
   - { id: FR-LAB-29, text: "Agent 화면 인건비(이관인건비 · OT비) 상세는 입력 행을 여러 개 동시에 추가 · 수정할 수 있어야 하며, 다른 행을 추가하거나 화면이 다시 그려져도 입력 중인 값이 유지되어야 한다" }
+  - { id: FR-LAB-30, text: "[2026.11.12] Agent 화면 인건비(이관인건비 · OT비) 상세의 등록 · 수정은 표 위 [저장]을 눌렀을 때만 한 번에 반영되어야 하며, 입력 행마다 따로 저장(등록 API 호출)하지 않아야 한다" }

@@ -11,14 +11,15 @@
 // - 입력 중인 행은 "임시 행(BIE_DRAFTS)"으로 들고 있어서, 다른 행을 추가 · 수정하거나 화면이 다시 그려져도 입력값이 남습니다.
 // - 삭제 : 행마다 있던 [삭제]를 없애고, 맨 앞 체크박스로 고른 뒤 표 위 [선택삭제]로 한 번에 지웁니다.
 //          (경비는 삭제 대신 "남은 달 비우기"라 [선택 비우기])
-// - 저장 : 입력 행의 [저장](그 행만) 또는 표 위 [저장](화면의 입력 행 전부)으로 저장합니다.
+// - 저장 : 등록 · 수정은 표 위 [저장]을 눌러야만 반영됩니다(화면의 입력 행 전부를 한 번에). 행마다 저장 버튼은 없고 [취소]만 있습니다
+//          — 입력할 때마다 등록 API 를 부르지 않고, 저장 한 번에 모아서 보냅니다.
 // - 방법 : 공유 파일(budget-agent-console.js · budget-direct-edit.js)은 고치지 않습니다.
 //          ① [＋ 등록] · [수정]을 누르면 원래 함수가 정한 편집 상태(예: agentLabEditFinal)를 받아 임시 행으로 옮기고 상태는 비웁니다.
 //          ② 계정 상세를 그릴 때 임시 행마다 상태를 잠깐 되살려 원래 팝업 양식을 그리고, 그 입력칸을 표 행 안으로 옮깁니다
 //             (같은 id 가 여러 행에 생기지 않게 id 뒤에 __임시행번호 를 붙이고 원래 id 는 data-oid 에 둡니다).
 //          ③ 저장할 때는 행마다 원래 id 로 숨은 입력칸을 만들고 상태를 되살려 원래 저장 함수를 부릅니다
 //             — 검증 · [예산 조정안] 수기 입력 기록은 원래 함수 그대로입니다. 검증에 걸린 행에서 멈추고 그 행을 빨갛게 표시합니다.
-// - Enter = 그 행 저장, Esc = 그 행 취소.
+// - Enter = 표 위 [저장], Esc = 그 행 취소.
 
 var bieSeq = 0;              // 체크박스 묶음(scope) 번호
 var BIE_DRAFTS = [];         // 입력 중인 행 { id, flow, state, isNew, values, err }
@@ -507,27 +508,22 @@ function bieFillCell(td, els) {
     } else td.appendChild(el);
   });
 }
-// 행 안 버튼 — [저장](이 행만) · [취소](이 행 버리기)
+// 행 안 버튼 — [취소](이 행 버리기)만 둡니다. 등록 · 수정 반영은 표 위 [저장]에서 한 번에(행마다 등록 API 를 부르지 않음)
 function bieActions(pop, d) {
   const box = document.createElement('div');
   box.className = 'bie-acts';
-  const ok = pop.querySelector('.agv-pop-foot .agv-ok');
-  const s = document.createElement('button');
-  s.className = 'bie-save';
-  s.setAttribute('onclick', `bieSaveDrafts(['${d.id}'])`);
-  s.textContent = ok ? ok.textContent.trim() : '저장';
   const c = document.createElement('button');
   c.className = 'bie-cancel';
   c.setAttribute('onclick', `bieDropDraft('${d.id}')`);
   c.textContent = '취소';
-  box.appendChild(s);
+  c.title = '이 입력 행을 버립니다(저장 전이라 반영된 것은 없습니다)';
   box.appendChild(c);
   return box;
 }
 function bieKey(ev, tr) {
   if (ev.key === 'Enter' && ev.target && ev.target.tagName === 'INPUT') {
     ev.preventDefault();
-    const b = tr.querySelector('.bie-save'); if (b) b.click();
+    bieSaveAll();                 // Enter = 표 위 [저장]과 같음
   } else if (ev.key === 'Escape') {
     const b = tr.querySelector('.bie-cancel'); if (b) b.click();
   }
@@ -637,8 +633,6 @@ function bieInjectStyle() {
   .bie-na { color:#94a3b8; }
   .bie-acts { display:flex; gap:4px; justify-content:center; flex-wrap:wrap; }
   .bie-acts button { border-radius:7px; padding:5px 10px; font:inherit; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
-  .bie-acts .bie-save { border:1px solid #2563eb; background:#2563eb; color:#fff; }
-  .bie-acts .bie-save:hover { background:#1d4ed8; }
   .bie-acts .bie-cancel { border:1px solid #cbd5e1; background:#fff; color:#334155; }
   .aglb td.aglb-act.bie-act button + button { margin-left:0; }
   tr.bie-editing > td { background:#f5f9ff !important; }

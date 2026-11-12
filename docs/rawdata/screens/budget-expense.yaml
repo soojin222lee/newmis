@@ -209,7 +209,7 @@ elements:
     event: onclick
     front:
       handler: "agentExpEdOpenFinal('')"
-      file: "budget-agent-console.js:agentExpEdOpenFinal → 입력 행 변환 budget-inline-edit.js:bieInlineFull · bieFocusRow"
+      file: "budget-agent-console.js:agentExpEdOpenFinal → 입력 행 변환 budget-inline-edit.js:bieDraftRow · bieFullRow · bieFocusRow"
       logic: "팝업 대신 중분류 표 맨 위에 편성 행(전체 폭)을 연다. 세부계정을 고르면 그 계정의 연도별 월 입력칸이 나온다. 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서. 직책자 화면 · 과거 확정 버전 조회 중에는 숨김"
       validation: null
       state_writes: [agentExpEdFinal]
@@ -225,7 +225,7 @@ elements:
     front:
       handler: "bieSaveAll()"
       file: "budget-inline-edit.js:bieAddSaveButton · bieSaveAll → bieSaveDrafts"
-      logic: "화면의 입력 행(등록 · 수정)을 위에서부터 차례로 원래 저장 함수로 저장한다(버튼에 입력 행 수 표시). 검증에 걸린 행에서 멈추고 그 행을 빨갛게 표시하며, 나머지 행은 입력값 그대로 남긴다. 열린 행이 없으면 흐리게 보이고, 누르면 안내 토스트. 직책자 화면 · 과거 확정 버전 조회 중에는 숨김"
+      logic: "[2026.11.12] 등록 · 수정은 이 버튼을 눌러야만 반영된다(행별 저장 없음 — 저장 전까지 [예산 조정안] 기록 · 등록 API 호출 없음). 화면의 입력 행(등록 · 수정)을 위에서부터 차례로 원래 저장 함수로 저장한다(버튼에 입력 행 수 표시). 검증에 걸린 행에서 멈추고 그 행을 빨갛게 표시하며, 나머지 행은 입력값 그대로 남긴다. 열린 행이 없으면 흐리게 보이고, 누르면 안내 토스트. 직책자 화면 · 과거 확정 버전 조회 중에는 숨김"
       validation: "열린 입력 행이 없으면 '저장할 입력 행이 없습니다. [＋ 등록]이나 [수정]을 먼저 눌러 주세요.' 토스트 · 그 밖의 검증은 원래 저장 함수와 같음"
       state_writes: []
     backend: null
@@ -254,7 +254,7 @@ elements:
     event: onclick
     front:
       handler: "agentExpEdOpenFinal(id)"
-      file: "budget-agent-console.js:agentExpEdOpenFinal → budget-inline-edit.js:bieInlineFull"
+      file: "budget-agent-console.js:agentExpEdOpenFinal → budget-inline-edit.js:bieDraftRow · bieFullRow"
       logic: "팝업 대신 그 세부계정 행 바로 아래에 연도별 월 입력칸(전체 폭)을 펼쳐 칸에서 바로 고친다. 마감된 달(실적 확정)은 잠김"
       validation: null
       state_writes: [agentExpEdFinal]
@@ -330,7 +330,7 @@ elements:
     front:
       handler: "agentExpEdCloseFinal()"
       file: "budget-agent-console.js:agentExpEdCloseFinal"
-      logic: "편성/수정 행 닫기(입력값 버림). Esc 도 같다(budget-inline-edit.js:bieKey)"
+      logic: "편성/수정 행 닫기(입력값 버림). Esc 도 같다(budget-inline-edit.js:bieKey) — 입력 중인 값은 버리고 아무것도 반영되지 않음"
       validation: null
       state_writes: [agentExpEdFinal]
     backend: null
@@ -482,3 +482,4 @@ requirements:
   - { id: FR-EXP-33, text: "Agent 화면 경비 세부계정은 체크박스로 여러 개를 골라 [선택 비우기]로 남은 달 계획을 한 번에 0원으로 비울 수 있어야 한다" }
   - { id: FR-EXP-34, text: "Agent 화면 경비 상세는 표 위 [저장] 버튼으로 열려 있는 입력 행(등록 · 수정)을 저장할 수 있어야 하며, 열린 행이 없으면 저장 버튼이 흐리게 보여야 한다" }
   - { id: FR-EXP-35, text: "Agent 화면 경비 상세는 입력 행을 여러 개 동시에 추가 · 수정할 수 있어야 하며, 다른 행을 추가하거나 화면이 다시 그려져도 입력 중인 값이 유지되어야 한다" }
+  - { id: FR-EXP-36, text: "[2026.11.12] Agent 화면 경비 상세의 등록 · 수정은 표 위 [저장]을 눌렀을 때만 한 번에 반영되어야 하며, 입력 행마다 따로 저장(등록 API 호출)하지 않아야 한다" }
