@@ -76,3 +76,75 @@
   ${S}.bmv-seg button { height:24px; padding:0 12px; font-size:12px; }`;
   document.head.appendChild(st);
 })();
+
+/* ── 3) 계정 상세 세 칸 — 상세 예산내역 중심(20 : 60 : 20) ─────────────────
+   [2026.11.12 3안] 세 칸을 유지하되 가운데 상세가 넓게:
+     · 폭 25 : 50 : 25 → 20 : 60 : 20 (양옆 최소 240px). 한쪽만 열려 있으면 20 : 80
+     · 대화 칸은 입력창 · 추천 질문을 두고, 대화 기록은 마지막 1쌍(질문 + 답)만 보이게 접음 → [이전 대화 N개 보기]
+     · 상세계정 탭이 4개를 넘으면 칸을 나눠 찌그러뜨리지 않고 가로 스크롤 */
+var buiChatAll = false;                       // 대화 기록 모두 보기
+function buiChatToggle() {                    // crud N — 이전 대화 펼치기/접기
+  buiChatAll = !buiChatAll;
+  buiChatCollapse(true);
+}
+function buiChatCollapse(force) {
+  const body = document.querySelector('#s-budget .agga-grid.detail .agga-col-body.chat');
+  if (!body) return;
+  const says = Array.prototype.filter.call(body.children, function (c) { return c.classList.contains('agai-say'); });
+  const key = says.length + ':' + buiChatAll;
+  if (!force && body.getAttribute('data-bui') === key) return;
+  body.setAttribute('data-bui', key);
+  const old = body.querySelector(':scope > .bui-more');
+  if (old) old.remove();
+  const keep = 2;
+  // 마지막 2개 말풍선보다 앞에 있는 것(말풍선 · 구분 줄 모두)을 접습니다
+  const cut = says.length > keep ? says[says.length - keep] : null;
+  let before = !!cut;
+  Array.prototype.forEach.call(body.children, function (c) {
+    if (c === cut) before = false;
+    c.classList.toggle('bui-old', !buiChatAll && before);
+  });
+  if (says.length > keep) {
+    const b = document.createElement('button');
+    b.className = 'bui-more';
+    b.setAttribute('onclick', 'buiChatToggle()');
+    b.textContent = buiChatAll ? '이전 대화 접기 ▴' : '이전 대화 ' + (says.length - keep) + '개 보기 ▾';
+    body.insertBefore(b, body.firstChild);
+  }
+  if (!buiChatAll) body.scrollTop = body.scrollHeight;
+}
+(function buiWatch() {
+  if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return;
+  let t = null;
+  const run = function () { t = null; try { buiChatCollapse(false); } catch (e) { /* 화면에 없으면 무시 */ } };
+  const start = function () {
+    const root = document.getElementById('s-budget') || document.body;
+    new MutationObserver(function () { if (!t) t = setTimeout(run, 0); }).observe(root, { childList: true, subtree: true });
+    run();
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+(function buiInjectWide() {
+  if (typeof document === 'undefined' || !document.head || document.getElementById('bui-wide-style')) return;
+  const S = '#s-budget ';
+  const st = document.createElement('style');
+  st.id = 'bui-wide-style';
+  st.textContent = `
+  ${S}.agga-grid.detail.with-todo { grid-template-columns:minmax(240px,20%) minmax(0,1fr) minmax(240px,20%) !important; }
+  ${S}.agga-grid.detail.with-todo.no-chat { grid-template-columns:minmax(240px,20%) minmax(0,1fr) !important; }
+  ${S}.agga-grid.detail:not(.with-todo):not(.no-chat) { grid-template-columns:minmax(0,1fr) minmax(240px,20%) !important; }
+  /* 좁아진 양옆 칸 — 머리 버튼이 줄바꿈되어도 정돈되게 */
+  ${S}.agga-grid.detail .agga-col.todo .agga-col-head, ${S}.agga-grid.detail .agga-col.chat .agga-col-head { flex-wrap:wrap; row-gap:6px; }
+  /* 대화 기록 접기 */
+  ${S}.agga-col-body.chat > .bui-old { display:none !important; }
+  ${S}.bui-more { align-self:center; flex:0 0 auto; border:1px dashed #cbd5e1; background:#f8fafc; color:#475569; border-radius:999px;
+    height:26px; padding:0 12px; font:inherit; font-size:11.5px; font-weight:800; cursor:pointer; }
+  ${S}.bui-more:hover { border-color:#94a3b8; color:#1c2432; }
+  /* 상세계정 탭이 4개를 넘으면 가로 스크롤 */
+  ${S}.agga-col.detail .aglb-tabs:has(> button:nth-child(5)) { display:flex !important; overflow-x:auto; scrollbar-width:thin; padding-bottom:4px; }
+  ${S}.agga-col.detail .aglb-tabs:has(> button:nth-child(5)) > button { flex:0 0 auto; min-width:168px; }
+  @media (max-width: 1100px) {
+    ${S}.agga-grid.detail.with-todo, ${S}.agga-grid.detail.with-todo.no-chat, ${S}.agga-grid.detail:not(.with-todo):not(.no-chat) { grid-template-columns:1fr !important; }
+  }`;
+  document.head.appendChild(st);
+})();

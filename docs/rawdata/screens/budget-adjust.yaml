@@ -462,6 +462,21 @@ elements:
     backend: null
     result: "{계정}_실적조회_{월}_YYYYMMDD.xlsx 다운로드"
 
+  - id: btn-agent-chat-more
+    label: "이전 대화 N개 보기 ▾ / 이전 대화 접기 ▴"
+    type: button
+    crud: N
+    area: "계정 상세 화면 오른쪽 [Agent와 대화하기] 칸 맨 위"
+    event: onclick
+    front:
+      handler: "buiChatToggle()"
+      file: "budget-ui-unify.js:buiChatToggle · buiChatCollapse (MutationObserver로 렌더 후 적용)"
+      logic: "[2026.11.12 3안] 계정 상세를 열면 세 칸 폭을 20 : 60 : 20(양옆 최소 240px)으로 두어 상세 예산내역을 넓히고, 대화 칸은 입력창 · 추천 질문과 마지막 대화 1쌍(질문 + 답)만 보이게 접는다. 누르면 이전 대화를 펼치거나 다시 접는다. 세 칸은 화면 높이 기준 같은 높이 · 칸마다 안쪽 스크롤. 상세계정 탭이 4개를 넘으면 가로 스크롤"
+      validation: null
+      state_writes: [buiChatAll]
+    backend: null
+    result: "이전 대화 펼침 / 접힘"
+
   - id: btn-agent-monthly-excel
     label: "⬇ 엑셀 다운로드"
     type: button
@@ -647,3 +662,6 @@ requirements:
   - { id: FR-BAD-24, text: "[2026.11.12] 월별 계획/실적 팝업은 월별 · 분기별 · 연도별 보기, 연도 선택, 금액 단위(원 · 만원 · 억원)를 제공하고, 확정 실적(지난 달)은 기본으로 합계 한 칸으로 접혀야 하며, 연도마다 합계를 보여야 한다" }
   - { id: FR-BAD-25, text: "[2026.11.12] 월별 계획/실적 팝업은 지금 보이는 표(보기 · 연도 · 단위 그대로)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
   - { id: FR-BAD-26, text: "[2026.11.12] 실적조회 팝업은 지금 탭의 실적 표를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
+  - { id: FR-BAD-27, text: "[2026.11.12] 계정 상세의 세 칸(예산 조정안 · 상세 예산내역 · Agent와 대화하기)은 같은 높이(화면 높이 기준)로 맞춰지고 칸마다 안쪽에서 스크롤되어야 하며, 폭은 상세 예산내역 중심(20 : 60 : 20)이어야 한다" }
+  - { id: FR-BAD-28, text: "[2026.11.12] 계정 상세의 대화 칸은 마지막 대화 1쌍만 보이고 이전 대화는 접어 두며 펼쳐 볼 수 있어야 하고, 상세계정 탭이 많으면 가로 스크롤로 볼 수 있어야 한다" }
+  - { id: FR-BAD-29, text: "[2026.11.12] 원가조정 · 원가현황의 버튼은 역할(주요 · 보조 · 위험 · 긍정 · 엑셀)별 같은 모양과 두 가지 크기(도구줄 30px · 행 안 26px)로 통일되어야 한다" }
