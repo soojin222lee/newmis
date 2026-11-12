@@ -4,77 +4,146 @@
 //
 // AI GUIDE: 원가조정 계정 상세(이관인건비 · OT비 · 외주비 · 재료비 · 경비 · A/S Cost)의 등록/수정/삭제 방식을 바꾸는 전용 파일입니다.
 //   (실투입인건비는 SCM 선행이라 직접 수정 대상이 아니므로 그대로 둡니다)
-// - 등록 : 팝업 대신 표 맨 위에 입력 행을 추가합니다. 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서를 둡니다.
-// - 수정 : 팝업 대신 그 행의 칸이 바로 입력칸으로 바뀝니다. (경비는 월별 편성이라 그 행 바로 아래에 월 입력칸을 펼침)
+// - 등록 : 팝업 대신 표 맨 위에 입력 행을 추가합니다. 여러 번 누르면 여러 행이 쌓이고(최근 행이 맨 위),
+//          화면이 아래로 내려가 있어도 새 행으로 올라가 첫 칸에 커서를 둡니다.
+// - 수정 : 팝업 대신 그 행의 칸이 바로 입력칸으로 바뀝니다. 여러 행을 동시에 고칠 수 있습니다.
+//          (경비는 월별 편성이라 그 행 바로 아래에 월 입력칸을 펼침)
+// - 입력 중인 행은 "임시 행(BIE_DRAFTS)"으로 들고 있어서, 다른 행을 추가 · 수정하거나 화면이 다시 그려져도 입력값이 남습니다.
 // - 삭제 : 행마다 있던 [삭제]를 없애고, 맨 앞 체크박스로 고른 뒤 표 위 [선택삭제]로 한 번에 지웁니다.
 //          (경비는 삭제 대신 "남은 달 비우기"라 [선택 비우기])
+// - 저장 : 입력 행의 [저장](그 행만) 또는 표 위 [저장](화면의 입력 행 전부)으로 저장합니다.
 // - 방법 : 공유 파일(budget-agent-console.js · budget-direct-edit.js)은 고치지 않습니다.
-//          계정 상세 렌더러를 데코레이터로 감싸, 그려진 HTML 안의 팝업 입력칸(같은 id)을 표 행 안으로 옮깁니다.
-//          저장 · 검증 · [예산 조정안] 수기 입력 기록은 원래 저장 함수가 같은 id 를 읽어 그대로 처리합니다.
-// - 저장 : 입력 행의 [등록]/[수정 저장] 말고도 표 위 [저장]으로 열린 입력 행을 저장합니다(열린 행이 없으면 흐리게).
-// - Enter = 저장, Esc = 취소.
+//          ① [＋ 등록] · [수정]을 누르면 원래 함수가 정한 편집 상태(예: agentLabEditFinal)를 받아 임시 행으로 옮기고 상태는 비웁니다.
+//          ② 계정 상세를 그릴 때 임시 행마다 상태를 잠깐 되살려 원래 팝업 양식을 그리고, 그 입력칸을 표 행 안으로 옮깁니다
+//             (같은 id 가 여러 행에 생기지 않게 id 뒤에 __임시행번호 를 붙이고 원래 id 는 data-oid 에 둡니다).
+//          ③ 저장할 때는 행마다 원래 id 로 숨은 입력칸을 만들고 상태를 되살려 원래 저장 함수를 부릅니다
+//             — 검증 · [예산 조정안] 수기 입력 기록은 원래 함수 그대로입니다. 검증에 걸린 행에서 멈추고 그 행을 빨갛게 표시합니다.
+// - Enter = 그 행 저장, Esc = 그 행 취소.
 
 var bieSeq = 0;              // 체크박스 묶음(scope) 번호
+var BIE_DRAFTS = [];         // 입력 중인 행 { id, flow, state, isNew, values, err }
+var bieDraftSeq = 0;
+var bieMute = false;         // 원래 함수가 부르는 renderBudgetPage 를 잠시 막음(열기 · 일괄 저장 중)
+var bieShown = [];           // 이번에 화면에 그린 임시 행 id
 
-
-/* ── 폼 정의 — 팝업 입력칸(id)을 표의 몇 번째 칸에 놓을지 ───────────────────────
-   cols: 표 열 순서대로. 배열 = 그 칸에 놓을 입력칸 id(또는 .클래스), 'k' = 원래 칸 유지(신규는 –), 'a' = 저장/취소,
-         { t: '글자' } = 신규 행에 보일 고정 글자. 입력칸을 못 찾으면 'k' 처럼 원래 칸을 둡니다. */
-var BIE_FORMS = [
-  { probe: '#aglb-ed-type',   // 인건비 › 이관인건비
-    key: function () { const e = agentLabEditFinal; return ['agentLabEditOpenFinal', e.kind, e.id || '']; },
-    cols: [['aglb-ed-type'], ['aglb-ed-month'], ['aglb-ed-desc'], ['aglb-ed-amount'], 'k', 'k', 'a'] },
-  { probe: '#aglb-ed-month',  // 인건비 › OT비
-    key: function () { const e = agentLabEditFinal; return ['agentLabEditOpenFinal', e.kind, e.id || '']; },
-    cols: [{ t: 'OT' }, ['aglb-ed-month'], ['aglb-ed-desc'], ['aglb-ed-amount'], 'k', 'a'] },
-  { probe: '#agos-ed-vendor', // 외주비 › 실투입대상 외주비(업체별 예산)
-    key: function () { const e = agentOsEdFinal; return ['agentOsEdOpenFinal', e.sub, e.id || '']; },
-    cols: [['agos-ed-vendor', 'agos-ed-contract', 'agos-ed-start', 'agos-ed-end'], ['agos-ed-amount'], 'k', 'k', 'k', 'k', 'a'] },
-  { probe: '#agos-ed-type',   // 외주비 › 이관외주비
-    key: function () { const e = agentOsEdFinal; return ['agentOsEdOpenFinal', e.sub, e.id || '']; },
-    cols: [['agos-ed-type'], ['agos-ed-month'], ['agos-ed-desc'], ['agos-ed-amount'], 'k', 'k', 'a'] },
-  { probe: '#agos-ed-name',   // 외주비 › 그 외 소계정
-    key: function () { const e = agentOsEdFinal; return ['agentOsEdOpenFinal', e.sub, e.id || '']; },
-    cols: [['agos-ed-name'], ['agos-ed-party'], ['agos-ed-start', 'agos-ed-end'], ['agos-ed-amount'], 'k', 'k', 'k', 'a'] },
-  { probe: '#agos-po-start',  // 외주비 › 업체별 구매계획
-    key: function () { const e = agentOsPoEdFinal; return ['agentOsPoOpenFinal', e.vid, e.i]; },
-    isNew: function () { return agentOsPoEdFinal.i < 0; },
-    cols: [['.agos-qs'], ['agos-po-start', 'agos-po-end'], ['agos-po-amount', 'agos-po-hint'], 'k', 'k', 'k', 'k', 'a'] },
-  { probe: '#agmt-large',     // 재료비 › 상품재료비
-    key: function () { const e = agentMatEdFinal; return ['agentMatEdOpenFinal', e.sub, e.id || '']; },
-    cols: [['agmt-name'], ['agmt-large', 'agmt-middle'], ['agmt-model'], ['agmt-qty', 'agmt-unit'], ['agmt-start', 'agmt-end'], 'k', ['agmt-amount'], 'k', 'a'] },
-  { probe: '#agmt-acq',       // 재료비 › 감가상각비
-    key: function () { const e = agentMatEdFinal; return ['agentMatEdOpenFinal', e.sub, e.id || '']; },
-    cols: [['agmt-name'], ['agmt-acq'], ['agmt-life'], ['agmt-monthly'], ['agmt-smonth', 'agmt-emonth'], 'k', 'k', 'a'] },
-  { probe: '#agmt-type',      // 재료비 › 이관재료비
-    key: function () { const e = agentMatEdFinal; return ['agentMatEdOpenFinal', e.sub, e.id || '']; },
-    cols: [['agmt-type'], ['agmt-month'], ['agmt-name'], ['agmt-amount'], 'k', 'k', 'a'] },
-  { probe: '#bde-as-name',    // A/S Cost (budget-direct-edit.js)
-    key: function () { const e = bdeAsEdit; return ['bdeAsOpen', e.group, e.key || '']; },
-    cols: [['bde-as-name'], ['bde-as-sub'], ['bde-as-qty'], ['bde-as-unit'], ['bde-as-amt', 'bde-as-month'], 'k', 'a'] },
-  { probe: '.agexe',          // 경비 — 월별 편성(한 행 전체 폭)
-    key: function () { const e = agentExpEdFinal; return ['agentExpEdOpenFinal', e.id || '']; },
-    full: true },
+/* ── 열기 흐름 — 원래 열기 함수 · 편집 상태 · 팝업 렌더 · 저장 함수 ───────────── */
+function bieAsPop(vd) {   // A/S 는 지금 보고 있는 그룹일 때만 양식을 그립니다(원래 renderAgentAsDetailFinal 규칙)
+  const gs = bdeAsGroups();
+  const g = gs[agentAcctKindIdxFinal('A/S Cost', gs.length)];
+  return (g && bdeAsEdit && g.key === bdeAsEdit.group) ? bdeAsPanel(vd, g) : '';
+}
+var BIE_FLOWS = [
+  { open: 'agentLabEditOpenFinal', state: 'agentLabEditFinal', save: function () { agentLabEditSaveFinal(); },
+    render: function (vd) { return renderAgentLabEditPopFinal(vd); },
+    key: function (s) { return ['agentLabEditOpenFinal', s.kind, s.id || '']; }, isNew: function (s) { return !s.id; } },
+  { open: 'agentOsEdOpenFinal', state: 'agentOsEdFinal', save: function () { agentOsEdSaveFinal(); },
+    render: function (vd) { return renderAgentOsEdPopFinal(vd); },
+    key: function (s) { return ['agentOsEdOpenFinal', s.sub, s.id || '']; }, isNew: function (s) { return !s.id; } },
+  { open: 'agentOsPoOpenFinal', state: 'agentOsPoEdFinal', save: function () { agentOsPoSaveFinal(); },
+    render: function () { return renderAgentOsPoPopFinal(); },
+    key: function (s) { return ['agentOsPoOpenFinal', s.vid, s.i]; }, isNew: function (s) { return s.i < 0; } },
+  { open: 'agentMatEdOpenFinal', state: 'agentMatEdFinal', save: function () { agentMatEdSaveFinal(); },
+    render: function (vd) { return renderAgentMatEdPopFinal(vd); },
+    key: function (s) { return ['agentMatEdOpenFinal', s.sub, s.id || '']; }, isNew: function (s) { return !s.id; } },
+  { open: 'agentExpEdOpenFinal', state: 'agentExpEdFinal', save: function () { agentExpEdSaveFinal(false); },
+    render: function () { return renderAgentExpEdPopFinal(); },
+    key: function (s) { return ['agentExpEdOpenFinal', s.id || '']; }, isNew: function (s) { return !s.id; } },
+  { open: 'bdeAsOpen', state: 'bdeAsEdit', save: function () { bdeAsSave(); },
+    render: function (vd) { return bieAsPop(vd); },
+    key: function (s) { return ['bdeAsOpen', s.group, s.key || '']; }, isNew: function (s) { return !s.key; } },
 ];
+
+/* ── 양식 정의 — 팝업 입력칸(원래 id)을 표의 몇 번째 칸에 놓을지 ───────────────────
+   cols: 표 열 순서대로. 배열 = 그 칸에 놓을 입력칸 id(또는 .클래스), 'k' = 원래 칸 유지(신규는 –), 'a' = 저장/취소,
+         { t: '글자' } = 신규 행에 보일 고정 글자. 입력칸을 못 찾으면 'k' 처럼 원래 칸을 둡니다. full = 한 행 전체 폭(경비) */
+var BIE_FORMS = [
+  { probe: '#aglb-ed-type',   cols: [['aglb-ed-type'], ['aglb-ed-month'], ['aglb-ed-desc'], ['aglb-ed-amount'], 'k', 'k', 'a'] },   // 이관인건비
+  { probe: '#aglb-ed-month',  cols: [{ t: 'OT' }, ['aglb-ed-month'], ['aglb-ed-desc'], ['aglb-ed-amount'], 'k', 'a'] },             // OT비
+  { probe: '#agos-ed-vendor', cols: [['agos-ed-vendor', 'agos-ed-contract', 'agos-ed-start', 'agos-ed-end'], ['agos-ed-amount'], 'k', 'k', 'k', 'k', 'a'] },  // 외주비 업체
+  { probe: '#agos-ed-type',   cols: [['agos-ed-type'], ['agos-ed-month'], ['agos-ed-desc'], ['agos-ed-amount'], 'k', 'k', 'a'] },   // 이관외주비
+  { probe: '#agos-ed-name',   cols: [['agos-ed-name'], ['agos-ed-party'], ['agos-ed-start', 'agos-ed-end'], ['agos-ed-amount'], 'k', 'k', 'k', 'a'] },  // 외주비 소계정
+  { probe: '#agos-po-start',  cols: [['.agos-qs'], ['agos-po-start', 'agos-po-end'], ['agos-po-amount', 'agos-po-hint'], 'k', 'k', 'k', 'k', 'a'] },  // 구매계획
+  { probe: '#agmt-large',     cols: [['agmt-name'], ['agmt-large', 'agmt-middle'], ['agmt-model'], ['agmt-qty', 'agmt-unit'], ['agmt-start', 'agmt-end'], 'k', ['agmt-amount'], 'k', 'a'] },  // 상품재료비
+  { probe: '#agmt-acq',       cols: [['agmt-name'], ['agmt-acq'], ['agmt-life'], ['agmt-monthly'], ['agmt-smonth', 'agmt-emonth'], 'k', 'k', 'a'] },  // 감가상각비
+  { probe: '#agmt-type',      cols: [['agmt-type'], ['agmt-month'], ['agmt-name'], ['agmt-amount'], 'k', 'k', 'a'] },   // 이관재료비
+  { probe: '#bde-as-name',    cols: [['bde-as-name'], ['bde-as-sub'], ['bde-as-qty'], ['bde-as-unit'], ['bde-as-amt', 'bde-as-month'], 'k', 'a'] },  // A/S Cost
+  { probe: '.agexe',          full: true },                                                                              // 경비
+];
+
+/* ── [＋ 등록] · [수정] → 임시 행 추가 ──────────────────────────────────────── */
+BIE_FLOWS.forEach(function (F) {
+  const before = window[F.open];
+  if (typeof before !== 'function') return;
+  window[F.open] = function () {
+    bieCapture();
+    bieMute = true;
+    let r;
+    try { r = before.apply(this, arguments); } finally { bieMute = false; }
+    const s = window[F.state];
+    window[F.state] = null;                 // 편집 상태는 임시 행이 들고, 원래 팝업은 그리지 않습니다
+    let focusId = '';
+    if (s) {
+      const isNew = F.isNew(s);
+      const k = F.key(s).join('|');
+      const hit = isNew ? null : BIE_DRAFTS.find(function (d) { return !d.isNew && d.flow === F && F.key(d.state).join('|') === k; });
+      if (hit) focusId = hit.id;
+      else {
+        const d = { id: 'd' + (++bieDraftSeq), flow: F, state: JSON.parse(JSON.stringify(s)), isNew: isNew, values: null, err: false };
+        BIE_DRAFTS.push(d);
+        focusId = d.id;
+      }
+    }
+    renderBudgetPage();
+    if (focusId) bieFocusRow(focusId);
+    return r;
+  };
+});
+
+// 다시 그리기 직전에 입력 중인 값을 임시 행에 담아 둡니다(다시 그려도 입력값 유지)
+var bieRenderBefore = renderBudgetPage;
+renderBudgetPage = function () {
+  if (bieMute) return;
+  bieCapture();
+  return bieRenderBefore.apply(this, arguments);
+};
+function bieCapture() {
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  Array.prototype.slice.call(document.querySelectorAll('tr.bie-row[data-bie-key]')).forEach(function (tr) {
+    const d = BIE_DRAFTS.find(function (x) { return x.id === tr.getAttribute('data-bie-key'); });
+    if (!d) return;
+    const v = {};
+    tr.querySelectorAll('[data-oid]').forEach(function (el) {
+      if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) v[el.getAttribute('data-oid')] = el.value;
+    });
+    v.__q = Array.prototype.slice.call(tr.querySelectorAll('.agos-q.on')).map(function (b) { return b.getAttribute('data-q'); });
+    d.values = v;
+  });
+}
+function bieDropDraft(id) {
+  bieCapture();
+  BIE_DRAFTS = BIE_DRAFTS.filter(function (d) { return d.id !== id; });
+  renderBudgetPage();
+}
 
 /* ── 계정 상세 렌더러 감싸기 ─────────────────────────────────────────────── */
 ['renderAgentLaborDetailFinal', 'renderAgentOutsourceDetailFinal', 'renderAgentMaterialDetailFinal',
  'renderAgentExpenseDetailFinal', 'renderAgentAsDetailFinal'].forEach(function (name) {
   const before = window[name];
   if (typeof before !== 'function') return;
-  window[name] = function () { return bieTransform(before.apply(this, arguments)); };
+  window[name] = function (viewData) { return bieTransform(before.apply(this, arguments), viewData); };
 });
 
-function bieTransform(html) {
+function bieTransform(html, viewData) {
   if (!html || typeof document === 'undefined' || !document.createElement) return html;
   const tpl = document.createElement('template');
   if (!tpl.content) return html;
   bieInjectStyle();
   tpl.innerHTML = html;
   const root = tpl.content;
+  bieShown = [];
   try {
     bieAddChecks(root);
-    Array.prototype.slice.call(root.querySelectorAll('.agv-pop-dim')).forEach(function (pop) { bieInline(root, pop); });
+    BIE_DRAFTS.forEach(function (d) { bieDraftRow(root, d, viewData); });
     bieAddSaveButton(root);
   } catch (e) { if (typeof console !== 'undefined') console.warn('[budget-inline-edit]', e); }
   return tpl.innerHTML;
@@ -179,40 +248,145 @@ function bieExpClear(id) {
   agentExpEdFinal = null;
 }
 
-/* ── 표 위 [저장] — 열려 있는 입력 행(등록 · 수정)을 저장 ───────────────────── */
+/* ── 표 위 [저장] — 화면의 입력 행을 모두 저장 ─────────────────────────────── */
 function bieAddSaveButton(root) {
   const bar = root.querySelector('.aglb-bar, .agex-bar');
   if (!bar || !bar.querySelector('.aglb-add')) return;      // 편집 권한이 없으면(버튼 없음) 두지 않습니다
-  const open = !!root.querySelector('tr.bie-row .bie-save');
+  const n = bieShown.length;
   const b = document.createElement('button');
-  b.className = 'bie-savebar' + (open ? '' : ' off');
-  b.setAttribute('onclick', 'event.stopPropagation();bieSaveOpen()');
-  b.title = open ? '입력 중인 행을 저장합니다 (Enter)' : '[＋ 등록]이나 [수정]으로 행을 연 뒤 저장할 수 있습니다';
-  b.textContent = '저장';
+  b.className = 'bie-savebar' + (n ? '' : ' off');
+  b.setAttribute('onclick', 'event.stopPropagation();bieSaveAll()');
+  b.title = n ? `입력 중인 ${n}개 행을 저장합니다` : '[＋ 등록]이나 [수정]으로 행을 연 뒤 저장할 수 있습니다';
+  b.innerHTML = '저장' + (n ? ` <em>${n}</em>` : '');
   bar.appendChild(b);
 }
-function bieSaveOpen() {
-  const b = document.querySelector('tr.bie-row .bie-save');
-  if (!b) { showToast('저장할 입력 행이 없습니다. [＋ 등록]이나 [수정]을 먼저 눌러 주세요.'); return; }
-  b.click();
+function bieSaveAll() {
+  if (!bieShown.length) { showToast('저장할 입력 행이 없습니다. [＋ 등록]이나 [수정]을 먼저 눌러 주세요.'); return; }
+  bieSaveDrafts(bieShown.slice());
+}
+// 임시 행들을 차례로 원래 저장 함수로 저장합니다. 검증에 걸린 행에서 멈추고 나머지는 그대로 남깁니다.
+function bieSaveDrafts(ids) {
+  bieCapture();
+  // 화면 위쪽 행부터(표에 보이는 순서) 저장합니다
+  const order = Array.prototype.slice.call(document.querySelectorAll('tr.bie-row[data-bie-key]')).map(function (tr) { return tr.getAttribute('data-bie-key'); });
+  const list = ids.map(function (id) { return BIE_DRAFTS.find(function (d) { return d.id === id; }); }).filter(Boolean)
+    .sort(function (a, b) { return order.indexOf(a.id) - order.indexOf(b.id); });
+  if (!list.length) return;
+  BIE_DRAFTS.forEach(function (d) { d.err = false; });
+  let ok = 0, fail = null;
+  bieMute = true;
+  try {
+    for (let i = 0; i < list.length; i++) {
+      const d = list[i], F = d.flow;
+      const box = bieShadow(d);
+      window[F.state] = JSON.parse(JSON.stringify(d.state));
+      try { F.save(); } catch (e) { if (typeof console !== 'undefined') console.warn(e); }
+      const still = window[F.state];      // 원래 저장 함수는 성공하면 편집 상태를 비웁니다
+      window[F.state] = null;
+      box.remove();
+      if (still) { fail = d; d.err = true; break; }
+      BIE_DRAFTS = BIE_DRAFTS.filter(function (x) { return x !== d; });
+      ok++;
+    }
+  } finally { bieMute = false; }
+  renderBudgetPage();
+  if (fail) {
+    bieFocusRow(fail.id);
+    if (ok) setTimeout(function () { showToast(`${ok}개 행을 저장했고, 빨간 행에서 멈췄습니다. 고친 뒤 다시 저장해 주세요.`); }, 1200);
+  } else if (ok > 1) {
+    const msg = `${ok}개 행을 저장했습니다 — [예산 조정안]에 ✎ 수기 입력으로 반영`;
+    if (typeof agentHandToastFinal === 'function') agentHandToastFinal(msg); else showToast(msg);
+  }
+}
+// 원래 저장 함수가 읽는 id 로 숨은 입력칸을 만듭니다(구매계획 분기 버튼 · 경비 월 칸 포함)
+function bieShadow(d) {
+  const box = document.createElement('div');
+  box.className = 'agv-pop bie-shadow';
+  box.style.display = 'none';
+  const v = d.values || {};
+  Object.keys(v).forEach(function (k) {
+    if (k === '__q') return;
+    const i = document.createElement('input');
+    i.type = 'hidden'; i.id = k; i.value = v[k];
+    box.appendChild(i);
+  });
+  (v.__q || []).forEach(function (q) {
+    const b = document.createElement('button');
+    b.className = 'agos-q on'; b.setAttribute('data-q', q);
+    box.appendChild(b);
+  });
+  document.body.appendChild(box);
+  return box;
 }
 
-/* ── 팝업 → 표 안 입력 행 ───────────────────────────────────────────────── */
-function bieInline(root, pop) {
+/* ── 임시 행 하나를 표 안에 그리기 ──────────────────────────────────────── */
+function bieDraftRow(root, d, viewData) {
+  const F = d.flow;
+  window[F.state] = JSON.parse(JSON.stringify(d.state));
+  let html = '';
+  try { html = F.render(viewData) || ''; } catch (e) { html = ''; }
+  window[F.state] = null;
+  if (!html) return;                        // 지금 보고 있는 탭의 행이 아님(다른 탭으로 가면 그 탭에서 다시 보임)
+  const t = document.createElement('template');
+  t.innerHTML = html;
+  const pop = t.content.querySelector('.agv-pop-dim') || t.content.firstElementChild;
+  if (!pop) return;
   const form = BIE_FORMS.find(function (f) { return pop.querySelector(f.probe); });
-  if (!form) return;                       // 모르는 팝업은 그대로 둡니다
-  const key = form.key();
-  const isNew = form.isNew ? form.isNew() : !key[key.length - 1];
-  const target = isNew ? null : bieFindRow(root, key);
-  const acts = bieActions(pop);
+  if (!form) return;
+  bieRekey(pop, d);
+  bieApplyValues(pop, d.values);
+  const acts = bieActions(pop, d);
+  const target = d.isNew ? null : bieFindRow(root, F.key(d.state));
+  if (!d.isNew && !target) return;          // 고칠 행이 지금 안 보임(접힌 업체 · 중분류 등)
+  const tr = form.full ? bieFullRow(root, pop, target, acts) : bieCellRow(root, pop, form, target, acts, F.key(d.state));
+  if (!tr) return;
+  tr.setAttribute('data-bie-key', d.id);
+  if (d.err) tr.classList.add('bie-err');
+  bieShown.push(d.id);
+}
+// 같은 id 가 여러 행에 생기지 않게 바꾸고, 원래 id 는 data-oid 에 둡니다. 행 안에서만 도는 보조 함수로 바꿔 답니다.
+function bieRekey(pop, d) {
+  pop.querySelectorAll('[id]').forEach(function (el) {
+    el.setAttribute('data-oid', el.id);
+    el.id = el.id + '__' + d.id;
+  });
+  pop.querySelectorAll('[onclick],[oninput],[onchange]').forEach(function (el) {
+    ['onclick', 'oninput', 'onchange'].forEach(function (a) {
+      const s = el.getAttribute(a);
+      if (!s) return;
+      el.setAttribute(a, s
+        .replace('agentOsPoQFinal(this)', 'bieQuarter(this)')
+        .replace('agentOsPoAmtInputFinal(this)', 'biePoHint(this)')
+        .replace('bdeAsCalc()', 'bieAsCalc(this)')
+        .replace(/agentExpEdFillFinal\(/, 'bieExpFill(this,')
+        .replace('agentExpEdSumFinal()', 'bieExpSum(this)')
+        .replace('agentExpEdPickFinal(this.value)', `bieExpPick(this,'${d.id}')`));
+    });
+  });
+}
+function bieApplyValues(pop, v) {
+  if (!v) return;
+  pop.querySelectorAll('[data-oid]').forEach(function (el) {
+    const k = el.getAttribute('data-oid');
+    if (!(k in v)) return;
+    if (el.tagName === 'SELECT') {
+      Array.prototype.forEach.call(el.options, function (o) { if (o.value === v[k]) o.setAttribute('selected', ''); else o.removeAttribute('selected'); });
+    } else if (el.tagName === 'INPUT') el.setAttribute('value', v[k]);
+  });
+  const qs = v.__q || [];
+  pop.querySelectorAll('.agos-q').forEach(function (b) { b.classList.toggle('on', qs.indexOf(b.getAttribute('data-q')) >= 0); });
+  if (qs.length) {
+    pop.querySelectorAll('[data-oid="agos-po-start"],[data-oid="agos-po-end"]').forEach(function (el) { el.setAttribute('disabled', ''); });
+  }
+}
+function bieOid(box, k) { return box ? box.querySelector(`[data-oid="${k}"]`) : null; }
 
-  if (form.full) return bieInlineFull(root, pop, target, acts);
-
-  let table = target ? target.closest('table') : bieNewTable(root, key);
-  if (!table) return;                      // 놓을 표가 없으면 팝업 그대로
+function bieCellRow(root, pop, form, target, acts, key) {
+  const table = target ? target.closest('table') : bieNewTable(root, key);
+  if (!table) return null;
   const hasCk = !!(table.tHead && table.tHead.querySelector('.bie-ckc'));
   const tr = document.createElement('tr');
-  tr.className = 'bie-row' + (isNew ? ' new' : '');
+  tr.className = 'bie-row' + (target ? '' : ' new');
   tr.setAttribute('onkeydown', 'bieKey(event,this)');
   tr.setAttribute('onclick', 'event.stopPropagation()');
   if (hasCk) { const c = document.createElement('td'); c.className = 'bie-ckc'; tr.appendChild(c); }
@@ -229,7 +403,7 @@ function bieInline(root, pop) {
       if (orig) td.innerHTML = orig.innerHTML; else td.innerHTML = `<b>${escHtml(spec.t)}</b>`;
     } else {
       const els = (spec === 'k' ? [] : spec).map(function (s) {
-        return pop.querySelector(s.charAt(0) === '.' ? s : '#' + s);
+        return s.charAt(0) === '.' ? pop.querySelector(s) : bieOid(pop, s);
       }).filter(Boolean);
       if (els.length) bieFillCell(td, els);
       else if (orig) td.innerHTML = orig.innerHTML;
@@ -238,7 +412,7 @@ function bieInline(root, pop) {
     tr.appendChild(td);
   });
   // 칸에 못 놓은 입력칸이 남았으면 첫 입력 칸에 덧붙입니다(빠뜨리면 저장이 값을 못 읽음)
-  const left = Array.prototype.slice.call(pop.querySelectorAll('input[id], select[id]'));
+  const left = Array.prototype.slice.call(pop.querySelectorAll('input[data-oid], select[data-oid]'));
   if (left.length) bieFillCell(tr.cells[off], left);
 
   if (target) target.parentNode.replaceChild(tr, target);
@@ -247,15 +421,15 @@ function bieInline(root, pop) {
     Array.prototype.slice.call(body.querySelectorAll('td.aglb-empty')).forEach(function (td) {
       if (td.closest('table') === table) td.parentNode.remove();
     });
-    body.insertBefore(tr, body.firstChild);
+    body.insertBefore(tr, body.firstChild);     // 새 행은 맨 위(가장 최근 행이 제일 위)
   }
-  pop.remove();
+  return tr;
 }
 
 // 경비 — 월 입력칸이 12개라 한 행 전체 폭으로 펼칩니다(수정: 그 세부계정 행 바로 아래, 편성: 표 맨 위)
-function bieInlineFull(root, pop, target, acts) {
+function bieFullRow(root, pop, target, acts) {
   const table = target ? target.closest('table') : root.querySelector('table.agex, table.aglb');
-  if (!table) return;
+  if (!table) return null;
   const n = table.rows[0] ? Array.prototype.reduce.call(table.rows[0].cells, function (t, c) { return t + (c.colSpan || 1); }, 0) : 6;
   const tr = document.createElement('tr');
   tr.className = 'bie-row bie-full' + (target ? '' : ' new');
@@ -278,7 +452,7 @@ function bieInlineFull(root, pop, target, acts) {
     const tb = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
     tb.insertBefore(tr, tb.firstChild);
   }
-  pop.remove();
+  return tr;
 }
 
 function bieFindRow(root, key) {
@@ -324,7 +498,7 @@ function bieFillCell(td, els) {
       const f = document.createElement('label');
       f.className = 'bie-f';
       cap.classList.add('bie-cap');
-      f.appendChild(cap);           // 이름표 요소째 옮김(구매계획 금액 이름표처럼 id 로 바뀌는 글자 유지)
+      f.appendChild(cap);           // 이름표 요소째 옮김(구매계획 금액 이름표처럼 글자가 바뀌는 이름표 유지)
       f.appendChild(el);
       td.appendChild(f);
       lastCap = cap;
@@ -333,17 +507,21 @@ function bieFillCell(td, els) {
     } else td.appendChild(el);
   });
 }
-// 팝업 아래 버튼(저장 · 남은 달 비우기 · 닫음)을 행 안 버튼으로
-function bieActions(pop) {
+// 행 안 버튼 — [저장](이 행만) · [취소](이 행 버리기)
+function bieActions(pop, d) {
   const box = document.createElement('div');
   box.className = 'bie-acts';
-  Array.prototype.slice.call(pop.querySelectorAll('.agv-pop-foot button')).forEach(function (b) {
-    const isOk = b.classList.contains('agv-ok');
-    const isClear = b.classList.contains('agexe-del');
-    b.className = isOk ? 'bie-save' : isClear ? 'bie-clear' : 'bie-cancel';
-    if (!isOk && !isClear && b.textContent.trim() === '닫음') b.textContent = '취소';
-    box.appendChild(b);
-  });
+  const ok = pop.querySelector('.agv-pop-foot .agv-ok');
+  const s = document.createElement('button');
+  s.className = 'bie-save';
+  s.setAttribute('onclick', `bieSaveDrafts(['${d.id}'])`);
+  s.textContent = ok ? ok.textContent.trim() : '저장';
+  const c = document.createElement('button');
+  c.className = 'bie-cancel';
+  c.setAttribute('onclick', `bieDropDraft('${d.id}')`);
+  c.textContent = '취소';
+  box.appendChild(s);
+  box.appendChild(c);
   return box;
 }
 function bieKey(ev, tr) {
@@ -356,9 +534,9 @@ function bieKey(ev, tr) {
 }
 
 /* ── 열리면 그 행으로 올라가 첫 칸에 커서 ──────────────────────────────── */
-function bieFocusRow() {
+function bieFocusRow(id) {
   setTimeout(function () {
-    const tr = document.querySelector('tr.bie-row');
+    const tr = document.querySelector(`tr.bie-row[data-bie-key="${id}"]`);
     if (!tr) return;
     const wrap = tr.closest('.aglb-wrap');
     if (wrap && tr.classList.contains('new')) wrap.scrollTop = 0;
@@ -367,49 +545,58 @@ function bieFocusRow() {
     if (f && f.focus) { try { f.focus({ preventScroll: true }); } catch (e) { f.focus(); } }
   }, 0);
 }
-['agentLabEditOpenFinal', 'agentOsEdOpenFinal', 'agentOsPoOpenFinal', 'agentMatEdOpenFinal',
- 'agentExpEdOpenFinal', 'agentExpEdPickFinal', 'bdeAsOpen'].forEach(function (name) {
-  const before = window[name];
-  if (typeof before !== 'function') return;
-  window[name] = function () { const r = before.apply(this, arguments); bieFocusRow(); return r; };
-});
 
-/* ── 팝업(.agv-pop)을 찾던 보조 함수들이 표 안 입력 행도 찾도록 ─────────────── */
+/* ── 행 안에서만 도는 보조 함수(원래 함수는 팝업 · 원래 id 를 찾음) ────────────── */
 // 외주비 구매계획 — 분기 버튼 · 금액 안내
-agentOsPoQFinal = function (btn) {
+function bieQuarter(btn) {
   if (btn.disabled) return;
   btn.classList.toggle('on');
-  agentOsPoHintFinal(btn.closest('.agv-pop, .bie-row'));
-};
-agentOsPoAmtInputFinal = function (el) { agentOsPoHintFinal(el.closest('.agv-pop, .bie-row')); };
-var bieOsPoSaveBefore = agentOsPoSaveFinal;
-agentOsPoSaveFinal = function () {
-  // 원래 저장은 '.agv-pop .agos-q.on' 으로 고른 분기를 읽습니다 → 저장하는 동안만 행에 표시를 붙입니다
-  const tr = document.querySelector('tr.bie-row');
-  if (tr) tr.classList.add('agv-pop');
-  try { return bieOsPoSaveBefore.apply(this, arguments); }
-  finally { if (tr) tr.classList.remove('agv-pop'); }
-};
-// 경비 — 남은 달 같은 금액 채우기 · 연간 합계
-agentExpEdFillFinal = function (y) {
-  const box = document.querySelector('.agv-pop.agexe, .bie-exp');
+  biePoHint(btn);
+}
+function biePoHint(el) {
+  const box = el.closest('tr.bie-row');
   if (!box) return;
-  const v = Math.abs(parseBudgetAmount((box.querySelector('#agexe-fill-' + y) || {}).value || 0));
+  const n = box.querySelectorAll('.agos-q.on').length;
+  [bieOid(box, 'agos-po-start'), bieOid(box, 'agos-po-end')].forEach(function (x) { if (x) x.disabled = n > 0; });
+  const lab = bieOid(box, 'agos-po-amt-lab');
+  if (lab) lab.textContent = n ? `분기별 금액(원) — 선택한 ${n}개 분기에 같은 금액으로 등록` : '계획 금액(원)';
+  const hint = bieOid(box, 'agos-po-hint');
+  const amt = Math.abs(parseBudgetAmount((bieOid(box, 'agos-po-amount') || {}).value || 0));
+  if (hint) hint.textContent = n ? `합계 ${fmt(amt * n)}원 = ${fmt(amt)}원 × ${n}개 분기` : '';
+}
+// A/S — 수량 × 단가
+function bieAsCalc(el) {
+  const box = el.closest('tr.bie-row');
+  const out = bieOid(box, 'bde-as-amt'), q = bieOid(box, 'bde-as-qty'), u = bieOid(box, 'bde-as-unit');
+  if (out && q && u) out.value = String(Math.round(bdeNum(q.value) * bdeNum(u.value)));
+}
+// 경비 — 세부계정 고르기 · 남은 달 같은 금액 채우기 · 연간 합계
+function bieExpPick(sel, id) {
+  bieCapture();
+  const d = BIE_DRAFTS.find(function (x) { return x.id === id; });
+  if (d) { d.state = { id: sel.value || '' }; d.values = null; }   // 계정이 바뀌면 월 칸도 새로
+  renderBudgetPage();
+  if (d) bieFocusRow(d.id);
+}
+function bieExpFill(btn, y) {
+  const box = btn.closest('tr.bie-row');
+  if (!box) return;
+  const v = Math.abs(parseBudgetAmount((bieOid(box, 'agexe-fill-' + y) || {}).value || 0));
   box.querySelectorAll('.agexe-m input:not([disabled])').forEach(function (el) {
     if (el.dataset.m.slice(0, 4) === y) el.value = v ? fmt(v) : '0';
   });
-  agentExpEdSumFinal();
-};
-agentExpEdSumFinal = function () {
-  const box = document.querySelector('.agv-pop.agexe, .bie-exp');
+  bieExpSum(btn);
+}
+function bieExpSum(el) {
+  const box = el.closest('tr.bie-row');
   if (!box) return;
   const by = {};
-  box.querySelectorAll('.agexe-m input').forEach(function (el) {
-    const y = el.dataset.m.slice(0, 4);
-    by[y] = (by[y] || 0) + Math.abs(parseBudgetAmount(el.value || 0));
+  box.querySelectorAll('.agexe-m input').forEach(function (x) {
+    const y = x.dataset.m.slice(0, 4);
+    by[y] = (by[y] || 0) + Math.abs(parseBudgetAmount(x.value || 0));
   });
-  Object.keys(by).forEach(function (y) { const t = box.querySelector('#agexe-sum-' + y); if (t) t.textContent = fmt(by[y]) + '원'; });
-};
+  Object.keys(by).forEach(function (y) { const t = bieOid(box, 'agexe-sum-' + y); if (t) t.textContent = fmt(by[y]) + '원'; });
+}
 
 function bieInjectStyle() {
   if (document.getElementById('bie-style')) return;
@@ -424,17 +611,20 @@ function bieInjectStyle() {
   .bie-savebar { border:1px solid #2563eb; background:#2563eb; color:#fff; border-radius:8px; padding:7px 16px;
     font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
   .bie-savebar:hover { background:#1d4ed8; }
+  .bie-savebar em { font-style:normal; margin-left:4px; padding:0 6px; border-radius:999px; background:#fff; color:#2563eb; font-size:11px; }
   .bie-savebar.off { background:#fff; color:#94a3b8; border-color:#cbd5e1; cursor:default; }
   .agos-panel-head .bie-delsel { margin-left:auto; padding:4px 10px; font-size:11.5px; }
   .agos-panel-head:has(.bie-delsel) { display:flex; align-items:center; gap:10px; }
   tr.bie-row > td { background:#eef5ff !important; vertical-align:top; padding-top:7px !important; padding-bottom:7px !important; }
   tr.bie-row > td:first-child { box-shadow:inset 3px 0 0 #2563eb; }
+  tr.bie-row.bie-err > td { background:#fff1f3 !important; }
+  tr.bie-row.bie-err > td:first-child { box-shadow:inset 3px 0 0 #c40025; }
   tr.bie-row .bie-cell input, tr.bie-row .bie-cell select {
     width:100%; min-width:84px; box-sizing:border-box; height:30px; border:1px solid #93c5fd; border-radius:7px;
     padding:0 8px; background:#fff; font:inherit; font-size:12.5px; color:#0b1220; }
   tr.bie-row .bie-cell input[type="date"], tr.bie-row .bie-cell input[type="month"] { min-width:128px; }
   tr.bie-row .bie-cell input:focus, tr.bie-row .bie-cell select:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.15); }
-  tr.bie-row .bie-cell input[readonly] { background:#f1f5f9; color:#475569; }
+  tr.bie-row .bie-cell input[readonly], tr.bie-row .bie-cell input[disabled] { background:#f1f5f9; color:#475569; }
   tr.bie-row td.num .bie-cell input, tr.bie-row td.num input { text-align:right; }
   .bie-f { display:flex; flex-direction:column; gap:2px; margin:0 0 5px; }
   .bie-f:last-child { margin-bottom:0; }
@@ -450,7 +640,6 @@ function bieInjectStyle() {
   .bie-acts .bie-save { border:1px solid #2563eb; background:#2563eb; color:#fff; }
   .bie-acts .bie-save:hover { background:#1d4ed8; }
   .bie-acts .bie-cancel { border:1px solid #cbd5e1; background:#fff; color:#334155; }
-  .bie-acts .bie-clear { border:1px solid #f3c2cc; background:#fff; color:#c40025; }
   .aglb td.aglb-act.bie-act button + button { margin-left:0; }
   tr.bie-editing > td { background:#f5f9ff !important; }
   tr.bie-full > td { padding:12px 14px !important; }
