@@ -3,26 +3,16 @@
 // ════════════════════════════════════════
 
 // AI GUIDE: 수주형 프로젝트 정보 화면입니다.
-// - CRM/IF에서 받은 수주형 프로젝트 기본정보를 목록, 등록, 상세 형태로 보여줍니다.
+// - CRM/IF에서 받은 수주형(SI/OS) 프로젝트 기본정보를 목록, 상세 형태로 보여줍니다.
 // - 현재 화면에서는 단계별 기간 정보는 제거하고 기본정보와 IF 변경이력만 남기는 방향입니다.
 // - AI 화면 가이드는 프로젝트 코드, 고객사, 매출귀속조직, 계약유형, IF 변경이력 의미를 우선 설명해야 합니다.
-// - IF 등록은 외부 시스템(CRM)에서 계약 완료 프로젝트를 조회한 뒤 선택 등록하는 목업 흐름입니다.
+// - [2026.11.12] 수주형(SI/OS)은 선행 시스템(CRM 최종계약완료)에서 넘어와 자동 등록됩니다 → 화면에서 찾아서 등록하는
+//   [+ IF 등록](CRM 조회 · 선택 등록) 흐름을 없앴습니다. (W/G · 사내(IV)는 직접 입력 → 코드 생성 → 등록 절차: 프로젝트 개설 관리)
 
-let siView = 'list';   // 'list' | 'detail' | 'register'
+let siView = 'list';   // 'list' | 'detail'
 let siSelectedId = null;
 let siSearchQuery = '';
 let siStageFilter = '';
-let siRegResults  = [];
-let siRegSelected = null;
-
-// ── CRM 계약완료 프로젝트 풀 (조회 대상) ──
-const CRM_PROJECTS_POOL = [
-  { code:'30142601-D001', name:'2026년 보안시스템 고도화',      pm:'이봄',  revOrg:'보안사업부',   projType:'SI-AD',       start:'2026-07-01', end:'2027-06-30', contractType:'SI', mainDept:'보안팀',   customer:'SK브로드밴드', status:'최종계약완료' },
-  { code:'30142602-D001', name:'데이터 분석 플랫폼 구축',       pm:'이봄',  revOrg:'데이터사업부', projType:'원가-선투입', start:'2026-08-01', end:'2027-03-31', contractType:'SI',       mainDept:'AI팀',    customer:'SK텔레시스',  status:'최종계약완료' },
-  { code:'30142603-D001', name:'클라우드 마이그레이션 2차',     pm:'한민석', revOrg:'NOVA PMO팀',  projType:'원가-선투입', start:'2026-09-01', end:'2027-08-31', contractType:'OS', mainDept:'인프라팀', customer:'SK C&C',      status:'최종계약완료' },
-  { code:'30142604-D001', name:'사내 AI 자동화 솔루션 도입',    pm:'한민석', revOrg:'AI사업부',    projType:'SI-AD',       start:'2026-10-01', end:'2027-04-30', contractType:'SI', mainDept:'AI팀',    customer:'SK텔레콤',    status:'최종계약완료' },
-  { code:'30142605-D001', name:'2026년 ERP 추가모듈 개발',      pm:'이강혁', revOrg:'AX ERP사업부', projType:'SI-AD',      start:'2026-07-01', end:'2026-12-31', contractType:'OT', mainDept:'시스템팀', customer:'SK하이닉스',  status:'최종계약완료' },
-];
 
 const SI_STAGES = ['등록완료','착수','수행중','마감준비','종료완료'];
 
@@ -163,7 +153,6 @@ const SI_PROJECTS = {
 // ── 진입점 ──────────────────────────────
 function renderSIProject() {
   if (siView === 'list')     renderSIList();
-  else if (siView === 'register') renderSIRegister();
   else renderSIDetail();
 }
 
@@ -222,9 +211,9 @@ function renderSIList() {
     <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between">
       <div>
         <div class="page-title">수주형 프로젝트</div>
-        <div class="page-sub">CRM 연동 프로젝트 기본정보 등록 및 변경이력 조회</div>
+        <div class="page-sub">선행 시스템(CRM 최종계약완료)에서 자동 등록된 수주형(SI/OS) 프로젝트 기본정보 및 변경이력 조회</div>
       </div>
-      <button class="save-btn" onclick="siView='register';renderSIProject()" style="margin-top:4px;font-size:14px;padding:6px 14px">+ IF 등록</button>
+      <span title="수주형(SI/OS)은 CRM에서 최종계약완료되면 자동으로 등록됩니다. 화면에서 따로 찾아 등록하지 않습니다." style="margin-top:6px;font-size:13px;font-weight:700;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:99px;padding:5px 12px;white-space:nowrap">🔄 CRM 계약완료 시 자동 등록</span>
     </div>
 
     <div class="proj-list-toolbar">
@@ -256,148 +245,6 @@ function renderSIList() {
         <tbody>${rows}</tbody>
       </table>
     </div>`;
-}
-
-// ── IF 등록 뷰 ───────────────────────────
-function renderSIRegister() {
-  siRegResults  = [];
-  siRegSelected = null;
-  const el = document.getElementById('s-si-project');
-  el.innerHTML = `
-    <div class="wg-detail-topbar">
-      <button class="mc-back-btn" onclick="siView='list';renderSIList()">← 목록</button>
-      <div>
-        <div style="font-size:20px;font-weight:800;color:#1e293b">수주형 프로젝트 IF 등록</div>
-        <div style="font-size:15px;color:#64748b;margin-top:2px">CRM 계약완료 프로젝트를 조회하여 등록합니다.</div>
-      </div>
-    </div>
-
-    <!-- 안내 배너 -->
-    <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;margin-bottom:20px">
-      <span style="font-size:22px;flex-shrink:0">ℹ️</span>
-      <span style="font-size:15px;font-weight:600;color:#1d4ed8">CRM에서 최종계약완료 된 프로젝트만 수행 프로젝트 등록이 가능합니다.</span>
-    </div>
-
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-head"><span class="card-title">CRM 프로젝트 조회</span></div>
-      <div style="padding:20px 24px">
-        <div style="font-size:14px;font-weight:600;color:#64748b;margin-bottom:8px">프로젝트 코드 또는 수행 PM 이름 <span style="color:#ef4444">*</span></div>
-        <div style="display:flex;gap:10px;max-width:560px">
-          <input id="si-reg-code" class="reg-input" placeholder="예: PJ2026-N004  " style="flex:1"
-            onkeydown="if(event.key==='Enter')siMockFetch()">
-          <button class="save-btn" style="white-space:nowrap;padding:9px 22px" onclick="siMockFetch()">조회</button>
-        </div>
-        <div style="font-size:14px;color:#94a3b8;margin-top:6px">
-          프로젝트 코드 또는 CRM에 등록된 수행 PM 이름으로 조회 가능합니다.
-        </div>
-        <div id="si-results-area" style="margin-top:16px"></div>
-        <div id="si-fetched"      style="margin-top:4px;display:none"></div>
-      </div>
-    </div>`;
-}
-
-function siMockFetch() {
-  const val = document.getElementById('si-reg-code').value.trim();
-  if (!val) { showToast('코드 또는 PM 이름을 입력하세요.'); return; }
-
-  const q = val.toLowerCase();
-  siRegResults = CRM_PROJECTS_POOL.filter(p =>
-    p.code.toLowerCase().includes(q) || p.pm.toLowerCase().includes(q)
-  );
-
-  const area    = document.getElementById('si-results-area');
-  const fetched = document.getElementById('si-fetched');
-  fetched.style.display = 'none';
-  fetched.innerHTML = '';
-
-  if (!siRegResults.length) {
-    area.innerHTML = `
-      <div style="padding:14px 18px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;font-size:15px;color:#991b1b">
-        ⚠️ CRM에서 최종계약완료 된 프로젝트를 찾을 수 없습니다. 코드 또는 PM 이름을 다시 확인해주세요.
-      </div>`;
-    return;
-  }
-
-  if (siRegResults.length === 1) {
-    area.innerHTML = '';
-    siRegSelectProject(0);
-    return;
-  }
-
-  // 복수 결과 → 선택 목록
-  area.innerHTML = `
-    <div style="font-size:15px;font-weight:600;color:#475569;margin-bottom:10px">
-      총 <strong>${siRegResults.length}건</strong> 조회되었습니다. 등록할 프로젝트를 선택하세요.
-    </div>
-    <div style="border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden">
-      ${siRegResults.map((p, i) => `
-        <div onclick="siRegSelectProject(${i})"
-          style="padding:14px 18px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background 0.12s;display:flex;align-items:center;justify-content:space-between;gap:12px"
-          onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
-          <div>
-            <div style="font-weight:700;font-size:16px;color:#1e293b">${p.name}</div>
-            <div style="font-size:14px;color:#94a3b8;margin-top:4px">${p.code} &nbsp;·&nbsp; PM: <strong style="color:#475569">${p.pm}</strong> &nbsp;·&nbsp; ${p.customer}</div>
-          </div>
-          <span style="font-size:13px;padding:4px 12px;background:#dcfce7;color:#166534;border-radius:99px;white-space:nowrap;flex-shrink:0">${p.status}</span>
-        </div>`).join('')}
-    </div>`;
-}
-
-function siRegSelectProject(idx) {
-  siRegSelected = siRegResults[idx];
-  const p = siRegSelected;
-
-  document.getElementById('si-results-area').innerHTML = `
-    <div style="padding:10px 16px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;font-size:15px;color:#166534;margin-bottom:2px">
-      ✅ <strong>${p.name}</strong> (${p.code}) — CRM 기본정보를 가져왔습니다. 내용을 확인 후 등록하세요.
-    </div>`;
-
-  const fetched = document.getElementById('si-fetched');
-  fetched.style.display = 'block';
-  fetched.innerHTML = `
-    <div class="si-basic-grid" style="margin-top:14px">
-      ${buildSIFieldReadonly([
-        ['프로젝트 코드',  p.code,                    'ERP'],
-        ['프로젝트명',     p.name,                    'ERP'],
-        ['프로젝트 기간',  p.start + ' ~ ' + p.end,   'ERP'],
-        ['수행PM',         p.pm,                      'ERP'],
-        ['매출귀속조직',   p.revOrg,                  'ERP'],
-        ['프로젝트유형',   p.projType,                'ERP'],
-        ['프로젝트상태',   p.status,                  'ERP'],
-        ['계약형태',       p.contractType,            'ERP'],
-        ['주수행부서',     p.mainDept,                '수동'],
-        ['고객사',         p.customer,                'ERP'],
-      ])}
-    </div>
-    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
-      <button class="reset-btn" onclick="siView='list';renderSIList()">취소</button>
-      <button class="save-btn" onclick="siConfirmRegister()">✅ 등록 완료</button>
-    </div>`;
-}
-
-function siConfirmRegister() {
-  if (!siRegSelected) return;
-  const p     = siRegSelected;
-  const idx   = Object.keys(SI_PROJECTS).length + 1;
-  const newId = `SI-${String(idx).padStart(3,'0')}`;
-  const now   = new Date().toISOString().slice(0,10) + ' ' + new Date().toTimeString().slice(0,5);
-
-  SI_PROJECTS[newId] = {
-    code: p.code, name: p.name,
-    start: p.start, end: p.end,
-    pm: p.pm, revOrg: p.revOrg,
-    projType: p.projType, stage: '등록완료',
-    contractType: p.contractType, mainDept: p.mainDept,
-    customer: p.customer, ifSource: 'CRM', lastSync: now,
-    ifHistory: [
-      { date: now, field:'프로젝트상태', before:'최종계약완료', after:'등록완료', source:'CRM' },
-    ],
-  };
-
-  siSelectedId = newId;
-  siView = 'detail';
-  renderSIDetail();
-  showToast('✅ 프로젝트가 등록되었습니다.');
 }
 
 function buildSIFieldReadonly(fields) {

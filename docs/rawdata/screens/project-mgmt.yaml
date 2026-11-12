@@ -15,7 +15,7 @@ screen:
     - public/js/proposal-project.js    # 제안(목록/상세) — siDetailHtml 재사용, P00N 채번 데이터
     - public/js/app.js                 # 라우팅(SCREEN_ROUTES/ROUTE_ACTIONS), 진입 함수(show*Project), AI 바로가기 카탈로그
     - public/css/*.css                 # sifr-* / si-* / proj-* 스타일
-  backend: null   # ★ 백엔드 없음 — 전부 JS 상수 목업(SI_PROJECTS/PROPOSAL_PROJECTS/CRM_PROJECTS_POOL). 실제 API 호출 없음, 새로고침 시 초기화.
+  backend: null   # ★ 백엔드 없음 — 전부 JS 상수 목업(SI_PROJECTS/PROPOSAL_PROJECTS). 실제 API 호출 없음, 새로고침 시 초기화.
   purpose: >
     CRM·ERP 등 선행 시스템에서 인터페이스(IF)로 수신한 수주형/제안 프로젝트의 기본정보·계약금액·투입인원·발주금액 변경을
     조회·모니터링한다. 수주형은 CRM 최종계약완료 프로젝트를 조회해 선택 등록(목업)하고, 제안은 원 수주 프로젝트에 P00N을 채번한다.
@@ -28,12 +28,8 @@ states:
   - id: si-list
     when: "siView == 'list'"
     render: "renderSIList() (si-project.js:159)"
-    shows: [페이지헤더+신규등록버튼, 검색입력, 단계필터셀렉트, 총건수태그, 프로젝트테이블]
+    shows: ["페이지헤더+자동 등록 안내 배지(등록 버튼 없음)", 검색입력, 단계필터셀렉트, 총건수태그, 프로젝트테이블]
     table_columns: [프로젝트코드, 프로젝트명·고객사, 수행PM, 매출귀속조직, 주관부서, 기간, 단계배지, "마지막 IF(🔄 lastSync)"]
-  - id: si-register
-    when: "siView == 'register'"
-    render: "renderSIRegister() (si-project.js:234)"
-    shows: ["← 목록 뒤로가기", 안내배너("CRM 최종계약완료만 등록가능"), "CRM 조회 카드(코드/PM 입력)", 조회결과영역, 가져온기본정보영역]
   - id: si-detail
     when: "siView == 'detail'"
     render: "renderSIDetail() [최종 재할당본, si-project.js:810] → siActiveProject=p; siDetailHtml(p,'closeSIDetail()')"
@@ -93,60 +89,23 @@ elements:
     values_source: "SI_STAGES (si-project.js:27)"
     backend: null
 
-  - id: si-btn-new
-    label: "+ IF 등록"
-    type: button
-    area: 수주형 목록 헤더
-    event: onclick
+  - id: si-auto-reg-badge
+    label: "🔄 CRM 계약완료 시 자동 등록"
+    type: badge
+    crud: R
+    area: 수주형 목록 헤더 우측(원래 [+ IF 등록] 자리)
+    event: null
     front:
-      handler: "siView='register'; renderSIProject()"
-      state_writes: [siView]
-    backend: null
-    result: 수주형 IF 등록(CRM 조회) 화면으로 전환
-
-  # ----- 수주형 IF 등록(목업 흐름) -----
-  - id: si-crm-fetch
-    label: "CRM 조회(코드/PM 입력)"
-    type: input+button
-    dom_id: si-reg-code
-    area: IF 등록 CRM 조회 카드
-    event: "onclick / onkeydown(Enter)"
-    front:
-      handler: "siMockFetch() (si-project.js:271)"
+      handler: null
+      file: "si-project.js:renderSIList"
       logic: >
-        입력값으로 CRM_PROJECTS_POOL을 code/pm 부분일치 필터.
-        0건 → 경고 배너, 1건 → 자동 선택 siRegSelectProject(0), 복수 → 선택 목록 렌더
-      validation: "빈 입력 시 showToast('코드 또는 PM 이름을 입력하세요.')"
-      state_writes: [siRegResults]
-    backend: null   # 실제 CRM 아님 — CRM_PROJECTS_POOL 상수(si-project.js:19)
-    result: 조회 결과 영역(si-results-area)에 결과/선택목록 렌더
-
-  - id: si-reg-select
-    label: 조회 결과 프로젝트 선택
-    type: list-item
-    area: IF 등록 결과 목록
-    event: onclick
-    front:
-      handler: "siRegSelectProject(idx) (si-project.js:318)"
-      logic: "선택 프로젝트 CRM 기본정보를 읽기전용 필드(buildSIFieldReadonly, 출처배지 ERP=IF·ERP/그외=수동입력)로 표시"
-      state_writes: [siRegSelected]
-    backend: null
-
-  - id: si-confirm-register
-    label: "✅ 등록 완료"
-    type: button
-    area: IF 등록 가져온 기본정보
-    event: onclick
-    front:
-      handler: "siConfirmRegister() (si-project.js:350)"
-      logic: >
-        새 키 SI-00N(idx=기존 키 수+1, padStart 3)로 SI_PROJECTS에 추가.
-        code=CRM코드 승계, stage='등록완료', ifSource='CRM', lastSync=현재시각,
-        ifHistory 1건("프로젝트상태: 최종계약완료 → 등록완료(CRM)") 기록 후 상세 전환
-      state_writes: [SI_PROJECTS, siSelectedId, siView]
-      precondition: "CRM status==='최종계약완료' 프로젝트만(안내 배너·풀 데이터 근거)"
-    backend: null   # 메모리 내 객체 조작(새로고침 시 소멸)
-    result: SI_PROJECTS에 신규 추가 후 상세 화면 전환 + 토스트
+        [2026.11.12] 수주형(SI/OS)은 선행 시스템(CRM 최종계약완료)에서 넘어와 자동 등록되므로 화면에서 찾아서 등록하지 않는다.
+        원래 있던 [+ IF 등록] → CRM 조회(코드/PM) → 선택 → [등록 완료] 흐름(renderSIRegister · siMockFetch · siRegSelectProject · siConfirmRegister)을 없애고
+        안내 배지만 둔다(마우스를 올리면 설명). W/G · 사내(IV)는 직접 입력 → 코드 생성 → 등록 절차(프로젝트 개설 관리)를 밟는다
+      validation: null
+      state_writes: []
+    backend: { note: "CRM 최종계약완료 → 수주형 프로젝트 자동 생성 I/F (목업은 SI_PROJECTS 상수)" }
+    result: 자동 등록 안내 표시
 
   # ----- 제안 목록 -----
   - id: pp-row-click
@@ -273,7 +232,7 @@ elements:
 rules:
   numbering:   # 채번 규칙
     - id: si-code
-      rule: "수주형 코드 = {8자리 base}-D{3자리} (D 시리즈). 예 30142101-D001. CRM 풀 코드를 그대로 승계(siConfirmRegister code:p.code)"
+      rule: "수주형 코드 = {8자리 base}-D{3자리} (D 시리즈). 예 30142101-D001. CRM 계약 코드를 그대로 승계(자동 등록 I/F)"
     - id: pp-code
       rule: "제안 코드 = {수주형 base}-P{3자리} (P 시리즈, P00N 채번). 예 30142101-P001/P002. 원 수주 base 공유, 접미사만 D→P. parent/parentName로 원 수주와 연결"
     - id: internal-key
@@ -294,12 +253,10 @@ rules:
 # ── 데이터 모델 ──
 data:
   state_vars:
-    - { name: siView,        shape: "'list'|'detail'|'register'", file: "si-project.js:11", purpose: 수주형 뷰 }
+    - { name: siView,        shape: "'list'|'detail'", file: "si-project.js:11", purpose: 수주형 뷰 }
     - { name: siSelectedId,  shape: string, file: "si-project.js:12", purpose: 수주형 선택 프로젝트 ID }
     - { name: siSearchQuery, shape: string, file: "si-project.js:13", purpose: 목록 검색어 }
     - { name: siStageFilter, shape: string, file: "si-project.js:14", purpose: 목록 단계 필터 }
-    - { name: siRegResults,  shape: "object[]", file: "si-project.js:15", purpose: CRM 조회 결과 }
-    - { name: siRegSelected, shape: object, file: "si-project.js:16", purpose: 등록 선택 항목 }
     - { name: siActiveProject, shape: object, file: "si-project.js:746", purpose: 상세/팝업 대상 프로젝트(수주형·제안 공용) }
     - { name: ppView,        shape: "'list'|'detail'", file: "proposal-project.js:6", purpose: 제안 뷰 }
     - { name: ppSelectedId,  shape: string, file: "proposal-project.js:7", purpose: 제안 선택 ID }
@@ -311,9 +268,6 @@ data:
     - name: PROPOSAL_PROJECTS
       file: "proposal-project.js:10"
       note: "제안 프로젝트 맵(PP-00N). SI_PROJECTS 필드 + parent, parentName, projType='제안프로젝트'(고정), contractType='제안'(고정)"
-    - name: CRM_PROJECTS_POOL
-      file: "si-project.js:19"
-      note: "CRM 계약완료 조회 대상 상수. {code,name,pm,revOrg,projType,start,end,contractType,mainDept,customer,status='최종계약완료'}"
     - name: SI_SYS
       file: "si-project.js:678"
       note: "선행 시스템 IF 메타 {label,c(색),cb(배경),dir}. ERP/SCM/CRM/PUR/ETC"
@@ -327,12 +281,10 @@ data:
 
 # ── 대표 플로우 ──
 flows:
-  - name: 수주형 IF 등록(목업)
+  - name: 수주형 자동 등록
     steps:
-      - "목록 #/si-project → [+ IF 등록] (siView='register')"
-      - "CRM 코드/PM 입력 → 조회(siMockFetch): CRM_PROJECTS_POOL 필터 (0건 경고/1건 자동선택/복수 목록)"
-      - "프로젝트 선택(siRegSelectProject) → CRM 기본정보 읽기전용 확인"
-      - "[등록 완료](siConfirmRegister) → SI-00N 키로 SI_PROJECTS 추가(stage='등록완료') → 상세 전환 + 토스트"
+      - "CRM 최종계약완료 → 수주형(SI/OS) 프로젝트가 자동 등록(stage='등록완료', ifSource='CRM') — 화면에서 찾아서 등록하는 단계 없음"
+      - "목록 #/si-project 에서 조회 → 상세 대시보드에서 선행 시스템 IF 변경이력 확인"
   - name: 수주형/제안 조회 및 IF 모니터링
     steps:
       - "목록에서 검색/단계 필터로 탐색 → 행 클릭(openSIDetail/openProposalDetail)"
@@ -344,7 +296,7 @@ flows:
 requirements:
   - { id: FR-PJ-01, text: 사용자는 수주형/제안 프로젝트를 목록에서 검색어·단계로 필터링해 조회할 수 있다 }
   - { id: FR-PJ-02, text: 사용자는 목록 행을 클릭해 프로젝트 상세 IF 대시보드로 진입할 수 있다(수주형·제안 동일 대시보드) }
-  - { id: FR-PJ-03, text: 사용자는 CRM 최종계약완료 프로젝트를 조회하여 수주형 프로젝트로 선택 등록할 수 있다(D 시리즈 코드 승계) }
+  - { id: FR-PJ-03, text: "[2026.11.12 변경] 수주형(SI/OS) 프로젝트는 CRM 최종계약완료 시 선행 시스템에서 넘어와 자동 등록되어야 하며(D 시리즈 코드 승계), 화면에서 찾아서 등록하는 기능은 두지 않는다" }
   - { id: FR-PJ-04, text: 제안 프로젝트는 원 수주 프로젝트 base 코드에 P00N을 채번하며, 사용자는 [＋ IF 등록]으로 제안 프로젝트를 등록할 수 있다 }
   - { id: FR-PJ-05, text: 상세 화면은 선행 시스템(ERP·AI SCM·AI CRM·구매)별 동기화 상태(방향·마지막 교환시각·변경건수·지연)를 표시한다 }
   - { id: FR-PJ-06, text: 사용자는 동기화 카드를 클릭해 해당 시스템의 IF 변경이력을 날짜별 타임라인 팝업으로 확인할 수 있다 }
@@ -352,6 +304,7 @@ requirements:
   - { id: FR-PJ-08, text: 진행 단계는 착수/수행/종료 3단계 스테퍼로 표시되며 stage 값에 따라 자동 산출된다 }
   - { id: FR-PJ-09, text: 종료 처리는 현재 안내 토스트 스텁이며 실제 종료 로직은 미구현이다(목업) }
   - { id: FR-PJ-10, text: 모든 데이터는 JS 상수 기반 목업으로 백엔드 API 호출이 없으며 새로고침 시 초기화된다 }
+  - { id: FR-PJ-11, text: "W/G · 사내(IV) 프로젝트는 사용자가 직접 입력한 뒤 승인 절차를 거쳐 코드가 생성 · 등록되어야 한다(프로젝트 개설 관리)" }
 
 # ─────────────────────────── 사용자 코멘트 (스펙지니) ───────────────────────────
 comment_notes:
