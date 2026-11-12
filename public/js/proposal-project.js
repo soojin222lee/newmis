@@ -1,6 +1,7 @@
 // AI GUIDE: 제안 프로젝트 — 수주형 프로젝트에 딸린 제안(P00N 채번) 프로젝트입니다.
 // - 코드: 수주형 base + -P00N (예: 30142101-P001), 프로젝트 유형 = 제안프로젝트
 // - 자동 등록 / 예산 수립 동작은 수주형과 동일하므로, 상세는 수주형 IF 대시보드(siDetailHtml)를 그대로 재사용합니다.
+// - [2026.11.12] 제안은 수주형처럼 개설(등록)하지 않습니다 → 목록의 [＋ IF 등록]을 없앴습니다. 등록 양식은 [수정]에서만 씁니다.
 // - 반드시 si-project.js 뒤에 로드되어야 합니다(siDetailHtml · siActiveProject · siBuildDetail 등 공용 함수 참조).
 
 let ppView = 'list';       // 'list' | 'detail'
@@ -76,7 +77,6 @@ function renderProposalProject() {
 
 // ── C/U/D 액션 (일반 SI 방식 — 사용자가 직접 신규/수정/삭제) ──
 let ppEditId = null;   // null=신규, 값=수정 대상
-function ppStartRegister() { ppEditId = null; ppView = 'register'; renderProposalProject(); }
 function ppEditRow(id, ev) { if (ev) ev.stopPropagation(); ppEditId = id; ppView = 'register'; renderProposalProject(); }
 function ppDeleteRow(id, ev) {
   if (ev) ev.stopPropagation();
@@ -143,7 +143,7 @@ function renderProposalList() {
         <div class="page-title">제안 프로젝트</div>
         <div class="page-sub">수주형 프로젝트에 딸린 제안(P00N 채번) · 자동 등록·예산 수립은 수주형과 동일</div>
       </div>
-      <button class="save-btn" onclick="ppStartRegister()" style="font-size:14px;padding:8px 16px">＋ IF 등록</button>
+      <span title="제안 프로젝트는 수주형처럼 선행 시스템에서 넘어와 자동 등록됩니다. 화면에서 개설(등록)하지 않습니다." style="margin-top:6px;font-size:13px;font-weight:700;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:99px;padding:5px 12px;white-space:nowrap">🔄 선행 시스템에서 자동 등록</span>
     </div>
 
     <div class="proj-list-toolbar">

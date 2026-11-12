@@ -132,18 +132,22 @@ elements:
     backend: null
     note: "제안은 수주형에서 P00N 채번되는 개념 — IF 수신 쪽(연동 프로젝트)으로 분류(2026-10-13)"
 
-  - id: pp-btn-new
-    label: "＋ IF 등록"
-    type: button
-    crud: C
-    area: 제안 목록 헤더
-    event: onclick
+  - id: pp-auto-reg-badge
+    label: "🔄 선행 시스템에서 자동 등록"
+    type: badge
+    crud: R
+    area: 제안 목록 헤더 우측(원래 [＋ IF 등록] 자리)
+    event: null
     front:
-      handler: "ppStartRegister()"
-      logic: "제안 등록 양식 열기 → ppSaveRegister() 로 저장 (proposal-project.js). 용어는 IF 수신 쪽 '등록'으로 통일 — 양식은 아직 직접 입력(수주형처럼 CRM 조회·선택으로 바꿀지는 수진 논의 과제)"
-      state_writes: [ppView]
-    backend: null
-    result: 제안 프로젝트 IF 등록 화면으로 전환
+      handler: null
+      file: "proposal-project.js:renderProposalList"
+      logic: >
+        [2026.11.12] 제안 프로젝트는 수주형처럼 개설(등록)하지 않고 선행 시스템에서 넘어와 자동 등록된다.
+        목록의 [＋ IF 등록](ppStartRegister)을 없애고 안내 배지만 둔다(마우스를 올리면 설명). 등록 양식(renderProposalRegister)은 행 [수정]에서만 쓴다.
+      validation: null
+      state_writes: []
+    backend: { note: "사업기회(제안) → 제안 프로젝트 자동 생성 I/F (목업은 PROPOSAL_PROJECTS 상수)" }
+    result: 자동 등록 안내 표시
 
   # ----- 상세 대시보드 구성요소(수주형·제안 공용, siDetailHtml si-project.js:750) -----
   - id: detail-back
@@ -297,7 +301,7 @@ requirements:
   - { id: FR-PJ-01, text: 사용자는 수주형/제안 프로젝트를 목록에서 검색어·단계로 필터링해 조회할 수 있다 }
   - { id: FR-PJ-02, text: 사용자는 목록 행을 클릭해 프로젝트 상세 IF 대시보드로 진입할 수 있다(수주형·제안 동일 대시보드) }
   - { id: FR-PJ-03, text: "[2026.11.12 변경] 수주형(SI/OS) 프로젝트는 CRM 최종계약완료 시 선행 시스템에서 넘어와 자동 등록되어야 하며(D 시리즈 코드 승계), 화면에서 찾아서 등록하는 기능은 두지 않는다" }
-  - { id: FR-PJ-04, text: 제안 프로젝트는 원 수주 프로젝트 base 코드에 P00N을 채번하며, 사용자는 [＋ IF 등록]으로 제안 프로젝트를 등록할 수 있다 }
+  - { id: FR-PJ-04, text: "[2026.11.12 변경] 제안 프로젝트는 원 수주 프로젝트 base 코드에 P00N을 채번하며, 수주형처럼 선행 시스템에서 자동 등록되어 화면에서 개설(등록)하지 않는다" }
   - { id: FR-PJ-05, text: 상세 화면은 선행 시스템(ERP·AI SCM·AI CRM·구매)별 동기화 상태(방향·마지막 교환시각·변경건수·지연)를 표시한다 }
   - { id: FR-PJ-06, text: 사용자는 동기화 카드를 클릭해 해당 시스템의 IF 변경이력을 날짜별 타임라인 팝업으로 확인할 수 있다 }
   - { id: FR-PJ-07, text: 기본정보 각 필드는 출처 시스템 배지와 최근 변경 강조를 함께 제공한다 }
