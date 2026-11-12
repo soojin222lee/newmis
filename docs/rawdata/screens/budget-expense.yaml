@@ -321,6 +321,36 @@ elements:
     backend: null
     result: "행 닫힘"
 
+  - id: chk-agent-exp-row
+    label: "세부계정 선택 체크박스 / 머리 전체 선택"
+    type: checkbox
+    crud: N
+    area: "중분류를 펼친 세부계정 표 맨 앞 열"
+    event: onclick
+    front:
+      handler: "bieCheckAll(this, scope)"
+      file: "budget-inline-edit.js:bieAddChecks · bieCheckAll"
+      logic: "수정할 수 있는 세부계정 행마다 체크박스. 머리 체크박스는 같은 표 행을 모두 선택/해제"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "선택 표시 — [선택 비우기]가 체크한 세부계정을 비움"
+
+  - id: btn-agent-exp-clear-checked
+    label: 선택 비우기
+    type: button
+    crud: D
+    area: "경비 상세 연도 탭 오른쪽 [＋ 경비 편성] 왼쪽(세부계정 행을 펼쳤을 때)"
+    event: onclick
+    front:
+      handler: "bieDeleteChecked(scope, true)"
+      file: "budget-inline-edit.js:bieDeleteChecked → 행마다 bieExpClear(id) → agentExpEdSaveFinal(true)"
+      logic: "체크한 세부계정들의 남은 달 계획을 확인창 1번 뒤 차례로 0원으로 비운다(경비는 행 삭제가 아니라 편성 비우기). 마감된 달(실적)은 그대로"
+      validation: "체크한 행이 없으면 '비울 세부계정을 체크해 주세요.' 토스트"
+      state_writes: [EXPENSE_ACCOUNT_ROWS_FINAL, AGENT_PROPOSALS_FINAL]
+    backend: null
+    result: "체크한 세부계정 남은 달 0원 + 토스트"
+
 # ── 백엔드/외부 연동 (현재 목업, SRS 승격 후보) ──
 apis:
   - name: ERP 가용예산
@@ -434,3 +464,4 @@ requirements:
   - { id: FR-EXP-30, text: "시스템(Agent)은 미사용분이 감액되지 않도록 같은 해 남은 달로 이월하는 조정안(연간 예산 ±0원)을 예산 조정안으로 먼저 제안해야 하며, PM은 경비 상세에서도 바로 반영·해제할 수 있어야 한다" }
   - { id: FR-EXP-31, text: "[2026.11.11] Agent 화면 경비 편성은 팝업이 아니라 중분류 표 맨 위에 편성 행을 추가하는 방식이어야 하며, 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서가 있어야 한다" }
   - { id: FR-EXP-32, text: "Agent 화면 경비 세부계정의 수정은 팝업 없이 그 행 바로 아래에 펼친 월 입력칸에서 바로 할 수 있어야 한다(마감된 달은 잠김 · Enter 저장 · Esc 취소)" }
+  - { id: FR-EXP-33, text: "Agent 화면 경비 세부계정은 체크박스로 여러 개를 골라 [선택 비우기]로 남은 달 계획을 한 번에 0원으로 비울 수 있어야 한다" }

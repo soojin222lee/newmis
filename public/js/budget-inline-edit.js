@@ -1,18 +1,20 @@
 // ════════════════════════════════════════
-//  수행원가 > 원가조정 — 계정 상세 표 안에서 행추가 · 칸 수정       작성: 남주
+//  수행원가 > 원가조정 — 계정 상세 표 안에서 행추가 · 칸 수정 · 체크 선택삭제       작성: 남주
 // ════════════════════════════════════════
 //
-// AI GUIDE: 원가조정 계정 상세(이관인건비 · OT비 · 외주비 · 재료비 · 경비 · A/S Cost)의 등록/수정 방식을 바꾸는 전용 파일입니다.
+// AI GUIDE: 원가조정 계정 상세(이관인건비 · OT비 · 외주비 · 재료비 · 경비 · A/S Cost)의 등록/수정/삭제 방식을 바꾸는 전용 파일입니다.
 //   (실투입인건비는 SCM 선행이라 직접 수정 대상이 아니므로 그대로 둡니다)
 // - 등록 : 팝업 대신 표 맨 위에 입력 행을 추가합니다. 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서를 둡니다.
 // - 수정 : 팝업 대신 그 행의 칸이 바로 입력칸으로 바뀝니다. (경비는 월별 편성이라 그 행 바로 아래에 월 입력칸을 펼침)
+// - 삭제 : 행마다 있던 [삭제]를 없애고, 맨 앞 체크박스로 고른 뒤 표 위 [선택삭제]로 한 번에 지웁니다.
+//          (경비는 삭제 대신 "남은 달 비우기"라 [선택 비우기])
 // - 방법 : 공유 파일(budget-agent-console.js · budget-direct-edit.js)은 고치지 않습니다.
 //          계정 상세 렌더러를 데코레이터로 감싸, 그려진 HTML 안의 팝업 입력칸(같은 id)을 표 행 안으로 옮깁니다.
 //          저장 · 검증 · [예산 조정안] 수기 입력 기록은 원래 저장 함수가 같은 id 를 읽어 그대로 처리합니다.
 // - Enter = 저장, Esc = 취소.
 
 var bieSeq = 0;              // 체크박스 묶음(scope) 번호
-var bieFocusNext = false;    // 입력 행이 열린 직후 그 행으로 스크롤 · 포커스
+
 
 /* ── 폼 정의 — 팝업 입력칸(id)을 표의 몇 번째 칸에 놓을지 ───────────────────────
    cols: 표 열 순서대로. 배열 = 그 칸에 놓을 입력칸 id(또는 .클래스), 'k' = 원래 칸 유지(신규는 –), 'a' = 저장/취소,
@@ -70,12 +72,13 @@ function bieTransform(html) {
   tpl.innerHTML = html;
   const root = tpl.content;
   try {
+    bieAddChecks(root);
     Array.prototype.slice.call(root.querySelectorAll('.agv-pop-dim')).forEach(function (pop) { bieInline(root, pop); });
   } catch (e) { if (typeof console !== 'undefined') console.warn('[budget-inline-edit]', e); }
   return tpl.innerHTML;
 }
 
-/* ── 버튼 onclick 읽기 ─────────────────────────────────────────────────── */
+/* ── 체크박스 열 + [선택삭제] ───────────────────────────────────────────── */
 function bieParseCall(s) {
   const m = String(s || '').replace(/event\.stopPropagation\(\);?/g, '').trim().match(/^(\w+)\((.*)\)$/);
   if (!m) return null;
@@ -83,6 +86,97 @@ function bieParseCall(s) {
   m[2].replace(/'([^']*)'|(-?\d+)/g, function (_, q, n) { args.push(q !== undefined ? q : n); return ''; });
   return { fn: m[1], args: args, text: m[0] };
 }
+function bieOwnButtons(tr) {
+  return Array.prototype.slice.call(tr.querySelectorAll('button')).filter(function (b) { return b.closest('tr') === tr; });
+}
+function bieAddChecks(root) {
+  const rootScope = 'bie' + (++bieSeq);
+  const isExp = !!root.querySelector('.agex-bar');
+  let rootCount = 0;
+  Array.prototype.slice.call(root.querySelectorAll('table')).forEach(function (tb) {
+    if (!tb.tHead) return;
+    const hasMgmt = Array.prototype.some.call(tb.tHead.querySelectorAll('th'), function (th) { return th.textContent.trim() === '관리'; });
+    if (!hasMgmt) return;
+    // 외주비 구매계획처럼 업체 행 안에 따로 있는 표는 그 머리에 [선택삭제]를 따로 둡니다
+    const panel = tb.closest('.agos-panel');
+    const head = (panel && !panel.classList.contains('agex-panel')) ? panel.querySelector('.agos-panel-head') : null;
+    const scope = head ? 'bie' + (++bieSeq) : rootScope;
+    let cnt = 0;
+    Array.prototype.slice.call(tb.rows).forEach(function (r) {
+      const sec = r.parentNode.tagName;
+      if (sec === 'THEAD') {
+        const th = document.createElement('th');
+        th.className = 'bie-ckc';
+        th.innerHTML = `<input type="checkbox" class="bie-all" title="전체 선택" onclick="bieCheckAll(this,'${scope}')">`;
+        r.insertBefore(th, r.firstChild);
+        return;
+      }
+      if (r.cells.length === 1 && r.cells[0].colSpan > 1) { r.cells[0].colSpan += 1; return; }
+      const td = document.createElement('td');
+      td.className = 'bie-ckc';
+      td.setAttribute('onclick', 'event.stopPropagation()');
+      if (sec === 'TBODY') {
+        const btns = bieOwnButtons(r);
+        const del = btns.find(function (b) { return b.classList.contains('del') && /삭제/.test(b.textContent); });
+        const exp = btns.map(function (b) { return bieParseCall(b.getAttribute('onclick')); })
+          .find(function (c) { return c && c.fn === 'agentExpEdOpenFinal'; });
+        let call = '';
+        if (del) { call = (bieParseCall(del.getAttribute('onclick')) || {}).text || ''; del.remove(); }
+        else if (exp) call = `bieExpClear('${exp.args[0]}')`;
+        if (call) {
+          td.innerHTML = `<input type="checkbox" class="bie-ck" data-scope="${scope}" title="선택">`;
+          td.firstChild.setAttribute('data-del', call);
+          cnt++;
+        }
+      }
+      r.insertBefore(td, r.firstChild);
+    });
+    if (head) { if (cnt) head.appendChild(bieDelButton(scope, false)); }
+    else rootCount += cnt;
+  });
+  const bar = root.querySelector('.aglb-bar, .agex-bar');
+  if (bar && rootCount) {
+    const add = bar.querySelector('.aglb-add');
+    bar.insertBefore(bieDelButton(rootScope, isExp), add || null);
+  }
+}
+function bieDelButton(scope, isExp) {
+  const b = document.createElement('button');
+  b.className = 'bie-delsel';
+  b.setAttribute('onclick', `event.stopPropagation();bieDeleteChecked('${scope}',${isExp ? 'true' : 'false'})`);
+  b.textContent = isExp ? '선택 비우기' : '선택삭제';
+  b.title = isExp ? '체크한 세부계정의 남은 달 계획을 0원으로 비웁니다' : '체크한 행을 삭제합니다';
+  return b;
+}
+function bieCheckAll(el, scope) {
+  const tb = el.closest('table');
+  if (!tb) return;
+  tb.querySelectorAll(`input.bie-ck[data-scope="${scope}"]`).forEach(function (c) { c.checked = el.checked; });
+}
+function bieDeleteChecked(scope, isExp) {
+  const boxes = Array.prototype.slice.call(document.querySelectorAll(`input.bie-ck[data-scope="${scope}"]:checked`));
+  if (!boxes.length) { showToast(isExp ? '비울 세부계정을 체크해 주세요.' : '삭제할 행을 체크해 주세요.'); return; }
+  const n = boxes.length;
+  if (!confirm(isExp ? `체크한 ${n}개 세부계정의 남은 달 계획을 0원으로 비울까요? 마감된 달(실적)은 그대로 둡니다.`
+                     : `체크한 ${n}건을 삭제할까요?`)) return;
+  // 뒤에서부터 지웁니다(구매계획처럼 순번으로 지우는 건 앞을 먼저 지우면 순번이 밀림)
+  const calls = boxes.map(function (b) { return b.getAttribute('data-del'); }).reverse();
+  const keep = window.confirm;
+  window.confirm = function () { return true; };   // 건별 확인창은 위에서 한 번에 받았습니다
+  try {
+    calls.forEach(function (c) { try { (new Function(c))(); } catch (e) { if (typeof console !== 'undefined') console.warn(e); } });
+  } finally { window.confirm = keep; }
+  renderBudgetPage();
+  const msg = isExp ? `${n}개 세부계정의 남은 달 계획을 비웠습니다` : `${n}건을 삭제했습니다`;
+  if (typeof agentHandToastFinal === 'function') agentHandToastFinal(msg); else showToast(msg);
+}
+// 경비 — 세부계정 남은 달 비우기(원래 [남은 달 비우기]와 같은 저장 함수)
+function bieExpClear(id) {
+  agentExpEdFinal = { id: id };
+  agentExpEdSaveFinal(true);
+  agentExpEdFinal = null;
+}
+
 /* ── 팝업 → 표 안 입력 행 ───────────────────────────────────────────────── */
 function bieInline(root, pop) {
   const form = BIE_FORMS.find(function (f) { return pop.querySelector(f.probe); });
@@ -185,7 +279,7 @@ function bieNewTable(root, key) {
   let tb = panel.querySelector('table.agos-lines');
   if (!tb) {
     const wrap = document.createElement('div');
-    wrap.innerHTML = `<table class="agos-lines"><thead><tr>
+    wrap.innerHTML = `<table class="agos-lines"><thead><tr><th class="bie-ckc"></th>
       <th>분기</th><th>계획 기간</th><th class="num">계획 금액</th><th>PO번호</th>
       <th class="num">실적(검수)</th><th class="num">집행예정(미검수)</th><th>상태</th><th class="ctr">관리</th></tr></thead><tbody></tbody></table>`;
     tb = wrap.firstChild;
@@ -302,6 +396,13 @@ function bieInjectStyle() {
   const st = document.createElement('style');
   st.id = 'bie-style';
   st.textContent = `
+  .bie-ckc { width:34px; text-align:center !important; padding-left:6px !important; padding-right:6px !important; }
+  .bie-ckc input { width:15px; height:15px; cursor:pointer; accent-color:#2563eb; vertical-align:middle; }
+  .bie-delsel { border:1px solid #f3c2cc; background:#fff; color:#c40025; border-radius:8px; padding:7px 12px;
+    font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .bie-delsel:hover { background:#fff1f3; }
+  .agos-panel-head .bie-delsel { margin-left:auto; padding:4px 10px; font-size:11.5px; }
+  .agos-panel-head:has(.bie-delsel) { display:flex; align-items:center; gap:10px; }
   tr.bie-row > td { background:#eef5ff !important; vertical-align:top; padding-top:7px !important; padding-bottom:7px !important; }
   tr.bie-row > td:first-child { box-shadow:inset 3px 0 0 #2563eb; }
   tr.bie-row .bie-cell input, tr.bie-row .bie-cell select {

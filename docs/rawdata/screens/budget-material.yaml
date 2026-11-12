@@ -367,19 +367,34 @@ elements:
     result: "표 · 탭 금액 · 재료비 합계 증가 + 토스트"
 
   - id: btn-agent-mat-delete
-    label: "삭제"
+    label: 선택삭제
     type: button
     crud: D
-    area: "재료비 소계정 표 관리 열"
+    area: "재료비 소계정 표 상단 [＋ 등록] 왼쪽 (행 맨 앞 체크박스로 고름)"
     event: onclick
     front:
-      handler: "agentMatDelFinal(subIndex, id)"
-      file: "budget-agent-console.js:3724"
-      logic: "confirm 후 제거하고 그 금액만큼 소계정 계획에서 뺀다"
-      validation: "실적이 생긴 품목 · 집행완료 이관 · 상각이 시작된 자산은 삭제 불가(버튼 숨김 + 토스트)"
+      handler: "bieDeleteChecked(scope, false)"
+      file: "budget-inline-edit.js:bieDeleteChecked → 행마다 agentMatDelFinal(subIndex, id) (budget-agent-console.js:3724)"
+      logic: "[2026.11.11] 행마다 있던 [삭제] 대신, 체크한 행을 확인창 1번 뒤 뒤에서부터 원래 삭제 함수 agentMatDelFinal(subIndex, id) 로 차례로 지운다(건별 검증 · [예산 조정안] 수기 입력 기록은 원래 함수 그대로). 원래 규칙: confirm 후 제거하고 그 금액만큼 소계정 계획에서 뺀다"
+      validation: "실적이 생긴 품목 · 집행완료 이관 · 상각이 시작된 자산은 삭제 불가(버튼 숨김 + 토스트) · 체크한 행이 없으면 '삭제할 행을 체크해 주세요.' 토스트"
       state_writes: [getMaterialRows, AGENT_MAT_SUB_FINAL, AGENT_MAT_DELTA_FINAL]
     backend: null
     result: "표 · 탭 금액 · 재료비 합계 감소 + 토스트"
+
+  - id: chk-agent-mat-row
+    label: "행 선택 체크박스 / 머리 전체 선택"
+    type: checkbox
+    crud: N
+    area: "재료비 소계정 표 맨 앞 열"
+    event: onclick
+    front:
+      handler: "bieCheckAll(this, scope)"
+      file: "budget-inline-edit.js:bieAddChecks · bieCheckAll"
+      logic: "삭제할 수 있는 행에만 체크박스가 생긴다(실적이 생긴 · 조회 전용 행은 빈칸). 머리 체크박스는 같은 표의 행을 모두 선택/해제한다. 체크 상태는 화면에만 있고 다시 그리면 풀린다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "선택 표시 — [선택삭제]가 체크한 행을 지움"
 
   - id: sum-agent-mat-transfer
     label: "이관재료비 요약 — 계획(받을·보낼·순 이관) / 실적(받은·보낸·순 이관)"
@@ -497,3 +512,4 @@ requirements:
   - { id: FR-MAT-18, text: "Agent 화면 재료비 상세에는 간트(납품·검수 일정, 상각 기간)를 표시하지 않아야 한다" }
   - { id: FR-MAT-19, text: "[2026.11.11] Agent 화면 재료비 상세의 등록은 팝업이 아니라 표 맨 위에 입력 행을 추가하는 방식이어야 하며, 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서가 있어야 한다" }
   - { id: FR-MAT-20, text: "Agent 화면 재료비 상세의 수정은 팝업 없이 그 행의 칸에서 바로 할 수 있어야 한다(Enter 저장 · Esc 취소)" }
+  - { id: FR-MAT-21, text: "Agent 화면 재료비 상세의 삭제는 행 맨 앞 체크박스로 여러 건을 골라 표 위 [선택삭제]로 한 번에 할 수 있어야 하며, 실적이 생긴 건은 체크할 수 없어야 한다" }

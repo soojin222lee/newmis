@@ -284,19 +284,34 @@ elements:
     result: 표·탭 금액·인건비 합계 갱신 + 토스트
 
   - id: btn-agent-labor-sub-delete
-    label: 삭제
+    label: 선택삭제
     type: button
     crud: D
-    area: "이관인건비/OT비 표 관리 열"
+    area: "이관인건비/OT비 표 상단 [＋ 등록] 왼쪽 (행 맨 앞 체크박스로 고름)"
     event: onclick
     front:
-      handler: "agentLabDeleteFinal(kind, id)"
-      file: "budget-agent-console.js:2103"
-      logic: "confirm 확인 후 목록에서 제거 → 재렌더"
-      validation: "실적이 생긴(집행완료·actualized) 이관 건은 삭제 불가 토스트"
+      handler: "bieDeleteChecked(scope, false)"
+      file: "budget-inline-edit.js:bieDeleteChecked → 행마다 agentLabDeleteFinal(kind, id) (budget-agent-console.js:2103)"
+      logic: "[2026.11.11] 행마다 있던 [삭제] 대신, 체크한 행을 확인창 1번 뒤 뒤에서부터 원래 삭제 함수 agentLabDeleteFinal(kind, id) 로 차례로 지운다(건별 검증 · [예산 조정안] 수기 입력 기록은 원래 함수 그대로). 원래 규칙: confirm 확인 후 목록에서 제거 → 재렌더"
+      validation: "실적이 생긴(집행완료·actualized) 이관 건은 삭제 불가 토스트 · 체크한 행이 없으면 '삭제할 행을 체크해 주세요.' 토스트"
       state_writes: ["laborTransferRowsByProjectFinal[proj]", "AGENT_LABOR_OT_FINAL[proj]"]
     backend: null
     result: 표·탭 금액·인건비 합계 감소 + 토스트
+
+  - id: chk-agent-labor-sub-row
+    label: "행 선택 체크박스 / 머리 전체 선택"
+    type: checkbox
+    crud: N
+    area: "이관인건비/OT비 표 맨 앞 열"
+    event: onclick
+    front:
+      handler: "bieCheckAll(this, scope)"
+      file: "budget-inline-edit.js:bieAddChecks · bieCheckAll"
+      logic: "삭제할 수 있는 행에만 체크박스가 생긴다(실적이 생긴 · 조회 전용 행은 빈칸). 머리 체크박스는 같은 표의 행을 모두 선택/해제한다. 체크 상태는 화면에만 있고 다시 그리면 풀린다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "선택 표시 — [선택삭제]가 체크한 행을 지움"
 
   - id: btn-agent-labor-sub-close
     label: "취소"
@@ -605,3 +620,4 @@ requirements:
   - { id: FR-LAB-24, text: "인건비 월별 계획/실적은 화면에 기본 노출하지 않고 [월별 계획/실적 보기] 팝업으로 상세 3계정별 계획·실적·미집행과 월별 금액을 제공해야 한다" }
   - { id: FR-LAB-25, text: "[2026.11.11] Agent 화면 인건비(이관인건비 · OT비) 상세의 등록은 팝업이 아니라 표 맨 위에 입력 행을 추가하는 방식이어야 하며, 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서가 있어야 한다" }
   - { id: FR-LAB-26, text: "Agent 화면 인건비(이관인건비 · OT비) 상세의 수정은 팝업 없이 그 행의 칸에서 바로 할 수 있어야 한다(Enter 저장 · Esc 취소)" }
+  - { id: FR-LAB-27, text: "Agent 화면 인건비(이관인건비 · OT비) 상세의 삭제는 행 맨 앞 체크박스로 여러 건을 골라 표 위 [선택삭제]로 한 번에 할 수 있어야 하며, 실적이 생긴 건은 체크할 수 없어야 한다" }

@@ -384,19 +384,34 @@ elements:
     result: "그 행에서 바로 수정(입력칸으로 바뀜) · Enter 저장 · Esc 취소"
 
   - id: btn-agent-os-vendor-delete
-    label: 삭제
+    label: 선택삭제
     type: button
     crud: D
-    area: "실투입대상 외주비 업체 행 · 업체명 옆"
+    area: "실투입대상 외주비 업체 표 상단 [＋ 업체 등록] 왼쪽 (행 맨 앞 체크박스로 고름)"
     event: onclick
     front:
-      handler: "agentOsVendorDelFinal(vendorId)"
-      file: "budget-agent-console.js:3265"
-      logic: "confirm 후 osv3VendorsV3에서 제거(PO 발행 전 구매계약 포함) → 탭 금액 · 상단 바 감소"
-      validation: "구매계약(PO)이 발행됐거나 실적이 있는 업체는 삭제 불가 토스트"
+      handler: "bieDeleteChecked(scope, false)"
+      file: "budget-inline-edit.js:bieDeleteChecked → 행마다 agentOsVendorDelFinal(vendorId) (budget-agent-console.js:3265)"
+      logic: "[2026.11.11] 행마다 있던 [삭제] 대신, 체크한 행을 확인창 1번 뒤 뒤에서부터 원래 삭제 함수 agentOsVendorDelFinal(vendorId) 로 차례로 지운다(건별 검증 · [예산 조정안] 수기 입력 기록은 원래 함수 그대로). 원래 규칙: confirm 후 osv3VendorsV3에서 제거(PO 발행 전 구매계약 포함) → 탭 금액 · 상단 바 감소"
+      validation: "구매계약(PO)이 발행됐거나 실적이 있는 업체는 삭제 불가 토스트 · 체크한 행이 없으면 '삭제할 행을 체크해 주세요.' 토스트"
       state_writes: [osv3VendorsV3]
     backend: null
     result: 업체 삭제
+
+  - id: chk-agent-os-vendor-row
+    label: "행 선택 체크박스 / 머리 전체 선택"
+    type: checkbox
+    crud: N
+    area: "실투입대상 외주비 업체 표 맨 앞 열"
+    event: onclick
+    front:
+      handler: "bieCheckAll(this, scope)"
+      file: "budget-inline-edit.js:bieAddChecks · bieCheckAll"
+      logic: "삭제할 수 있는 행에만 체크박스가 생긴다(실적이 생긴 · 조회 전용 행은 빈칸). 머리 체크박스는 같은 표의 행을 모두 선택/해제한다. 체크 상태는 화면에만 있고 다시 그리면 풀린다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "선택 표시 — [선택삭제]가 체크한 행을 지움"
 
   - id: btn-agent-os-sub-add
     label: "＋ {소계정} 등록 / ＋ 이관외주비 등록"
@@ -463,19 +478,34 @@ elements:
     result: 표 · 탭 금액 · 외주비 합계 증가 + 토스트
 
   - id: btn-agent-os-sub-delete
-    label: 삭제
+    label: 선택삭제
     type: button
     crud: D
-    area: "소계정 표 관리 열"
+    area: "소계정 표 상단 [＋ 등록] 왼쪽 (행 맨 앞 체크박스로 고름)"
     event: onclick
     front:
-      handler: "agentOsItemDelFinal(subIndex, id)"
-      file: "budget-agent-console.js:3251"
-      logic: "confirm 후 제거 → 소계정 계획에서 그 금액만큼 빠진다"
-      validation: "실적(검수)이 있거나 집행완료인 건은 삭제 불가(버튼 숨김 + 토스트)"
+      handler: "bieDeleteChecked(scope, false)"
+      file: "budget-inline-edit.js:bieDeleteChecked → 행마다 agentOsItemDelFinal(subIndex, id) (budget-agent-console.js:3251)"
+      logic: "[2026.11.11] 행마다 있던 [삭제] 대신, 체크한 행을 확인창 1번 뒤 뒤에서부터 원래 삭제 함수 agentOsItemDelFinal(subIndex, id) 로 차례로 지운다(건별 검증 · [예산 조정안] 수기 입력 기록은 원래 함수 그대로). 원래 규칙: confirm 후 제거 → 소계정 계획에서 그 금액만큼 빠진다"
+      validation: "실적(검수)이 있거나 집행완료인 건은 삭제 불가(버튼 숨김 + 토스트) · 체크한 행이 없으면 '삭제할 행을 체크해 주세요.' 토스트"
       state_writes: [AGENT_OS_SUB_FINAL]
     backend: null
     result: 표 · 탭 금액 · 외주비 합계 감소 + 토스트
+
+  - id: chk-agent-os-sub-row
+    label: "행 선택 체크박스 / 머리 전체 선택"
+    type: checkbox
+    crud: N
+    area: "외주비 소계정 표 맨 앞 열"
+    event: onclick
+    front:
+      handler: "bieCheckAll(this, scope)"
+      file: "budget-inline-edit.js:bieAddChecks · bieCheckAll"
+      logic: "삭제할 수 있는 행에만 체크박스가 생긴다(실적이 생긴 · 조회 전용 행은 빈칸). 머리 체크박스는 같은 표의 행을 모두 선택/해제한다. 체크 상태는 화면에만 있고 다시 그리면 풀린다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "선택 표시 — [선택삭제]가 체크한 행을 지움"
 
   - id: sum-agent-os-transfer
     label: "이관외주비 요약 — 계획(받을 외주비 · 보낼 외주비 · 순 이관 계획) / 실적(받은 · 보낸 · 순 이관 실적)"
@@ -590,19 +620,34 @@ elements:
     result: 구매계약 추가 + 토스트
 
   - id: btn-agent-os-po-delete
-    label: 삭제
+    label: 선택삭제
     type: button
     crud: D
-    area: "구매계약 목록 관리 열(계약 대기 건만)"
+    area: "업체 행 아래 구매계획 머리 오른쪽 (행 맨 앞 체크박스로 고름)"
     event: onclick
     front:
-      handler: "agentOsDelLineFinal(vendorId, index)"
-      file: "budget-agent-console.js:2914"
-      logic: confirm 후 계약 대기 건 제거
-      validation: "PO 발행 건은 삭제 불가 토스트"
+      handler: "bieDeleteChecked(scope, false)"
+      file: "budget-inline-edit.js:bieDeleteChecked → 행마다 agentOsDelLineFinal(vendorId, index) (budget-agent-console.js:2914)"
+      logic: "[2026.11.11] 행마다 있던 [삭제] 대신, 체크한 행을 확인창 1번 뒤 뒤에서부터 원래 삭제 함수 agentOsDelLineFinal(vendorId, index) 로 차례로 지운다(건별 검증 · [예산 조정안] 수기 입력 기록은 원래 함수 그대로). 원래 규칙: confirm 후 계약 대기 건 제거"
+      validation: "PO 발행 건은 삭제 불가 토스트 · 체크한 행이 없으면 '삭제할 행을 체크해 주세요.' 토스트"
       state_writes: [osv3VendorsV3]
     backend: null
     result: 구매계약 삭제 + 토스트
+
+  - id: chk-agent-os-po-row
+    label: "행 선택 체크박스 / 머리 전체 선택"
+    type: checkbox
+    crud: N
+    area: "업체 행 아래 구매계획 표 맨 앞 열"
+    event: onclick
+    front:
+      handler: "bieCheckAll(this, scope)"
+      file: "budget-inline-edit.js:bieAddChecks · bieCheckAll"
+      logic: "삭제할 수 있는 행에만 체크박스가 생긴다(실적이 생긴 · 조회 전용 행은 빈칸). 머리 체크박스는 같은 표의 행을 모두 선택/해제한다. 체크 상태는 화면에만 있고 다시 그리면 풀린다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "선택 표시 — [선택삭제]가 체크한 행을 지움"
 
   - id: btn-agent-os-po-close
     label: "취소"
@@ -786,3 +831,4 @@ requirements:
   - { id: RQ-OS-25, text: "구매시스템에서 외주구매 견적이 확정되면 Agent가 [예산 조정안]으로 예산 조정을 먼저 제안해야 한다" }
   - { id: RQ-OS-26, text: "[2026.11.11] Agent 화면 외주비(업체 · 소계정 · 구매계획) 상세의 등록은 팝업이 아니라 표 맨 위에 입력 행을 추가하는 방식이어야 하며, 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서가 있어야 한다" }
   - { id: RQ-OS-27, text: "Agent 화면 외주비(업체 · 소계정 · 구매계획) 상세의 수정은 팝업 없이 그 행의 칸에서 바로 할 수 있어야 한다(Enter 저장 · Esc 취소)" }
+  - { id: RQ-OS-28, text: "Agent 화면 외주비(업체 · 소계정 · 구매계획) 상세의 삭제는 행 맨 앞 체크박스로 여러 건을 골라 표 위 [선택삭제]로 한 번에 할 수 있어야 하며, 실적이 생긴 건은 체크할 수 없어야 한다" }
