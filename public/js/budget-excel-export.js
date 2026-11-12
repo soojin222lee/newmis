@@ -5,9 +5,10 @@
 //   - 외부 라이브러리 없이 xlsx(OOXML)를 직접 만들고 무압축 ZIP으로 묶습니다(bxeXlsx · bxeZip).
 //   - 표 → 행 변환(bxeTableRows)은 colspan/rowspan을 병합 셀로 옮기고, 체크박스 · 관리 열과
 //     아직 저장하지 않은 입력 행(bie-row)은 뺍니다. "1,234" 같은 금액은 숫자 셀(#,##0)로 넣습니다.
-//   - bxeMonthly(acct): [월별 계획/실적 보기] 팝업 표(지금 고른 보기 · 연도 · 단위 그대로)
+//   - bxeMonthly(acct, btn): 버튼이 속한 월별 표(.bmv-wrap) — 원가조정 월별 팝업 · 원가현황 전체 현황/계정 예산내역
 //   - bxeDetail(btn): 계정 상세 예산내역 표(지금 고른 상세계정 탭) — 표 위 막대의 [⬇ 엑셀]
-//   - bxeActual(acct, month): 실적조회 팝업의 [엑셀](원래 동작 없던 버튼)에 연결
+//   - bxeActual(): 실적조회 · 인건비 투입계획 조회 팝업의 [엑셀](원래 동작 없던 버튼)에 연결
+//   - 공통 버튼 디자인 .bxe-btn (원가조정 · 원가현황의 엑셀 버튼은 모두 이 모양)
 //   공유 파일은 고치지 않습니다. budget-monthly-view.js 뒤에 로드합니다.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -20,7 +21,7 @@ function bxeSafeName(s) { return String(s || '').replace(/[\\/:*?"<>|\[\]]/g, '_
 function bxeProjName() {
   try {
     const d = (typeof BUDGET_SOURCE !== 'undefined' && typeof currentBudgetProj !== 'undefined') ? BUDGET_SOURCE[currentBudgetProj] : null;
-    return (d && (d.projectName || d.name || d.title)) || '';
+    return (d && (d.projName || d.projectName || d.name || d.title)) || '';
   } catch (e) { return ''; }
 }
 function bxeToastMsg(m) {
@@ -51,7 +52,7 @@ function bxeCellText(el) {
     Array.prototype.forEach.call(n.childNodes, walk);
     if (block) parts.push(' ');
   })(c);
-  return parts.join('').replace(/\s+/g, ' ').trim().replace(/^[∨∧▾▴▸›]\s*/, '');   // 펼침 표시는 뺍니다
+  return parts.join('').replace(/\s+/g, ' ').trim().replace(/^[∨∧▾▴▸›⊟⊞○●]\s*/, '');   // 펼침 · 트리 표시는 뺍니다
 }
 function bxeValue(text) {
   const t = String(text).replace(/−/g, '-').replace(/원$/, '').trim();
@@ -129,8 +130,9 @@ function bxeSheet(name, title, sub, tableRows) {
 }
 
 /* ── 월별 계획/실적 ────────────────────────────────────────────────────── */
-function bxeMonthly(acct) {
-  const t = document.querySelector('.bmv-pop .bmv-table');
+function bxeMonthly(acct, btn) {
+  const wrap = btn && btn.closest ? btn.closest('.bmv-wrap') : null;
+  const t = wrap ? wrap.querySelector('.bmv-table') : document.querySelector('.bmv-pop .bmv-table');
   if (!t) { bxeToastMsg('내려받을 표가 없습니다.'); return; }
   const unit = (typeof bmvUnitInfo === 'function') ? bmvUnitInfo()[1] : '원';
   const mode = (typeof bmvMode !== 'undefined' && bmvMode === 'quarter') ? '분기별' : (typeof bmvMode !== 'undefined' && bmvMode === 'year') ? '연도별' : '월별';
@@ -297,7 +299,7 @@ function bxeAddDetailButton(html) {
     b.className = 'bxe-btn';
     b.setAttribute('onclick', 'event.stopPropagation();bxeDetail(this)');
     b.title = '이 표(저장된 내역)를 엑셀(.xlsx)로 내려받습니다 — 저장 전 입력 행은 빠집니다';
-    b.textContent = '⬇ 엑셀';
+    b.textContent = '⬇ 엑셀 다운로드';
     bar.insertBefore(b, bar.querySelector('.bie-delsel, .aglb-add, .bie-savebar') || null);
     return tpl.innerHTML;
   } catch (e) { if (typeof console !== 'undefined') console.warn('[budget-excel-export]', e); return html; }
@@ -324,42 +326,51 @@ function bxeDetail(btn) {
   bxeSave(bxeSafeName(acct) + '_' + bxeSafeName(label) + '_예산내역_' + bxeToday() + '.xlsx', sheets);
 }
 
-/* ── 실적조회 팝업 [엑셀] ─────────────────────────────────────────────────
-   월별 표의 실적 금액을 누르면 뜨는 실적조회 팝업(showActualDetailModal)의 [엑셀] 버튼은 동작이 없었습니다.
-   팝업을 그린 뒤 그 버튼에만 내려받기를 연결합니다(공유 렌더러는 그대로). */
-if (typeof showActualDetailModal === 'function') {
-  const bxeActualBefore = showActualDetailModal;
-  showActualDetailModal = function (account, month, detailName) {
-    const r = bxeActualBefore.apply(this, arguments);
-    try {
-      const btn = document.querySelector('#actual-detail-modal .actual-detail-toolbar button');
-      if (btn) {
-        const q = function (s) { return "'" + String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"; };
-        btn.setAttribute('onclick', 'bxeActual(' + q(account) + ',' + q(month) + ')');
-        btn.textContent = '⬇ 엑셀 다운로드';
-      }
-    } catch (e) { /* 버튼이 없으면 그대로 */ }
+/* ── 조회 팝업 [엑셀] ───────────────────────────────────────────────────
+   실적조회(showActualDetailModal) · 인건비 투입계획 조회(showLaborPlanDetailModal) 팝업의 [엑셀] 버튼은 동작이 없었습니다.
+   팝업을 그린 뒤 그 버튼에만 내려받기와 공통 디자인(bxe-btn)을 붙입니다(공유 렌더러는 그대로). */
+function bxeWireModalButton() {
+  const btn = document.querySelector('#actual-detail-modal .actual-detail-toolbar button');
+  if (!btn) return;
+  btn.setAttribute('onclick', 'bxeActual()');
+  btn.className = 'bxe-btn';
+  btn.textContent = '⬇ 엑셀 다운로드';
+}
+['showActualDetailModal', 'showLaborPlanDetailModal'].forEach(function (name) {
+  const before = window[name];
+  if (typeof before !== 'function') return;
+  window[name] = function () {
+    const r = before.apply(this, arguments);
+    try { bxeWireModalButton(); } catch (e) { /* 버튼이 없으면 그대로 */ }
     return r;
   };
-}
-function bxeActual(account, month) {
-  const t = document.querySelector('#actual-detail-modal .actual-detail-table');
+});
+function bxeActual() {
+  const m = document.getElementById('actual-detail-modal');
+  const t = m && m.querySelector('.actual-detail-table');
   if (!t) { bxeToastMsg('내려받을 표가 없습니다.'); return; }
-  const tab = document.querySelector('#actual-detail-modal .actual-detail-tabs button.active');
-  const nm = (tab ? bxeCellText(tab) : '') || '실적';
-  bxeSave(bxeSafeName(account) + '_실적조회_' + bxeSafeName(month) + '_' + bxeToday() + '.xlsx',
-    [bxeSheet(nm, account + ' 실적조회 — ' + month + ' · ' + nm, '단위: 원 · 내려받은 날: ' + bxeToday(), bxeTableRows(t))]);
+  const head = m.querySelector('.actual-detail-head strong');
+  const title = (head ? bxeCellText(head) : '') || '조회';
+  const month = (m.querySelector('.actual-detail-filter input') || {}).value || '';
+  const tab = m.querySelector('.actual-detail-tabs button.active');
+  const nm = (tab ? bxeCellText(tab) : '') || title;
+  bxeSave(bxeSafeName(title.replace(/\s+/g, '')) + '_' + bxeSafeName(month) + '_' + bxeToday() + '.xlsx',
+    [bxeSheet(nm, title + ' — ' + month + ' · ' + nm, '단위: 원 · 내려받은 날: ' + bxeToday(), bxeTableRows(t))]);
 }
 
+/* ── 공통 [⬇ 엑셀 다운로드] 버튼 디자인 ─────────────────────────────────
+   원가조정 · 원가현황의 엑셀 버튼은 모두 이 class(bxe-btn)를 씁니다. 파일을 읽을 때 한 번 넣습니다. */
 function bxeInjectStyle() {
-  if (document.getElementById('bxe-style')) return;
+  if (typeof document === 'undefined' || !document.head || document.getElementById('bxe-style')) return;
   const st = document.createElement('style');
   st.id = 'bxe-style';
   st.textContent = `
-  .bxe-btn { border:1px solid #86efac; background:#f0fdf4; color:#166534; border-radius:8px; padding:6px 12px;
-    font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
-  .bxe-btn:hover { background:#dcfce7; }
+  .bxe-btn { display:inline-flex; align-items:center; gap:4px; height:32px; border:1px solid #86efac; background:#f0fdf4; color:#166534;
+    border-radius:8px; padding:0 12px; font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; box-shadow:none; }
+  .bxe-btn:hover { background:#dcfce7; border-color:#4ade80; }
   .agex-bar .bxe-btn { margin-left:auto; }
-  .agex-bar .bxe-btn ~ .aglb-add, .agex-bar .bxe-btn ~ .bie-delsel { margin-left:0; }`;
+  .agex-bar .bxe-btn ~ .aglb-add, .agex-bar .bxe-btn ~ .bie-delsel { margin-left:0; }
+  .actual-detail-toolbar .bxe-btn { margin-left:auto; }`;
   document.head.appendChild(st);
 }
+bxeInjectStyle();
