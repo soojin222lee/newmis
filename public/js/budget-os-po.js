@@ -2,12 +2,11 @@
 //  수행원가 > 원가조정 > 외주비 — 구매계획 등록: 분기 / 월별 선택                작성: 남주
 // ───────────────────────────────────────────────────────────────────────────
 // AI GUIDE: 업체 행 아래 [+ 구매계획] 입력(renderAgentOsPoPopFinal · agentOsPoSaveFinal)을 다시 정의합니다.
-//   - [분기 | 월별] 단위를 고른 뒤 기간 버튼을 여러 개 고르면, 고른 기간마다 같은 금액으로 한 번에 등록합니다.
+//   - [분기 | 월별] 단위를 고르고 기간 버튼을 하나 고르면(한 번에 하나 — 다른 걸 누르면 바뀜) 계획 시작 · 종료일에
+//     그 기간이 기본값으로 들어갑니다. 날짜는 그대로 고칠 수 있고, 저장은 날짜 칸 값 기준입니다.
 //   - 이미 구매계획이 있는 기간은 ✓ 표시만 하고 고를 수 있습니다(같은 기간에 계획 추가 가능 — 이전엔 disabled).
-//   - 기본값: 기간을 고르면 금액 = 등록 가능 금액 ÷ 고른 개수(만원 단위 내림), 시작·종료일 = 고른 기간 범위.
-//     금액을 직접 고치면(agos-po-touched=1) 그 뒤로는 금액을 바꾸지 않습니다. 기간 버튼을 모두 풀면 다시 직접 입력.
-//   - 팝업(.agv-pop)과 표 안 입력 행(budget-inline-edit.js · tr.bie-row) 어디서든 같은 함수로 동작합니다
-//     (id 대신 data-oid 도 찾음). 저장은 원래처럼 #agos-po-* 값과 .agv-pop .agos-q.on 을 읽습니다.
+//   - 금액 기본값 = 등록 가능 금액. 금액을 직접 고치면(agos-po-touched=1) 기간을 바꿔도 금액은 그대로.
+//   - 팝업(.agv-pop)과 표 안 입력 행(budget-inline-edit.js · tr.bie-row) 어디서든 같은 함수로 동작합니다(id 대신 data-oid 도 찾음).
 //   공유 파일(budget-agent-console.js)은 고치지 않습니다. budget-agent-console.js 뒤에 로드합니다.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -47,7 +46,7 @@ function bopBox(el) { return el ? (el.closest('tr.bie-row') || el.closest('.agv-
 function bopEl(box, k) { return box ? (box.querySelector('[data-oid="' + k + '"]') || box.querySelector('#' + k)) : null; }
 
 /* ── 동작 ──────────────────────────────────────────────────────────────── */
-// [분기 | 월별] 전환 — 다른 단위에서 고른 기간은 풉니다
+// [분기 | 월별] 전환 — 다른 단위에서 고른 기간은 풉니다(날짜 칸은 그대로)
 function agentOsPoUnitFinal(btn, unit) {             // crud N
   const box = bopBox(btn);
   if (!box) return;
@@ -56,49 +55,47 @@ function agentOsPoUnitFinal(btn, unit) {             // crud N
   const u = bopEl(box, 'agos-po-unit');
   if (u) u.value = unit;
   box.querySelectorAll('.agos-unit button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-unit') === unit); });
-  box.querySelectorAll('.agos-q.on').forEach(function (b) { if (b.getAttribute('data-unit') !== unit) b.classList.remove('on'); });
+  box.querySelectorAll('.agos-q.on').forEach(function (b) { b.classList.remove('on'); });
   bopSync(box);
 }
-// 기간 버튼 고르기/풀기
+// 기간 버튼 — 하나만 고릅니다. 고르면 계획 시작 · 종료일에 그 기간을 기본값으로 넣습니다(고칠 수 있음)
 function agentOsPoPickFinal(btn) {                   // crud N
-  btn.classList.toggle('on');
-  bopSync(bopBox(btn));
+  const box = bopBox(btn);
+  if (!box) return;
+  const was = btn.classList.contains('on');
+  box.querySelectorAll('.agos-q.on').forEach(function (b) { b.classList.remove('on'); });
+  if (!was) {
+    btn.classList.add('on');
+    const st = bopEl(box, 'agos-po-start'), en = bopEl(box, 'agos-po-end');
+    if (st) st.value = btn.getAttribute('data-from');
+    if (en) en.value = btn.getAttribute('data-to');
+  }
+  bopSync(box);
 }
 // 금액을 직접 고치면 그 뒤로 기본값을 넣지 않습니다
 function agentOsPoAmtFinal(el) {                     // crud N
   const box = bopBox(el);
   const t = bopEl(box, 'agos-po-touched');
   if (t) t.value = '1';
-  bopSync(box, true);
+  bopSync(box);
 }
-// 고른 기간에 맞춰 시작·종료일 · 금액 기본값 · 안내 문구
-function bopSync(box, keepAmt) {
+// 금액 기본값(등록 가능 금액) · 안내 문구
+function bopSync(box) {
   if (!box) return;
   const qs = box.querySelector('.agos-qs');
-  const on = Array.prototype.slice.call(box.querySelectorAll('.agos-q.on'));
-  const n = on.length;
-  const unitName = (qs && qs.getAttribute('data-unit') === 'm') ? '달' : '분기';
+  const on = box.querySelector('.agos-q.on');
   const st = bopEl(box, 'agos-po-start'), en = bopEl(box, 'agos-po-end'), amt = bopEl(box, 'agos-po-amount');
-  [st, en].forEach(function (x) { if (x) x.disabled = n > 0; });
-  if (n) {
-    const froms = on.map(function (b) { return b.getAttribute('data-from'); }).sort();
-    const tos = on.map(function (b) { return b.getAttribute('data-to'); }).sort();
-    if (st) st.value = froms[0];
-    if (en) en.value = tos[tos.length - 1];
-  }
+  [st, en].forEach(function (x) { if (x) x.disabled = false; });
   const room = Number(qs && qs.getAttribute('data-room')) || 0;
   const touched = (bopEl(box, 'agos-po-touched') || {}).value === '1';
-  if (amt && !keepAmt && !touched && room) {
-    const each = n ? (Math.floor(room / n / 10000) * 10000 || Math.floor(room / n)) : room;
-    amt.value = each;
-  }
-  const lab = bopEl(box, 'agos-po-amt-lab');
-  if (lab) lab.textContent = n ? unitName + '별 금액(원) — 고른 ' + n + '개 ' + unitName + '에 같은 금액으로 등록' : '계획 금액(원)';
-  const hint = bopEl(box, 'agos-po-hint');
+  if (amt && !touched && room) amt.value = room;
   const a = Math.abs(parseBudgetAmount((amt || {}).value || 0));
+  const hint = bopEl(box, 'agos-po-hint');
   if (hint) {
-    hint.textContent = n ? '합계 ' + fmt(a * n) + '원 = ' + fmt(a) + '원 × ' + n + '개 ' + unitName + (room && a * n > room ? ' · 등록 가능 ' + fmt(room) + '원 초과' : '') : '';
-    hint.classList.toggle('over', !!(room && a * n > room));
+    const over = !!(room && a > room);
+    hint.textContent = over ? '등록 가능 ' + fmt(room) + '원을 넘습니다'
+      : on ? on.textContent.replace('✓', '').trim() + ' 기간을 넣었습니다 — 날짜는 고칠 수 있습니다' : '';
+    hint.classList.toggle('over', over);
   }
 }
 // 표 안 행이 다시 그려진 뒤(입력값 복원 후) 단위 · 날짜 · 안내를 맞춥니다 — budget-inline-edit.js bieApplyValues 가 부릅니다
@@ -143,7 +140,7 @@ renderAgentOsPoPopFinal = function () {
   const picker = x ? '' : `
     <div class="agos-qs" data-unit="q" data-room="${room}">
       <div class="agos-qhead">
-        <span>기간마다 같은 금액이면 기간을 고르세요</span>
+        <span>기간을 고르면 계획 시작 · 종료일이 채워집니다(고칠 수 있음)</span>
         <div class="agos-unit" role="tablist" aria-label="기간 단위">
           <button type="button" class="on" data-unit="q" onclick="agentOsPoUnitFinal(this,'q')">분기</button>
           <button type="button" data-unit="m" onclick="agentOsPoUnitFinal(this,'m')">월별</button>
@@ -183,22 +180,20 @@ renderAgentOsPoPopFinal = function () {
     </div>`;
 };
 
-/* ── 저장 — 고른 기간(분기 · 달)마다 같은 금액으로 등록 ─────────────────── */
+/* ── 저장 — 계획 시작 · 종료일 칸 기준(기간 버튼은 날짜 기본값만 넣음) ─────────── */
 agentOsPoSaveFinal = function () {
   const e = agentOsPoEdFinal;
   const v = e ? agentOsFindVendorFinal(e.vid) : null;
   if (!v) return;
   const val = function (id) { return ((document.getElementById(id) || {}).value || '').trim(); };
   const amount = Math.abs(parseBudgetAmount(val('agos-po-amount') || 0));
-  const picked = Array.prototype.slice.call(document.querySelectorAll('.agv-pop .agos-q.on')).map(function (b) { return b.dataset.q; });
-  const all = bopPeriods(v, 'q').concat(bopPeriods(v, 'm'));
-  const ps = all.filter(function (p) { return picked.indexOf(p.key) >= 0; });
-  const unitName = ps.length && /-/.test(ps[0].key) ? '달' : '분기';
-  const spans = ps.length ? ps.map(function (p) { return { from: p.from, to: p.to }; })
-    : [{ from: val('agos-po-start'), to: val('agos-po-end') }];
+  // 기간 버튼은 날짜 기본값만 넣습니다 — 저장은 PM이 고친 날짜 칸 값으로
+  const spans = [{ from: val('agos-po-start'), to: val('agos-po-end') }];
+  const sameMonth = function (sp) { return sp.from.slice(0, 7) === sp.to.slice(0, 7); };
+  const unitName = '분기';
   for (let k = 0; k < spans.length; k++) {
     const sp = spans[k];
-    if (!sp.from || !sp.to) { showToast('계획 기간을 입력하거나 분기 · 달을 골라 주세요.'); return; }
+    if (!sp.from || !sp.to) { showToast('계획 시작 · 종료일을 입력하거나 분기 · 달을 골라 주세요.'); return; }
     if (sp.to < sp.from) { showToast('계획 종료일이 시작일보다 앞설 수 없습니다.'); return; }
     if ((v.start && sp.from < v.start) || (v.end && sp.to > v.end)) {
       showToast('계획 기간은 업체 전체기간(' + v.start + ' ~ ' + v.end + ') 안이어야 합니다.'); return;
@@ -213,13 +208,13 @@ agentOsPoSaveFinal = function () {
       + (spans.length > 1 ? spans.length + '개 ' + unitName + ' 합계 ' + fmt(need) + '원은' : '그 이상은') + ' 등록할 수 없습니다.');
     return;
   }
-  const label = function (sp) { return unitName === '달' ? sp.from.slice(0, 7) : agentOsQuarterFinal(sp.from); };
+  const label = function (sp) { return sameMonth(sp) ? sp.from.slice(0, 7) : agentOsQuarterFinal(sp.from); };
   const before = agentCloneFinal(v);
   let rows = [], what;
   if (e.i >= 0) {
     Object.assign(v.pos[e.i], { start: spans[0].from, end: spans[0].to, amount: amount, plan: {} });
     rows = [v.pos[e.i]];
-    what = '구매계획 수정 · ' + v.vendor + ' ' + agentOsQuarterFinal(spans[0].from) + ' ' + fmt(amount) + '원';
+    what = '구매계획 수정 · ' + v.vendor + ' ' + label(spans[0]) + ' ' + fmt(amount) + '원';
   } else {
     rows = spans.map(function (sp) { return { poNo: '', start: sp.from, end: sp.to, amount: amount, mm: 0, actual: 0, planned: 0, plan: {} }; });
     v.pos = (v.pos || []).concat(rows);
