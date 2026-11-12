@@ -132,7 +132,7 @@ function bxeSheet(name, title, sub, tableRows) {
 function bxeMonthly(acct) {
   const t = document.querySelector('.bmv-pop .bmv-table');
   if (!t) { bxeToastMsg('내려받을 표가 없습니다.'); return; }
-  const unit = (typeof bmvUnit !== 'undefined' && bmvUnit === 1) ? '원' : (typeof bmvUnit !== 'undefined' && bmvUnit === 1000000) ? '백만원' : '천원';
+  const unit = (typeof bmvUnitInfo === 'function') ? bmvUnitInfo()[1] : '원';
   const mode = (typeof bmvMode !== 'undefined' && bmvMode === 'quarter') ? '분기별' : (typeof bmvMode !== 'undefined' && bmvMode === 'year') ? '연도별' : '월별';
   const year = (typeof bmvYear !== 'undefined' && bmvYear !== 'all') ? bmvYear + '년' : '전체 기간';
   const proj = bxeProjName();
@@ -199,7 +199,7 @@ function bxeXlsx(sheets) {
       + sheets.map(function (s, i) { return '<Relationship Id="rId' + (i + 1) + '" Type="' + ns + 'officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>'; }).join('')
       + '<Relationship Id="rId' + (sheets.length + 1) + '" Type="' + ns + 'officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
     ['xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="' + ns + 'spreadsheetml/2006/main">'
-      + '<numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0"/><numFmt numFmtId="165" formatCode="#,##0.0"/></numFmts>'
+      + '<numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0"/><numFmt numFmtId="165" formatCode="#,##0.0#"/></numFmts>'
       + '<fonts count="4"><font><sz val="10"/><name val="맑은 고딕"/></font><font><b/><sz val="10"/><name val="맑은 고딕"/></font>'
       + '<font><b/><sz val="13"/><name val="맑은 고딕"/></font><font><sz val="9"/><color rgb="FF64748B"/><name val="맑은 고딕"/></font></fonts>'
       + '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'

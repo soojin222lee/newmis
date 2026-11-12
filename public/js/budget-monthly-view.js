@@ -7,7 +7,7 @@
 // - 바꾸는 것(공유 렌더러 renderAccountMonthlyBudgetTable 은 고치지 않고, 같은 데이터 getMonthlyBudgetRows 로 새로 그림)
 //   · 보기  : [월별] [분기별] [연도별] 로 묶어서 보기
 //   · 연도  : 전체 / 연도 하나만 골라 보기
-//   · 단위  : 원 / 천원(기본) / 백만원 — 숫자 폭을 줄임
+//   · 단위  : 원 / 만원(기본) / 억원 — 숫자 폭을 줄임 (억원은 소수 둘째 자리)
 //   · 실적  : 지난 달(확정 실적)은 기본으로 "실적 합계" 한 칸으로 접고, [펼치기]로 월별 표시
 //   · 월별 보기에서는 연도 머리줄 + "11월"처럼 짧게, 연도마다 "연도 합계" 칸
 //   · 구분 · 계획 요약 열은 가로 스크롤해도 왼쪽에 고정
@@ -16,7 +16,9 @@
 
 var bmvMode = 'month';      // month | quarter | year
 var bmvYear = 'all';        // all | '2026' …
-var bmvUnit = 1000;         // 1 | 1000 | 1000000
+var BMV_UNITS = [[1, '원', 0], [10000, '만원', 0], [100000000, '억원', 2]];   // [나눌 값, 이름, 소수 자리]
+var bmvUnit = 10000;        // 1 | 10000 | 100000000
+function bmvUnitInfo() { return BMV_UNITS.find(function (u) { return u[0] === bmvUnit; }) || BMV_UNITS[0]; }
 var bmvActOpen = false;     // 지난 달(실적) 월별로 펼치기
 
 function bmvSet(k, v) {
@@ -31,9 +33,9 @@ function bmvIsPast(m) {
 }
 function bmvNum(v) {
   const n = Number(v) || 0;
-  if (bmvUnit === 1) return fmt(Math.round(n));
-  const x = n / bmvUnit;
-  return fmt(Math.round(x * (bmvUnit === 1000000 ? 10 : 1)) / (bmvUnit === 1000000 ? 10 : 1));
+  const d = Math.pow(10, bmvUnitInfo()[2]);
+  const x = Math.round(n / bmvUnit * d) / d;
+  return fmt(x);
 }
 
 renderAgentAcctMonthlyPopFinal = function (viewData, acct) {
@@ -159,10 +161,10 @@ function bmvTable(viewData, acct) {
         <option value="all" ${bmvYear === 'all' ? 'selected' : ''}>전체</option>
         ${years.map(function (y) { return `<option value="${y}" ${bmvYear === y ? 'selected' : ''}>${y}년</option>`; }).join('')}</select></label>
       <label class="bmv-sel"><span>단위</span><select onchange="bmvSet('unit',this.value)">
-        ${[[1, '원'], [1000, '천원'], [1000000, '백만원']].map(function (u) { return `<option value="${u[0]}" ${bmvUnit === u[0] ? 'selected' : ''}>${u[1]}</option>`; }).join('')}</select></label>
+        ${BMV_UNITS.map(function (u) { return `<option value="${u[0]}" ${bmvUnit === u[0] ? 'selected' : ''}>${u[1]}</option>`; }).join('')}</select></label>
       ${(bmvMode !== 'year' && pastList.length) ? `<button class="bmv-act ${bmvActOpen ? 'on' : ''}" onclick="bmvSet('act')"
         title="지난 달(확정 실적)을 ${bmvActOpen ? '실적 합계 한 칸으로 접습니다' : '월별로 펼칩니다'}">실적 ${pastLabel} ${bmvActOpen ? '접기 ▴' : '펼치기 ▾'}</button>` : ''}
-      <em class="bmv-unit">단위: ${bmvUnit === 1 ? '원' : bmvUnit === 1000 ? '천원' : '백만원'}</em>
+      <em class="bmv-unit">단위: ${bmvUnitInfo()[1]}</em>
       ${typeof bxeMonthly === 'function' ? `<button class="bmv-xls" onclick="bxeMonthly('${escHtml(acct)}')" title="지금 보이는 표(보기 · 연도 · 단위 그대로)를 엑셀(.xlsx)로 내려받습니다">⬇ 엑셀 다운로드</button>` : ''}
     </div>`;
   return `${tools}
