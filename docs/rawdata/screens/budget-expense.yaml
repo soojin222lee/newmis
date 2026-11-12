@@ -200,6 +200,127 @@ elements:
     backend: null
     result: "이월안 반영 여부 전환"
 
+  # [2026.11.11] 경비 편성/수정 — 팝업 대신 표 안에서 (budget-inline-edit.js)
+  - id: btn-agent-exp-add
+    label: "＋ 경비 편성"
+    type: button
+    crud: N
+    area: "경비 상세 연도 탭 오른쪽"
+    event: onclick
+    front:
+      handler: "agentExpEdOpenFinal('')"
+      file: "budget-agent-console.js:agentExpEdOpenFinal → 입력 행 변환 budget-inline-edit.js:bieInlineFull · bieFocusRow"
+      logic: "팝업 대신 중분류 표 맨 위에 편성 행(전체 폭)을 연다. 세부계정을 고르면 그 계정의 연도별 월 입력칸이 나온다. 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서. 직책자 화면 · 과거 확정 버전 조회 중에는 숨김"
+      validation: null
+      state_writes: [agentExpEdFinal]
+    backend: null
+    result: "표 맨 위에 편성 행 추가"
+
+  - id: select-agent-exp-pick
+    label: 세부계정
+    type: select
+    crud: N
+    area: "편성 행 첫 줄"
+    event: onchange
+    front:
+      handler: "agentExpEdPickFinal(this.value)"
+      file: "budget-agent-console.js:agentExpEdPickFinal"
+      logic: "중분류별 세부계정(계정코드 · 통제 여부) 중 편성할 계정을 고르면 월 입력칸을 그린다"
+      validation: null
+      state_writes: [agentExpEdFinal]
+    backend: null
+    result: "고른 세부계정의 월 입력칸 표시"
+
+  - id: btn-agent-exp-edit
+    label: 수정
+    type: button
+    crud: N
+    area: "중분류를 펼친 세부계정 표 관리 열"
+    event: onclick
+    front:
+      handler: "agentExpEdOpenFinal(id)"
+      file: "budget-agent-console.js:agentExpEdOpenFinal → budget-inline-edit.js:bieInlineFull"
+      logic: "팝업 대신 그 세부계정 행 바로 아래에 연도별 월 입력칸(전체 폭)을 펼쳐 칸에서 바로 고친다. 마감된 달(실적 확정)은 잠김"
+      validation: null
+      state_writes: [agentExpEdFinal]
+    backend: null
+    result: "그 행 아래에 월 입력칸 펼침"
+
+  - id: input-agent-exp-month
+    label: "월 계획 금액(1~12월)"
+    type: input(numeric)
+    crud: U
+    area: "편성/수정 행 월 입력칸"
+    event: oninput
+    front:
+      handler: "agentExpEdSumFinal()"
+      file: "budget-inline-edit.js:agentExpEdSumFinal (원래 budget-agent-console.js 재정의 — 팝업과 표 안 행 둘 다 찾음)"
+      logic: "입력하면 연간 합계를 다시 쓴다. 마감 월(AGENT_EXP_CLOSED_THRU_FINAL 이하)은 disabled"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "연간 합계 갱신"
+
+  - id: btn-agent-exp-fill
+    label: 채우기
+    type: button
+    crud: N
+    area: "편성/수정 행 연도 머리 '남은 달 같은 금액' 옆"
+    event: onclick
+    front:
+      handler: "agentExpEdFillFinal(year)"
+      file: "budget-inline-edit.js:agentExpEdFillFinal (재정의)"
+      logic: "입력한 금액을 그 해 남은 달(입력 가능한 칸)에 똑같이 채우고 합계를 다시 쓴다(저장 전)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "남은 달 칸 채움"
+
+  - id: btn-agent-exp-save
+    label: 저장
+    type: button
+    crud: U
+    area: "편성/수정 행 오른쪽 아래"
+    event: onclick
+    front:
+      handler: "agentExpEdSaveFinal(false)"
+      file: "budget-agent-console.js:agentExpEdSaveFinal"
+      logic: "마감 안 된 달의 금액을 세부계정 월별 계획에 쓰고, 바뀐 월만 agentHandRecordFinal('경비', 중분류, …)로 [예산 조정안] ✎ 수기 입력에 올린다. 통제 계정은 남은 달 계획이 ERP 가용예산을 넘으면 토스트로 알림"
+      validation: "바뀐 금액이 없으면 '바뀐 금액이 없습니다.' 토스트"
+      state_writes: [EXPENSE_ACCOUNT_ROWS_FINAL, AGENT_PROPOSALS_FINAL, agentExpEdFinal, agentExpOpenFinal]
+    backend: null
+    result: "세부계정 계획 · 중분류 합계 갱신 + 토스트"
+
+  - id: btn-agent-exp-clear
+    label: 남은 달 비우기
+    type: button
+    crud: D
+    area: "수정 행 오른쪽 아래"
+    event: onclick
+    front:
+      handler: "agentExpEdSaveFinal(true)"
+      file: "budget-agent-console.js:agentExpEdSaveFinal"
+      logic: "confirm 후 그 세부계정의 남은 달 계획을 0원으로 비운다. 마감된 달(실적)은 그대로"
+      validation: "비울 계획이 없으면 '남은 달에 비울 계획이 없습니다.' 토스트"
+      state_writes: [EXPENSE_ACCOUNT_ROWS_FINAL, AGENT_PROPOSALS_FINAL, agentExpEdFinal]
+    backend: null
+    result: "남은 달 계획 0원 + 토스트"
+
+  - id: btn-agent-exp-cancel
+    label: 취소
+    type: button
+    crud: N
+    area: "편성/수정 행 오른쪽 아래 / Esc"
+    event: onclick
+    front:
+      handler: "agentExpEdCloseFinal()"
+      file: "budget-agent-console.js:agentExpEdCloseFinal"
+      logic: "편성/수정 행 닫기(입력값 버림). Esc 도 같다(budget-inline-edit.js:bieKey)"
+      validation: null
+      state_writes: [agentExpEdFinal]
+    backend: null
+    result: "행 닫힘"
+
 # ── 백엔드/외부 연동 (현재 목업, SRS 승격 후보) ──
 apis:
   - name: ERP 가용예산
@@ -311,3 +432,5 @@ requirements:
   - { id: FR-EXP-28, text: "Agent 화면 경비 상세는 중분류 단위 연간 예산(연도별)으로 보여 주고, 월별 금액은 집행 예상 시점이며 같은 해 안에서는 미사용분이 남은 달로 넘어간다는 것을 화면에서 안내해야 한다" }
   - { id: FR-EXP-29, text: "마감된 달의 계획 − 실적(미사용)을 중분류·세부계정별로 보여 주고, 재수립 시 감액될 금액을 경고해야 한다" }
   - { id: FR-EXP-30, text: "시스템(Agent)은 미사용분이 감액되지 않도록 같은 해 남은 달로 이월하는 조정안(연간 예산 ±0원)을 예산 조정안으로 먼저 제안해야 하며, PM은 경비 상세에서도 바로 반영·해제할 수 있어야 한다" }
+  - { id: FR-EXP-31, text: "[2026.11.11] Agent 화면 경비 편성은 팝업이 아니라 중분류 표 맨 위에 편성 행을 추가하는 방식이어야 하며, 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서가 있어야 한다" }
+  - { id: FR-EXP-32, text: "Agent 화면 경비 세부계정의 수정은 팝업 없이 그 행 바로 아래에 펼친 월 입력칸에서 바로 할 수 있어야 한다(마감된 달은 잠김 · Enter 저장 · Esc 취소)" }

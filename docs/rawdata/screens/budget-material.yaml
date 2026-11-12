@@ -314,12 +314,12 @@ elements:
     event: onclick
     front:
       handler: "agentMatEdOpenFinal(subIndex, '')"
-      file: "budget-agent-console.js:3660 (팝업 renderAgentMatEdPopFinal:3743)"
-      logic: "소계정별 입력 팝업. 상품재료비 = 품목명·대/중분류·모델·수량/단위·납품 시작/종료·금액, 감가상각비 = 자산명·취득일·내용연수·상각 시작/종료월·월 상각액, 이관재료비 = 이관 구분(받을/보낼)·발생 예정월·금액·내용. 직책자·과거 확정 버전 조회 중에는 숨김"
+      file: "budget-agent-console.js:3660 (팝업 renderAgentMatEdPopFinal:3743) → 입력 행 변환 budget-inline-edit.js:bieInline · bieFocusRow"
+      logic: "[2026.11.11] 팝업 대신 표 맨 위에 입력 행을 추가한다(budget-inline-edit.js:bieInline). 소계정별 입력 행. 상품재료비 = 품목명·대/중분류·모델·수량/단위·납품 시작/종료·금액, 감가상각비 = 자산명·취득일·내용연수·상각 시작/종료월·월 상각액, 이관재료비 = 이관 구분(받을/보낼)·발생 예정월·금액·내용. 직책자·과거 확정 버전 조회 중에는 숨김"
       validation: null
       state_writes: [agentMatEdFinal]
     backend: null
-    result: "등록 팝업"
+    result: "표 맨 위에 입력 행 추가 — 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서"
 
   - id: btn-agent-mat-edit
     label: "수정"
@@ -329,18 +329,18 @@ elements:
     event: onclick
     front:
       handler: "agentMatEdOpenFinal(subIndex, id)"
-      file: "budget-agent-console.js:3660"
-      logic: "해당 건 값을 채운 수정 팝업. 실적이 생긴 품목(actualized)·집행완료 이관 건은 조회 전용"
+      file: "budget-agent-console.js:3660 → budget-inline-edit.js:bieInline"
+      logic: "[2026.11.11] 팝업 대신 그 행의 칸이 바로 입력칸으로 바뀐다(budget-inline-edit.js:bieInline). 해당 건 값을 채운 수정 입력 행. 실적이 생긴 품목(actualized)·집행완료 이관 건은 조회 전용"
       validation: "잠긴 건이면 '실적이 생긴 건은 조회만 가능합니다.' 토스트"
       state_writes: [agentMatEdFinal]
     backend: null
-    result: "수정 팝업"
+    result: "그 행에서 바로 수정(입력칸으로 바뀜) · Enter 저장 · Esc 취소"
 
   - id: btn-agent-mat-update
     label: "수정 저장"
     type: button
     crud: U
-    area: "재료비 수정 팝업 하단"
+    area: "재료비 수정 입력 행 관리 칸"
     event: onclick
     front:
       handler: "agentMatEdSaveFinal()"
@@ -355,7 +355,7 @@ elements:
     label: "등록"
     type: button
     crud: C
-    area: "재료비 등록 팝업 하단"
+    area: "재료비 등록 입력 행 관리 칸"
     event: onclick
     front:
       handler: "agentMatEdSaveFinal()"
@@ -397,19 +397,19 @@ elements:
     result: "계획과 실적을 나눠 보여 줌"
 
   - id: btn-agent-mat-close
-    label: "닫음"
+    label: "취소"
     type: button
     crud: N
-    area: "재료비 팝업 하단 / ✕ / 바깥 영역"
+    area: "표 안 입력 행 관리 칸 [취소] / Esc"
     event: onclick
     front:
       handler: "agentMatEdCloseFinal()"
       file: "budget-agent-console.js:3668"
-      logic: "팝업 닫기(입력값 버림)"
+      logic: "입력 행 닫기(입력값 버림). 입력 행에서 Esc 를 눌러도 같다(budget-inline-edit.js:bieKey)"
       validation: null
       state_writes: [agentMatEdFinal]
     backend: null
-    result: "팝업 닫힘"
+    result: "입력 행 닫힘"
 
 # ── 백엔드/외부 연동 (현재 목업, SRS 승격 후보) ──
 apis:
@@ -495,3 +495,5 @@ requirements:
   - { id: FR-MAT-16, text: "소계정 등록·수정·삭제 결과는 해당 소계정 계획·재료비 합계·월별 금액에 즉시 반영되어야 한다(변경하지 않은 금액은 그대로)" }
   - { id: FR-MAT-17, text: "Agent 화면의 이관재료비 계획은 '받을 재료비(+)'와 '보낼 재료비(−)' 두 구분으로 수립하고, 실적은 계획과 따로 표시해야 한다" }
   - { id: FR-MAT-18, text: "Agent 화면 재료비 상세에는 간트(납품·검수 일정, 상각 기간)를 표시하지 않아야 한다" }
+  - { id: FR-MAT-19, text: "[2026.11.11] Agent 화면 재료비 상세의 등록은 팝업이 아니라 표 맨 위에 입력 행을 추가하는 방식이어야 하며, 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서가 있어야 한다" }
+  - { id: FR-MAT-20, text: "Agent 화면 재료비 상세의 수정은 팝업 없이 그 행의 칸에서 바로 할 수 있어야 한다(Enter 저장 · Esc 취소)" }

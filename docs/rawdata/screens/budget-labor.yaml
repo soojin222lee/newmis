@@ -212,12 +212,12 @@ elements:
     event: onclick
     front:
       handler: "agentLabEditOpenFinal('transfer'|'ot', '')"
-      file: "budget-agent-console.js:2063 (팝업 렌더 renderAgentLabEditPopFinal:2150)"
-      logic: "신규 입력 팝업 오픈. 직책자 화면·과거 확정 버전 조회 중에는 버튼과 관리 열을 숨긴다(열람 전용)"
+      file: "budget-agent-console.js:2063 (팝업 렌더 renderAgentLabEditPopFinal:2150) → 입력 행 변환 budget-inline-edit.js:bieInline · bieFocusRow"
+      logic: "[2026.11.11] 팝업 대신 표 맨 위에 입력 행을 추가한다(budget-inline-edit.js:bieInline). 신규 입력 행 오픈. 직책자 화면·과거 확정 버전 조회 중에는 버튼과 관리 열을 숨긴다(열람 전용)"
       validation: null
       state_writes: [agentLabEditFinal]
     backend: null
-    result: 등록 팝업
+    result: "표 맨 위에 입력 행 추가 — 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서"
 
   - id: btn-agent-labor-sub-edit
     label: 수정
@@ -227,18 +227,18 @@ elements:
     event: onclick
     front:
       handler: "agentLabEditOpenFinal(kind, id)"
-      file: "budget-agent-console.js:2063"
-      logic: "해당 건 값을 채운 수정 팝업 오픈(금액은 양수로 표시). 실적이 생긴(집행완료·actualized) 이관 건은 버튼 대신 '조회 전용' 표시"
+      file: "budget-agent-console.js:2063 → budget-inline-edit.js:bieInline"
+      logic: "[2026.11.11] 팝업 대신 그 행의 칸이 바로 입력칸으로 바뀐다(budget-inline-edit.js:bieInline). 해당 건 값을 채운 수정 입력 행 오픈(금액은 양수로 표시). 실적이 생긴(집행완료·actualized) 이관 건은 버튼 대신 '조회 전용' 표시"
       validation: "잠긴 건이면 '실적(집행완료)이 생긴 이관 건은 조회만 가능합니다.' 토스트"
       state_writes: [agentLabEditFinal]
     backend: null
-    result: 수정 팝업
+    result: "그 행에서 바로 수정(입력칸으로 바뀜) · Enter 저장 · Esc 취소"
 
   - id: frm-agent-labor-sub
-    label: "입력 팝업 — 이관 구분(받을 인건비/보낼 인건비, 이관만) · 발생 예정월/대상 월 · 금액(원) · 내용"
+    label: "입력 행 — 이관 구분(받을 인건비/보낼 인건비, 이관만) · 발생 예정월/대상 월 · 금액(원) · 내용"
     type: [input, select]
     crud: N
-    area: 이관인건비/OT비 등록·수정 팝업
+    area: "이관인건비/OT비 표 안 입력 행(등록=맨 위 · 수정=그 행)"
     event: null
     front:
       handler: renderAgentLabEditPopFinal(viewData)
@@ -253,7 +253,7 @@ elements:
     label: 수정 저장
     type: button
     crud: U
-    area: "이관인건비/OT비 수정 팝업 하단"
+    area: "이관인건비/OT비 수정 입력 행 관리 칸"
     event: onclick
     front:
       handler: agentLabEditSaveFinal()
@@ -268,7 +268,7 @@ elements:
     label: 등록
     type: button
     crud: C
-    area: 이관인건비/OT비 등록 팝업 하단
+    area: 이관인건비/OT비 등록 입력 행 관리 칸
     event: onclick
     front:
       handler: agentLabEditSaveFinal()
@@ -299,19 +299,19 @@ elements:
     result: 표·탭 금액·인건비 합계 감소 + 토스트
 
   - id: btn-agent-labor-sub-close
-    label: 닫음
+    label: "취소"
     type: button
     crud: N
-    area: "등록·수정 팝업 하단 / 우상단 ✕ / 바깥 영역"
+    area: "표 안 입력 행 관리 칸 [취소] / Esc"
     event: onclick
     front:
       handler: agentLabEditCloseFinal()
       file: "budget-agent-console.js:2072"
-      logic: 팝업 닫기(입력값 버림)
+      logic: "입력 행 닫기(입력값 버림). 입력 행에서 Esc 를 눌러도 같다(budget-inline-edit.js:bieKey)"
       validation: null
       state_writes: [agentLabEditFinal]
     backend: null
-    result: 팝업 닫힘
+    result: 입력 행 닫힘
 
   - id: sum-agent-labor-transfer
     label: "이관인건비 요약 — 계획(받을 인건비 · 보낼 인건비 · 순 이관 계획) / 실적(받은 인건비 · 보낸 인건비 · 순 이관 실적)"
@@ -603,3 +603,5 @@ requirements:
   - { id: FR-LAB-22, text: "직책자 화면과 과거 확정 버전 조회 중에는 이관인건비·OT비를 열람만 할 수 있어야 한다" }
   - { id: FR-LAB-23, text: "이관인건비 계획은 '받을 인건비(+)'와 '보낼 인건비(−)' 두 구분으로 수립할 수 있어야 하며, 실제로 받거나 보낸 실적은 계획과 따로 표시되어야 한다(실적이 생긴 건은 조회 전용)" }
   - { id: FR-LAB-24, text: "인건비 월별 계획/실적은 화면에 기본 노출하지 않고 [월별 계획/실적 보기] 팝업으로 상세 3계정별 계획·실적·미집행과 월별 금액을 제공해야 한다" }
+  - { id: FR-LAB-25, text: "[2026.11.11] Agent 화면 인건비(이관인건비 · OT비) 상세의 등록은 팝업이 아니라 표 맨 위에 입력 행을 추가하는 방식이어야 하며, 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서가 있어야 한다" }
+  - { id: FR-LAB-26, text: "Agent 화면 인건비(이관인건비 · OT비) 상세의 수정은 팝업 없이 그 행의 칸에서 바로 할 수 있어야 한다(Enter 저장 · Esc 취소)" }

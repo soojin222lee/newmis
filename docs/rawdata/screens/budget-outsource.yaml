@@ -361,12 +361,12 @@ elements:
     event: onclick
     front:
       handler: "agentOsEdOpenFinal(0, '')"
-      file: "budget-agent-console.js:3174 (팝업 renderAgentOsEdPopFinal:3282)"
-      logic: "업체별 예산 입력 팝업(업체명 · 업무명 · 전체기간 시작/종료 · 전체기간 예산). 직책자·과거 확정 버전 조회 중에는 숨김"
+      file: "budget-agent-console.js:3174 (팝업 renderAgentOsEdPopFinal:3282) → 입력 행 변환 budget-inline-edit.js:bieInline · bieFocusRow"
+      logic: "[2026.11.11] 팝업 대신 표 맨 위에 입력 행을 추가한다(budget-inline-edit.js:bieInline). 업체별 예산 입력 행(업체명 · 업무명 · 전체기간 시작/종료 · 전체기간 예산). 직책자·과거 확정 버전 조회 중에는 숨김"
       validation: null
       state_writes: [agentOsEdFinal]
     backend: null
-    result: 업체 등록 팝업
+    result: "표 맨 위에 입력 행 추가 — 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서"
 
   - id: btn-agent-os-vendor-edit
     label: 수정
@@ -376,12 +376,12 @@ elements:
     event: onclick
     front:
       handler: "agentOsEdOpenFinal(0, vendorId)"
-      file: "budget-agent-console.js:3174"
-      logic: 업체 값을 채운 수정 팝업 오픈(행 펼침/접힘은 바뀌지 않음)
+      file: "budget-agent-console.js:3174 → budget-inline-edit.js:bieInline"
+      logic: "[2026.11.11] 팝업 대신 그 행의 칸이 바로 입력칸으로 바뀐다(budget-inline-edit.js:bieInline). 업체 값을 채운 수정 입력 행 오픈(행 펼침/접힘은 바뀌지 않음)"
       validation: null
       state_writes: [agentOsEdFinal]
     backend: null
-    result: 업체 수정 팝업
+    result: "그 행에서 바로 수정(입력칸으로 바뀜) · Enter 저장 · Esc 취소"
 
   - id: btn-agent-os-vendor-delete
     label: 삭제
@@ -406,12 +406,12 @@ elements:
     event: onclick
     front:
       handler: "agentOsEdOpenFinal(subIndex, '')"
-      file: "budget-agent-console.js:3174 (표 renderAgentOsSubFinal:3344)"
-      logic: "소계정 항목 입력 팝업. 일반 소계정 = 항목명 · 거래처 · 금액 · 시작일 · 종료일, 이관외주비 = 이관 구분(받을/보낼) · 발생 예정월 · 금액 · 내용"
+      file: "budget-agent-console.js:3174 (표 renderAgentOsSubFinal:3344) → 입력 행 변환 budget-inline-edit.js:bieInline · bieFocusRow"
+      logic: "[2026.11.11] 팝업 대신 표 맨 위에 입력 행을 추가한다(budget-inline-edit.js:bieInline). 소계정 항목 입력 행. 일반 소계정 = 항목명 · 거래처 · 금액 · 시작일 · 종료일, 이관외주비 = 이관 구분(받을/보낼) · 발생 예정월 · 금액 · 내용"
       validation: null
       state_writes: [agentOsEdFinal]
     backend: null
-    result: 등록 팝업
+    result: "표 맨 위에 입력 행 추가 — 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서"
 
   - id: btn-agent-os-sub-edit
     label: 수정
@@ -421,18 +421,18 @@ elements:
     event: onclick
     front:
       handler: "agentOsEdOpenFinal(subIndex, id)"
-      file: "budget-agent-console.js:3174"
-      logic: "해당 건 값을 채운 수정 팝업. 집행완료(이관은 실적이 생긴) 건은 버튼 대신 '조회 전용'"
+      file: "budget-agent-console.js:3174 → budget-inline-edit.js:bieInline"
+      logic: "[2026.11.11] 팝업 대신 그 행의 칸이 바로 입력칸으로 바뀐다(budget-inline-edit.js:bieInline). 해당 건 값을 채운 수정 입력 행. 집행완료(이관은 실적이 생긴) 건은 버튼 대신 '조회 전용'"
       validation: "잠긴 건이면 '집행완료(실적이 생긴) 건은 조회만 가능합니다.' 토스트"
       state_writes: [agentOsEdFinal]
     backend: null
-    result: 수정 팝업
+    result: "그 행에서 바로 수정(입력칸으로 바뀜) · Enter 저장 · Esc 취소"
 
   - id: btn-agent-os-update
     label: 수정 저장
     type: button
     crud: U
-    area: 외주비 등록·수정 팝업 하단
+    area: 외주비 등록·수정 입력 행 관리 칸
     event: onclick
     front:
       handler: agentOsEdSaveFinal()
@@ -447,7 +447,7 @@ elements:
     label: 등록
     type: button
     crud: C
-    area: 외주비 등록 팝업 하단
+    area: 외주비 등록 입력 행 관리 칸
     event: onclick
     front:
       handler: agentOsEdSaveFinal()
@@ -493,19 +493,19 @@ elements:
     result: 계획과 실적을 나눠 보여 줌
 
   - id: btn-agent-os-close
-    label: 닫음
+    label: "취소"
     type: button
     crud: N
-    area: "외주비 등록·수정 팝업 하단 / 우상단 ✕ / 바깥 영역"
+    area: "표 안 입력 행 관리 칸 [취소] / Esc"
     event: onclick
     front:
       handler: agentOsEdCloseFinal()
       file: "budget-agent-console.js:3174"
-      logic: 팝업 닫기(입력값 버림)
+      logic: "입력 행 닫기(입력값 버림). 입력 행에서 Esc 를 눌러도 같다(budget-inline-edit.js:bieKey)"
       validation: null
       state_writes: [agentOsEdFinal]
     backend: null
-    result: 팝업 닫힘
+    result: 입력 행 닫힘
 
 
   # ── [2026.10.12] 실투입대상 외주비 — 구매계약 단위 등록(외주구매 계획 라인 폐지) ──
@@ -519,14 +519,12 @@ elements:
     event: onclick
     front:
       handler: "agentOsPoOpenFinal(vendorId, -1)"
-      file: "budget-agent-console.js:2867 (팝업 renderAgentOsPoPopFinal:2924)"
-      logic: >
-        구매계약 입력 팝업(계약 시작일 · 종료일 · 계약 금액). 기본값 = 마지막 계약 다음 날 ~ 그 분기 말,
-        금액 = 남은 미계약 금액. 업체 전체기간이 다 찼으면 기간을 비워 둔다. 행을 함께 펼친다.
+      file: "budget-agent-console.js:2867 (팝업 renderAgentOsPoPopFinal:2924) → 입력 행 변환 budget-inline-edit.js:bieInline · bieFocusRow"
+      logic: "[2026.11.11] 팝업 대신 표 맨 위에 입력 행을 추가한다(budget-inline-edit.js:bieInline). 구매계약 입력 행(계약 시작일 · 종료일 · 계약 금액). 기본값 = 마지막 계약 다음 날 ~ 그 분기 말, 금액 = 남은 미계약 금액. 업체 전체기간이 다 찼으면 기간을 비워 둔다. 행을 함께 펼친다. 그 업체의 구매계획 표 맨 위에 입력 행이 생기고, 분기 버튼은 입력 행 첫 칸에 놓인다"
       validation: "전체기간 예산을 구매계약으로 모두 잡았으면 팝업 대신 안내 토스트"
       state_writes: [agentOsPoEdFinal, agentOsOpenFinal]
     backend: null
-    result: 구매계약 등록 팝업
+    result: "표 맨 위에 입력 행 추가 — 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서"
 
   - id: grid-agent-os-po
     label: "구매계약 목록 — 분기 · 계약 기간 · 계약 금액 · PO번호 · 실적(검수) · 집행예정(미검수) · 상태 · 관리"
@@ -554,18 +552,18 @@ elements:
     event: onclick
     front:
       handler: "agentOsPoOpenFinal(vendorId, index)"
-      file: "budget-agent-console.js:2867"
-      logic: 계약 대기 건의 기간 · 금액을 채운 수정 팝업
+      file: "budget-agent-console.js:2867 → budget-inline-edit.js:bieInline"
+      logic: "[2026.11.11] 팝업 대신 그 행의 칸이 바로 입력칸으로 바뀐다(budget-inline-edit.js:bieInline). 계약 대기 건의 기간 · 금액을 채운 수정 입력 행"
       validation: "PO 발행 건은 '구매시스템 기준이라 수정할 수 없습니다' 토스트"
       state_writes: [agentOsPoEdFinal]
     backend: null
-    result: 구매계약 수정 팝업
+    result: "그 행에서 바로 수정(입력칸으로 바뀜) · Enter 저장 · Esc 취소"
 
   - id: btn-agent-os-po-update
     label: 수정 저장
     type: button
     crud: U
-    area: 구매계약 수정 팝업 하단
+    area: 구매계약 수정 입력 행 관리 칸
     event: onclick
     front:
       handler: agentOsPoSaveFinal()
@@ -580,7 +578,7 @@ elements:
     label: 등록
     type: button
     crud: C
-    area: 구매계약 등록 팝업 하단
+    area: 구매계약 등록 입력 행 관리 칸
     event: onclick
     front:
       handler: agentOsPoSaveFinal()
@@ -607,19 +605,19 @@ elements:
     result: 구매계약 삭제 + 토스트
 
   - id: btn-agent-os-po-close
-    label: 닫음
+    label: "취소"
     type: button
     crud: N
-    area: "구매계약 팝업 하단 / 우상단 ✕ / 바깥 영역"
+    area: "표 안 입력 행 관리 칸 [취소] / Esc"
     event: onclick
     front:
       handler: agentOsPoCloseFinal()
       file: "budget-agent-console.js:2884"
-      logic: 팝업 닫기(입력값 버림)
+      logic: "입력 행 닫기(입력값 버림). 입력 행에서 Esc 를 눌러도 같다(budget-inline-edit.js:bieKey)"
       validation: null
       state_writes: [agentOsPoEdFinal]
     backend: null
-    result: 팝업 닫힘
+    result: 입력 행 닫힘
 
 # ── 비즈니스 로직 & 규칙 ──
 business:
@@ -786,3 +784,5 @@ requirements:
   - { id: RQ-OS-23, text: "Agent 화면의 실투입대상 외주비는 '외주구매 계획 라인' 없이 업체별 구매계약 단위(보통 분기)로 PM이 등록·수정·삭제할 수 있어야 하며, PO가 발행된 계약은 조회 전용이어야 한다" }
   - { id: RQ-OS-24, text: "구매계약 금액 합계는 업체 전체기간 예산을 넘을 수 없고, 계약 기간은 업체 전체기간 안이어야 한다" }
   - { id: RQ-OS-25, text: "구매시스템에서 외주구매 견적이 확정되면 Agent가 [예산 조정안]으로 예산 조정을 먼저 제안해야 한다" }
+  - { id: RQ-OS-26, text: "[2026.11.11] Agent 화면 외주비(업체 · 소계정 · 구매계획) 상세의 등록은 팝업이 아니라 표 맨 위에 입력 행을 추가하는 방식이어야 하며, 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서가 있어야 한다" }
+  - { id: RQ-OS-27, text: "Agent 화면 외주비(업체 · 소계정 · 구매계획) 상세의 수정은 팝업 없이 그 행의 칸에서 바로 할 수 있어야 한다(Enter 저장 · Esc 취소)" }
