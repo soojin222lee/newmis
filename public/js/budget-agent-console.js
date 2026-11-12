@@ -2312,11 +2312,28 @@ function agentOsPoQFinal(btn) {
   btn.classList.toggle('on');
   agentOsPoHintFinal(btn.closest('.agv-pop'));
 }
+function agentOsPoSetModeFinal(btn) {
+  const box = btn.closest('.agv-pop'); if (!box) return;
+  box.querySelectorAll('.agos-q[data-mode]').forEach(b => b.classList.toggle('on', b === btn));
+  const mode = btn.dataset.mode;
+  const qw = box.querySelector('#agos-qs-wrap');
+  // 분기 영역만 토글 — 시작일/종료일은 두 모드 모두에서 항상 입력 가능
+  if (mode === 'month') {
+    if (qw) { qw.style.display = 'none'; qw.querySelectorAll('.agos-q[data-q].on').forEach(b => b.classList.remove('on')); }
+  } else if (qw) {
+    qw.style.display = '';
+  }
+  box.querySelectorAll('#agos-po-start, #agos-po-end').forEach(el => { el.disabled = false; });
+  agentOsPoHintFinal(box);
+}
+function agentOsPoModeFinal(box) {
+  const on = box && box.querySelector('.agos-q[data-mode].on');
+  return on ? on.dataset.mode : (box && box.querySelector('#agos-qs-wrap') ? 'quarter' : 'month');
+}
 function agentOsPoHintFinal(box) {
   if (!box) return;
-  const qs = box.querySelectorAll('.agos-q.on');
+  const qs = box.querySelectorAll('.agos-q[data-q].on');
   const n = qs.length;
-  box.querySelectorAll('#agos-po-start, #agos-po-end').forEach(el => { el.disabled = n > 0; });
   const lab = box.querySelector('#agos-po-amt-lab');
   if (lab) lab.textContent = n ? `분기별 금액(원) — 선택한 ${n}개 분기에 같은 금액으로 등록` : '계획 금액(원)';
   const hint = box.querySelector('#agos-po-hint');
@@ -2330,8 +2347,9 @@ function agentOsPoSaveFinal() {
   if (!v) return;
   const val = id => ((document.getElementById(id) || {}).value || '').trim();
   const amount = Math.abs(parseBudgetAmount(val('agos-po-amount') || 0));
-  const picked = Array.prototype.slice.call(document.querySelectorAll('.agv-pop .agos-q.on')).map(b => b.dataset.q);
+  const picked = Array.prototype.slice.call(document.querySelectorAll('.agv-pop .agos-q[data-q].on')).map(b => b.dataset.q);
   const qs = agentOsQuartersFinal(v).filter(q => picked.indexOf(q.key) >= 0);
+  // 분기를 고르면 분기별 등록, 아니면 입력한 시작일~종료일로 등록
   const spans = qs.length ? qs.map(q => ({ from: q.from, to: q.to }))
     : [{ from: val('agos-po-start'), to: val('agos-po-end') }];
   for (const sp of spans) {
@@ -2401,15 +2419,24 @@ function renderAgentOsPoPopFinal() {
         <div class="agv-pop-body">
           ${qs.length ? `
             <div class="agos-qs">
-              <span>분기마다 같은 금액이면 분기를 고르세요</span>
+              <span>계약 방식을 고르세요</span>
+              <div>
+                <button type="button" class="agos-q on" data-mode="quarter" onclick="agentOsPoSetModeFinal(this)">분기계약</button>
+                <button type="button" class="agos-q" data-mode="month" onclick="agentOsPoSetModeFinal(this)">월계약</button>
+              </div>
+            </div>
+            <div class="agos-qs" id="agos-qs-wrap">
+              <span>분기마다 같은 금액이면 분기를 고르세요 (1~4분기)</span>
               <div>${qs.map(q => `<button type="button" class="agos-q" data-q="${q.key}" ${q.taken ? 'disabled title="이미 등록된 분기입니다"' : ''}
                 onclick="agentOsPoQFinal(this)">${q.label}${q.taken ? ' ✓' : ''}</button>`).join('')}</div>
             </div>` : ''}
-          <div class="aglb-form">
+          <div class="aglb-form" id="agos-month-wrap">
             <label><span>계획 시작일</span><input id="agos-po-start" type="date" value="${escHtml(d.from || '')}"
               min="${escHtml(v.start || '')}" max="${escHtml(v.end || '')}"></label>
             <label><span>계획 종료일</span><input id="agos-po-end" type="date" value="${escHtml(d.to || '')}"
               min="${escHtml(v.start || '')}" max="${escHtml(v.end || '')}"></label>
+          </div>
+          <div class="aglb-form">
             <label class="wide"><span id="agos-po-amt-lab">계획 금액(원)</span><input id="agos-po-amount" inputmode="numeric"
               value="${x ? (x.amount || 0) : room}" placeholder="예: 12000000" oninput="agentOsPoAmtInputFinal(this)">
               <em id="agos-po-hint" class="agos-po-hint"></em></label>
