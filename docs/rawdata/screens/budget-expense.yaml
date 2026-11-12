@@ -246,6 +246,21 @@ elements:
     backend: null
     result: "추가 · 수정 · 비우기 일괄 반영 + [예산 조정안] 수기 입력 반영 + 토스트"
 
+  - id: badge-agent-exp-year-pending
+    label: "연도 탭 대기 건수 배지 (예: 2027년 예산 ●1)"
+    type: badge
+    crud: N
+    area: "경비 표 위 연도 탭(2026년 예산 · 2027년 예산)"
+    event: null
+    front:
+      handler: null
+      file: "budget-inline-edit.js:bieYearBadges · bieCtx · bieGroup · bieHidden"
+      logic: "[2026.11.12] 경비 연도 탭은 한 번에 저장한다. 입력 행(편성 · 수정)과 비우기 예정은 만든 연도 탭에서만 보이고, 다른 연도 탭에는 저장하지 않은 건수를 배지로 보여 준다. 표 위 [저장]은 '저장 N · 다른 연도 k건 포함'으로 다른 연도 몫까지 세고, 누르면 '2026년 a건 · 2027년 b건을 한 번에 저장할까요?' 확인 뒤 함께 저장한다. 다른 연도 행에서 검증에 걸리면 그 연도 탭으로 옮겨 빨간 행을 보여 준다. (다른 계정의 상세계정 탭은 아직 탭마다 저장 — 논의 중)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "다른 연도 탭의 저장 대기 건수 표시"
+
   - id: select-agent-exp-pick
     label: 세부계정
     type: select
@@ -515,3 +530,4 @@ requirements:
   - { id: FR-EXP-36, text: "[2026.11.12] Agent 화면 경비 상세의 등록 · 수정은 표 위 [저장]을 눌렀을 때만 한 번에 반영되어야 하며, 입력 행마다 따로 저장(등록 API 호출)하지 않아야 한다" }
   - { id: FR-EXP-37, text: "[2026.11.12] Agent 화면 경비 상세의 선택 비우기는 바로 반영하지 않고 '비우기 예정'으로 표시해야 하며(되돌리기 가능), 표 위 [저장]을 눌렀을 때 추가 · 수정과 함께 한 번에 반영되어야 한다" }
   - { id: FR-EXP-38, text: "[2026.11.12] Agent 화면 경비 상세는 지금 고른 상세계정의 예산내역 표(저장된 내역)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
+  - { id: FR-EXP-39, text: "[2026.11.12] Agent 화면 경비 상세는 연도 탭(2026 · 2027)의 입력 행을 한 번에 저장해야 하며, 입력 행은 만든 연도 탭에서만 보이고 다른 연도 탭에는 저장 대기 건수가 표시되어야 한다" }

@@ -29,6 +29,7 @@ var bieShown = [];           // 이번에 화면에 그린 임시 행 id
 var BIE_DELS = [];           // 삭제 예정 행 { id, call(원래 삭제 함수 호출), isExp }
 var bieDelSeq = 0;
 var bieShownDels = [];       // 이번에 화면에 그린 삭제 예정 id
+var bieCurCtx = '';         // 지금 그리는 탭(계정|상세계정 탭) — bieCtx
 
 /* ── 열기 흐름 — 원래 열기 함수 · 편집 상태 · 팝업 렌더 · 저장 함수 ───────────── */
 function bieAsPop(vd) {   // A/S 는 지금 보고 있는 그룹일 때만 양식을 그립니다(원래 renderAgentAsDetailFinal 규칙)
@@ -91,7 +92,7 @@ BIE_FLOWS.forEach(function (F) {
       const isNew = F.isNew(s);
       const k = F.key(s).join('|');
       const hit = isNew ? null : BIE_DRAFTS.find(function (d) { return !d.isNew && d.flow === F && F.key(d.state).join('|') === k; });
-      if (hit) focusId = hit.id;
+      if (hit) { focusId = hit.id; hit.ctx = bieCtx(); }   // 다른 탭에서 다시 [수정]을 누르면 그 탭으로 옮겨 보여 줌
       else {
         const d = { id: 'd' + (++bieDraftSeq), flow: F, state: JSON.parse(JSON.stringify(s)), isNew: isNew, values: null, err: false, ctx: bieCtx() };
         BIE_DRAFTS.push(d);
@@ -147,13 +148,34 @@ function bieDropDraft(id) {
 
 // [2026.11.12] 입력 행이 속한 탭 — 계정 + 상세계정 탭(인건비는 이관/OT, 경비는 연도). 다른 탭으로 가면 그 행은 숨고(지워지지 않음)
 //   돌아오면 다시 보이며, [저장]은 지금 탭에 보이는 행만 저장합니다.
-function bieCtx() {
+//   scope: 연도 탭을 읽을 곳(새로 그릴 HTML 또는 지금 화면) — 경비는 연도를 아직 안 골랐으면 화면에 켜진 연도 탭을 씁니다.
+function bieCtx(scope) {
   const acct = (typeof agentAiSheetFinal !== 'undefined' && agentAiSheetFinal) || '';
-  const sub = acct === '인건비' ? (typeof agentLabKindFinal !== 'undefined' ? agentLabKindFinal : '')
-    : acct === '경비' ? (typeof agentExpYearFinal !== 'undefined' ? agentExpYearFinal : '')
-    : ((typeof agentAcctKindFinal !== 'undefined' && agentAcctKindFinal[acct]) || 0);
+  let sub;
+  if (acct === '인건비') sub = (typeof agentLabKindFinal !== 'undefined' ? agentLabKindFinal : '');
+  else if (acct === '경비') sub = bieExpYearOf(scope || (typeof document !== 'undefined' ? document : null))
+    || ((typeof agentExpYearFinal !== 'undefined' && agentExpYearFinal) || '');
+  else sub = ((typeof agentAcctKindFinal !== 'undefined' && agentAcctKindFinal[acct]) || 0);
   return acct + '|' + sub;
 }
+function bieExpYearOf(scope) {
+  const b = scope && scope.querySelector ? scope.querySelector('.agex-years button.on') : null;
+  const m = b && String(b.getAttribute('onclick') || '').match(/'(\d{4})'/);
+  return m ? m[1] : '';
+}
+// [2026.11.12] 저장 단위 — 경비는 연도 탭(2026 · 2027)을 한 번에 저장합니다(행은 그 연도 탭에서만 보임).
+//   다른 계정의 상세계정 탭은 아직 탭마다 저장(논의 중).
+function bieGroup(ctx) { return /^경비\|/.test(ctx || '') ? '경비|' : (ctx || ''); }
+// 지금 탭에서 안 보이지만 같이 저장할 입력 행 · 삭제 예정
+function bieHidden(ctx) {
+  const g = bieGroup(ctx);
+  if (g === ctx) return { drafts: [], dels: [] };
+  return {
+    drafts: BIE_DRAFTS.filter(function (d) { return d.ctx && d.ctx !== ctx && bieGroup(d.ctx) === g && bieShown.indexOf(d.id) < 0; }),
+    dels: BIE_DELS.filter(function (x) { return x.ctx && bieGroup(x.ctx) === g && bieShownDels.indexOf(x.id) < 0; }),
+  };
+}
+function bieYearLabel(ctx) { const y = String(ctx || '').split('|')[1]; return y ? y + '년' : '다른 탭'; }
 function bieTransform(html, viewData) {
   if (!html || typeof document === 'undefined' || !document.createElement) return html;
   const tpl = document.createElement('template');
@@ -165,9 +187,11 @@ function bieTransform(html, viewData) {
   bieShownDels = [];
   try {
     bieAddChecks(root);
-    const ctx = bieCtx();
+    const ctx = bieCtx(root);
+    bieCurCtx = ctx;
     BIE_DRAFTS.forEach(function (d) { if (!d.ctx || d.ctx === ctx) bieDraftRow(root, d, viewData); });   // 그 행을 만든 탭에서만
     bieAddSaveButton(root);
+    bieYearBadges(root);
   } catch (e) { if (typeof console !== 'undefined') console.warn('[budget-inline-edit]', e); }
   return tpl.innerHTML;
 }
@@ -265,7 +289,7 @@ function bieDeleteChecked(scope, isExp) {
   // 바로 지우지 않고 "삭제 예정"으로만 표시합니다 — 일반 표처럼 [저장]에서 추가 · 수정과 함께 반영
   boxes.forEach(function (b) {
     const call = b.getAttribute('data-del');
-    if (!BIE_DELS.some(function (x) { return x.call === call; })) BIE_DELS.push({ id: 'x' + (++bieDelSeq), call: call, isExp: !!isExp });
+    if (!BIE_DELS.some(function (x) { return x.call === call; })) BIE_DELS.push({ id: 'x' + (++bieDelSeq), call: call, isExp: !!isExp, ctx: bieCtx() });
   });
   renderBudgetPage();
   showToast(`${boxes.length}건을 ${isExp ? '비우기' : '삭제'} 예정으로 표시했습니다. [저장]을 눌러야 반영됩니다.`);
@@ -285,20 +309,52 @@ function bieExpClear(id) {
 function bieAddSaveButton(root) {
   const bar = root.querySelector('.aglb-bar, .agex-bar');
   if (!bar || !bar.querySelector('.aglb-add')) return;      // 편집 권한이 없으면(버튼 없음) 두지 않습니다
-  const n = bieShown.length + bieShownDels.length;
+  const hid = bieHidden(bieCurCtx);
+  const nh = hid.drafts.length + hid.dels.length;
+  const n = bieShown.length + bieShownDels.length + nh;
   const b = document.createElement('button');
   b.className = 'bie-savebar' + (n ? '' : ' off');
   b.setAttribute('onclick', 'event.stopPropagation();bieSaveAll()');
-  b.title = n ? `추가 · 수정 ${bieShown.length}건, 삭제 ${bieShownDels.length}건을 저장합니다`
+  b.title = n ? `추가 · 수정 ${bieShown.length + hid.drafts.length}건, 삭제 ${bieShownDels.length + hid.dels.length}건을 저장합니다${nh ? ` (다른 연도 탭 ${nh}건 포함)` : ''}`
     : '[＋ 등록] · [수정] · [선택삭제] 뒤 저장할 수 있습니다';
-  b.innerHTML = '저장' + (n ? ` <em>${n}</em>` : '');
+  b.innerHTML = '저장' + (n ? ` <em>${n}</em>` : '') + (nh ? `<small class="bie-savehid">다른 연도 ${nh}건 포함</small>` : '');
   bar.appendChild(b);
 }
+// 경비 연도 탭 — 다른 연도에 저장 안 한 입력 · 삭제 예정 건수 배지
+function bieYearBadges(root) {
+  const tabs = root.querySelectorAll('.agex-years button');
+  if (!tabs.length) return;
+  Array.prototype.forEach.call(tabs, function (t) {
+    const m = String(t.getAttribute('onclick') || '').match(/'(\d{4})'/);
+    if (!m || t.classList.contains('on')) return;
+    const c = '경비|' + m[1];
+    const k = BIE_DRAFTS.filter(function (d) { return d.ctx === c; }).length + BIE_DELS.filter(function (x) { return x.ctx === c; }).length;
+    if (!k) return;
+    const em = document.createElement('em');
+    em.className = 'bie-tabcnt';
+    em.title = `${m[1]}년 탭에 저장하지 않은 입력 ${k}건 — [저장]을 누르면 함께 저장됩니다`;
+    em.textContent = k;
+    t.appendChild(em);
+  });
+}
 function bieSaveAll() {
-  const nd = bieShownDels.length;
-  if (!bieShown.length && !nd) { showToast('저장할 변경이 없습니다. [＋ 등록] · [수정] · [선택삭제] 뒤 저장해 주세요.'); return; }
-  if (nd && !confirm(`${bieShown.length ? `추가 · 수정 ${bieShown.length}건과 ` : ''}삭제 ${nd}건을 저장할까요?`)) return;
-  bieSaveDrafts(bieShown.slice(), bieShownDels.slice());
+  const hid = bieHidden(bieCurCtx);
+  const ids = bieShown.concat(hid.drafts.map(function (d) { return d.id; }));
+  const dels = bieShownDels.concat(hid.dels.map(function (x) { return x.id; }));
+  const nd = dels.length;
+  if (!ids.length && !nd) { showToast('저장할 변경이 없습니다. [＋ 등록] · [수정] · [선택삭제] 뒤 저장해 주세요.'); return; }
+  if (hid.drafts.length || hid.dels.length) {
+    // 다른 연도 탭 몫이 섞여 있으면 연도별로 나눠 묻습니다
+    const by = {};
+    const add = function (c) { const y = bieYearLabel(c); by[y] = (by[y] || 0) + 1; };
+    bieShown.forEach(function () { add(bieCurCtx); });
+    bieShownDels.forEach(function () { add(bieCurCtx); });
+    hid.drafts.forEach(function (d) { add(d.ctx); });
+    hid.dels.forEach(function (x) { add(x.ctx); });
+    const txt = Object.keys(by).sort().map(function (y) { return `${y} ${by[y]}건`; }).join(' · ');
+    if (!confirm(`${txt}을 한 번에 저장할까요?${nd ? `\n(삭제 · 비우기 ${nd}건 포함)` : ''}`)) return;
+  } else if (nd && !confirm(`${bieShown.length ? `추가 · 수정 ${bieShown.length}건과 ` : ''}삭제 ${nd}건을 저장할까요?`)) return;
+  bieSaveDrafts(ids, dels);
 }
 // 삭제 예정 행을 원래 삭제 함수로 지웁니다 — 화면 아래 행부터(구매계획처럼 순번으로 지우는 건 앞을 먼저 지우면 순번이 밀림)
 function bieRunDels(delIds) {
@@ -341,6 +397,10 @@ function bieSaveDrafts(ids, delIds) {
     }
     if (!fail && delIds.length) del = bieRunDels(delIds);
   } finally { bieMute = false; }
+  // 다른 연도 탭의 행에서 멈췄으면 그 연도 탭으로 옮겨 빨간 행을 보여 줍니다
+  if (fail && /^경비\|\d{4}$/.test(fail.ctx || '') && fail.ctx !== bieCurCtx && typeof agentExpYearFinal !== 'undefined') {
+    agentExpYearFinal = fail.ctx.split('|')[1];
+  }
   renderBudgetPage();
   if (fail) {
     bieFocusRow(fail.id);
@@ -701,6 +761,9 @@ function bieInjectStyle() {
   .bie-savebar:hover { background:#1d4ed8; }
   .bie-savebar em { font-style:normal; margin-left:4px; padding:0 6px; border-radius:999px; background:#fff; color:#2563eb; font-size:11px; }
   .bie-savebar.off { background:#fff; color:#94a3b8; border-color:#cbd5e1; cursor:default; }
+  .bie-savebar .bie-savehid { margin-left:6px; font-size:10.5px; font-weight:800; opacity:.85; }
+  .agex-years button .bie-tabcnt { font-style:normal; margin-left:5px; min-width:16px; height:16px; padding:0 5px; border-radius:99px;
+    background:#2563eb; color:#fff; font-size:10.5px; font-weight:900; display:inline-flex; align-items:center; justify-content:center; }
   tr.bie-del > td:not(.bie-ckc) { text-decoration:line-through; color:#94a3b8 !important; background:#fff7f8 !important; }
   tr.bie-del > td:not(.bie-ckc) * { color:#94a3b8 !important; }
   tr.bie-del button:not(.bie-undo) { display:none !important; }
