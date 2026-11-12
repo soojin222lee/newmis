@@ -116,7 +116,7 @@ function buiChatCollapse(force) {
 (function buiWatch() {
   if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return;
   let t = null;
-  const run = function () { t = null; try { buiChatCollapse(false); } catch (e) { /* 화면에 없으면 무시 */ } };
+  const run = function () { t = null; try { buiChatCollapse(false); } catch (e) { /* 화면에 없으면 무시 */ } try { buiSplitApply(); } catch (e) { /* 화면에 없으면 무시 */ } };
   const start = function () {
     const root = document.getElementById('s-budget') || document.body;
     new MutationObserver(function () { if (!t) t = setTimeout(run, 0); }).observe(root, { childList: true, subtree: true });
@@ -146,5 +146,98 @@ function buiChatCollapse(force) {
   @media (max-width: 1100px) {
     ${S}.agga-grid.detail.with-todo, ${S}.agga-grid.detail.with-todo.no-chat, ${S}.agga-grid.detail:not(.with-todo):not(.no-chat) { grid-template-columns:1fr !important; }
   }`;
+  document.head.appendChild(st);
+})();
+
+/* ── 4) 세 칸 폭 조절(끌어서 넓히기/줄이기) ─────────────────────────────────
+   칸 사이 경계(예산 조정안 오른쪽 · 대화 왼쪽)를 끌면 양옆 칸 폭이 바뀌고 가운데 상세가 나머지를 씁니다.
+     · 최소 폭: 양옆 240px · 가운데 상세 480px  · 경계를 더블클릭하면 기본(20 : 60 : 20)으로
+     · 정한 폭은 다시 그려도 유지하고, 브라우저에 기억합니다(localStorage — 막혀 있으면 이번 화면에서만) */
+var BUI_SPLIT_MIN = { side: 240, detail: 480 };
+var buiSplit = (function () {
+  try { const s = JSON.parse(localStorage.getItem('bui-split') || '{}'); return { L: Number(s.L) || 0, R: Number(s.R) || 0 }; }
+  catch (e) { return { L: 0, R: 0 }; }
+})();
+function buiSplitSave() { try { localStorage.setItem('bui-split', JSON.stringify(buiSplit)); } catch (e) { /* 저장 막힘 */ } }
+function buiSplitGrid() { return document.querySelector('#s-budget .agga-grid.detail'); }
+// 지금 열린 칸에 맞춰 폭을 적용하고 경계 손잡이를 붙입니다
+function buiSplitApply() {
+  const g = buiSplitGrid();
+  if (!g) return;
+  if (window.matchMedia && window.matchMedia('(max-width: 1100px)').matches) { g.style.removeProperty('grid-template-columns'); return; }
+  const L = g.querySelector(':scope > .agga-col.todo'), R = g.querySelector(':scope > .agga-col.chat');
+  const W = g.clientWidth, gap = parseFloat(getComputedStyle(g).columnGap) || 0;
+  const sides = (L ? 1 : 0) + (R ? 1 : 0);
+  const room = W - gap * sides - BUI_SPLIT_MIN.detail;           // 양옆이 쓸 수 있는 최대 합
+  const def = Math.max(BUI_SPLIT_MIN.side, Math.round(W * 0.2));
+  let l = L ? Math.max(BUI_SPLIT_MIN.side, buiSplit.L || def) : 0;
+  let r = R ? Math.max(BUI_SPLIT_MIN.side, buiSplit.R || def) : 0;
+  if (l + r > room) {                                               // 화면이 좁아지면 비율대로 줄임
+    const k = Math.max(room, BUI_SPLIT_MIN.side * sides) / ((l + r) || 1);
+    l = L ? Math.max(BUI_SPLIT_MIN.side, Math.floor(l * k)) : 0;
+    r = R ? Math.max(BUI_SPLIT_MIN.side, Math.floor(r * k)) : 0;
+  }
+  const cols = (L ? l + 'px ' : '') + 'minmax(' + BUI_SPLIT_MIN.detail + 'px,1fr)' + (R ? ' ' + r + 'px' : '');
+  g.style.setProperty('grid-template-columns', cols, 'important');
+  [['L', L], ['R', R]].forEach(function (p) {
+    if (!p[1] || p[1].querySelector(':scope > .bui-split')) return;
+    const h = document.createElement('div');
+    h.className = 'bui-split ' + p[0];
+    h.title = '끌어서 폭 조절 · 더블클릭하면 기본 폭';
+    h.setAttribute('role', 'separator');
+    h.setAttribute('aria-orientation', 'vertical');
+    h.setAttribute('onpointerdown', "buiSplitStart(event,'" + p[0] + "')");
+    h.setAttribute('ondblclick', "buiSplitReset('" + p[0] + "')");
+    p[1].appendChild(h);
+  });
+}
+function buiSplitStart(ev, side) {                    // crud N — 경계 끌기 시작
+  const g = buiSplitGrid();
+  if (!g) return;
+  ev.preventDefault();
+  const col = g.querySelector(':scope > .agga-col.' + (side === 'L' ? 'todo' : 'chat'));
+  const w0 = col ? col.getBoundingClientRect().width : 0, x0 = ev.clientX;
+  document.body.classList.add('bui-resizing');
+  const move = function (e) {
+    const other = g.querySelector(':scope > .agga-col.' + (side === 'L' ? 'chat' : 'todo'));
+    const gap = parseFloat(getComputedStyle(g).columnGap) || 0;
+    const ow = other ? other.getBoundingClientRect().width + gap : 0;
+    const max = g.clientWidth - ow - gap - BUI_SPLIT_MIN.detail;
+    const dx = (e.clientX - x0) * (side === 'L' ? 1 : -1);
+    buiSplit[side] = Math.round(Math.min(Math.max(w0 + dx, BUI_SPLIT_MIN.side), Math.max(max, BUI_SPLIT_MIN.side)));
+    if (other) buiSplit[side === 'L' ? 'R' : 'L'] = Math.round(other.getBoundingClientRect().width);
+    buiSplitApply();
+  };
+  const up = function () {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    document.body.classList.remove('bui-resizing');
+    buiSplitSave();
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+}
+function buiSplitReset(side) {                        // crud N — 기본 폭으로
+  buiSplit[side] = 0;
+  buiSplitSave();
+  buiSplitApply();
+}
+if (typeof window !== 'undefined') window.addEventListener('resize', function () { try { buiSplitApply(); } catch (e) { /* 무시 */ } });
+(function buiInjectSplit() {
+  if (typeof document === 'undefined' || !document.head || document.getElementById('bui-split-style')) return;
+  const st = document.createElement('style');
+  st.id = 'bui-split-style';
+  st.textContent = `
+  #s-budget .agga-grid.detail > .agga-col.todo, #s-budget .agga-grid.detail > .agga-col.chat { position:relative; }
+  #s-budget .bui-split { position:absolute; top:0; bottom:0; width:10px; z-index:5; cursor:col-resize; touch-action:none; }
+  #s-budget .bui-split.L { right:0; } #s-budget .bui-split.R { left:0; }
+  #s-budget .bui-split::after { content:''; position:absolute; top:50%; width:4px; height:44px; margin-top:-22px; border-radius:99px;
+    background:#cbd5e1; opacity:0; transition:opacity .15s; }
+  #s-budget .bui-split.L::after { right:3px; } #s-budget .bui-split.R::after { left:3px; }
+  #s-budget .agga-col:hover > .bui-split::after { opacity:.7; }
+  #s-budget .bui-split:hover::after, body.bui-resizing #s-budget .bui-split::after { opacity:1; background:#2563eb; }
+  body.bui-resizing { cursor:col-resize !important; user-select:none !important; }
+  body.bui-resizing * { cursor:col-resize !important; }
+  @media (max-width: 1100px) { #s-budget .bui-split { display:none; } }`;
   document.head.appendChild(st);
 })();

@@ -462,6 +462,21 @@ elements:
     backend: null
     result: "{계정}_실적조회_{월}_YYYYMMDD.xlsx 다운로드"
 
+  - id: handle-agent-detail-split
+    label: "칸 경계 손잡이(끌어서 폭 조절 · 더블클릭 기본 폭)"
+    type: splitter
+    crud: N
+    area: "계정 상세 화면 — 예산 조정안 칸 오른쪽 경계 · Agent와 대화하기 칸 왼쪽 경계"
+    event: "onpointerdown / ondblclick"
+    front:
+      handler: "buiSplitStart(event,'L'|'R') · buiSplitReset('L'|'R')"
+      file: "budget-ui-unify.js:buiSplitApply · buiSplitStart · buiSplitReset"
+      logic: "[2026.11.12] 경계를 끌면 양옆 칸 폭이 바뀌고 가운데 상세 예산내역이 나머지를 쓴다. 최소 폭 양옆 240px · 가운데 480px(넘으면 멈춤). 화면이 좁아지면 비율대로 줄임. 더블클릭하면 기본(20 : 60 : 20). 정한 폭은 다시 그려도 유지하고 브라우저(localStorage bui-split)에 기억. 1100px 이하 화면은 세로로 쌓여 손잡이 숨김"
+      validation: null
+      state_writes: [buiSplit]
+    backend: null
+    result: "세 칸 폭 조절"
+
   - id: btn-agent-chat-more
     label: "이전 대화 N개 보기 ▾ / 이전 대화 접기 ▴"
     type: button
@@ -665,3 +680,4 @@ requirements:
   - { id: FR-BAD-27, text: "[2026.11.12] 계정 상세의 세 칸(예산 조정안 · 상세 예산내역 · Agent와 대화하기)은 같은 높이(화면 높이 기준)로 맞춰지고 칸마다 안쪽에서 스크롤되어야 하며, 폭은 상세 예산내역 중심(20 : 60 : 20)이어야 한다" }
   - { id: FR-BAD-28, text: "[2026.11.12] 계정 상세의 대화 칸은 마지막 대화 1쌍만 보이고 이전 대화는 접어 두며 펼쳐 볼 수 있어야 하고, 상세계정 탭이 많으면 가로 스크롤로 볼 수 있어야 한다" }
   - { id: FR-BAD-29, text: "[2026.11.12] 원가조정 · 원가현황의 버튼은 역할(주요 · 보조 · 위험 · 긍정 · 엑셀)별 같은 모양과 두 가지 크기(도구줄 30px · 행 안 26px)로 통일되어야 한다" }
+  - { id: FR-BAD-30, text: "[2026.11.12] 계정 상세의 세 칸은 경계를 끌어 가로 폭을 조절할 수 있어야 하며(최소 폭: 양옆 240px · 상세 480px), 정한 폭은 유지되고 더블클릭으로 기본 폭으로 되돌릴 수 있어야 한다" }
