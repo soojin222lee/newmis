@@ -46,6 +46,7 @@ function bopBox(el) { return el ? (el.closest('tr.bie-row') || el.closest('.agv-
 function bopEl(box, k) { return box ? (box.querySelector('[data-oid="' + k + '"]') || box.querySelector('#' + k)) : null; }
 
 /* ── 동작 ──────────────────────────────────────────────────────────────── */
+function bopMulti(box) { return (bopEl(box, 'agos-po-multi') || {}).value === '1'; }
 // [분기 | 월별] 전환 — 다른 단위에서 고른 기간은 풉니다(날짜 칸은 그대로)
 function agentOsPoUnitFinal(btn, unit) {             // crud N
   const box = bopBox(btn);
@@ -58,17 +59,36 @@ function agentOsPoUnitFinal(btn, unit) {             // crud N
   box.querySelectorAll('.agos-q.on').forEach(function (b) { b.classList.remove('on'); });
   bopSync(box);
 }
-// 기간 버튼 — 하나만 고릅니다. 고르면 계획 시작 · 종료일에 그 기간을 기본값으로 넣습니다(고칠 수 있음)
+// [여러 기간 한 번에] 켜기/끄기 — 켜면 기간을 여러 개 골라 같은 금액으로 한 번에 등록(2026.11.16). 끄면 처음 고른 하나만 남김
+function agentOsPoMultiFinal(btn) {                   // crud N
+  const box = bopBox(btn);
+  if (!box) return;
+  const m = bopEl(box, 'agos-po-multi');
+  const on = !(m && m.value === '1');
+  if (m) m.value = on ? '1' : '';
+  btn.classList.toggle('on', on);
+  if (!on) {
+    const picked = Array.prototype.slice.call(box.querySelectorAll('.agos-q.on'));
+    picked.slice(1).forEach(function (b) { b.classList.remove('on'); });
+    if (picked[0]) bopFillDates(box, picked[0]);
+  }
+  bopSync(box);
+}
+function bopFillDates(box, btn) {
+  const st = bopEl(box, 'agos-po-start'), en = bopEl(box, 'agos-po-end');
+  if (st) st.value = btn.getAttribute('data-from');
+  if (en) en.value = btn.getAttribute('data-to');
+}
+// 기간 버튼 — 기본은 하나만(고르면 날짜 기본값, 고칠 수 있음). [여러 기간 한 번에]를 켜면 여러 개
 function agentOsPoPickFinal(btn) {                   // crud N
   const box = bopBox(btn);
   if (!box) return;
   const was = btn.classList.contains('on');
-  box.querySelectorAll('.agos-q.on').forEach(function (b) { b.classList.remove('on'); });
-  if (!was) {
-    btn.classList.add('on');
-    const st = bopEl(box, 'agos-po-start'), en = bopEl(box, 'agos-po-end');
-    if (st) st.value = btn.getAttribute('data-from');
-    if (en) en.value = btn.getAttribute('data-to');
+  if (bopMulti(box)) {
+    btn.classList.toggle('on', !was);
+  } else {
+    box.querySelectorAll('.agos-q.on').forEach(function (b) { b.classList.remove('on'); });
+    if (!was) { btn.classList.add('on'); bopFillDates(box, btn); }
   }
   bopSync(box);
 }
@@ -79,26 +99,41 @@ function agentOsPoAmtFinal(el) {                     // crud N
   if (t) t.value = '1';
   bopSync(box);
 }
-// 금액 기본값(등록 가능 금액) · 안내 문구
+// 날짜 · 금액 기본값 · 안내 문구
+//   하나: 날짜 칸에 그 기간(고칠 수 있음), 금액 = 등록 가능 금액
+//   여러 개(2개 이상): 기간마다 한 건씩 등록 → 날짜 칸은 처음~끝으로 보여 주고 잠금, 금액 = 등록 가능 금액 ÷ 개수(만원 내림)
 function bopSync(box) {
   if (!box) return;
   const qs = box.querySelector('.agos-qs');
-  const on = box.querySelector('.agos-q.on');
+  const on = Array.prototype.slice.call(box.querySelectorAll('.agos-q.on'));
+  const n = on.length, many = bopMulti(box) && n > 1;
+  const unitName = (qs && qs.getAttribute('data-unit') === 'm') ? '달' : '분기';
   const st = bopEl(box, 'agos-po-start'), en = bopEl(box, 'agos-po-end'), amt = bopEl(box, 'agos-po-amount');
-  [st, en].forEach(function (x) { if (x) x.disabled = false; });
+  [st, en].forEach(function (x) { if (x) x.disabled = many; });
+  if (many) {
+    const froms = on.map(function (b) { return b.getAttribute('data-from'); }).sort();
+    const tos = on.map(function (b) { return b.getAttribute('data-to'); }).sort();
+    if (st) st.value = froms[0];
+    if (en) en.value = tos[tos.length - 1];
+  } else if (n === 1 && bopMulti(box)) bopFillDates(box, on[0]);
   const room = Number(qs && qs.getAttribute('data-room')) || 0;
   const touched = (bopEl(box, 'agos-po-touched') || {}).value === '1';
-  if (amt && !touched && room) amt.value = room;
+  if (amt && !touched && room) amt.value = many ? (Math.floor(room / n / 10000) * 10000 || Math.floor(room / n)) : room;
   const a = Math.abs(parseBudgetAmount((amt || {}).value || 0));
+  const total = many ? a * n : a;
+  const lab = bopEl(box, 'agos-po-amt-lab');
+  if (lab) lab.textContent = many ? unitName + '별 금액(원) — 고른 ' + n + '개 ' + unitName + '에 같은 금액으로 등록' : '계획 금액(원)';
   const hint = bopEl(box, 'agos-po-hint');
   if (hint) {
-    const over = !!(room && a > room);
-    hint.textContent = over ? '등록 가능 ' + fmt(room) + '원을 넘습니다'
-      : on ? on.textContent.replace('✓', '').trim() + ' 기간을 넣었습니다 — 날짜는 고칠 수 있습니다' : '';
+    const over = !!(room && total > room);
+    hint.textContent = many
+      ? '합계 ' + fmt(total) + '원 = ' + fmt(a) + '원 × ' + n + '개 ' + unitName + (over ? ' · 등록 가능 ' + fmt(room) + '원 초과' : '')
+      : over ? '등록 가능 ' + fmt(room) + '원을 넘습니다'
+      : n ? on[0].textContent.replace('✓', '').trim() + ' 기간을 넣었습니다 — 날짜는 고칠 수 있습니다' : '';
     hint.classList.toggle('over', over);
   }
 }
-// 표 안 행이 다시 그려진 뒤(입력값 복원 후) 단위 · 날짜 · 안내를 맞춥니다 — budget-inline-edit.js bieApplyValues 가 부릅니다
+// 표 안 행이 다시 그려진 뒤(입력값 복원 후) 단위 · 여러 기간 · 날짜 잠금을 맞춥니다 — budget-inline-edit.js bieApplyValues 가 부릅니다
 function bopRestore(pop) {
   const u = bopEl(pop, 'agos-po-unit');
   const qs = pop.querySelector('.agos-qs');
@@ -106,10 +141,15 @@ function bopRestore(pop) {
   const unit = u.getAttribute('value') || u.value || 'q';
   qs.setAttribute('data-unit', unit);
   pop.querySelectorAll('.agos-unit button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-unit') === unit); });
-  if (pop.querySelectorAll('.agos-q.on').length) {
-    const hint = bopEl(pop, 'agos-po-hint');
-    if (hint) hint.textContent = '';
+  const m = bopEl(pop, 'agos-po-multi');
+  const multi = !!m && (m.getAttribute('value') || m.value) === '1';
+  const mb = pop.querySelector('.agos-multi');
+  if (mb) mb.classList.toggle('on', multi);
+  if (multi && pop.querySelectorAll('.agos-q.on').length > 1) {
+    [bopEl(pop, 'agos-po-start'), bopEl(pop, 'agos-po-end')].forEach(function (x) { if (x) x.setAttribute('disabled', ''); });
   }
+  const hint = bopEl(pop, 'agos-po-hint');
+  if (hint) hint.textContent = '';
 }
 
 /* ── 입력 양식 ─────────────────────────────────────────────────────────── */
@@ -145,10 +185,12 @@ renderAgentOsPoPopFinal = function () {
           <button type="button" class="on" data-unit="q" onclick="agentOsPoUnitFinal(this,'q')">분기</button>
           <button type="button" data-unit="m" onclick="agentOsPoUnitFinal(this,'m')">월별</button>
         </div>
+        <button type="button" class="agos-multi" onclick="agentOsPoMultiFinal(this)"
+          title="켜면 기간을 여러 개 골라 기간마다 같은 금액으로 한 번에 등록합니다">여러 기간 한 번에</button>
       </div>
       <div class="agos-plist" data-unit="q">${btns('q')}</div>
       <div class="agos-plist" data-unit="m">${btns('m')}</div>
-      <input type="hidden" id="agos-po-unit" value="q"><input type="hidden" id="agos-po-touched" value="">
+      <input type="hidden" id="agos-po-unit" value="q"><input type="hidden" id="agos-po-touched" value=""><input type="hidden" id="agos-po-multi" value="">
     </div>`;
   return `
     <div class="agv-pop-dim" onclick="if(event.target===this)agentOsPoCloseFinal()">
@@ -187,10 +229,16 @@ agentOsPoSaveFinal = function () {
   if (!v) return;
   const val = function (id) { return ((document.getElementById(id) || {}).value || '').trim(); };
   const amount = Math.abs(parseBudgetAmount(val('agos-po-amount') || 0));
-  // 기간 버튼은 날짜 기본값만 넣습니다 — 저장은 PM이 고친 날짜 칸 값으로
-  const spans = [{ from: val('agos-po-start'), to: val('agos-po-end') }];
+  // 기본: 기간 버튼은 날짜 기본값만 넣고, 저장은 PM이 고친 날짜 칸 값으로(한 건)
+  // [여러 기간 한 번에]를 켜고 2개 이상 고르면: 고른 기간마다 같은 금액으로 한 건씩(2026.11.16)
+  const multi = val('agos-po-multi') === '1';
+  const picked = Array.prototype.slice.call(document.querySelectorAll('.agv-pop .agos-q.on')).map(function (b) { return b.getAttribute('data-q'); });
+  const all = bopPeriods(v, 'q').concat(bopPeriods(v, 'm'));
+  const ps = all.filter(function (p) { return picked.indexOf(p.key) >= 0; });
+  const many = multi && ps.length > 1 && e.i < 0;
+  const spans = many ? ps.map(function (p) { return { from: p.from, to: p.to }; }) : [{ from: val('agos-po-start'), to: val('agos-po-end') }];
   const sameMonth = function (sp) { return sp.from.slice(0, 7) === sp.to.slice(0, 7); };
-  const unitName = '분기';
+  const unitName = many && /-/.test(ps[0].key) ? '달' : '분기';
   for (let k = 0; k < spans.length; k++) {
     const sp = spans[k];
     if (!sp.from || !sp.to) { showToast('계획 시작 · 종료일을 입력하거나 분기 · 달을 골라 주세요.'); return; }
@@ -237,6 +285,9 @@ function bopInjectStyle() {
   .agos-unit { display:inline-flex; gap:2px; padding:2px; background:#f1f5f9; border-radius:8px; }
   .agos-unit button { border:0; background:transparent; border-radius:6px; padding:3px 10px; font:inherit; font-size:11.5px; font-weight:800; color:#64748b; cursor:pointer; }
   .agos-unit button.on { background:#fff; color:#0b1220; box-shadow:0 1px 2px rgba(15,23,42,.12); }
+  .agos-multi { border:1px dashed #cbd5e1; background:#fff; color:#64748b; border-radius:8px; padding:3px 10px; font:inherit; font-size:11.5px; font-weight:800; cursor:pointer; }
+  .agos-multi.on { border-style:solid; border-color:#2563eb; background:#eff6ff; color:#1d4ed8; }
+  .agos-multi.on::before { content:'✓ '; }
   .agos-qs[data-unit="q"] .agos-plist[data-unit="m"], .agos-qs[data-unit="m"] .agos-plist[data-unit="q"] { display:none; }
   .agos-plist { display:flex; flex-direction:column; gap:4px; }
   .agos-qrow { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
