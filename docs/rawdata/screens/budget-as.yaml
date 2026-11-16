@@ -107,6 +107,169 @@ elements:
     backend: { note: "asCostRows는 전역 단일 객체(프로젝트별 분리 안됨) — SRS: 프로젝트별 영속화 필요" }
     result: A/S비 계획 총액 = 5개 테이블 합계로 반영, 저장 토스트
 
+  # ── [2026.11.11] Agent 콘솔 A/S Cost 상세 — 직접 수정 (budget-direct-edit.js) ──
+  # 예산 수정 방법 3가지(직접 수정 · Agent 제안 반영 · Agent 대화 지시) 중 '직접 수정'을 A/S Cost 에도 제공.
+  # 원래 renderAgentAsDetailFinal 은 보기 전용이었고, budget-direct-edit.js 가 재정의해 관리 열 · 등록 버튼 · 입력 팝업을 더함.
+  - id: btn-agent-as-add
+    label: "＋ A/S {그룹} 등록"
+    type: button
+    crud: C
+    area: "Agent 콘솔 A/S Cost 상세 · 그룹 탭(인건비/외주 인력/재료비/경비) 표 상단"
+    event: onclick
+    front:
+      handler: "bdeAsOpen(group, '')"
+      file: "budget-direct-edit.js:bdeAsOpen · bdeAsPanel → 입력 행 변환 budget-inline-edit.js:bieDraftRow · bieFocusRow"
+      logic: "[2026.11.11] 팝업 대신 표 맨 위에 입력 행을 추가한다(budget-inline-edit.js:bieDraftRow). 입력 행을 연다. 인건비 · 외주 인력은 수량(MM) × 단가, 재료비 · 경비는 금액 직접 입력. 직책자 화면 · 과거 확정 버전 조회 중에는 숨김"
+      state_writes: [bdeAsEdit]
+    validation: null
+    backend: null
+    result: "표 맨 위에 입력 행 추가(누를 때마다 한 행씩 더 쌓이고 입력값 유지) — 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서"
+
+  - id: btn-agent-as-excel
+    label: "⬇ 엑셀"
+    type: button
+    crud: R
+    area: "A/S Cost 표 위 버튼 줄([선택삭제] 왼쪽)"
+    event: onclick
+    front:
+      handler: "bxeDetail(this)"
+      file: "budget-excel-export.js:bxeAddDetailButton · bxeDetail · bxeTableRows · bxeXlsx"
+      logic: "[2026.11.12] 지금 고른 상세계정 탭의 A/S Cost 예산내역 표를 .xlsx로 내려받는다. 저장된 내역만 담고 저장 전 입력 행 · 체크박스 · 관리 열은 뺀다. 1행 제목(프로젝트 · 계정 · 탭), 2행 단위(원) · 내려받은 날, 금액은 숫자 셀(#,##0), 머리 줄 틀 고정. 파일명 {계정}_{탭}_예산내역_YYYYMMDD.xlsx. 외부 라이브러리 없이 브라우저에서 생성(목업)"
+      validation: "표가 없으면 '내려받을 표가 없습니다.' 토스트"
+      state_writes: []
+    backend: { note: "실서비스는 서버 엑셀 생성 API로 대체 가능 — 목업은 화면 표 기준 클라이언트 생성" }
+    result: "{계정}_{탭}_예산내역_YYYYMMDD.xlsx 다운로드"
+
+  - id: btn-agent-as-savebar
+    label: 저장
+    type: button
+    crud: U
+    area: "A/S Cost 표 상단 버튼 줄 맨 오른쪽([＋ 등록] 옆)"
+    event: onclick
+    front:
+      handler: "bieSaveAll()"
+      file: "budget-inline-edit.js:bieAddSaveButton · bieSaveAll → bieSaveDrafts"
+      logic: "[2026.11.12] 일반 표처럼 추가 · 수정 · 삭제 모두 이 버튼을 눌러야만 반영된다(행별 저장 없음 — 저장 전까지 [예산 조정안] 기록 · API 호출 없음). 삭제 예정이 있으면 확인창 1번. 추가 · 수정을 먼저 저장하고 삭제는 그다음(순번이 밀리지 않게 화면 아래 행부터). 화면의 입력 행(등록 · 수정)을 위에서부터 차례로 원래 저장 함수로 저장한다(버튼에 입력 행 수 표시). 검증에 걸린 행에서 멈추고 그 행을 빨갛게 표시하며, 나머지 행은 입력값 그대로 남긴다. 열린 행이 없으면 흐리게 보이고, 누르면 안내 토스트. 직책자 화면 · 과거 확정 버전 조회 중에는 숨김"
+      validation: "열린 입력 행이 없으면 '저장할 입력 행이 없습니다. [＋ 등록]이나 [수정]을 먼저 눌러 주세요.' 토스트 · 그 밖의 검증은 원래 저장 함수와 같음"
+      state_writes: [BIE_DRAFTS, BIE_DELS]
+    backend: null
+    result: "추가 · 수정 · 삭제 일괄 반영 + [예산 조정안] 수기 입력 반영 + 토스트"
+
+  - id: btn-agent-as-edit
+    label: 수정
+    type: button
+    crud: N
+    area: "A/S Cost 상세 표 관리 열"
+    event: onclick
+    front:
+      handler: "bdeAsOpen(group, key)"
+      file: "budget-direct-edit.js:bdeAsOpen → budget-inline-edit.js:bieDraftRow"
+      logic: "[2026.11.11] 팝업 대신 그 행의 칸이 바로 입력칸으로 바뀐다(budget-inline-edit.js:bieDraftRow). 해당 항목 값을 채운 수정 입력 행 오픈"
+      state_writes: [bdeAsEdit]
+    validation: null
+    backend: null
+    result: "그 행에서 바로 수정(입력칸으로 바뀜 · 여러 행 동시 수정 가능) · Enter 저장 · Esc 취소"
+
+  - id: btn-agent-as-save
+    label: "등록 / 수정 저장"
+    type: button
+    crud: U
+    area: "A/S 입력 행 → 표 위 [저장](입력 행 일괄)"
+    event: onclick
+    front:
+      handler: "bdeAsSave()"
+      file: "budget-direct-edit.js:bdeAsSave"
+      logic: >
+        항목을 등록하거나 고친다. 수정 전 대비 금액 변동을 사용자가 고른 [반영 월]에 남기고
+        agentHandRecordFinal('A/S Cost','A/S {그룹}',…)로 [예산 조정안]에 ✎ 수기 입력 조정안을 만들어 바로 [반영] 상태로 둔다.
+        표에는 '수기 입력(결재전)' 배지와 변동 금액을 표시. 승인된 실행예산은 결재 후 바뀐다.
+      state_writes: [BDE_AS, AGENT_PROPOSALS_FINAL, AGENT_HAND_EDITS_FINAL, agentMiniSelFinal]
+    validation: "항목 필수 · 금액(또는 수량 × 단가) 0 초과 · 반영 월 필수 — 어기면 토스트"
+    backend: null
+    result: "표 반영 + [예산 조정안] 수기 입력 조정안 + 토스트"
+
+  - id: btn-agent-as-delete
+    label: 선택삭제
+    type: button
+    crud: D
+    area: "A/S Cost 표 상단 [＋ 등록] 왼쪽 (행 맨 앞 체크박스로 고름)"
+    event: onclick
+    front:
+      handler: "bieDeleteChecked(scope, false)"
+      file: "budget-inline-edit.js:bieDeleteChecked → 행마다 bdeAsDelete(group, key) (budget-direct-edit.js:bdeAsDelete)"
+      logic: "[2026.11.12] 누르면 바로 지우지 않고 체크한 행을 '삭제 예정'(취소선 · 맨 앞 [↺] 되돌리기)으로만 표시한다. 실제 삭제는 표 위 [저장]을 눌렀을 때 추가 · 수정을 먼저 저장한 뒤 화면 아래 행부터 원래 함수로 처리한다. [2026.11.11] 행마다 있던 [삭제] 대신, 체크한 행을 확인창 1번 뒤 뒤에서부터 원래 삭제 함수 bdeAsDelete(group, key) 로 차례로 지운다(건별 검증 · [예산 조정안] 수기 입력 기록은 원래 함수 그대로). 원래 규칙: 확인 후 삭제. 수기 등록 항목은 목록에서 빠지고, 기존 항목은 금액 0 · '수기 입력(결재전)'으로 남는다. 감소분은 이번 달에 잡는다"
+      state_writes: [BDE_AS, AGENT_PROPOSALS_FINAL, AGENT_HAND_EDITS_FINAL]
+    validation: "confirm 확인 · 체크한 행이 없으면 '삭제할 행을 체크해 주세요.' 토스트"
+    backend: null
+    result: "'삭제 예정' 표시 → [저장] 시 반영 + 토스트"
+
+  - id: chk-agent-as-row
+    label: "행 선택 체크박스 / 머리 전체 선택"
+    type: checkbox
+    crud: N
+    area: "A/S Cost 표 맨 앞 열(수기 삭제한 행은 [삭제 취소]만)"
+    event: onclick
+    front:
+      handler: "bieCheckAll(this, scope)"
+      file: "budget-inline-edit.js:bieAddChecks · bieCheckAll"
+      logic: "삭제할 수 있는 행에만 체크박스가 생긴다(실적이 생긴 · 조회 전용 행은 빈칸). 머리 체크박스는 같은 표의 행을 모두 선택/해제한다. 체크 상태는 화면에만 있고 다시 그리면 풀린다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "선택 표시 — [선택삭제]가 체크한 행을 지움"
+
+  - id: btn-agent-as-undo-del
+    label: "↺ (삭제 취소)"
+    type: button
+    crud: N
+    area: "'삭제 예정' 행 맨 앞(체크박스 자리)"
+    event: onclick
+    front:
+      handler: "bieUndoDel(id)"
+      file: "budget-inline-edit.js:bieUndoDel"
+      logic: "저장 전 삭제 예정 표시를 풀고 원래 행으로 되돌린다(아무것도 반영되지 않은 상태)"
+      validation: null
+      state_writes: [BIE_DELS]
+    backend: null
+    result: "삭제 예정 해제"
+
+  - id: btn-agent-as-restore
+    label: 삭제 취소
+    type: button
+    crud: N
+    area: "A/S Cost 상세 표 관리 열(수기 삭제한 기존 항목)"
+    event: onclick
+    front:
+      handler: "bdeAsRestore(group, key)"
+      file: "budget-direct-edit.js:bdeAsRestore"
+      logic: 수기 삭제한 기존 항목을 되살리고 금액을 조정안에 다시 더함
+      state_writes: [BDE_AS, AGENT_PROPOSALS_FINAL, AGENT_HAND_EDITS_FINAL]
+    validation: null
+    backend: null
+    result: 항목 복원 + 토스트
+
+  - id: btn-agent-as-close
+    label: "취소"
+    type: button
+    crud: N
+    area: "표 안 입력 행 [취소] / Esc"
+    event: onclick
+    front:
+      handler: "bdeAsClose()"
+      file: "budget-direct-edit.js:bdeAsClose"
+      logic: "입력 행 닫기(입력값 버림). 입력 행에서 Esc 를 눌러도 같다(budget-inline-edit.js:bieKey) — 입력 중인 값은 버리고 아무것도 반영되지 않음"
+      state_writes: [bdeAsEdit]
+    validation: null
+    backend: null
+    result: 입력 행 닫힘
+
+  - { id: input-bde-as-name,  label: 항목, type: input(text), crud: C, area: A/S 입력 행, front: { handler: null, file: "budget-direct-edit.js:bdeAsPanel", logic: 필수 } }
+  - { id: input-bde-as-sub,   label: 구분, type: input(text), crud: C, area: A/S 입력 행, front: { handler: null, file: "budget-direct-edit.js:bdeAsPanel", logic: "자유 입력(예: 직급)" } }
+  - { id: input-bde-as-qty,   label: "수량(MM)", type: input(numeric), crud: C, area: "A/S 입력 행(인건비 · 외주 인력)", front: { handler: "bdeAsCalc()", file: "budget-direct-edit.js:bdeAsCalc", logic: 입력 시 금액 자동 계산 } }
+  - { id: input-bde-as-unit,  label: "단가(원/MM)", type: input(numeric), crud: C, area: "A/S 입력 행(인건비 · 외주 인력)", front: { handler: "bdeAsCalc()", file: "budget-direct-edit.js:bdeAsCalc", logic: 입력 시 금액 자동 계산 } }
+  - { id: input-bde-as-amt,   label: "금액(원)", type: input(numeric), crud: C, area: "A/S 입력 행", front: { handler: null, file: "budget-direct-edit.js:bdeAsPanel", logic: "재료비 · 경비는 직접 입력, 인건비 · 외주 인력은 수량 × 단가 자동(읽기 전용)" } }
+  - { id: select-bde-as-month, label: 반영 월, type: select, crud: C, area: "A/S 입력 행", front: { handler: null, file: "budget-direct-edit.js:bdeAsPanel", logic: "프로젝트 월 목록. 기본 이번 달. 금액 변동을 이 월에 남김" } }
+
 # ── 유형(5종) & 합계 방식 ──
 kinds:
   - { key: labor, label: 인건비, columns: "번호/단위업무/직급/단가/투입공수(M/M)/인건비금액/간접비금액/금액(자동)", sum: "Σ(laborAmount+indirectAmount) (:42)" }
@@ -169,3 +332,13 @@ requirements:
   - { id: FR-AS-07, text: "집행계획 목록과 계정 상세(비중: 인건비 .56/외주 .23/재료 .05/경비 .16)에 A/S Cost가 자동 편입되어야 한다" }
   - { id: FR-AS-08, text: "(검토 필요) 무상하자보증 유무/보증기간과 A/S비 산정의 연동 여부 — 현재 목업은 미연동. 실제 요건에서 무상 구간 원가 처리 규칙 정의 필요" }
   - { id: FR-AS-09, text: "(개선) asCostRows가 전역 단일 객체로 프로젝트별 분리 저장이 안 됨 — 프로젝트별 A/S 원가 데이터 영속화 필요" }
+  - { id: FR-AS-10, text: "[2026.11.11] Agent 화면의 A/S Cost 상세에서도 그룹별 항목을 직접 등록·수정·삭제할 수 있어야 하며, 저장 내용은 [예산 조정안]에 수기 입력 조정안으로 올라가 결재 후 반영되어야 한다" }
+  - { id: FR-AS-11, text: "A/S Cost 등록·수정 입력 행에서 변동 금액을 반영할 월을 고를 수 있어야 한다" }
+  - { id: FR-AS-12, text: "[2026.11.11] Agent 화면 A/S Cost 상세의 등록은 팝업이 아니라 표 맨 위에 입력 행을 추가하는 방식이어야 하며, 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서가 있어야 한다" }
+  - { id: FR-AS-13, text: "Agent 화면 A/S Cost 상세의 수정은 팝업 없이 그 행의 칸에서 바로 할 수 있어야 한다(Enter 저장 · Esc 취소)" }
+  - { id: FR-AS-14, text: "Agent 화면 A/S Cost 상세의 삭제는 행 맨 앞 체크박스로 여러 건을 골라 표 위 [선택삭제]로 한 번에 할 수 있어야 하며, 실적이 생긴 건은 체크할 수 없어야 한다" }
+  - { id: FR-AS-15, text: "Agent 화면 A/S Cost 상세는 표 위 [저장] 버튼으로 열려 있는 입력 행(등록 · 수정)을 저장할 수 있어야 하며, 열린 행이 없으면 저장 버튼이 흐리게 보여야 한다" }
+  - { id: FR-AS-16, text: "Agent 화면 A/S Cost 상세는 입력 행을 여러 개 동시에 추가 · 수정할 수 있어야 하며, 다른 행을 추가하거나 화면이 다시 그려져도 입력 중인 값이 유지되어야 한다" }
+  - { id: FR-AS-17, text: "[2026.11.12] Agent 화면 A/S Cost 상세의 등록 · 수정은 표 위 [저장]을 눌렀을 때만 한 번에 반영되어야 하며, 입력 행마다 따로 저장(등록 API 호출)하지 않아야 한다" }
+  - { id: FR-AS-18, text: "[2026.11.12] Agent 화면 A/S Cost 상세의 선택삭제는 바로 반영하지 않고 '삭제 예정'으로 표시해야 하며(되돌리기 가능), 표 위 [저장]을 눌렀을 때 추가 · 수정과 함께 한 번에 반영되어야 한다" }
+  - { id: FR-AS-19, text: "[2026.11.12] Agent 화면 A/S Cost 상세는 지금 고른 상세계정의 예산내역 표(저장된 내역)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }

@@ -4,13 +4,17 @@
 //
 // AI GUIDE: 프로젝트 현황 화면입니다.
 // - 수주형·제안·W/G·사내·투자·선투입 6개 유형의 프로젝트를 한 목록에서 통합 조회합니다.
-// - 유형·상태·등록경로별 검색/필터를 제공하고, [상세]를 누르면 해당 유형의 상세 화면으로 이동합니다.
-// - 등록경로는 두 갈래입니다.
-//     · 선행 자동연계 : 수주형·제안·투자·선투입 (CRM 등 선행 시스템에서 완료 후 MIS 자동 등록)
-//     · 개설 승인     : W/G·사내 (MIS에서 개설 신청→승인 완료 후 등록 / '프로젝트 개설 관리'에서 처리)
-// - W/G·사내는 개설 승인 완료 전까지 수행원가 예산 수립이 불가합니다(현황에서 예산수립 가능 여부 표시).
-// - 데이터는 각 유형 전용 파일의 전역 상수(SI_PROJECTS·PROPOSAL_PROJECTS·WG_PROJECTS·
-//   INTERNAL_PROJECTS·INVESTMENT_PROJECTS·ADVANCE_PROJECTS)를 읽어 정규화합니다(단일 출처 유지).
+// - 유형·상태·들어온 곳별 검색/필터를 제공하고, [상세]를 누르면 해당 유형의 상세 화면으로 이동합니다.
+// - TO-BE(PM 답변 11.05): 모든 프로젝트는 선행 단계가 끝나면 I/F로 자동 등록됩니다(수기 등록 없음).
+//     수주형 = CRM 계약 / 제안 = 사업기회 / 사내 일부·투자·선투입 = 플랫폼 / W/G·사내 MIS 유형 = 개설 관리 승인완료
+// - 상태는 착수완료 → 수행 → 수행(임시종료) → 종료 4가지로 통일합니다.
+//     착수완료 : 자동 등록된 상태. 첫 실행예산 승인 전(ERP 예산 I/F 전)
+//     수행     : 첫 실행예산 승인완료(ERP I/F 완료, ERP 상태 Active)
+//     수행(임시종료) : 종료일 +30일 경과. ERP에는 종료를 보내지 않음(현행 ProjectList.vue:612-629 와 같은 기준)
+//     종료     : 수동 종료 또는 종료일 +60일 자동종료(ERP 종료 전송)
+// - W/G·사내 개설 신청 중(기안중/검토중/반려)인 건은 아직 프로젝트가 아니므로 현황에 나오지 않습니다(개설 관리에서만 보임).
+// - 데이터는 각 유형 전용 파일의 전역 상수를 읽고, TO-BE 상태/세부 유형/들어온 곳은 PSV_TOBE 로 덮어씁니다.
+// - 유형별 상세 화면은 psvTobeOf / psvStatusBadge / psvRegisteredBar 로 같은 TO-BE 상태를 보여줍니다.
 
 let psvCodeQ = '';        // 프로젝트 번호
 let psvNameQ = '';        // 프로젝트 명
@@ -18,52 +22,123 @@ let psvCustomerQ = '';    // 고객사
 let psvOrgQ = '';         // 매출귀속조직/신청부서
 let psvPmQ = '';          // 수행PM
 let psvTypeFilter = '';   // '' | 수주형 | 제안 | W/G | 사내 | 투자 | 선투입
-let psvStatusFilter = ''; // '' | 등록대기 | 진행 | 완료 | 반려 등 (표시 상태)
-let psvPathFilter = '';   // '' | 선행연계 | 개설승인
+let psvStatusFilter = ''; // '' | 착수완료 | 수행 | 수행(임시종료) | 종료
+let psvPathFilter = '';   // '' | CRM 계약 | 사업기회 | 플랫폼 | 개설 관리 (들어온 곳)
 
-// 유형 메타 — 데이터 상수 · 상세 진입 함수 · 등록경로 · 색상
+// 목업 기준일 (임시종료 / 자동종료 계산용)
+const PSV_TODAY = '2026-11-05';
+
+// 유형 메타 — 데이터 상수 · 상세 진입 함수 · 들어온 곳(기본값) · 색상
 const PSV_TYPES = [
-  { type:'수주형', data:'SI_PROJECTS',         show:'showSIProject',         detail:'openSIDetail',       path:'선행연계', color:'#1d4ed8' },
-  { type:'제안',   data:'PROPOSAL_PROJECTS',   show:'showProposalProject',   detail:'openProposalDetail', path:'선행연계', color:'#7c3aed' },
-  { type:'투자',   data:'INVESTMENT_PROJECTS', show:'showInvestmentProject', detail:'openInvDetail',      path:'선행연계', color:'#0891b2' },
-  { type:'선투입', data:'ADVANCE_PROJECTS',    show:'showAdvanceProject',    detail:'openAdvDetail',      path:'선행연계', color:'#0d9488' },
-  { type:'W/G',   data:'WG_PROJECTS',         show:'showWGProject',         detail:'openWGDetail',       path:'개설승인', color:'#b45309' },
-  { type:'사내',   data:'INTERNAL_PROJECTS',   show:'showInternalProject',   detail:'openIPDetail',       path:'개설승인', color:'#be185d' },
+  { type:'수주형', data:'SI_PROJECTS',         show:'showSIProject',         detail:'openSIDetail',       from:'CRM 계약',  color:'#1d4ed8' },
+  { type:'제안',   data:'PROPOSAL_PROJECTS',   show:'showProposalProject',   detail:'openProposalDetail', from:'사업기회',   color:'#7c3aed' },
+  { type:'W/G',   data:'WG_PROJECTS',         show:'showWGProject',         detail:'openWGDetail',       from:'개설 관리',  color:'#b45309' },
+  { type:'사내',   data:'INTERNAL_PROJECTS',   show:'showInternalProject',   detail:'openIPDetail',       from:'개설 관리',  color:'#be185d' },
+  { type:'투자',   data:'INVESTMENT_PROJECTS', show:'showInvestmentProject', detail:'openInvDetail',      from:'플랫폼',     color:'#0891b2' },
+  { type:'선투입', data:'ADVANCE_PROJECTS',    show:'showAdvanceProject',    detail:'openAdvDetail',      from:'플랫폼',     color:'#0d9488' },
 ];
+const PSV_FROM_LIST = ['CRM 계약', '사업기회', '플랫폼', '개설 관리'];
 
 // 검색 필드용 돋보기 아이콘
 const PSV_SEARCH_ICON = '<svg class="psv-ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
 
-// 등록경로 라벨/색
-const PSV_PATH_META = {
-  '선행연계': { label:'선행 자동연계', bg:'#eef2ff', color:'#4338ca' },
-  '개설승인': { label:'개설 승인',     bg:'#fff7ed', color:'#c2410c' },
+// TO-BE 덮어쓰기 ('유형:키') — 세부 유형 / 들어온 곳 / 상태 / 종료일 / 번호
+// (사내·투자·선투입 목업 데이터가 같은 번호를 써서 번호도 나눠 둠)
+const PSV_TOBE = {
+  '수주형:SI-001': { sub:'SI  SI-AD',            status:'수행' },
+  '수주형:SI-002': { sub:'OS  OS-운영',           status:'착수완료' },
+  '수주형:SI-003': { sub:'SI  SI-AD',            status:'착수완료' },
+  '제안:PP-001':   { sub:'PR99  제안',            status:'수행' },
+  '제안:PP-002':   { sub:'PR99  제안',            status:'착수완료' },
+  '제안:PP-003':   { sub:'PR98  제안(정부)',       status:'수행' },
+  'W/G:WG-001':    { sub:'TC27  W/G' },
+  '사내:IP-001':   { sub:'IV58  전사IT운영',       status:'수행' },
+  '사내:IP-002':   { sub:'IV59  사업지원 전사비용',  status:'종료', end:'2026-06-30' },
+  '사내:IP-003':   { sub:'IV60_01  활동관리(PreSales)', status:'착수완료', code:'IV107780' },
+  '투자:INV-001':  { sub:'투자  사내IT',           status:'수행', code:'IV107785', end:'2026-08-31' },
+  '투자:INV-002':  { sub:'투자  사내IT',           status:'착수완료', code:'IV107790' },
+  '투자:INV-003':  { sub:'투자  인프라',           status:'수행', code:'IV107791' },
+  '선투입:ADV-001': { sub:'IV62  원가-선투입',      status:'수행', code:'IV107779', end:'2026-07-31', exc:'2026-12-31' },
+  '선투입:ADV-002': { sub:'IV62  원가-선투입',      status:'착수완료', code:'IV107781' },
+  '선투입:ADV-003': { sub:'IV62  원가-선투입',      status:'수행', code:'IV107782', end:'2026-10-01' },
 };
 
-// 표시 상태 → 색 (유형별 원본 상태값을 그대로 노출)
+// 원래 상태값 → TO-BE 상태 (null = 아직 프로젝트 아님, 현황에서 뺌)
+function psvTobeStatus(orig) {
+  if (['종료완료', '종료'].indexOf(orig) >= 0) return '종료';
+  if (['승인', '승인완료', '수행중', '진행중', '마감준비'].indexOf(orig) >= 0) return '수행';
+  if (['등록완료', '착수', '등록대기', '최종계약완료'].indexOf(orig) >= 0) return '착수완료';
+  return null;
+}
+
+function psvDaysAfter(dateStr) {
+  if (!dateStr) return -1;
+  return Math.floor((new Date(PSV_TODAY) - new Date(dateStr)) / 86400000);
+}
+function psvAddDays(dateStr, n) {
+  const d = new Date(dateStr); d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// 유형 상세 화면에서 쓰는 TO-BE 상태 ('수주형', 'SI-001' 등) — 현황 목록과 같은 계산
+function psvTobeOf(type, key) {
+  const meta = PSV_TYPES.find(function (m) { return m.type === type; });
+  const store = meta && psvStore(meta.data);
+  if (!store || !store[key]) return null;
+  return psvNormalize(meta, key, store[key]);
+}
+
+// 유형 상세 오른쪽 위 배지 — 프로젝트 상태(TO-BE) + 들어온 곳 / 세부 유형. 결재 상태는 각 화면의 버전 칩에 남김
+function psvStatusBadge(type, key) {
+  psvInjectStyle();
+  const r = psvTobeOf(type, key);
+  if (!r) return '';
+  return '<span class="psv-dbadge-wrap"><span class="psv-dbadge" style="color:' + (PSV_STATUS_STYLE[r.status] || '#475569') + ';border-color:' + (PSV_STATUS_STYLE[r.status] || '#cbd5e1') + '">' + r.status + '</span>'
+    + '<span class="psv-dfrom">' + r.from + ' / ' + r.sub + '</span></span>';
+}
+
+// 유형 상세 맨 아래 안내 — 결재(승인 처리)는 개설 관리 / 플랫폼에서 끝난 뒤 자동 등록된 것이므로 상세에는 승인 버튼을 두지 않음
+function psvRegisteredBar(type, key) {
+  const r = psvTobeOf(type, key);
+  if (!r) return '';
+  const where = r.from === '개설 관리' ? '프로젝트 개설 관리(비용 결재)' : r.from;
+  return '<div class="reg-erp-bar reg-erp-done" style="margin-bottom:24px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">✅</span><div>'
+    + '<div style="font-size:15px;font-weight:700;color:#1d4ed8">자동 등록 완료 / 현재 상태 ' + r.status + '</div>'
+    + '<div style="font-size:14px;color:#64748b;margin-top:2px">' + where + '에서 결재가 끝나 MIS에 자동 등록됐습니다 (처음 상태 착수완료). 결재 이력은 ' + where + '에서 확인합니다.'
+    + (r.next ? ' 다음 할 일: <b>' + r.next + '</b>' : '') + '</div></div></div></div>';
+}
+
+// 상태 표시 → 색
 const PSV_STATUS_STYLE = {
-  '승인완료':'#1d4ed8', '승인':'#1d4ed8', '수행중':'#1d4ed8', '진행중':'#1d4ed8',
-  '등록완료':'#475569', '착수':'#5b21b6',
-  '마감준비':'#b45309', '검토중':'#b45309', '기안중':'#b45309',
-  '종료완료':'#166534', '반려':'#991b1b',
+  '착수완료':'#5b21b6', '수행':'#1d4ed8', '수행(임시종료)':'#b45309', '종료':'#166534',
 };
 
-// 한 건을 통합 행으로 정규화
+// 한 건을 통합 행으로 정규화 (현황에 안 나오는 건은 null)
 function psvNormalize(meta, key, p) {
-  const status = p.stage || p.status || '-';
-  const period = (p.start && p.end) ? (p.start + ' ~ ' + p.end) : (p.period || '-');
+  const ov = PSV_TOBE[meta.type + ':' + key] || {};
+  const base = ov.status || psvTobeStatus(p.stage || p.status);
+  if (!base) return null;
+  const start = p.start || String(p.period || '').split('~')[0].trim();
+  const end = ov.end || p.end || (String(p.period || '').split('~')[1] || '').trim();
   const pm = p.pm || p.wgLeader || '-';
   const org = p.revOrg || p.salesDept || p.requestDept || p.mainDept || '-';
-  const customer = p.customer || p.client || p.custName || p.고객사 || '';
-  // 예산 수립 가능 여부: 개설승인 유형은 '승인완료/승인'일 때만 가능, 선행연계는 등록되면 가능
-  const approved = (status === '승인완료' || status === '승인');
-  const budgetReady = (meta.path === '선행연계') ? true : approved;
+  // 수행 건만 종료일 기준으로 임시종료 / 자동종료 대상 계산
+  let status = base, next = '', warn = false;
+  const passed = psvDaysAfter(end);
+  if (base === '착수완료') next = '첫 실행예산 작성 / 승인';
+  if (base === '수행' && passed >= 30) {
+    status = '수행(임시종료)'; warn = true;
+    next = passed >= 60 ? '자동종료 대상 (종료 조건 확인 중)' : '종료일 연장 또는 종료 / ' + psvAddDays(end, 60) + ' 자동종료 예정';
+    if (ov.exc) next = '자동종료 예외 (' + ov.exc + '까지 ERP 유지)';
+  }
   return {
-    type: meta.type, key, code: p.code || '-', name: p.name || '(이름없음)',
-    pm, org, customer, status, period, path: meta.path, color: meta.color,
-    show: meta.show, detail: meta.detail, budgetReady,
+    type: meta.type, key, code: ov.code || p.code || '-', name: p.name || '(이름없음)',
+    sub: ov.sub || p.projType || '-', from: ov.from || meta.from,
+    pm, org, customer: p.customer || p.client || p.custName || p.고객사 || '', status, next, warn, period: (start && end) ? (start + ' ~ ' + end) : '-', color: meta.color,
+    show: meta.show, detail: meta.detail,
   };
 }
+
 
 // 전역 const 데이터 바인딩 해석 (최상위 const는 window 프로퍼티가 아니므로 직접 참조)
 function psvStore(name) {
@@ -85,7 +160,8 @@ function psvCollect() {
     const store = psvStore(meta.data);
     if (!store) return;
     Object.keys(store).forEach(function (key) {
-      rows.push(psvNormalize(meta, key, store[key]));
+      const r = psvNormalize(meta, key, store[key]);
+      if (r) rows.push(r);   // 아직 프로젝트가 아닌 건(개설 신청 중)은 null → 제외
     });
   });
   return rows;
@@ -100,7 +176,7 @@ function psvApplyFilter(rows) {
   const has = function (val, q) { return String(val == null ? '' : val).toLowerCase().includes(q); };
   return rows.filter(function (r) {
     if (psvTypeFilter && r.type !== psvTypeFilter) return false;
-    if (psvPathFilter && r.path !== psvPathFilter) return false;
+    if (psvPathFilter && r.from !== psvPathFilter) return false;
     if (psvStatusFilter && r.status !== psvStatusFilter) return false;
     if (code && !has(r.code, code)) return false;
     if (name && !has(r.name, name)) return false;
@@ -146,13 +222,25 @@ function psvInjectStyle() {
    .psv-sbadge{display:inline-block;font-size:11.5px;font-weight:800;white-space:nowrap}
    .psv-pname{font-weight:800;color:#0f172a}
    .psv-code{font-size:11px;color:#94a3b8}
-   .psv-bgt{font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;white-space:nowrap}
-   .psv-bgt.ok{background:#dcfce7;color:#166534}
-   .psv-bgt.wait{background:#fef3c7;color:#b45309}
+   .psv-sub2{font-size:11px;color:#64748b;margin-top:3px;white-space:nowrap}
+   .psv-from{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:6px;white-space:nowrap;background:#f1f5f9;color:#334155}
+   .psv-from.ext{background:#eef2ff;color:#4338ca}
+   .psv-next{font-size:11.5px;color:#475569}
+   .psv-next.warn{color:#b45309;font-weight:700}
+   .psv-flow{display:flex;align-items:stretch;gap:0;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px;margin:0 0 12px;flex-wrap:wrap}
+   .psv-st{flex:1;min-width:150px;padding:6px 10px;border-radius:8px;cursor:pointer}
+   .psv-st:hover,.psv-st.on{background:#f1f5ff}
+   .psv-st b{display:block;font-size:13px}
+   .psv-st b i{font-style:normal;font-weight:900;margin-left:6px}
+   .psv-st span{display:block;font-size:11px;color:#64748b;line-height:1.45;margin-top:2px}
+   .psv-sa{display:flex;align-items:center;color:#cbd5e1;font-weight:900;padding:0 2px}
    .psv-empty{padding:40px;text-align:center;color:#94a3b8;font-size:13px}
    .psv-link{border:1px solid #d1d5db;background:#fff;border-radius:7px;padding:5px 11px;font-size:12px;font-weight:700;color:#1d4ed8;cursor:pointer;font-family:inherit}
    .psv-link:hover{background:#eff6ff;border-color:#1d4ed8}
    .psv-note{font-size:11.5px;color:#94a3b8;margin-top:12px;line-height:1.6}
+   .psv-dbadge-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+   .psv-dbadge{display:inline-block;font-size:15px;font-weight:800;padding:5px 14px;border-radius:99px;border:1.5px solid;background:#fff;white-space:nowrap}
+   .psv-dfrom{font-size:11.5px;color:#64748b;white-space:nowrap}
   `;
   document.head.appendChild(st);
 }
@@ -174,33 +262,50 @@ function renderProjectStatus() {
   // 필터 옵션
   const typeOpts = ['', '수주형', '제안', 'W/G', '사내', '투자', '선투입']
     .map(function (t) { return '<option value="' + t + '"' + (t === psvTypeFilter ? ' selected' : '') + '>' + (t || '전체 유형') + '</option>'; }).join('');
-  const statusVals = Array.from(new Set(all.map(function (r) { return r.status; }))).filter(Boolean);
-  const statusOpts = ['<option value="">전체 상태</option>'].concat(statusVals.map(function (s) {
+  const statusList = ['착수완료', '수행', '수행(임시종료)', '종료'];
+  const statusOpts = ['<option value="">전체 상태</option>'].concat(statusList.map(function (s) {
     return '<option value="' + s + '"' + (s === psvStatusFilter ? ' selected' : '') + '>' + s + '</option>';
   })).join('');
-  const pathOpts = [['', '전체 등록경로'], ['선행연계', '선행 자동연계'], ['개설승인', '개설 승인']]
+  const pathOpts = [['', '전체 들어온 곳']].concat(PSV_FROM_LIST.map(function (f) { return [f, f]; }))
     .map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === psvPathFilter ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('');
 
+  // 상태 흐름 (누르면 그 상태로 거름)
+  const scount = {};
+  all.forEach(function (r) { scount[r.status] = (scount[r.status] || 0) + 1; });
+  const stDesc = {
+    '착수완료': '선행 단계 완료 후 자동 등록<br>첫 실행예산 승인 전 (ERP 예산 전송 전)',
+    '수행': '첫 실행예산 승인완료<br>ERP 예산 전송 완료, ERP 상태 Active',
+    '수행(임시종료)': '종료일 +30일 경과<br>ERP에는 종료를 보내지 않음',
+    '종료': '수동 종료 또는 종료일 +60일 자동종료<br>ERP 종료 전송',
+  };
+  const flow = statusList.map(function (s, i) {
+    return (i ? '<div class="psv-sa">→</div>' : '')
+      + '<div class="psv-st' + (psvStatusFilter === s ? ' on' : '') + '" onclick="psvOnStatus(psvStatusFilter===\'' + s + '\'?\'\':\'' + s + '\')">'
+      + '<b style="color:' + PSV_STATUS_STYLE[s] + '">' + s + '<i>' + (scount[s] || 0) + '</i></b><span>' + stDesc[s] + '</span></div>';
+  }).join('');
+
   const body = rows.length ? rows.map(function (r) {
-    const pm = PSV_PATH_META[r.path];
     const scolor = PSV_STATUS_STYLE[r.status] || '#475569';
+    const ext = (r.from !== '개설 관리');
     return '<tr>'
       + '<td><div class="psv-pname">' + r.name + '</div><div class="psv-code">' + r.code + '</div></td>'
-      + '<td><span class="psv-tbadge" style="background:' + r.color + '">' + r.type + '</span></td>'
-      + '<td><span class="psv-pbadge" style="background:' + pm.bg + ';color:' + pm.color + '">' + pm.label + '</span></td>'
+      + '<td><span class="psv-tbadge" style="background:' + r.color + '">' + r.type + '</span><div class="psv-sub2">' + r.sub + '</div></td>'
+      + '<td><span class="psv-from' + (ext ? ' ext' : '') + '">' + r.from + '</span></td>'
       + '<td>' + r.pm + '</td>'
       + '<td>' + r.org + '</td>'
       + '<td style="white-space:nowrap;color:#64748b">' + r.period + '</td>'
       + '<td><span class="psv-sbadge" style="color:' + scolor + '">' + r.status + '</span></td>'
+      + '<td><span class="psv-next' + (r.warn ? ' warn' : '') + '">' + (r.next || '-') + '</span></td>'
       + '<td><button class="psv-link" onclick="psvOpenDetail(\'' + r.type + '\',\'' + r.key + '\')">상세 조회</button></td>'
       + '</tr>';
-  }).join('') : '<tr><td colspan="8" class="psv-empty">조건에 맞는 프로젝트가 없습니다.</td></tr>';
+  }).join('') : '<tr><td colspan="9" class="psv-empty">조건에 맞는 프로젝트가 없습니다.</td></tr>';
 
   host.innerHTML =
     '<div class="psv-wrap">'
     + '<div class="psv-head"><div><div class="psv-title">프로젝트 현황</div>'
-    + '<div class="psv-sub">수주형·제안·W/G·사내·투자·선투입 전 유형을 통합 조회합니다. 등록경로·상태로 검색하고 상세로 이동하세요.</div></div></div>'
+    + '<div class="psv-sub">선행 단계(CRM 계약 / 사업기회 / 플랫폼 / 개설 관리)가 끝나 자동 등록된 전 유형 프로젝트를 한 곳에서 조회합니다.</div></div></div>'
     + '<div class="psv-chips">' + chips + '</div>'
+    + '<div class="psv-flow">' + flow + '</div>'
     + '<div class="psv-toolbar">'
     + '<input class="psv-in" type="text" placeholder="프로젝트 번호" value="' + psvEsc(psvCodeQ) + '" oninput="psvSet(\'code\',this.value)" onkeydown="psvKey(event)">'
     + '<input class="psv-in" type="text" placeholder="프로젝트 명" value="' + psvEsc(psvNameQ) + '" oninput="psvSet(\'name\',this.value)" onkeydown="psvKey(event)">'
@@ -220,12 +325,13 @@ function renderProjectStatus() {
     + '</div></div>'
     + '<div class="psv-tablewrap" id="psv-tablewrap">'
     + '<table class="psv-table"><thead><tr>'
-    + '<th>프로젝트</th><th>유형</th><th>등록경로</th><th>PM</th><th>매출귀속부서</th><th>수행기간</th><th>상태</th><th></th>'
+    + '<th>프로젝트</th><th>유형 / 세부 유형</th><th>들어온 곳</th><th>PM</th><th>매출귀속부서</th><th>수행기간</th><th>상태</th><th>다음 할 일</th><th></th>'
     + '</tr></thead><tbody>' + body + '</tbody></table>'
     + '<button class="psv-fsexit" onclick="psvToggleFs()" title="원래 크기로" aria-label="전체화면 종료">' + PSV_FS_ICON_IN + '<span>닫기</span></button>'
     + '</div>'
-    + '<div class="psv-note">※ W/G·사내 프로젝트는 <b>개설 승인 완료 전까지 수행원가 예산 수립이 불가</b>합니다. 개설 신청·승인은 좌측 메뉴 <b>프로젝트 개설 관리</b>에서 처리합니다.<br>'
-    + '※ 상태값은 각 유형 원본 데이터를 그대로 표시하며, 승인 상태와 프로젝트 등록 상태는 별개 개념입니다.</div>'
+    + '<div class="psv-note">※ 프로젝트는 선행 단계가 끝나면 자동 등록되고, 처음 상태는 모두 <b>착수완료</b>입니다. 이 화면에서 직접 등록하지 않습니다.<br>'
+    + '※ W/G / 사내(MIS 등록 유형)는 <b>프로젝트 개설 관리</b>에서 비용 결재가 승인완료되면 자동 등록됩니다. 신청 중인 건은 개설 관리에서만 보입니다.<br>'
+    + '※ 수행(임시종료) 건은 종료일 +60일이 되면 종료 조건을 확인해 자동종료됩니다. 연장이 필요하면 프로젝트 종료 화면에서 종료일을 바꾸거나 자동종료 예외를 등록하세요.</div>'
     + '</div>';
 
   psvInjectFsStyle();
@@ -251,6 +357,8 @@ function psvSet(field, v) {
 }
 function psvKey(e) { if (e && e.key === 'Enter') psvSearchGo(); }
 function psvSearchGo() { renderProjectStatus(); }
+// 상태 흐름 칸 클릭 — 그 상태로 바로 거름 (같은 칸을 다시 누르면 해제)
+function psvOnStatus(v) { psvStatusFilter = v; renderProjectStatus(); }
 function psvResetFilter() {
   psvCodeQ = ''; psvNameQ = ''; psvCustomerQ = ''; psvOrgQ = ''; psvPmQ = '';
   psvTypeFilter = ''; psvStatusFilter = ''; psvPathFilter = '';
