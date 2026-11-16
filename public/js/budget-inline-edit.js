@@ -68,7 +68,7 @@ var BIE_FORMS = [
   { probe: '#agos-ed-vendor', cols: [['agos-ed-vendor', 'agos-ed-contract', 'agos-ed-start', 'agos-ed-end'], ['agos-ed-amount'], 'k', 'k', 'k', 'k', 'a'] },  // 외주비 업체
   { probe: '#agos-ed-type',   cols: [['agos-ed-type'], ['agos-ed-month'], ['agos-ed-desc'], ['agos-ed-amount'], 'k', 'k', 'a'] },   // 이관외주비
   { probe: '#agos-ed-name',   cols: [['agos-ed-name'], ['agos-ed-party'], ['agos-ed-start', 'agos-ed-end'], ['agos-ed-amount'], 'k', 'k', 'k', 'a'] },  // 외주비 소계정
-  { probe: '#agos-po-start',  cols: [['.agos-qs'], ['agos-po-start', 'agos-po-end'], ['agos-po-amount', 'agos-po-hint'], 'k', 'k', 'k', 'k', 'a'] },  // 구매계획
+  { probe: '#agos-po-start',  cols: [['.agos-qs'], ['agos-po-start', 'agos-po-end', 'agos-po-spans'], ['agos-po-amount', 'agos-po-hint'], 'k', 'k', 'k', 'k', 'a'] },  // 구매계획
   { probe: '#agmt-large',     cols: [['agmt-name'], ['agmt-large', 'agmt-middle'], ['agmt-model'], ['agmt-qty', 'agmt-unit'], ['agmt-start', 'agmt-end'], 'k', ['agmt-amount'], 'k', 'a'] },  // 상품재료비
   { probe: '#agmt-acq',       cols: [['agmt-name'], ['agmt-acq'], ['agmt-life'], ['agmt-monthly'], ['agmt-smonth', 'agmt-emonth'], 'k', 'k', 'a'] },  // 감가상각비
   { probe: '#agmt-type',      cols: [['agmt-type'], ['agmt-month'], ['agmt-name'], ['agmt-amount'], 'k', 'k', 'a'] },   // 이관재료비
@@ -491,7 +491,7 @@ function bieApplyValues(pop, v) {
   });
   const qs = v.__q || [];
   pop.querySelectorAll('.agos-q').forEach(function (b) { b.classList.toggle('on', qs.indexOf(b.getAttribute('data-q')) >= 0); });
-  if (typeof bopRestore === 'function') bopRestore(pop);   // 구매계획 [분기 | 월별] 단위 복원(budget-os-po.js)
+  if (typeof bopRestore === 'function') bopRestore(pop, v);   // 구매계획 [분기 | 월별] 단위 복원(budget-os-po.js)
 }
 function bieOid(box, k) { return box ? box.querySelector(`[data-oid="${k}"]`) : null; }
 

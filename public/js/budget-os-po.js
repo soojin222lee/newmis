@@ -101,7 +101,8 @@ function agentOsPoAmtFinal(el) {                     // crud N
 }
 // 날짜 · 금액 기본값 · 안내 문구
 //   하나: 날짜 칸에 그 기간(고칠 수 있음), 금액 = 등록 가능 금액
-//   여러 개(2개 이상): 기간마다 한 건씩 등록 → 날짜 칸은 처음~끝으로 보여 주고 잠금, 금액 = 등록 가능 금액 ÷ 개수(만원 내림)
+//   여러 개(2개 이상): 기간마다 한 건씩 등록 → 위 날짜 칸 대신 "기간마다 날짜 줄"(기본값 = 그 기간, 줄마다 고칠 수 있음, 2026.11.16),
+//                      금액 = 등록 가능 금액 ÷ 개수(만원 내림)
 function bopSync(box) {
   if (!box) return;
   const qs = box.querySelector('.agos-qs');
@@ -109,13 +110,12 @@ function bopSync(box) {
   const n = on.length, many = bopMulti(box) && n > 1;
   const unitName = (qs && qs.getAttribute('data-unit') === 'm') ? '달' : '분기';
   const st = bopEl(box, 'agos-po-start'), en = bopEl(box, 'agos-po-end'), amt = bopEl(box, 'agos-po-amount');
-  [st, en].forEach(function (x) { if (x) x.disabled = many; });
-  if (many) {
-    const froms = on.map(function (b) { return b.getAttribute('data-from'); }).sort();
-    const tos = on.map(function (b) { return b.getAttribute('data-to'); }).sort();
-    if (st) st.value = froms[0];
-    if (en) en.value = tos[tos.length - 1];
-  } else if (n === 1 && bopMulti(box)) bopFillDates(box, on[0]);
+  bopShowDates(box, !many);
+  if (many) bopRenderSpans(box, on, null);
+  else {
+    bopRenderSpans(box, [], null);
+    if (n === 1 && bopMulti(box)) bopFillDates(box, on[0]);
+  }
   const room = Number(qs && qs.getAttribute('data-room')) || 0;
   const touched = (bopEl(box, 'agos-po-touched') || {}).value === '1';
   if (amt && !touched && room) amt.value = many ? (Math.floor(room / n / 10000) * 10000 || Math.floor(room / n)) : room;
@@ -133,8 +133,48 @@ function bopSync(box) {
     hint.classList.toggle('over', over);
   }
 }
-// 표 안 행이 다시 그려진 뒤(입력값 복원 후) 단위 · 여러 기간 · 날짜 잠금을 맞춥니다 — budget-inline-edit.js bieApplyValues 가 부릅니다
-function bopRestore(pop) {
+// 날짜 칸 하나 숨기기 — 입력칸과 그 이름표만(표 안 행에서는 기간별 날짜 줄이 같은 이름표 묶음에 들어가므로 묶음째 숨기지 않음)
+function bopHideDate(x, hide, elementOnly) {
+  const wrap = x.closest('label');
+  const own = !elementOnly && wrap && !wrap.querySelector('.agos-spans');
+  if (own) { wrap.style.display = hide ? 'none' : ''; return; }
+  x.style.display = hide ? 'none' : '';
+  const cap = x.previousElementSibling;
+  if (cap && cap.tagName === 'SPAN') cap.style.display = hide ? 'none' : '';
+}
+// 위 시작일 · 종료일 칸 보이기/숨기기(여러 기간일 땐 기간마다 날짜 줄을 대신 보여 줌)
+function bopShowDates(box, show) {
+  [bopEl(box, 'agos-po-start'), bopEl(box, 'agos-po-end')].forEach(function (x) {
+    if (!x) return;
+    x.disabled = false;
+    bopHideDate(x, !show);
+  });
+}
+// 기간마다 날짜 줄 — 입력칸은 data-oid(agos-sp-f-{기간} · agos-sp-t-{기간})로 표 안 행 입력값 저장 · 복원에 실림
+//   values: 다시 그릴 때 복원할 값(표 안 행). 없으면 지금 화면의 줄 값을 유지하고, 새 기간은 그 기간으로 채움
+function bopRenderSpans(box, on, values, noId) {
+  const host = bopEl(box, 'agos-po-spans');
+  if (!host) return;
+  if (!on.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
+  const keep = {};
+  host.querySelectorAll('input[data-oid]').forEach(function (i) { keep[i.getAttribute('data-oid')] = i.value; });
+  const src = values || keep;
+  const inRow = noId || (box.matches && box.matches('tr.bie-row')) || (box.closest && !!box.closest('tr.bie-row'));
+  const inp = function (k, val, min, max) {
+    return '<input type="date" data-oid="' + k + '"' + (inRow ? '' : ' id="' + k + '"') + ' value="' + val + '" min="' + min + '" max="' + max + '">';
+  };
+  host.style.display = '';
+  host.innerHTML = '<span class="agos-spans-cap">기간마다 날짜(기본값 = 그 기간 · 고칠 수 있음)</span>'
+    + on.map(function (b) {
+      const q = b.getAttribute('data-q'), f0 = b.getAttribute('data-from'), t0 = b.getAttribute('data-to');
+      const fk = 'agos-sp-f-' + q, tk = 'agos-sp-t-' + q;
+      return '<div class="agos-span"><b>' + b.textContent.replace('✓', '').trim() + '</b>'
+        + '<span class="f">' + inp(fk, src[fk] || f0, f0.slice(0, 4) + '-01-01', t0.slice(0, 4) + '-12-31') + '</span>'
+        + '<span class="t"><i>~</i>' + inp(tk, src[tk] || t0, f0.slice(0, 4) + '-01-01', t0.slice(0, 4) + '-12-31') + '</span></div>';
+    }).join('');
+}
+// 표 안 행이 다시 그려진 뒤(입력값 복원 후) 단위 · 여러 기간 · 기간별 날짜 줄을 맞춥니다 — budget-inline-edit.js bieApplyValues 가 부릅니다
+function bopRestore(pop, values) {
   const u = bopEl(pop, 'agos-po-unit');
   const qs = pop.querySelector('.agos-qs');
   if (!qs || !u) return;
@@ -145,8 +185,10 @@ function bopRestore(pop) {
   const multi = !!m && (m.getAttribute('value') || m.value) === '1';
   const mb = pop.querySelector('.agos-multi');
   if (mb) mb.classList.toggle('on', multi);
-  if (multi && pop.querySelectorAll('.agos-q.on').length > 1) {
-    [bopEl(pop, 'agos-po-start'), bopEl(pop, 'agos-po-end')].forEach(function (x) { if (x) x.setAttribute('disabled', ''); });
+  const on = Array.prototype.slice.call(pop.querySelectorAll('.agos-q.on'));
+  if (multi && on.length > 1) {
+    [bopEl(pop, 'agos-po-start'), bopEl(pop, 'agos-po-end')].forEach(function (x) { if (x) bopHideDate(x, true, true); });   // 표 안 행으로 옮기기 전 — 입력칸 · 이름표에 직접
+    bopRenderSpans(pop, on, values || {}, true);
   }
   const hint = bopEl(pop, 'agos-po-hint');
   if (hint) hint.textContent = '';
@@ -209,6 +251,7 @@ renderAgentOsPoPopFinal = function () {
               min="${escHtml(v.start || '')}" max="${escHtml(v.end || '')}"></label>
             <label><span>계획 종료일</span><input id="agos-po-end" type="date" value="${escHtml(d.to || '')}"
               min="${escHtml(v.start || '')}" max="${escHtml(v.end || '')}"></label>
+            <div id="agos-po-spans" class="agos-spans wide" style="display:none"></div>
             <label class="wide"><span id="agos-po-amt-lab">계획 금액(원)</span><input id="agos-po-amount" inputmode="numeric"
               value="${x ? (x.amount || 0) : room}" placeholder="예: 12000000" oninput="agentOsPoAmtFinal(this)">
               <em id="agos-po-hint" class="agos-po-hint"></em></label>
@@ -236,7 +279,10 @@ agentOsPoSaveFinal = function () {
   const all = bopPeriods(v, 'q').concat(bopPeriods(v, 'm'));
   const ps = all.filter(function (p) { return picked.indexOf(p.key) >= 0; });
   const many = multi && ps.length > 1 && e.i < 0;
-  const spans = many ? ps.map(function (p) { return { from: p.from, to: p.to }; }) : [{ from: val('agos-po-start'), to: val('agos-po-end') }];
+  // 여러 기간: 기간마다 날짜 줄(agos-sp-f/t-{기간}) 값 — 비어 있으면 그 기간 그대로
+  const spans = many
+    ? ps.map(function (p) { return { from: val('agos-sp-f-' + p.key) || p.from, to: val('agos-sp-t-' + p.key) || p.to }; })
+    : [{ from: val('agos-po-start'), to: val('agos-po-end') }];
   const sameMonth = function (sp) { return sp.from.slice(0, 7) === sp.to.slice(0, 7); };
   const unitName = many && /-/.test(ps[0].key) ? '달' : '분기';
   for (let k = 0; k < spans.length; k++) {
@@ -288,6 +334,14 @@ function bopInjectStyle() {
   .agos-multi { border:1px dashed #cbd5e1; background:#fff; color:#64748b; border-radius:8px; padding:3px 10px; font:inherit; font-size:11.5px; font-weight:800; cursor:pointer; }
   .agos-multi.on { border-style:solid; border-color:#2563eb; background:#eff6ff; color:#1d4ed8; }
   .agos-multi.on::before { content:'✓ '; }
+  .agos-spans { display:flex; flex-direction:column; gap:4px; margin:2px 0; }
+  .agos-spans-cap { font-size:11px; font-weight:800; color:#64748b; white-space:normal; line-height:1.4; }
+  .agos-span { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:2px 6px; font-size:12px; padding:3px 0; border-top:1px dashed #e2e8f0; }
+  .agos-span > b { grid-row:span 2; color:#1c2432; font-weight:800; white-space:nowrap; }
+  .agos-span > span { display:flex; align-items:center; gap:4px; min-width:0; }
+  .agos-span > span.f { padding-left:12px; }
+  .agos-span i { font-style:normal; color:#94a3b8; width:8px; }
+  .agos-span input { border:1px solid #cbd5e1; border-radius:7px; padding:3px 6px; font:inherit; font-size:12px; width:100%; max-width:140px; min-width:0; box-sizing:border-box; }
   .agos-qs[data-unit="q"] .agos-plist[data-unit="m"], .agos-qs[data-unit="m"] .agos-plist[data-unit="q"] { display:none; }
   .agos-plist { display:flex; flex-direction:column; gap:4px; }
   .agos-qrow { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
