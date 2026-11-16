@@ -279,7 +279,7 @@ elements:
     front:
       handler: agentGaWideToggleFinal()
       file: "budget-agent-console.js:agentGaWideToggleFinal (그리드 조합 renderAgentGaViewFinal)"
-      logic: "기본 예산 조정안 30% · Agent와 대화하기 70% 를 70% · 30% 로 뒤집고, 다시 누르면 되돌린다. 선택은 브라우저(localStorage 'agga-wide')에 기억한다. 계정 상세 화면에서는 보이지 않는다. 1100px 이하 좁은 화면은 위아래 1단 그대로"
+      logic: "기본 예산 조정안 30% · Agent와 대화하기 70% 를 70% · 30% 로 뒤집고, 다시 누르면 되돌린다. 선택은 브라우저(localStorage 'agga-wide')에 기억한다. 계정 상세 화면에서는 보이지 않는다. 1100px 이하 좁은 화면은 위아래 1단 그대로. [2026.11.16] 메인도 2칸 배치(왼쪽 예산 조정안 넓게 · 오른쪽 Agent 칸 고정 — budget-adjust-side.js)로 바뀌어 이 버튼은 숨김. 폭은 칸 경계선(handle-agent-detail-split)으로 조절"
       validation: null
       state_writes: [agentGaWideFinal]
     backend: null
@@ -462,20 +462,98 @@ elements:
     backend: null
     result: "{계정}_실적조회_{월}_YYYYMMDD.xlsx 다운로드"
 
+  # ── [2026.11.16] 2칸 배치 — 왼쪽 본문 | 오른쪽 Agent 칸(메인 · 계정 상세 같은 자리 · 폭 · 높이) ──
+  #    계정 상세: 왼쪽 상세 예산내역 | 오른쪽 탭 [예산 조정안 · Agent와 대화] / 메인: 왼쪽 예산 조정안 | 오른쪽 [Agent와 대화]
+  #    (예전 세 칸 · 양옆 접기/펼치기 · 세 칸 경계 손잡이 · 메인 [넓게 ›]를 대체. 위 btn-agent-detail-* 버튼은 계정 상세에선 숨기고 탭 동작으로 연결)
   - id: handle-agent-detail-split
-    label: "칸 경계 손잡이(끌어서 폭 조절 · 더블클릭 기본 폭)"
+    label: "칸 경계선(끌어서 폭 조절 · 끝까지 밀면 접힘 · 더블클릭 기본 폭)"
     type: splitter
     crud: N
-    area: "계정 상세 화면 — 예산 조정안 칸 오른쪽 경계 · Agent와 대화하기 칸 왼쪽 경계"
+    area: "메인 · 계정 상세 화면 — 왼쪽 본문과 오른쪽 칸 사이(늘 보이는 선 + 가운데 손잡이). 폭은 두 화면이 함께 씀"
     event: "onpointerdown / ondblclick"
     front:
-      handler: "buiSplitStart(event,'L'|'R') · buiSplitReset('L'|'R')"
-      file: "budget-ui-unify.js:buiSplitApply · buiSplitStart · buiSplitReset"
-      logic: "[2026.11.12] 경계를 끌면 양옆 칸 폭이 바뀌고 가운데 상세 예산내역이 나머지를 쓴다. 최소 폭 양옆 240px · 가운데 480px(넘으면 멈춤). 화면이 좁아지면 비율대로 줄임. 더블클릭하면 기본(20 : 60 : 20). 정한 폭은 다시 그려도 유지하고 브라우저(localStorage bui-split)에 기억. 1100px 이하 화면은 세로로 쌓여 손잡이 숨김"
+      handler: "b2cSplitStart(event) · b2cSplitReset()"
+      file: "budget-adjust-side.js:b2cSplitStart · b2cSplitReset · b2cPaint"
+      logic: "[2026.11.16] 경계선을 끌면 오른쪽 칸 폭이 바뀌고 상세 예산내역이 나머지를 쓴다. 최소 폭 오른쪽 280px · 상세 560px(넘으면 멈춤). 200px 아래로 밀면 오른쪽이 얇은 세로 띠로 접힌다. 더블클릭하면 기본 폭(화면의 약 27%, 280~380px)으로 펼친다. 폭 · 접힘은 다시 그려도 유지하고 브라우저(localStorage b2c-side)에 기억. 1100px 이하 화면은 위아래로 쌓여 경계선 숨김"
       validation: null
-      state_writes: [buiSplit]
+      state_writes: [b2cState]
     backend: null
-    result: "세 칸 폭 조절"
+    result: "상세 예산내역 | 오른쪽 탭 폭 조절 · 접힘"
+
+  - id: tab-agent-detail-side
+    label: "오른쪽 탭 [예산 조정안 N] · [Agent와 대화]"
+    type: tab
+    crud: N
+    area: "계정 상세 화면 · 오른쪽 칸 맨 위"
+    event: onclick
+    front:
+      handler: "b2cTab('todo'|'chat')"
+      file: "budget-adjust-side.js:b2cTab · b2cApply"
+      logic: "[2026.11.16] 예산 조정안(renderAgentGaTodoFinal)과 Agent와 대화하기 칸을 오른쪽 한 칸에 두고 탭으로 하나만 보인다. 예산 조정안 탭에는 검토 대기 건수(agentGaPendingCntFinal) 빨간 배지. Agent 탭으로 바꾸면 최신 대화로 스크롤하고 입력창에 커서. 고른 탭은 브라우저에 기억. 다른 곳에서 예전 함수(agentGaTodoOpenSetFinal(true) · agentGaChatFoldSetFinal(false))를 부르면 해당 탭이 열린다. 메인에서는 왼쪽에 예산 조정안이 있으므로 [Agent와 대화] 탭만 보이고, 메인에서 계정 상세로 들어오면 오른쪽은 메인과 같은 Agent 탭 그대로(왼쪽만 바뀜) — 상세끼리 옮길 때는 고른 탭 유지"
+      validation: null
+      state_writes: [b2cState]
+    backend: null
+    result: "오른쪽 칸 내용 전환"
+
+  - id: label-agent-todo-impact
+    label: "조정안 영향 표시(카드 1줄째 · 예: 반영 후 CP 여유 3.19억)"
+    type: label
+    crud: R
+    area: "메인 · 계정 상세 화면 · 예산 조정안 카드 1줄째(계정 표시 옆)"
+    event: null
+    front:
+      handler: "b2cImpacts(todo) · b2cImpactOf(id)"
+      file: "budget-adjust-side.js:b2cImpacts · b2cImpactOf · b2cWon"
+      logic: "[2026.11.16] 반영하면 그 계정 CP 여유가 얼마 남는지 = 계정 CP한도 − 지금 수립 − 이번 조정 증감(agentRollCacheFinal.rows · 조정안 legs). 1억 이상은 '3.19억', 1만 이상은 '7,440만'. 한도를 넘으면 빨간 '반영 시 CP 한도 N 초과', 계정 간 이관(증감 합 0 · 두 계정)은 보라 '재료비 → 외주비', 증감 0은 '총액 변동 없음', 1안/2안 카드는 '1안 여유 3.22억 · 2안 재료비 → 외주비'. 반영을 골라도 수립 값은 기안 전까지 그대로라 같은 식으로 '반영 후' 값을 보인다. 오른쪽 칸에서 넘치면 …로 줄이고 [자세히]로 펼치면 전체"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "카드를 펼치지 않고도 반영 영향 판단"
+
+  - id: btn-agent-detail-side-fold
+    label: "»(오른쪽 칸 접기)"
+    type: button
+    crud: N
+    area: "계정 상세 화면 · 오른쪽 탭 줄 우측"
+    event: onclick
+    front:
+      handler: "b2cFold(true)"
+      file: "budget-adjust-side.js:b2cFold"
+      logic: "[2026.11.16] 오른쪽 칸을 얇은 세로 띠(46px)로 접어 상세 예산내역을 거의 전체 폭으로 넓힌다. 예전 [‹ 접기] · [접기 ›]도 이 동작으로 연결"
+      validation: null
+      state_writes: [b2cState]
+    backend: null
+    result: "오른쪽 칸 접힘 · 세로 띠 표시"
+
+  - id: btn-agent-detail-side-rail
+    label: "세로 띠 [예산 조정안 N] · [Agent]"
+    type: button
+    crud: N
+    area: "계정 상세 화면 · 오른쪽 칸이 접혔을 때 세로 띠"
+    event: onclick
+    front:
+      handler: "b2cTab('todo'|'chat')"
+      file: "budget-adjust-side.js:b2cTab"
+      logic: "[2026.11.16] 누른 탭으로 오른쪽 칸을 다시 펼친다(접기 전 폭 유지)"
+      validation: null
+      state_writes: [b2cState]
+    backend: null
+    result: "오른쪽 칸 펼침"
+
+  - id: btn-agent-todo-card-more
+    label: "자세히 ▾ / 안 고르기 ▾ / 접기 ▴(예산 조정안 카드 · 카드 제목 클릭 동일)"
+    type: button
+    crud: N
+    area: "계정 상세 화면 · 오른쪽 예산 조정안 카드 2줄째 우측"
+    event: onclick
+    front:
+      handler: "agentAiCardToggleFinal('{조정안 id}')"
+      file: "budget-adjust-side.js:b2cCards (라벨 · 2줄형 모양) · budget-agent-console.js:agentAiCardToggleFinal"
+      logic: "[2026.11.16] 카드는 2줄형 — 1줄 계정 · 금액(1안/2안 카드는 부족액), 2줄 제목(한 줄로 줄임) · [반영] · [자세히 ▾]. 펼치면 제목 전체 · 'Agent 제안' 표시 · 날짜 · 근거 · [삭제] · [1안]/[2안]이 보인다. 1안/2안 카드는 [반영] 대신 [안 고르기 ▾]. 기존 [근거 ∨] 버튼을 이 라벨로 바꿔 쓰며 펼침 상태(agentAiCardOpenFinal)는 그대로"
+      validation: null
+      state_writes: [agentAiCardOpenFinal]
+    backend: null
+    result: "카드 펼침/접힘"
 
   - id: btn-agent-chat-more
     label: "이전 대화 N개 보기 ▾ / 이전 대화 접기 ▴"
@@ -677,8 +755,12 @@ requirements:
   - { id: FR-BAD-24, text: "[2026.11.12] 월별 계획/실적 팝업은 월별 · 분기별 · 연도별 보기, 연도 선택, 금액 단위(원 · 만원 · 억원)를 제공하고, 확정 실적(지난 달)은 기본으로 합계 한 칸으로 접혀야 하며, 연도마다 합계를 보여야 한다" }
   - { id: FR-BAD-25, text: "[2026.11.12] 월별 계획/실적 팝업은 지금 보이는 표(보기 · 연도 · 단위 그대로)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
   - { id: FR-BAD-26, text: "[2026.11.12] 실적조회 팝업은 지금 탭의 실적 표를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
-  - { id: FR-BAD-27, text: "[2026.11.12] 계정 상세의 세 칸(예산 조정안 · 상세 예산내역 · Agent와 대화하기)은 같은 높이(화면 높이 기준)로 맞춰지고 칸마다 안쪽에서 스크롤되어야 하며, 폭은 상세 예산내역 중심(20 : 60 : 20)이어야 한다" }
+  - { id: FR-BAD-27, text: "[2026.11.12 · 11.16 2칸으로 대체 → FR-BAD-32] 계정 상세의 세 칸(예산 조정안 · 상세 예산내역 · Agent와 대화하기)은 같은 높이(화면 높이 기준)로 맞춰지고 칸마다 안쪽에서 스크롤되어야 하며, 폭은 상세 예산내역 중심(20 : 60 : 20)이어야 한다" }
   - { id: FR-BAD-28, text: "[2026.11.12] 계정 상세의 대화 칸은 마지막 대화 1쌍만 보이고 이전 대화는 접어 두며 펼쳐 볼 수 있어야 하고, 상세계정 탭이 많으면 가로 스크롤로 볼 수 있어야 한다" }
   - { id: FR-BAD-29, text: "[2026.11.12] 원가조정 · 원가현황의 버튼은 역할(주요 · 보조 · 위험 · 긍정 · 엑셀)별 같은 모양과 두 가지 크기(도구줄 30px · 행 안 26px)로 통일되어야 한다" }
-  - { id: FR-BAD-30, text: "[2026.11.12] 계정 상세의 세 칸은 경계를 끌어 가로 폭을 조절할 수 있어야 하며(최소 폭: 양옆 240px · 상세 480px), 정한 폭은 유지되고 더블클릭으로 기본 폭으로 되돌릴 수 있어야 한다" }
+  - { id: FR-BAD-30, text: "[2026.11.12 · 11.16 2칸 경계선으로 대체 → FR-BAD-32] 계정 상세의 세 칸은 경계를 끌어 가로 폭을 조절할 수 있어야 하며(최소 폭: 양옆 240px · 상세 480px), 정한 폭은 유지되고 더블클릭으로 기본 폭으로 되돌릴 수 있어야 한다" }
+  - { id: FR-BAD-32, text: "[2026.11.16] 계정 상세는 위쪽 요약을 그대로 두고 아래를 2칸(왼쪽 상세 예산내역 · 오른쪽 탭 [예산 조정안 · Agent와 대화])으로 보여야 하며, 칸 사이 경계선을 끌어 폭을 자유롭게 조절하고(최소: 오른쪽 280px · 상세 560px) 끝까지 밀어 접을 수 있어야 한다" }
+  - { id: FR-BAD-33, text: "[2026.11.16] 예산 조정안 카드는 첫 화면에서 계정 · 금액 · 한 줄 제목 · [반영]만 보여야 하며, 날짜 · Agent 제안 표시 · 근거 · 삭제 · 1안/2안 고르기는 [자세히]로 펼쳐 볼 수 있어야 한다" }
+  - { id: FR-BAD-34, text: "[2026.11.16] 프로젝트 메인도 2칸(왼쪽 예산 조정안 · 오른쪽 Agent와 대화)으로 보여야 하며, 오른쪽 칸은 메인과 계정 상세에서 같은 자리 · 폭 · 높이를 유지해 계정을 오가도 왼쪽만 바뀌어야 한다" }
+  - { id: FR-BAD-35, text: "[2026.11.16] 예산 조정안 카드는 반영했을 때의 영향(그 계정 CP 여유 · 한도 초과액 · 이관 방향)을 한 줄로 보여 줘야 한다" }
   - { id: FR-BAD-31, text: "[2026.11.12] 계정 상세의 입력 행(등록 · 수정)은 만든 탭(계정 + 상세계정 탭, 경비는 연도)에서만 보여야 하며, 다른 탭으로 옮기면 숨었다가 돌아오면 다시 보여야 한다. 저장 단위는 상세계정 탭마다(경비만 연도 탭을 한 번에 저장 — 다른 계정의 저장 단위는 논의 중)" }
