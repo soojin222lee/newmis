@@ -12,19 +12,40 @@
 //              버튼은 인라인 onclick + CRUD 동사(등록/수정/삭제/저장/조회)로 달아 지니 CRUD 감지에 맞춥니다.
 
 // ── 관리 영역 정의 (TBD 없음) ──
+// group: 역할별 묶음(master 기준정보 · access 권한·접근 · ops 운영·연계 · agent Agent평가)
+// src:   데이터 출처(원천값이 어디서 오는지) — 화면 머리에 '데이터 출처'로 노출
 var ADMIN_SECTIONS = [
-  { key: 'user',   icon: '👤', title: '사용자 관리', desc: '사용자 계정·역할·소속·연락처·활성 상태를 관리합니다.' },
-  { key: 'perm',   icon: '🔑', title: '권한 관리',   desc: '역할별 메뉴 접근·CRUD 권한(C·R·U·D·승인)을 설정합니다.' },
-  { key: 'org',    icon: '🏢', title: '조직도 관리', desc: '본부·사업부·팀 조직 구조와 조직장·인원을 관리합니다.' },
-  { key: 'menu',   icon: '🗂', title: '메뉴 관리',   desc: '메뉴 노출/순서/경로/노출 역할을 관리합니다.' },
-  { key: 'price',  icon: '💲', title: 'P단가 관리',  desc: 'P레벨(P0~P10)별 표준 인건비 단가(P단가)와 적용일을 관리합니다.' },
-  { key: 'fx',     icon: '💱', title: '환율 관리',   desc: '통화별 매매기준율·적용일·출처를 관리합니다.' },
-  { key: 'code',   icon: '🔖', title: '코드 관리',   desc: '공통 코드 그룹·코드값·정렬·사용여부를 관리합니다.' },
-  { key: 'notify', icon: '🔔', title: '알림 설정',   desc: '이벤트별 알림 채널·수신 대상·사용여부를 설정합니다.' },
-  { key: 'log',    icon: '📜', title: '로그·이력',   desc: '사용자 활동·시스템 변경 이력을 조회·다운로드합니다.' },
-  { key: 'integ',  icon: '🔌', title: '외부 연동',   desc: 'ERP·CRM·SCM·구매·Finance 연계 설정과 연결 상태를 관리합니다.' },
-  { key: 'batch',  icon: '⏱', title: '배치/스케줄', desc: '정기 배치·스케줄 작업의 주기·상태를 관리하고 즉시 실행합니다.' },
+  { key: 'user',   icon: '👤', title: '사용자 관리', group: 'master', desc: '사용자 계정·역할·소속·연락처·활성 상태를 관리합니다.',              src: 'HR 인사 마스터 연동 (입·퇴사·소속 반영)' },
+  { key: 'perm',   icon: '🔑', title: '권한 관리',   group: 'access', desc: '역할별 메뉴 접근·CRUD 권한(C·R·U·D·승인)을 설정합니다.',          src: '관리자 직접 설정 (역할 × 메뉴 권한)' },
+  { key: 'org',    icon: '🏢', title: '조직도 관리', group: 'master', desc: '본부·사업부·팀 조직 구조와 조직장·인원을 관리합니다.',              src: 'HR 조직 마스터 연동 · 예외 시 수기 추가 등록 가능' },
+  { key: 'menu',   icon: '🗂', title: '메뉴 관리',   group: 'access', desc: '메뉴 노출/순서/경로/노출 역할을 관리합니다.',                      src: '관리자 직접 설정 (노출·순서·경로)' },
+  { key: 'price',  icon: '💲', title: 'P단가 관리',  group: 'master', desc: 'P레벨(P0~P10)별 표준 인건비 단가(P단가)와 적용일을 관리합니다.', src: '관리자 직접 입력 (P레벨별 월 표준단가)' },
+  { key: 'fx',     icon: '💱', title: '환율 관리',   group: 'master', desc: '통화별 매매기준율·적용일·출처를 관리합니다.',                      src: 'ERP 환율 연동 (매매기준율 자동 수신)' },
+  { key: 'code',   icon: '🔖', title: '코드 관리',   group: 'master', desc: '공통코드를 대분류·중분류·소분류 3단계 분류코드 체계로 관리합니다. (소분류 코드 = 시스템 사용값)', src: '관리자 직접 입력 (공통코드 분류체계)' },
+  { key: 'notify', icon: '🔔', title: '운영모니터링', group: 'ops',    desc: '운영 이벤트별 알림 채널·수신 대상·사용여부를 설정합니다. (메일 발송 이력·재발송은 메일관리)', src: '관리자 직접 설정 (이벤트·채널·대상)' },
+  { key: 'log',    icon: '📜', title: '로그·이력',   group: 'ops',    desc: '사용자 활동·시스템 변경 이력을 조회·다운로드합니다.',            src: '시스템 자동 기록 (읽기 전용)' },
+  { key: 'integ',  icon: '🔌', title: '외부 연동',   group: 'ops',    desc: 'ERP·CRM·SCM·구매(POP)·Finance 연계 설정과 연결 상태를 관리합니다.', src: '연계 설정값 (ERP·SCM·구매 POP·CRM·Finance)' },
+  { key: 'batch',  icon: '⏱', title: '배치/스케줄', group: 'ops',    desc: '정기 배치·스케줄 작업의 주기·상태를 관리하고, 수동으로 즉시 실행(재시작)할 수 있습니다.', src: '스케줄 설정 (정기 배치) · [즉시 실행]으로 수동 재시작' },
 ];
+
+// ── 메뉴 그룹(역할별 묶음) — 좌측 네비 헤더 순서 ──
+var ADMIN_GROUPS = [
+  { id: 'master', label: '기준정보 (마스터)' },
+  { id: 'access', label: '권한 · 접근' },
+  { id: 'ops',    label: '운영 · 연계' },
+  { id: 'agent',  label: 'Agent 평가' },
+  { id: 'etc',    label: '기타' },
+];
+// 별도 파일(golden 등)로 주입되는 섹션의 그룹·출처 보강 — 해당 파일을 고치지 않고 여기서 매핑
+var ADMIN_SECTION_FALLBACK = {
+  golden: { group: 'agent', src: '관리자 직접 등록 (Agent 평가 질문·기준 데이터 셋)' },
+};
+function admGroupOf(s) {
+  return s.group || (ADMIN_SECTION_FALLBACK[s.key] && ADMIN_SECTION_FALLBACK[s.key].group) || 'etc';
+}
+function admSrcOf(s) {
+  return (s && s.src) || (s && ADMIN_SECTION_FALLBACK[s.key] && ADMIN_SECTION_FALLBACK[s.key].src) || '';
+}
 
 var ADM_ROLES = ['시스템관리자', '운영자', '개발자', 'BA', 'PM', '팀장', '담당자', '뷰어'];
 var ADM_PERM_MENUS = ['프로젝트', '수행원가', '인사이트', '관리자'];
@@ -81,27 +102,83 @@ var ADM_DEFAULTS = {
     { grade: 'P1',  pos: '초급',          unit: 4500000,  apply: '2026-01-01', note: '지원/보조' },
     { grade: 'P0',  pos: '신입',          unit: 4000000,  apply: '2026-01-01', note: '신입/보조' },
   ],
-  fx: [
-    { cur: 'USD', name: '미국 달러',     rate: 1385.20, apply: '2026-10-14', source: '하나은행 매매기준율' },
-    { cur: 'EUR', name: '유로',          rate: 1498.60, apply: '2026-10-14', source: '하나은행 매매기준율' },
-    { cur: 'JPY', name: '일본 엔(100)',  rate: 925.40,  apply: '2026-10-14', source: '하나은행 매매기준율' },
-    { cur: 'CNY', name: '중국 위안',      rate: 194.30,  apply: '2026-10-14', source: '하나은행 매매기준율' },
-  ],
+  // 환율은 매일 쌓이는 데이터 — 과거 영업일 20일 × 4통화(최신일 상단) 목업 생성
+  fx: (function () {
+    var base = {
+      USD: { name: '미국 달러',    r: 1385.20 },
+      EUR: { name: '유로',         r: 1498.60 },
+      JPY: { name: '일본 엔(100)', r: 925.40 },
+      CNY: { name: '중국 위안',    r: 194.30 },
+    };
+    var order = ['USD', 'EUR', 'JPY', 'CNY'];
+    var rows = [], d = new Date(2026, 9, 14), n = 0;   // 2026-10-14 기준 과거로
+    while (n < 20) {
+      var dow = d.getDay();
+      if (dow !== 0 && dow !== 6) {                    // 영업일(평일)만
+        var ds = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+        order.forEach(function (c, ci) {
+          var b = base[c];
+          var wob = Math.sin((n * 1.7) + ci * 0.9);    // 결정적 흔들림(±)
+          var rate = Math.round(b.r * (1 + wob * 0.012) * 100) / 100;   // ±1.2%
+          rows.push({ cur: c, name: b.name, rate: rate, apply: ds, source: '하나은행 매매기준율' });
+        });
+        n += 1;
+      }
+      d.setDate(d.getDate() - 1);
+    }
+    return rows;
+  })(),
+  // 공통코드 — 분류코드 체계(코드값 자체가 대/중/소 계층): 대분류(2자리) > 중분류(4자리) > 소분류(6자리)
   code: [
-    { group: 'PROJ_TYPE',   groupName: '프로젝트 유형', code: 'SI',    name: '수주형(SI)', sort: 1, use: '사용' },
-    { group: 'PROJ_TYPE',   groupName: '프로젝트 유형', code: 'PROP',  name: '제안',       sort: 2, use: '사용' },
-    { group: 'PROJ_TYPE',   groupName: '프로젝트 유형', code: 'INV',   name: '투자',       sort: 3, use: '사용' },
-    { group: 'PROJ_TYPE',   groupName: '프로젝트 유형', code: 'ADV',   name: '선투입',     sort: 4, use: '사용' },
-    { group: 'PROJ_TYPE',   groupName: '프로젝트 유형', code: 'WG',    name: 'W/G',        sort: 5, use: '사용' },
-    { group: 'PROJ_TYPE',   groupName: '프로젝트 유형', code: 'INT',   name: '사내',       sort: 6, use: '사용' },
-    { group: 'BUDGET_ACCT', groupName: '예산 계정',     code: 'LABOR', name: '인건비',     sort: 1, use: '사용' },
-    { group: 'BUDGET_ACCT', groupName: '예산 계정',     code: 'OUT',   name: '외주비',     sort: 2, use: '사용' },
-    { group: 'BUDGET_ACCT', groupName: '예산 계정',     code: 'MAT',   name: '재료비',     sort: 3, use: '사용' },
-    { group: 'BUDGET_ACCT', groupName: '예산 계정',     code: 'EXP',   name: '경비',       sort: 4, use: '사용' },
-    { group: 'BUDGET_ACCT', groupName: '예산 계정',     code: 'AS',    name: 'A/S Cost',   sort: 5, use: '사용' },
-    { group: 'PROJ_STATUS', groupName: '프로젝트 상태', code: 'START', name: '착수완료',   sort: 1, use: '사용' },
-    { group: 'PROJ_STATUS', groupName: '프로젝트 상태', code: 'RUN',   name: '수행중',     sort: 2, use: '사용' },
-    { group: 'PROJ_STATUS', groupName: '프로젝트 상태', code: 'CLOSE', name: '종료',       sort: 3, use: '사용' },
+    // 10 프로젝트관리
+    { l1: '10', l1name: '프로젝트관리', l2: '1010', l2name: '프로젝트 유형', code: '101001', name: '수주형(SI)', use: '사용', note: '업무코드 SI' },
+    { l1: '10', l1name: '프로젝트관리', l2: '1010', l2name: '프로젝트 유형', code: '101002', name: '제안',       use: '사용', note: '업무코드 PROP' },
+    { l1: '10', l1name: '프로젝트관리', l2: '1010', l2name: '프로젝트 유형', code: '101003', name: '투자',       use: '사용', note: '업무코드 INV' },
+    { l1: '10', l1name: '프로젝트관리', l2: '1010', l2name: '프로젝트 유형', code: '101004', name: '선투입',     use: '사용', note: '업무코드 ADV' },
+    { l1: '10', l1name: '프로젝트관리', l2: '1010', l2name: '프로젝트 유형', code: '101005', name: 'W/G',        use: '사용', note: '개설관리 대상' },
+    { l1: '10', l1name: '프로젝트관리', l2: '1010', l2name: '프로젝트 유형', code: '101006', name: '사내',       use: '사용', note: '개설관리 대상' },
+    { l1: '10', l1name: '프로젝트관리', l2: '1020', l2name: '프로젝트 상태', code: '102001', name: '착수완료',   use: '사용', note: '' },
+    { l1: '10', l1name: '프로젝트관리', l2: '1020', l2name: '프로젝트 상태', code: '102002', name: '수행중',     use: '사용', note: '' },
+    { l1: '10', l1name: '프로젝트관리', l2: '1020', l2name: '프로젝트 상태', code: '102003', name: '보류',       use: '미사용', note: '' },
+    { l1: '10', l1name: '프로젝트관리', l2: '1020', l2name: '프로젝트 상태', code: '102004', name: '종료',       use: '사용', note: '' },
+    { l1: '10', l1name: '프로젝트관리', l2: '1030', l2name: '계약 형태',    code: '103001', name: '도급(TC)',   use: '사용', note: '' },
+    { l1: '10', l1name: '프로젝트관리', l2: '1030', l2name: '계약 형태',    code: '103002', name: '준도급(TM)', use: '사용', note: '' },
+    { l1: '10', l1name: '프로젝트관리', l2: '1030', l2name: '계약 형태',    code: '103003', name: '상주(SM)',   use: '사용', note: '' },
+    // 20 예산/원가
+    { l1: '20', l1name: '예산/원가', l2: '2010', l2name: '예산 계정', code: '201001', name: '인건비',   use: '사용', note: '수행원가 5대 계정' },
+    { l1: '20', l1name: '예산/원가', l2: '2010', l2name: '예산 계정', code: '201002', name: '외주비',   use: '사용', note: '' },
+    { l1: '20', l1name: '예산/원가', l2: '2010', l2name: '예산 계정', code: '201003', name: '재료비',   use: '사용', note: '' },
+    { l1: '20', l1name: '예산/원가', l2: '2010', l2name: '예산 계정', code: '201004', name: '경비',     use: '사용', note: '통 단위 관리' },
+    { l1: '20', l1name: '예산/원가', l2: '2010', l2name: '예산 계정', code: '201005', name: 'A/S Cost', use: '사용', note: '' },
+    { l1: '20', l1name: '예산/원가', l2: '2020', l2name: '인건비 상세', code: '202001', name: '실투입인건비', use: '사용', note: 'SCM 확정 인력' },
+    { l1: '20', l1name: '예산/원가', l2: '2020', l2name: '인건비 상세', code: '202002', name: '이관인건비',   use: '사용', note: 'Receiver/Sender' },
+    { l1: '20', l1name: '예산/원가', l2: '2020', l2name: '인건비 상세', code: '202003', name: 'OT비',        use: '사용', note: '월별 키인' },
+    { l1: '20', l1name: '예산/원가', l2: '2030', l2name: '외주비 상세', code: '203001', name: '실투입대상 외주비', use: '사용', note: '업체→PO→검수' },
+    { l1: '20', l1name: '예산/원가', l2: '2030', l2name: '외주비 상세', code: '203002', name: '전문직수수료',     use: '사용', note: '' },
+    { l1: '20', l1name: '예산/원가', l2: '2030', l2name: '외주비 상세', code: '203003', name: '외주출장비',       use: '사용', note: '' },
+    { l1: '20', l1name: '예산/원가', l2: '2030', l2name: '외주비 상세', code: '203004', name: '공사MA',          use: '사용', note: '' },
+    { l1: '20', l1name: '예산/원가', l2: '2030', l2name: '외주비 상세', code: '203005', name: '이관외주비',       use: '사용', note: '' },
+    { l1: '20', l1name: '예산/원가', l2: '2030', l2name: '외주비 상세', code: '203006', name: '기타외주비',       use: '사용', note: '' },
+    { l1: '20', l1name: '예산/원가', l2: '2040', l2name: '예산 버전 상태', code: '204001', name: '작성중',   use: '사용', note: '' },
+    { l1: '20', l1name: '예산/원가', l2: '2040', l2name: '예산 버전 상태', code: '204002', name: '승인요청', use: '사용', note: '' },
+    { l1: '20', l1name: '예산/원가', l2: '2040', l2name: '예산 버전 상태', code: '204003', name: '승인완료', use: '사용', note: '' },
+    { l1: '20', l1name: '예산/원가', l2: '2040', l2name: '예산 버전 상태', code: '204004', name: '반려',     use: '사용', note: '' },
+    // 30 결재
+    { l1: '30', l1name: '결재', l2: '3010', l2name: '결재 구분', code: '301001', name: '기안', use: '사용', note: '' },
+    { l1: '30', l1name: '결재', l2: '3010', l2name: '결재 구분', code: '301002', name: '협조', use: '사용', note: '' },
+    { l1: '30', l1name: '결재', l2: '3010', l2name: '결재 구분', code: '301003', name: '검토', use: '사용', note: 'W/G 전용' },
+    { l1: '30', l1name: '결재', l2: '3010', l2name: '결재 구분', code: '301004', name: '승인', use: '사용', note: '' },
+    { l1: '30', l1name: '결재', l2: '3020', l2name: '결재 상태', code: '302001', name: '대기', use: '사용', note: '' },
+    { l1: '30', l1name: '결재', l2: '3020', l2name: '결재 상태', code: '302002', name: '승인', use: '사용', note: '' },
+    { l1: '30', l1name: '결재', l2: '3020', l2name: '결재 상태', code: '302003', name: '반려', use: '사용', note: '' },
+    // 40 공통
+    { l1: '40', l1name: '공통', l2: '4010', l2name: '통화', code: '401001', name: 'KRW 대한민국 원', use: '사용', note: 'ISO 410' },
+    { l1: '40', l1name: '공통', l2: '4010', l2name: '통화', code: '401002', name: 'USD 미국 달러',   use: '사용', note: 'ISO 840' },
+    { l1: '40', l1name: '공통', l2: '4010', l2name: '통화', code: '401003', name: 'EUR 유로',        use: '사용', note: 'ISO 978' },
+    { l1: '40', l1name: '공통', l2: '4010', l2name: '통화', code: '401004', name: 'JPY 일본 엔',     use: '사용', note: 'ISO 392' },
+    { l1: '40', l1name: '공통', l2: '4010', l2name: '통화', code: '401005', name: 'CNY 중국 위안',   use: '사용', note: 'ISO 156' },
+    { l1: '40', l1name: '공통', l2: '4020', l2name: '마감 구분', code: '402001', name: '회계 결산', use: '사용', note: '' },
+    { l1: '40', l1name: '공통', l2: '4020', l2name: '마감 구분', code: '402002', name: '회계 마감', use: '사용', note: '' },
   ],
   notify: [
     { type: '예산 승인요청 도착',   event: '실행예산 상신',       channel: '시스템·이메일', target: '팀장·PM',     use: '사용' },
@@ -281,7 +358,7 @@ var ADM_SCHEMA = {
       { k: 'channel', label: '채널', type: 'select', opts: ['시스템', '이메일', '시스템·이메일', '시스템·SMS', 'SMS'] },
       { k: 'target', label: '수신 대상', type: 'text' }, { k: 'use', label: '사용여부', type: 'select', opts: ['사용', '미사용'], def: '사용' },
     ],
-    note: '※ 알림은 트리거 이벤트가 발생하면 선택한 채널로 수신 대상에게 발송됩니다.',
+    note: '※ 알림은 트리거 이벤트가 발생하면 선택한 채널로 수신 대상에게 발송됩니다. 이메일 채널의 실제 발송 성공/실패·재발송은 [메일관리]에서 관리합니다.',
   },
   integ: {
     noun: '연동', addLabel: '＋ 연동 등록',
@@ -690,11 +767,110 @@ function admLogDownload() {
   admToast('로그 이력을 CSV로 내려받았습니다.');
 }
 
+// ── 코드 관리 (분류코드 체계: 코드값 자체가 대/중/소 계층) ──
+var admCodeCat = '전체';   // 선택된 대분류 코드(l1) 또는 '전체'
+function admCodeCats() {
+  var seen = {}, out = [];
+  (ADM.code || []).forEach(function (r) { if (!seen[r.l1]) { seen[r.l1] = 1; out.push({ l1: r.l1, name: r.l1name }); } });
+  return out;
+}
+function admCodeSetCat(v) { admCodeCat = v; asiteRender(); }
+function admCodeSearch(v) { admSearch.code = v; asiteRender(); }
+function admCodeFiltered() {
+  var q = (admSearch.code || '').trim().toLowerCase();
+  var list = (ADM.code || []).map(function (r, i) { return { r: r, i: i }; });
+  list = list.filter(function (x) {
+    if (admCodeCat !== '전체' && x.r.l1 !== admCodeCat) return false;
+    if (!q) return true;
+    return [x.r.code, x.r.name, x.r.l1, x.r.l1name, x.r.l2, x.r.l2name, x.r.note].join(' ').toLowerCase().indexOf(q) >= 0;
+  });
+  list.sort(function (a, b) {
+    if (a.r.l1 !== b.r.l1) return a.r.l1 < b.r.l1 ? -1 : 1;
+    if (a.r.l2 !== b.r.l2) return a.r.l2 < b.r.l2 ? -1 : 1;
+    return a.r.code < b.r.code ? -1 : (a.r.code > b.r.code ? 1 : 0);
+  });
+  return list;
+}
+function admCodeHtml() {
+  var rows = admCodeFiltered();
+  var sel = '<select class="adm-filter" onchange="admCodeSetCat(this.value)">'
+    + '<option value="전체"' + (admCodeCat === '전체' ? ' selected' : '') + '>전체 대분류</option>'
+    + admCodeCats().map(function (c) { return '<option value="' + c.l1 + '"' + (admCodeCat === c.l1 ? ' selected' : '') + '>' + admEsc(c.l1) + ' · ' + admEsc(c.name) + '</option>'; }).join('')
+    + '</select>';
+  var body = '', lastL1 = null, lastL2 = null;
+  if (!rows.length) body = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:22px">조건에 맞는 코드가 없습니다.</td></tr>';
+  rows.forEach(function (x) {
+    var r = x.r, i = x.i;
+    if (r.l1 !== lastL1) { lastL1 = r.l1; lastL2 = null;
+      body += '<tr class="adm-grp-head"><td colspan="5">🗂 <span class="adm-code">' + admEsc(r.l1) + '</span> ' + admEsc(r.l1name) + ' <span class="adm-muted">대분류</span></td></tr>';
+    }
+    if (r.l2 !== lastL2) { lastL2 = r.l2;
+      body += '<tr class="adm-code-grp"><td colspan="5"><span class="adm-code">' + admEsc(r.l2) + '</span> <b>' + admEsc(r.l2name) + '</b> <span class="adm-muted">중분류</span></td></tr>';
+    }
+    body += '<tr>'
+      + '<td><span class="adm-code" title="시스템에서 사용하는 분류코드(소분류)">' + admEsc(r.code) + '</span></td>'
+      + '<td>' + admEsc(r.name) + '</td>'
+      + '<td><button class="adm-pill ' + (r.use === '사용' ? 'green' : 'gray') + '" style="cursor:pointer" onclick="admCodeToggle(' + i + ')" title="사용/미사용 전환">' + admEsc(r.use) + '</button></td>'
+      + '<td class="adm-muted">' + admEsc(r.note || '-') + '</td>'
+      + '<td style="white-space:nowrap"><button class="adm-btn sm" onclick="admCodeForm(' + i + ')">수정</button> <button class="adm-btn sm del" onclick="admCodeAskDelete(' + i + ')">삭제</button></td>'
+      + '</tr>';
+  });
+  var toolbar = '<div class="adm-toolbar">'
+    + '<button class="adm-btn pri" onclick="admCodeForm(null)">＋ 코드 등록</button>'
+    + sel
+    + '<input class="adm-search" placeholder="코드·코드명·분류 검색…" value="' + admEsc(admSearch.code || '') + '" oninput="admCodeSearch(this.value)">'
+    + '<button class="adm-btn" onclick="admSave(\'공통코드\')">저장</button>'
+    + '<span class="adm-count">' + rows.length + '건</span></div>';
+  return toolbar
+    + '<table class="adm-table"><thead><tr><th>소분류 코드</th><th>코드명</th><th>사용</th><th>비고</th><th></th></tr></thead>'
+    + '<tbody>' + body + '</tbody></table>'
+    + '<div class="adm-note">※ 공통코드는 <b>코드값 자체가 계층</b>입니다 — 대분류(2자리) → 중분류(4자리) → 소분류(6자리). <b>소분류 코드</b>가 ERP·연계 시스템이 실제 주고받는 값이며, 화면 드롭다운·분류 체계의 원천입니다.</div>';
+}
+function admCodeToggle(i) { var r = ADM.code[i]; if (!r) return; r.use = (r.use === '사용' ? '미사용' : '사용'); admPersist(); asiteRender(); }
+function admCodeAskDelete(i) {
+  var r = ADM.code[i]; if (!r) return;
+  admModal('<div class="adm-modal" style="width:400px">'
+    + '<div class="adm-modal-head"><b>삭제 확인</b><button class="adm-modal-x" onclick="admCloseModal()">✕</button></div>'
+    + '<div style="padding:18px 20px;font-size:13.5px;color:#334155;line-height:1.6"><b>' + admEsc(r.l2name) + ' › ' + admEsc(r.name) + '</b> (' + admEsc(r.code) + ') 코드를 삭제하시겠습니까?<br><span class="adm-muted">삭제 후에는 되돌릴 수 없습니다.</span></div>'
+    + '<div class="adm-modal-foot"><button class="adm-btn" onclick="admCloseModal()">취소</button>'
+    + '<button class="adm-btn pri" style="background:#dc2626;border-color:#dc2626;color:#fff" onclick="admCodeDoDelete(' + i + ')">삭제</button></div></div>');
+}
+function admCodeDoDelete(i) { if (ADM.code[i] != null) ADM.code.splice(i, 1); admPersist(); admCloseModal(); asiteRender(); admToast('코드가 삭제되었습니다.'); }
+function admCodeForm(i) {
+  i = (i == null || i === 'null') ? null : Number(i);
+  var r = i != null ? ADM.code[i] : { use: '사용' };
+  var g = function (id, v, ph, t) { return '<input id="' + id + '" ' + (t ? 'type="' + t + '" ' : '') + 'value="' + admEsc(v == null ? '' : v) + '"' + (ph ? ' placeholder="' + ph + '"' : '') + '>'; };
+  admModal('<div class="adm-modal wide">'
+    + '<div class="adm-modal-head"><b>' + (i != null ? '코드 수정' : '코드 등록') + '</b><button class="adm-modal-x" onclick="admCloseModal()">✕</button></div>'
+    + '<div class="adm-form">'
+    + '<div class="adm-field"><label>대분류 코드<span class="req">*</span></label>' + g('adm-c-l1', r.l1, '예: 10') + '</div>'
+    + '<div class="adm-field"><label>대분류명<span class="req">*</span></label>' + g('adm-c-l1name', r.l1name, '예: 프로젝트관리') + '</div>'
+    + '<div class="adm-field"><label>중분류 코드<span class="req">*</span></label>' + g('adm-c-l2', r.l2, '예: 1010') + '</div>'
+    + '<div class="adm-field"><label>중분류명<span class="req">*</span></label>' + g('adm-c-l2name', r.l2name, '예: 프로젝트 유형') + '</div>'
+    + '<div class="adm-field"><label>소분류 코드<span class="req">*</span></label>' + g('adm-c-code', r.code, '예: 101001') + '</div>'
+    + '<div class="adm-field"><label>코드명<span class="req">*</span></label>' + g('adm-c-name', r.name, '예: 수주형(SI)') + '</div>'
+    + '<div class="adm-field"><label>사용여부</label><select id="adm-c-use"><option' + (r.use !== '미사용' ? ' selected' : '') + '>사용</option><option' + (r.use === '미사용' ? ' selected' : '') + '>미사용</option></select></div>'
+    + '<div class="adm-field"><label>비고</label>' + g('adm-c-note', r.note, '') + '</div>'
+    + '</div>'
+    + '<div class="adm-modal-foot"><button class="adm-btn" onclick="admCloseModal()">취소</button>'
+    + '<button class="adm-btn pri" onclick="admCodeSave(' + (i != null ? i : 'null') + ')">' + (i != null ? '수정' : '등록') + '</button></div></div>');
+}
+function admCodeSave(i) {
+  i = (i == null || i === 'null') ? null : Number(i);
+  var g = function (id) { var el = document.getElementById(id); return el ? String(el.value).trim() : ''; };
+  var obj = { l1: g('adm-c-l1'), l1name: g('adm-c-l1name'), l2: g('adm-c-l2'), l2name: g('adm-c-l2name'),
+    code: g('adm-c-code'), name: g('adm-c-name'), use: g('adm-c-use'), note: g('adm-c-note') };
+  if (!obj.l1 || !obj.l1name || !obj.l2 || !obj.l2name || !obj.code || !obj.name) { admToast('대·중분류 코드/명과 소분류 코드·코드명은 필수입니다.'); return; }
+  if (i != null) ADM.code[i] = obj; else ADM.code.push(obj);
+  admPersist(); admCloseModal(); asiteRender(); admToast('코드가 ' + (i != null ? '수정' : '등록') + '되었습니다.');
+}
+
 // ── 섹션 디스패치 ──
 function admSectionBody(key) {
   if (key === 'perm') return admPermHtml();
   if (key === 'org') return admOrgHtml();
   if (key === 'log') return admLogHtml();
+  if (key === 'code') return admCodeHtml();
   if (ADM_SCHEMA[key]) return admTable(key);
   return admTable('user');
 }
@@ -710,16 +886,22 @@ function asiteRender() {
   var nav = document.getElementById('asite-nav');
   var main = document.getElementById('asite-main');
   if (!nav || !main) return;
-  nav.innerHTML = '<div class="asite-nav-lbl">관리 메뉴</div>' + ADMIN_SECTIONS.map(function (s) {
-    var on = s.key === adminCur ? ' on' : '';
-    return '<button class="asite-navi' + on + '" onclick="adminGo(\'' + s.key + '\')">'
-      + '<span class="asite-navi-ic">' + s.icon + '</span><span class="asite-navi-t">' + s.title + '</span></button>';
+  nav.innerHTML = ADMIN_GROUPS.map(function (g) {
+    var items = ADMIN_SECTIONS.filter(function (s) { return admGroupOf(s) === g.id; });
+    if (!items.length) return '';
+    return '<div class="asite-nav-lbl">' + g.label + '</div>' + items.map(function (s) {
+      var on = s.key === adminCur ? ' on' : '';
+      return '<button class="asite-navi' + on + '" onclick="adminGo(\'' + s.key + '\')" title="' + admEsc(s.desc || '') + '">'
+        + '<span class="asite-navi-ic">' + s.icon + '</span><span class="asite-navi-t">' + s.title + '</span></button>';
+    }).join('');
   }).join('');
   var meta = ADMIN_SECTIONS.find(function (s) { return s.key === adminCur; }) || {};
   main.innerHTML = asiteTabsHtml()
     + '<div class="asite-page"><div class="asite-head"><div class="asite-h-ic">' + (meta.icon || '') + '</div><div>'
     + '<div class="asite-h-t">' + (meta.title || '') + '</div>'
-    + '<div class="asite-h-d">' + (meta.desc || '') + '</div></div></div>'
+    + '<div class="asite-h-d">' + (meta.desc || '') + '</div>'
+    + (admSrcOf(meta) ? '<div class="asite-h-src">🔗 데이터 출처 · ' + admEsc(admSrcOf(meta)) + '</div>' : '')
+    + '</div></div>'
     + '<div class="asite-content">' + admSectionBody(adminCur) + '</div></div>';
 }
 

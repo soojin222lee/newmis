@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AiBudget 업무 튜토리얼 · 견적·인력 → 예산 Agent 계획</title>
+<meta name="description" content="구매시스템(POP)에서 견적을 등록·확정하면 견적확정 인터페이스(IF)를 타고 예산관리 Agent로 넘어오고, Agent가 [예산 조정안]으로 먼저 제안하면 PM이 검토·반영해 외주비·재료비 계획을 세우는 흐름을 좌(POP)·우(예산 Agent) 두 화면과 DB 표로 시각화.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sk-ink:#17161f; --sk-page:#eef1f6; --sk-border:#e4e2da;
+  --pop:#0e9f6e; --pop-deep:#0a7d54; --pop-soft:#e5f6ef;
+  --agt:#6d28d9; --agt-deep:#5b21b6; --agt-soft:#f1ecfe;
+  --green:#22b07d; --amber:#b4740a; --red:#ea002c; --muted:#8a94a6;
+  --font:'Pretendard','Noto Sans KR',-apple-system,system-ui,sans-serif; --mono:ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box;letter-spacing:-.1px}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);background:var(--sk-page);color:#1c2432;-webkit-font-smoothing:antialiased;overflow:hidden}
+
+#top{position:fixed;top:0;left:0;right:0;height:54px;z-index:40;display:flex;align-items:center;gap:14px;padding:0 20px;background:#fff;border-bottom:1px solid var(--sk-border)}
+#top .brand{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:900;color:#16151f}
+#top .brand .ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--sk-ink);color:#fff;font-size:15px}
+#tabs{display:flex;gap:6px;margin-left:8px;flex-wrap:wrap}
+#tabs button{height:32px;padding:0 13px;border-radius:999px;border:1px solid var(--sk-border);background:#fff;color:#55606f;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit}
+#tabs button:hover{border-color:var(--agt);color:var(--agt)}
+#tabs button.on{background:var(--sk-ink);border-color:var(--sk-ink);color:#fff}
+#top .sp{flex:1}
+#top .stepno{font-size:12.5px;font-weight:800;color:var(--muted);white-space:nowrap}
+
+/* 무대 */
+#stage{position:fixed;top:54px;left:0;right:0;bottom:148px;padding:20px 24px;display:flex;gap:0;align-items:stretch}
+.panel{flex:1;min-width:0;background:#fff;border:2px solid var(--sk-border);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;transition:border-color .3s,box-shadow .3s,opacity .3s}
+.panel .ph{display:flex;align-items:center;gap:8px;padding:11px 15px;font-size:13.5px;font-weight:900;border-bottom:1px solid #eef1f5}
+.panel .ph .dot{width:11px;height:11px;border-radius:50%}
+.panel .ph .sub{font-size:11px;font-weight:700;color:var(--muted);margin-left:auto}
+.panel .pb{flex:1;overflow:auto;padding:14px 15px}
+.panel.pop .ph{color:var(--pop-deep)} .panel.pop .ph .dot{background:var(--pop)}
+.panel.agt .ph{color:var(--agt-deep)} .panel.agt .ph .dot{background:var(--agt)}
+.panel.pop.active{border-color:var(--pop);box-shadow:0 0 0 4px rgba(14,159,110,.14),0 14px 40px -18px rgba(14,159,110,.5)}
+.panel.agt.active{border-color:var(--agt);box-shadow:0 0 0 4px rgba(109,40,217,.14),0 14px 40px -18px rgba(109,40,217,.5)}
+.panel.dim{opacity:.5}
+
+/* 가운데 채널 (사람 + IF가 지나가는 길) */
+#chan{position:relative;flex:0 0 150px;display:flex;align-items:center;justify-content:center}
+#chan .rail{position:absolute;top:50%;left:8px;right:8px;height:2px;background:repeating-linear-gradient(90deg,#cfd6e0 0 7px,transparent 7px 14px)}
+#pm{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:3px;transition:left .55s cubic-bezier(.5,.05,.3,1);z-index:5}
+#pm .av{width:46px;height:46px;border-radius:50%;background:var(--sk-ink);color:#fff;display:grid;place-items:center;font-size:20px;box-shadow:0 8px 20px -6px rgba(15,23,42,.5)}
+#pm .lb{font-size:11px;font-weight:900;color:#16151f;background:#fff;border:1px solid var(--sk-border);border-radius:999px;padding:1px 9px;white-space:nowrap}
+#pm .pt{font-size:16px;line-height:1;transition:transform .3s}
+#stage[data-pm="pop"] #pm{left:-30%}
+#stage[data-pm="agt"] #pm{left:130%}
+#stage[data-pm="pop"] #pm .pt{transform:rotate(-90deg)}
+#stage[data-pm="agt"] #pm .pt{transform:rotate(90deg)}
+#stage[data-pm="mid"] #pm{left:50%}
+
+/* IF 패킷 (DB 표 모양) */
+#ifp{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.96);width:236px;z-index:6;background:#0f1b2e;border-radius:12px;box-shadow:0 18px 44px -12px rgba(8,14,26,.6);opacity:0;pointer-events:none;transition:opacity .25s}
+#ifp.show{opacity:1}
+#ifp.fly-r{animation:flyR 1.05s cubic-bezier(.5,.05,.3,1)}
+@keyframes flyR{0%{left:-46%;opacity:0}18%{opacity:1}82%{opacity:1}100%{left:146%;opacity:0}}
+#ifp .ifh{display:flex;align-items:center;gap:6px;padding:7px 10px;font-size:11px;font-weight:900;color:#c7a6ff;border-bottom:1px solid #2a2340}
+#ifp .ifh .db{font-size:12px}
+#ifp table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px}
+#ifp th{color:#8f7fc0;text-align:left;padding:4px 8px;border-bottom:1px solid #2a2340;font-weight:700;white-space:nowrap}
+#ifp td{color:#e4dcfb;padding:4px 8px;border-bottom:1px solid #201840;white-space:nowrap}
+#ifp tr:last-child td{border-bottom:0}
+#chan .ifbadge{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-size:10.5px;font-weight:900;color:var(--agt-deep);background:var(--agt-soft);border:1px solid #d6c7f7;border-radius:999px;padding:2px 10px;white-space:nowrap;opacity:0;transition:opacity .3s}
+#chan .ifbadge.show{opacity:1}
+#ifp.solo{background:#2b3140;box-shadow:0 18px 44px -12px rgba(43,49,64,.5)}
+#ifp.solo .ifh{color:#aeb8c8;border-bottom-color:#3a4150}
+#ifp.solo td{color:#dce1e8;border-bottom-color:#333a47}
+#ifp.solo th{color:#8a94a6;border-bottom-color:#3a4150}
+#chan .ifbadge.solo{color:#55606f;background:#eef1f5;border-color:#d3d9e2}
+#chan .rail.solo{background:repeating-linear-gradient(90deg,#cfd6e0 0 10px,transparent 10px 20px)}
+
+/* 패널 내부 콘텐츠 */
+.ptitle{font-size:14px;font-weight:900;color:#16151f;margin:0 0 3px}
+.psub{font-size:11.5px;color:var(--muted);font-weight:600;margin:0 0 12px;line-height:1.5}
+table.t{width:100%;border-collapse:collapse;font-size:11.5px}
+table.t thead th{background:#f3f5f9;color:#3d4a5c;font-weight:800;text-align:left;padding:7px 8px;border-bottom:1px solid #dfe3ea;white-space:nowrap}
+table.t td{padding:7px 8px;border-bottom:1px solid #eef1f5;color:#2b3442;white-space:nowrap}
+table.t tbody tr:last-child td{border-bottom:0}
+table.t tr.hlp td{background:var(--pop-soft)} table.t tr.hla td{background:var(--agt-soft)}
+.mm{font-variant-numeric:tabular-nums;text-align:right;font-weight:700}.mm.z{color:#c3cbd6;font-weight:500}
+.mm.up{color:var(--agt-deep)}.strike{color:#b80022;text-decoration:line-through}
+.pg{display:inline-block;font-size:10px;font-weight:900;color:#fff;background:#55606f;border-radius:5px;padding:1px 6px}
+.bdg{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:800}
+.b-wait{background:#f1f3f6;color:#8a94a6} .b-ok{background:#e8f3ec;color:#167a4a} .b-pop{background:var(--pop-soft);color:var(--pop-deep)} .b-agt{background:var(--agt-soft);color:var(--agt-deep)} .b-warn{background:#fdecec;color:#b80022} .b-lock{background:#eceef2;color:#55606f}
+.chk{font-size:14px}
+.panel .note{font-size:11px;line-height:1.5;color:#55606f;background:#f7f9fc;border:1px solid #eef1f5;border-radius:8px;padding:8px 10px;margin-top:10px}.panel .note b{color:#16151f}
+.btn{height:30px;padding:0 12px;border-radius:8px;font-size:11.5px;font-weight:800;border:1px solid;font-family:inherit;display:inline-flex;align-items:center;gap:5px;cursor:default}
+.btn.pop{background:var(--pop);border-color:var(--pop);color:#fff} .btn.agt{background:var(--agt);border-color:var(--agt);color:#fff}
+.btn.ghost{background:#fff;border-color:var(--sk-border);color:#55606f}
+.inp{display:inline-block;border:1px solid var(--agt);background:var(--agt-soft);border-radius:5px;padding:1px 7px;font-size:11px;font-weight:700;color:var(--agt-deep)}
+.empty{display:grid;place-items:center;height:100%;color:#c3cbd6;font-size:12px;font-weight:700;text-align:center;line-height:1.6}
+
+/* Agent 조정안 카드 */
+.prop{border:1.5px solid var(--agt);border-radius:12px;overflow:hidden;box-shadow:0 10px 30px -16px rgba(109,40,217,.5)}
+.prop-h{display:flex;align-items:center;gap:7px;padding:9px 12px;background:var(--agt-soft);color:var(--agt-deep);font-size:12.5px;font-weight:900}
+.prop-h .conf{margin-left:auto;font-size:10px;font-weight:900;background:#fff;border:1px solid #d6c7f7;border-radius:999px;padding:1px 8px}
+.prop-body{padding:11px 12px}
+.prop-line{font-size:13px;font-weight:900;color:#16151f;margin-bottom:6px}
+.prop-line b{color:var(--agt-deep)}
+.prop-ev{font-size:11px;line-height:1.5;color:#55606f;background:#f7f9fc;border:1px solid #eef1f5;border-radius:7px;padding:7px 9px}
+.prop-ev .db{color:var(--agt-deep);font-weight:900}
+.prop-act{display:flex;gap:7px;padding:0 12px 12px}
+.chat{border:1px solid var(--agt);background:#fff;border-radius:10px;padding:9px 11px;font-size:12px;line-height:1.5;color:#2b3442}
+.chat .you{color:var(--agt-deep);font-weight:900}
+
+/* 하단 내레이션 + 컨트롤 */
+#bottom{position:fixed;left:0;right:0;bottom:0;height:148px;z-index:40;background:#fff;border-top:1px solid var(--sk-border);padding:14px 24px;display:flex;flex-direction:column;gap:9px}
+#narr{display:flex;align-items:flex-start;gap:12px}
+#narr .who{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:70px}
+#narr .who .av{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:17px;color:#fff}
+#narr .who.pop .av{background:var(--pop)} #narr .who.agt .av{background:var(--agt)} #narr .who.mid .av{background:var(--sk-ink)}
+#narr .who .tag{font-size:10px;font-weight:900;border-radius:999px;padding:1px 8px;white-space:nowrap}
+#narr .who.pop .tag{background:var(--pop-soft);color:var(--pop-deep)} #narr .who.agt .tag{background:var(--agt-soft);color:var(--agt-deep)} #narr .who.mid .tag{background:#eef1f5;color:#55606f}
+#narr .txt{flex:1;min-width:0}
+#narr .txt .t{font-size:15px;font-weight:900;color:#16151f;margin-bottom:3px}
+#narr .txt .d{font-size:12.5px;line-height:1.55;color:#3a4250}#narr .txt .d b{color:#16151f}#narr .txt .d .pop{color:var(--pop-deep)}#narr .txt .d .agt{color:var(--agt-deep)}#narr .txt .d .warn{color:#b80022}
+#ctrl{display:flex;align-items:center;gap:12px}
+#ctrl button{height:34px;padding:0 15px;border-radius:9px;border:1px solid var(--sk-border);background:#fff;color:#37414f;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit}
+#ctrl button:hover:not(:disabled){background:#f3f6fb;border-color:var(--agt);color:var(--agt)}
+#ctrl button:disabled{opacity:.4;cursor:not-allowed}
+#ctrl button.pri{background:var(--sk-ink);border-color:var(--sk-ink);color:#fff}#ctrl button.pri:hover{background:#2b3442;color:#fff}
+#dots{display:flex;gap:6px;margin:0 auto}
+#dots i{width:8px;height:8px;border-radius:50%;background:#d3d9e2;cursor:pointer;transition:background .2s,transform .2s}
+#dots i.on{background:var(--sk-ink);transform:scale(1.25)}
+#dots i.pop.on{background:var(--pop)} #dots i.agt.on{background:var(--agt)}
+
+@media(max-width:820px){
+  #stage{flex-direction:column;bottom:160px}
+  #chan{flex:0 0 70px;width:100%}
+  #chan .rail{top:8px;left:50%;right:auto;width:2px;height:calc(100% - 16px);background:repeating-linear-gradient(180deg,#cfd6e0 0 7px,transparent 7px 14px)}
+  #stage[data-pm="pop"] #pm{left:50%;top:-24px} #stage[data-pm="agt"] #pm{left:50%;top:auto;bottom:-24px}
+  #ifp.fly-r{animation:none}
+}
+</style>
+</head>
+<body>
+
+<div id="top">
+  <div class="brand"><span class="ic">🧾</span><span>견적·인력 → 예산 Agent 계획</span></div>
+  <div id="tabs"></div>
+  <span class="sp"></span>
+  <span class="stepno" id="stepno"></span>
+</div>
+
+<div id="stage" data-pm="pop">
+  <div class="panel pop" id="pop"><div class="ph"><span class="dot"></span><span id="pop-name">구매시스템 (POP)</span><span class="sub" id="pop-sub"></span></div><div class="pb" id="pop-body"></div></div>
+  <div id="chan">
+    <div class="rail" id="rail"></div>
+    <div id="ifp"></div>
+    <div class="ifbadge" id="ifbadge">IF 전송</div>
+    <div id="pm"><div class="pt">➜</div><div class="av" id="pm-av">🧑‍💻</div><div class="lb" id="pm-lb">구매담당</div></div>
+  </div>
+  <div class="panel agt" id="agt"><div class="ph"><span class="dot"></span>예산관리 Agent<span class="sub" id="agt-sub"></span></div><div class="pb" id="agt-body"></div></div>
+</div>
+
+<div id="bottom">
+  <div id="narr"><div class="who" id="narr-who"><div class="av"></div><div class="tag"></div></div><div class="txt"><div class="t" id="narr-t"></div><div class="d" id="narr-d"></div></div></div>
+  <div id="ctrl">
+    <button id="prev" onclick="go(-1)">◀ 이전</button>
+    <div id="dots"></div>
+    <button id="next" class="pri" onclick="go(1)">다음 ▶</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const EMPTY = '<div class="empty">아직 전달된<br>데이터가 없습니다</div>';
+const WAIT  = '<div class="empty">구매(POP)에서<br>견적확정 I/F를<br>기다립니다</div>';
+
+// IF 패킷(DB 표) — 인터페이스로 넘어가는 레코드
+function ifTable(title, cols, rows){
+  return '<div class="ifh"><span class="db">🗄</span> IF · '+title+'</div>'
+    + '<table><thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead>'
+    + '<tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+}
+// Agent 조정안 카드
+function propCard(o){
+  return '<div class="prop">'
+    + '<div class="prop-h"><span>🤖</span> 예산 조정안 · '+o.id+'<span class="conf">신뢰도 '+o.conf+'</span></div>'
+    + '<div class="prop-body"><div class="prop-line">'+o.line+'</div>'
+    + '<div class="prop-ev"><span class="db">근거(I/F)</span> · '+o.ev+'</div></div>'
+    + '<div class="prop-act"><span class="btn agt">반영</span><span class="btn ghost">💬 대화하기</span></div></div>';
+}
+
+/* 플로우(시나리오) 정의 */
+const FLOWS = {
+  outsource: { name:'① 외주비 — 견적확정 → 계획', steps:[
+    { pm:'pop', popT:'견적 등록', pop:()=>'<p class="ptitle">① 구매시스템에서 견적 등록·확정</p><p class="psub">구매 담당이 업체 견적을 POP에 등록하고 <b>확정</b> 처리합니다. 금액·기간은 여기서 정해져요.</p>'
+        +'<table class="t"><thead><tr><th>업체</th><th>업무</th><th class="mm">견적금액</th><th>수행기간</th><th>상태</th></tr></thead><tbody>'
+        +'<tr class="hlp"><td>아크로디자인랩</td><td>UI/UX 외주</td><td class="mm">30,000,000</td><td>26.10.01~12.31</td><td><span class="bdg b-ok">견적확정</span></td></tr>'
+        +'</tbody></table><div class="note">이 단계는 <b>예산시스템 밖(구매)</b>이에요. 견적이 <b>확정</b>돼야 다음으로 넘어갑니다.</div>',
+      agtT:'대기', agt:()=>'<p class="ptitle">예산관리 Agent · 대기</p><p class="psub">아직 받은 견적이 없습니다.</p>'+WAIT,
+      who:'pop', t:'① 구매(POP)에서 견적 확정', d:'구매 담당이 <b class="pop">구매시스템(POP)</b>에서 아크로디자인랩 견적 <b>30,000,000원</b>(26.10~12)을 등록하고 <b>확정</b>합니다. 외주비 금액·기간의 원천은 구매예요.' },
+
+    { pm:'mid', xfer:'r', ifp:()=>ifTable('외주 견적확정', ['업체','견적금액','수행기간','상태'], [['아크로디자인랩','30,000,000','2026-10-01~12-31','CONFIRMED']]),
+      popT:'견적확정 ✓', pop:()=>'<p class="ptitle">견적확정 ✓ · 전송 중</p><p class="psub">확정된 견적이 예산 Agent로 자동 전송됩니다.</p>'
+        +'<table class="t"><thead><tr><th>업체</th><th class="mm">견적금액</th><th>상태</th></tr></thead><tbody>'
+        +'<tr><td>아크로디자인랩</td><td class="mm">30,000,000</td><td><span class="bdg b-ok">견적확정</span></td></tr></tbody></table>',
+      agtT:'IF 수신 중', agt:()=>'<p class="ptitle">견적확정 I/F 수신</p><p class="psub">구매시스템이 보낸 견적 레코드를 <b>실시간</b>으로 받습니다.</p>'+EMPTY,
+      who:'mid', t:'② 견적확정 I/F → 예산 Agent (자동)', d:'확정된 견적이 <b>견적확정 I/F</b>(가운데 <b>DB 표</b>)를 타고 <b class="agt">예산관리 Agent</b>로 <b>실시간 전송</b>됩니다. PM이 가져올 필요가 없어요.' },
+
+    { pm:'agt', popT:'견적확정 ✓', pop:()=>'<p class="ptitle">견적확정 ✓</p><p class="psub">구매 원천 데이터(참고).</p>'
+        +'<table class="t"><thead><tr><th>업체</th><th class="mm">견적금액</th><th>수행기간</th></tr></thead><tbody>'
+        +'<tr><td>아크로디자인랩</td><td class="mm">30,000,000</td><td>26.10~12</td></tr></tbody></table>',
+      agtT:'예산 조정안 제안', agt:()=>'<p class="ptitle">Agent가 [예산 조정안]을 먼저 제안 ✨</p><p class="psub">받은 견적으로 Agent가 <b>계획 초안</b>을 만들어 카드로 올립니다.</p>'
+        + propCard({id:'ap-03', conf:'94%', line:'외주비 <b>+10,000,000원</b> 증액 — CP 여유에서', ev:'구매시스템 견적확정 I/F 수신 · 2026-08-27 09:05 · 아크로디자인랩 30,000,000원 (2026-10-01~12-31)'})
+        + '<div class="note">Agent가 <b>알아서 초안</b>을 가져와요. 아직 <b>계획에 반영된 건 아니에요</b> — PM이 보고 결정합니다.</div>',
+      who:'agt', t:'③ Agent가 조정안으로 먼저 제안', d:'<b class="agt">예산 Agent</b>가 받은 견적으로 <b>[예산 조정안]</b>을 만들어 제안합니다(ap-03). 외주비·재료비는 <b>계획 라인이 있어야 PO를 발행</b>할 수 있어, 확정된 견적부터 Agent가 먼저 깔아줘요.' },
+
+    { pm:'agt', popT:'견적확정 ✓', pop:()=>'<p class="ptitle">견적확정 ✓</p><p class="psub">구매 원천 데이터(참고).</p>'
+        +'<table class="t"><thead><tr><th>업체</th><th class="mm">견적금액</th></tr></thead><tbody><tr><td>아크로디자인랩</td><td class="mm">30,000,000</td></tr></tbody></table>',
+      agtT:'PM이 [반영]', agt:()=>'<p class="ptitle">PM 검토 → [반영] 클릭</p><p class="psub">PM이 조정안을 확인하고 <b>[반영]</b>을 누르면 외주비 계획에 들어갑니다.</p>'
+        +'<table class="t"><thead><tr><th>업체</th><th class="mm">계약금액</th><th>분기</th><th>상태</th></tr></thead><tbody>'
+        +'<tr class="hla"><td>아크로디자인랩 <span class="bdg b-agt">신규</span></td><td class="mm">30,000,000</td><td>4분기</td><td><span class="bdg b-agt">반영(결재전)</span></td></tr>'
+        +'</tbody></table><div class="note"><b>반영(결재전)</b> 상태예요 — 아직 수정·해제 가능. PM이 숫자를 처음부터 만든 게 아니라 <b>확인하고 반영</b>만 했어요.</div>',
+      who:'agt', t:'④ PM은 [반영]만 — "만드는 사람" 아닌 "확인하는 사람"', d:'PM이 조정안을 검토하고 <b>[반영]</b>을 누르면 외주비 계획에 업체·계약 라인이 <b>"반영(결재전)"</b>으로 들어갑니다. 반영 전까지는 실제 계획에 안 들어가니, <b>검토 후 반영</b>하세요.' },
+
+    { pm:'agt', popT:'PO 발행', pop:()=>'<p class="ptitle">결재 후 → PO 발행</p><p class="psub">계획이 결재되면 구매시스템에서 PO가 발행됩니다.</p>'
+        +'<table class="t"><thead><tr><th>업체</th><th>PO번호</th><th class="mm">금액</th><th>상태</th></tr></thead><tbody>'
+        +'<tr class="hlp"><td>아크로디자인랩</td><td>PO-2026-0412</td><td class="mm">30,000,000</td><td><span class="bdg b-pop">PO 발행</span></td></tr></tbody></table>',
+      agtT:'기안 → 결재 → 잠김', agt:()=>'<p class="ptitle">기안 → 결재 → 조회 전용 🔒</p><p class="psub">반영한 계획을 상신(기안)·결재하면 확정되고, PO 발행 건은 구매 기준이라 잠깁니다.</p>'
+        +'<table class="t"><thead><tr><th>업체</th><th class="mm">계약금액</th><th>상태</th></tr></thead><tbody>'
+        +'<tr><td>아크로디자인랩</td><td class="mm">30,000,000</td><td><span class="bdg b-lock">🔒 조회 전용</span></td></tr></tbody></table>'
+        +'<div class="note">PO번호·실적(검수)·집행예정은 <b>구매시스템에서 채워지고</b>, 그때부터 그 건은 <b>조회 전용</b>(수정 불가)이에요.</div>',
+      who:'agt', t:'⑤ 기안 → 결재 → PO 발행 후 잠김', d:'반영한 계획을 <b>기안 → 결재</b>하면 확정돼요. 이후 <b class="pop">구매시스템</b>에서 <b>PO가 발행</b>되면 그 건은 구매 기준이라 <b>조회 전용으로 잠깁니다.</b>' },
+  ]},
+
+  material: { name:'② 재료비 — 견적확정 → 계획', steps:[
+    { pm:'pop', popT:'H/W·S/W 견적확정', pop:()=>'<p class="ptitle">① 구매에서 H/W·S/W 견적 확정</p><p class="psub">재료비도 외주비와 같은 기준 — <b>확정된 견적만</b> 편성합니다.</p>'
+        +'<table class="t"><thead><tr><th>구분</th><th>건수</th><th class="mm">합계</th><th>상태</th></tr></thead><tbody>'
+        +'<tr class="hlp"><td>H/W</td><td>2건</td><td class="mm">—</td><td><span class="bdg b-ok">견적확정</span></td></tr>'
+        +'<tr class="hlp"><td>S/W</td><td>2건</td><td class="mm">—</td><td><span class="bdg b-ok">견적확정</span></td></tr>'
+        +'<tr><td><b>합계</b></td><td>4건</td><td class="mm">350,000,000</td><td></td></tr>'
+        +'</tbody></table><div class="note">구매는 <b>일괄 발주</b>라 금액을 나누지 않아요. 물품정보(품목·수량·금액)는 구매 원천 — 예산에서는 <b>읽기전용</b>.</div>',
+      agtT:'대기', agt:()=>'<p class="ptitle">예산관리 Agent · 대기</p><p class="psub">아직 받은 견적이 없습니다.</p>'+WAIT,
+      who:'pop', t:'① 구매에서 H/W·S/W 견적 확정', d:'<b class="pop">구매시스템</b>에서 H/W 2건·S/W 2건, 합계 <b>350,000,000원</b>이 확정됩니다. 재료비도 외주비처럼 <b>확정 견적만</b> 편성해요.' },
+
+    { pm:'mid', xfer:'r', ifp:()=>ifTable('구매 견적확정 (H/W·S/W)', ['구분','건수','합계'], [['H/W','2건','…'],['S/W','2건','…'],['총합','4건','350,000,000']]),
+      popT:'견적확정 ✓', pop:()=>'<p class="ptitle">견적확정 ✓ · 전송 중</p><p class="psub">확정 견적이 예산 Agent로 전송됩니다.</p>'
+        +'<table class="t"><thead><tr><th>구분</th><th class="mm">합계</th></tr></thead><tbody><tr><td>H/W·S/W 4건</td><td class="mm">350,000,000</td></tr></tbody></table>',
+      agtT:'IF 수신 중', agt:()=>'<p class="ptitle">견적확정 I/F 수신</p><p class="psub">구매 견적 레코드를 실시간으로 받습니다.</p>'+EMPTY,
+      who:'mid', t:'② 견적확정 I/F → 예산 Agent (자동)', d:'확정 견적이 <b>견적확정 I/F</b>로 <b class="agt">예산 Agent</b>에 실시간 전송됩니다(DB 표).' },
+
+    { pm:'agt', popT:'견적확정 ✓', pop:()=>'<p class="ptitle">견적확정 ✓</p><p class="psub">구매 원천(참고).</p>'
+        +'<table class="t"><thead><tr><th>구분</th><th class="mm">합계</th></tr></thead><tbody><tr><td>H/W·S/W 4건</td><td class="mm">350,000,000</td></tr></tbody></table>',
+      agtT:'예산 조정안 제안', agt:()=>'<p class="ptitle">Agent가 [예산 조정안] 제안 ✨</p><p class="psub">확정된 견적으로 재료비 편성 초안을 올립니다.</p>'
+        + propCard({id:'ap(재료비)', conf:'0.9+', line:'재료비 <b>350,000,000원</b> 전액 편성 — 검수계획은 분기 배분', ev:'구매시스템 견적확정 I/F · H/W 2건·S/W 2건 합계 350,000,000원'})
+        + '<div class="note">확정 견적 합계가 <b>재료비 CP한도(350,000,000)와 같아</b> 잔여가 0원이 됩니다. 추가 견적이 확정되면 다른 계정에서 이관해야 해요.</div>',
+      who:'agt', t:'③ Agent가 재료비 편성 제안', d:'<b class="agt">예산 Agent</b>가 확정 견적만 편성해 조정안으로 올립니다. 금액은 일괄 발주라 나누지 않고, <b>검수 계획만</b> 납품·설치 일정에 맞춰 분기로 배분해요.' },
+
+    { pm:'agt', popT:'견적확정 ✓', pop:()=>'<p class="ptitle">견적확정 ✓</p><p class="psub">구매 원천(참고).</p>'
+        +'<table class="t"><thead><tr><th>구분</th><th class="mm">합계</th></tr></thead><tbody><tr><td>H/W·S/W 4건</td><td class="mm">350,000,000</td></tr></tbody></table>',
+      agtT:'PM이 [반영] → 검수계획', agt:()=>'<p class="ptitle">PM [반영] → 상품재료비 계획</p><p class="psub">PM이 반영하면 상품재료비에 들어가고, <b>검수 예정월</b>만 조정합니다.</p>'
+        +'<table class="t"><thead><tr><th>품목(견적)</th><th class="mm">금액</th><th>검수 예정</th><th>상태</th></tr></thead><tbody>'
+        +'<tr class="hla"><td>H/W·S/W 4건</td><td class="mm">350,000,000</td><td><span class="inp">4분기 배분</span></td><td><span class="bdg b-agt">반영(결재전)</span></td></tr></tbody></table>'
+        +'<div class="note"><b>물품정보는 읽기전용.</b> PM이 손대는 건 <b>검수 예정월</b>뿐이에요. 실적이 생긴 품목은 조회 전용이 됩니다.</div>',
+      who:'agt', t:'④ PM [반영] — 검수 예정월만 조정', d:'PM이 조정안을 <b>[반영]</b>하면 상품재료비 계획에 <b>"반영(결재전)"</b>으로 들어가요. 품목정보는 구매 원천이라 못 고치고, <b>검수 예정월만</b> 조정합니다.' },
+  ]},
+
+  labor: { name:'③ 인건비 — SCM 인력확정 → 계획', srcName:'SCM · 인력 확정', srcTag:'SCM', ifLabel:'인력확정 I/F', srcLook:{av:'🧑‍💼', lb:'PM'}, steps:[
+    { pm:'pop', popT:'인력 티밍·확정', pop:()=>'<p class="ptitle">① SCM에서 인력 티밍·확정</p><p class="psub">실투입인건비는 <b>SCM이 먼저</b>예요. PM이 SCM에서 인력을 티밍·승인하면 P등급 단가·투입MM이 정해집니다.</p>'
+        +'<table class="t"><thead><tr><th>이름</th><th>P</th><th>투입기간</th><th>상태</th></tr></thead><tbody>'
+        +'<tr class="hlp"><td>샐리</td><td><span class="pg">P5</span></td><td>26.09~27.01</td><td><span class="bdg b-ok">승인완료</span></td></tr>'
+        +'<tr class="hlp"><td>제임스</td><td><span class="pg">P6</span></td><td>26.10~27.03</td><td><span class="bdg b-ok">승인완료</span></td></tr>'
+        +'</tbody></table><div class="note">인건비 금액의 원천은 <b>SCM</b>이에요(자유 입력 불가). 예산 화면엔 인력을 직접 등록하는 버튼이 없습니다 — <b>SCM 선행.</b></div>',
+      agtT:'대기', agt:()=>'<p class="ptitle">예산관리 Agent · 대기</p><p class="psub">아직 받은 인력 확정이 없습니다.</p><div class="empty">SCM에서<br>인력확정 I/F를<br>기다립니다</div>',
+      who:'pop', t:'① SCM에서 인력 티밍·확정', d:'실투입인건비는 <b class="pop">SCM</b>이 선행이에요. SCM에서 인력(샐리 P5·제임스 P6)을 티밍·승인하면 <b>P등급 단가·투입MM</b>이 정해집니다. 예산 화면엔 <b>인력 직접 등록 버튼이 없어요.</b>' },
+
+    { pm:'mid', xfer:'r', ifp:()=>ifTable('SCM 인력확정', ['이름','P등급','투입기간','상태'], [['샐리','P5','26.09~27.01','APPROVED'],['제임스','P6','26.10~27.03','APPROVED']]),
+      popT:'확정 ✓', pop:()=>'<p class="ptitle">인력확정 ✓ · 전송 중</p><p class="psub">SCM 확정 인력이 예산 Agent로 전송됩니다.</p>'
+        +'<table class="t"><thead><tr><th>이름</th><th>P</th><th>상태</th></tr></thead><tbody>'
+        +'<tr><td>샐리</td><td><span class="pg">P5</span></td><td><span class="bdg b-ok">승인완료</span></td></tr>'
+        +'<tr><td>제임스</td><td><span class="pg">P6</span></td><td><span class="bdg b-ok">승인완료</span></td></tr></tbody></table>',
+      agtT:'IF 수신 중', agt:()=>'<p class="ptitle">인력확정 I/F 수신</p><p class="psub">SCM이 보낸 확정 인력 레코드를 실시간으로 받습니다.</p>'+EMPTY,
+      who:'mid', t:'② 인력확정 I/F → 예산 Agent (자동)', d:'SCM 확정·변경 인력이 <b>인력확정 I/F</b>(DB 표)를 타고 <b class="agt">예산 Agent</b>로 전송됩니다.' },
+
+    { pm:'agt', popT:'확정 ✓', pop:()=>'<p class="ptitle">인력확정 ✓</p><p class="psub">SCM 원천(참고).</p>'
+        +'<table class="t"><thead><tr><th>이름</th><th>P</th><th>투입기간</th></tr></thead><tbody>'
+        +'<tr><td>샐리</td><td><span class="pg">P5</span></td><td>26.09~27.01</td></tr>'
+        +'<tr><td>제임스</td><td><span class="pg">P6</span></td><td>26.10~27.03</td></tr></tbody></table>',
+      agtT:'예산 조정안 제안', agt:()=>'<p class="ptitle">Agent가 [예산 조정안] 제안 ✨</p><p class="psub">SCM 변동을 받아 Agent가 인력 조정안을 올립니다.</p>'
+        + propCard({id:'ap-01', conf:'90%+', line:'실투입인건비 <b>확정 인력 2명 추가</b>', ev:'SCM 투입계획 확정 I/F 수신 · 샐리 P5·제임스 P6'})
+        + '<div style="height:8px"></div>'
+        + propCard({id:'ap-02', conf:'90%+', line:'<b>조기 철수</b> 반영 (투입 MM 축소)', ev:'SCM 투입변경 I/F 수신 · 조기 철수분'})
+        + '<div class="note">실투입인건비는 화면에서 직접 못 넣어요 — <b>SCM 수신분이 조정안으로</b> 올라옵니다. 이관인건비·OT비만 PM이 직접 관리.</div>',
+      who:'agt', t:'③ Agent가 인력 조정안 제안', d:'<b class="agt">예산 Agent</b>가 SCM 변동을 받아 <b>[예산 조정안]</b>으로 올립니다(ap-01 확정 2명 추가, ap-02 조기 철수). 실투입인건비는 <b>SCM 선행</b>이라 화면에서 직접 등록하지 않아요.' },
+
+    { pm:'agt', popT:'확정 ✓', pop:()=>'<p class="ptitle">인력확정 ✓</p><p class="psub">SCM 원천(참고).</p>'
+        +'<table class="t"><thead><tr><th>이름</th><th>P</th></tr></thead><tbody><tr><td>샐리</td><td><span class="pg">P5</span></td></tr><tr><td>제임스</td><td><span class="pg">P6</span></td></tr></tbody></table>',
+      agtT:'PM [반영] → 인력표', agt:()=>'<p class="ptitle">PM [반영] → "반영(결재전)"</p><p class="psub">PM이 반영하면 실투입인건비 인력표에 들어가고, 변동이 함께 표시됩니다.</p>'
+        +'<table class="t"><thead><tr><th>구분</th><th>인력</th><th class="mm">MM</th><th class="mm">금액</th><th>상태</th></tr></thead><tbody>'
+        +'<tr class="hla"><td>신규 <span class="bdg b-agt">추가</span></td><td>샐리·제임스</td><td class="mm up">+6.0</td><td class="mm up">+45,000,000</td><td><span class="bdg b-agt">반영(결재전)</span></td></tr>'
+        +'<tr class="hla"><td>철수 <span class="bdg b-warn">축소</span></td><td>—</td><td class="mm">−1.0</td><td class="mm">−5,000,000</td><td><span class="bdg b-agt">반영(결재전)</span></td></tr>'
+        +'</tbody></table><div class="note">반영하면 인력표에 <b>신규 +6.0MM +45,000,000원 / 철수 −1.0MM −5,000,000원</b>처럼 변동이 적혀요. [반영] 해제하거나 기안 상신하면 정리됩니다.</div>',
+      who:'agt', t:'④ PM [반영] — 인력표에 변동 표시', d:'PM이 조정안을 <b>[반영]</b>하면 실투입인건비 인력표에 <b>"반영(결재전)"</b>으로 들어가고, <b>신규 +6.0MM +45,000,000원 / 철수 −1.0MM −5,000,000원</b> 변동이 적힙니다.' },
+
+    { pm:'agt', popT:'SCM 원천', pop:()=>'<p class="ptitle">SCM</p><p class="psub">원천(참고).</p><div class="empty">실투입 = SCM 선행<br>이관·OT = PM 직접</div>',
+      agtT:'기안 → 확정', agt:()=>'<p class="ptitle">기안 → 확정 · 이관/OT는 PM 직접</p><p class="psub">반영분을 상신(기안)하면 인력계획이 확정됩니다.</p>'
+        +'<table class="t"><thead><tr><th>상세계정</th><th>관리 방식</th></tr></thead><tbody>'
+        +'<tr><td>실투입인건비</td><td><span class="bdg b-agt">SCM 선행 → Agent 제안 → 반영</span></td></tr>'
+        +'<tr><td>이관인건비</td><td><span class="bdg b-ok">PM 직접 (＋등록/수정/삭제)</span></td></tr>'
+        +'<tr><td>OT비</td><td><span class="bdg b-ok">PM 직접 (월별 키인)</span></td></tr></tbody></table>'
+        +'<div class="note">실투입은 SCM 선행이라 Agent 제안→반영으로, <b>이관인건비·OT비는 PM이 직접</b> 등록·수정합니다.</div>',
+      who:'agt', t:'⑤ 기안 → 확정 (이관·OT는 PM 직접)', d:'반영분을 <b>기안·상신</b>하면 인력계획이 확정돼요. <b>실투입인건비</b>는 SCM 선행이지만, <b>이관인건비·OT비</b>는 PM이 직접 등록·수정합니다.' },
+  ]},
+
+  before: { name:'④ 견적 전 — 대화로 미리', steps:[
+    { pm:'mid', xfer:'x', ifp:()=>ifTable('견적 전 · 대화 근거로 편성', ['입력','처리'], [['PM 대화 근거','Agent 편성 제안'],['견적확정','추후 재계산']]),
+      popT:'견적 아직', pop:()=>'<p class="ptitle">견적이 아직 안 옴</p><p class="psub">구매 견적확정 I/F가 늦어질 때도 계획은 멈추지 않아요.</p>'+EMPTY,
+      agtT:'대화 근거 대기', agt:()=>'<p class="ptitle">[Agent와 대화하기]로 미리</p><p class="psub">견적이 오기 전이라도 PM이 예상 계획을 말로 남길 수 있어요.</p>'+EMPTY,
+      who:'mid', t:'견적이 늦어도 괜찮아요', d:'견적확정 I/F가 늦으면, PM이 <b class="agt">[Agent와 대화하기]</b>에 예상 계획을 남겨요. 그 <b>대화를 근거로 Agent가 편성을 제안</b>하고, 나중에 견적이 확정되면 <b>실제 값으로 다시 계산</b>합니다.' },
+
+    { pm:'agt', popT:'견적 아직', pop:()=>'<p class="ptitle">견적 아직</p><p class="psub">1분기만 견적 확정된 상태(참고).</p>'
+        +'<table class="t"><thead><tr><th>업체</th><th>분기</th><th>상태</th></tr></thead><tbody>'
+        +'<tr><td>테크노아이티</td><td>1분기</td><td><span class="bdg b-ok">견적확정</span></td></tr>'
+        +'<tr><td>테크노아이티</td><td>2~4분기</td><td><span class="bdg b-wait">견적 전</span></td></tr></tbody></table>',
+      agtT:'대화 → Agent 편성', agt:()=>'<p class="ptitle">대화 근거로 4분기까지 제안</p><p class="psub">PM의 한 마디로 Agent가 남은 분기를 같은 단가로 이어 붙입니다.</p>'
+        +'<div class="chat"><span class="you">PM</span> : "테크노아이티는 <b>4분기까지 동일한 견적</b>으로 구매 진행될 예정입니다."</div>'
+        +'<div style="height:8px"></div>'
+        + propCard({id:'대화 근거', conf:'참고', line:'1분기 확정분 + 대화 근거로 <b>4분기까지 같은 단가</b>로 편성', ev:'PM 대화 근거 — 계획 라인이 있어야 PO 발행 가능해 분기별로 라인을 나눠 둠'})
+        + '<div class="note">견적확정 전이라 <b>Agent가 대화를 근거</b>로 제안해요. PM은 이것도 <b>[반영]</b>으로 계획에 넣습니다.</div>',
+      who:'agt', t:'PM 대화 → Agent가 편성 제안', d:'PM이 <b>"4분기까지 같은 견적"</b>이라고 남기면, Agent가 1분기 확정분 + 그 근거로 <b>4분기까지 이어서</b> 편성안을 올려요. <b>계획 라인이 있어야 PO를 발행</b>하니 분기별로 라인을 나눠 둡니다.' },
+
+    { pm:'agt', popT:'견적 확정 도착', pop:()=>'<p class="ptitle">나중에 견적 확정 도착</p><p class="psub">실제 견적이 오면 구매가 확정 금액을 보냅니다.</p>'
+        +'<table class="t"><thead><tr><th>업체</th><th>분기</th><th class="mm">확정액</th></tr></thead><tbody>'
+        +'<tr class="hlp"><td>테크노아이티</td><td>2분기</td><td class="mm">실제 확정</td></tr></tbody></table>',
+      agtT:'확정 금액으로 재계산', agt:()=>'<p class="ptitle">확정되면 차액만 알려줌</p><p class="psub">견적이 실제 확정되면 Agent가 확정 금액으로 다시 계산해 <b>차액만</b> 짚어줍니다.</p>'
+        +'<div class="note" style="background:var(--agt-soft);border-color:#d6c7f7;color:var(--agt-deep)">🤖 "견적이 실제로 확정되면 <b>확정 금액으로 다시 계산</b>해 <b>차액만</b> 알려드리겠습니다." — 대화로 미리 세워둬도, 최종은 항상 <b>확정 견적 기준</b>으로 맞춰져요.</div>',
+      who:'agt', t:'견적 확정 시 재계산 — 차액만', d:'대화로 미리 세운 계획도, 나중에 <b>견적이 확정되면</b> Agent가 확정 금액으로 <b>다시 계산해 차액만</b> 알려줍니다. 최종 기준은 언제나 확정 견적이에요.' },
+  ]},
+};
+const ORDER=['outsource','material','labor','before'];
+let cur='outsource', idx=0;
+
+/* 탭 */
+$('tabs').innerHTML = ORDER.map(k=>'<button id="tab-'+k+'" onclick="pick(\''+k+'\')">'+FLOWS[k].name+'</button>').join('');
+function pick(k){ cur=k; idx=0; render(); }
+function go(d){ const n=FLOWS[cur].steps.length; idx=Math.max(0,Math.min(n-1,idx+d)); render(); }
+
+const PM_LOOK = {
+  pop:{av:'🧑‍💻', lb:'구매담당'},
+  agt:{av:'🧑‍💼', lb:'PM'},
+  mid:{av:'🔄', lb:'I/F'}
+};
+
+function render(){
+  ORDER.forEach(k=>$('tab-'+k).classList.toggle('on',k===cur));
+  const steps=FLOWS[cur].steps, s=steps[idx], st=$('stage');
+  // 패널 내용
+  $('pop-sub').textContent=s.popT||''; $('agt-sub').textContent=s.agtT||'';
+  $('pop-name').textContent = FLOWS[cur].srcName || '구매시스템 (POP)';
+  $('pop-body').innerHTML = s.pop(); $('agt-body').innerHTML = s.agt();
+  // 활성 패널 / 사람 위치·모습
+  st.dataset.pm = s.pm;
+  $('pop').classList.toggle('active', s.pm==='pop');
+  $('agt').classList.toggle('active', s.pm==='agt');
+  $('pop').classList.toggle('dim', s.pm==='agt');
+  $('agt').classList.toggle('dim', s.pm==='pop');
+  const look = (s.pm==='pop' && FLOWS[cur].srcLook) ? FLOWS[cur].srcLook : (PM_LOOK[s.pm]||PM_LOOK.mid);
+  $('pm-av').textContent = look.av; $('pm-lb').textContent = look.lb;
+  // IF 패킷
+  const ifp=$('ifp'), badge=$('ifbadge'), rail=$('rail');
+  ifp.classList.remove('show','fly-r','solo');
+  badge.classList.remove('show','solo'); rail.classList.remove('solo');
+  if(s.xfer==='x'){ // 견적 전 — IF 미사용(대화 근거)
+    ifp.innerHTML=s.ifp(); void ifp.offsetWidth;
+    ifp.classList.add('show','solo'); rail.classList.add('solo');
+    badge.textContent='견적 전 · 대화 근거로 편성'; badge.classList.add('show','solo');
+  } else if(s.xfer){ ifp.innerHTML=s.ifp(); void ifp.offsetWidth;
+    ifp.classList.add('show','fly-r');
+    badge.textContent=(FLOWS[cur].srcTag||'구매(POP)')+' → 예산 Agent · '+(FLOWS[cur].ifLabel||'견적확정 I/F');
+    badge.classList.add('show');
+  }
+  // 내레이션
+  const who=$('narr-who'); who.className='who '+s.who;
+  who.querySelector('.av').textContent = s.who==='pop'?'🟢':s.who==='agt'?'🟣':'🔄';
+  who.querySelector('.tag').textContent = s.who==='pop'?(FLOWS[cur].srcTag||'구매(POP)'):s.who==='agt'?'예산 Agent':'I/F';
+  $('narr-t').textContent=s.t; $('narr-d').innerHTML=s.d;
+  // 컨트롤
+  $('stepno').textContent = FLOWS[cur].name+' · '+(idx+1)+' / '+steps.length;
+  $('prev').disabled = idx===0;
+  $('next').textContent = idx===steps.length-1 ? '처음으로 ↺' : '다음 ▶';
+  $('next').onclick = idx===steps.length-1 ? ()=>{idx=0;render();} : ()=>go(1);
+  $('dots').innerHTML = steps.map((x,i)=>'<i class="'+x.who+(i===idx?' on':'')+'" onclick="idx='+i+';render()"></i>').join('');
+}
+render();
+addEventListener('keydown',e=>{ if(e.key==='ArrowRight')go(1); else if(e.key==='ArrowLeft')go(-1); });
+</script>
+</body>
+</html>

@@ -1,214 +1,191 @@
 // ════════════════════════════════════════
-//  프로젝트 개설 관리 — W/G·사내 개설 (현행 W/G관리 기준)       작성: 수진
+//  프로젝트 개설 관리 — W/G·사내 개설 신청·승인       작성: 수진
 // ════════════════════════════════════════
 //
 // AI GUIDE: 프로젝트 개설 관리 화면입니다.
-// - 현행 W/G관리(WorkingGroup.vue · WorkingGroupDetail.vue · WorkingGroupApprovalDetail.vue) 동작에 맞춘 목업입니다.
-// - 화면 3개 + 신규 등록:
-//     목록(검색 · 엑셀 업로드/다운로드 · 템플릿 · 선택삭제 · 선택등록)
-//     정보관리(기본정보 · 비용 버전 · 비용/손익 · 상태별 버튼)
-//     비용승인(결재선 지정 · 메모 · 승인요청 · 기안취소)
-// - 상태(TC_예산_진행_상태_코드): 저장 / 승인요청 / 승인완료 / 반려 / 기안취소
-// - 목업 로그인 사용자는 각 건의 수행PM으로 가정합니다.
+// - W/G·사내 프로젝트를 시작하기 위한 '개설 신청 → 기안·승인 → 등록' 절차를 처리합니다.
+// - 수주형·제안·투자·선투입은 선행 시스템에서 자동 연계·등록되므로 이 화면에 개설 신청 버튼이 없습니다.
+// - 용어 구분:
+//     · 프로젝트 개설 = 승인을 요청하는 '업무 절차'
+//     · 프로젝트 등록 = MIS에 정식 생성·등록되는 '결과'
+//   → 승인 상태와 등록 상태는 별개 필드로 관리합니다.
+// - 개설 신청 상태(5): 개설 신청 / 개설 승인 대기 / 개설 승인 완료 / 반려 / 프로젝트 등록 완료
+// - 미확정 정책(승인 권한·결재 단계·프로젝트 번호 생성 시점)은 임시 구성이며 추후 변경 가능하도록 둡니다.
+// - [2026.11.16 합침 · 남주] 수진 버전(W/G 상세 정보관리 · 비용승인 2탭, 신규 등록폼, 돋보기 검색, 번호 자동생성)을 기준으로
+//   남주 버전(feature/nj, 현행 W/G관리 기준)에만 있던 기능을 붙였습니다.
+//     · 목록: 체크박스 · 엑셀 업로드(오류 행 표시 · 오류 팝업) · ⬇ 엑셀 · 템플릿 · 선택삭제 · 선택등록(등록 후 올린 행 정리) · 확인창
+//     · 정보관리 / 비용승인 탭: 저장 · 삭제 · 비용변경(새 버전) · 승인요청(메모 필수) · 기안취소 를 실제로 동작(이전엔 안내 토스트만)
 
-let popenView = 'list';    // 'list' | 'detail' | 'appr' | 'new'
-let popenSelectedId = null;
-let popenVer = null;       // 보고 있는 비용 버전 번호
-let popenDraft = null;     // 정보관리 편집 값
-let popenMemo = '';
-let popenChecked = {};
+let popenView = 'list';    // 'list' | 'detail' | 'new'
+let popenChecked = {};     // 목록 체크 (엑셀 업로드 행은 'U0', 'U1' …)
 let popenUploaded = [];    // 엑셀로 올렸지만 아직 등록 안 한 행
-let popenErrPopup = null;  // 업로드 오류 팝업 대상 행
+let popenErrPopup = null;  // 업로드 오류 팝업 대상 행 index
 let popenConfirm = null;   // 확인 창 { msg, ok }
-let popenPick = null;      // 검색 팝업 { kind, target }
-let popenNewForm = null;
+let popenSelectedId = null;
+let popenSearch = '';
+let popenStatusFilter = '';
+let popenTypeFilter = '';
+let popenNewType = 'W/G';  // 신규 신청 유형
+let popenNewSub = 'IV60_01';
+let popenTab = 'info';     // 상세 탭: 'info' | 'approval'
 
-const POPEN_STS = ['저장', '승인요청', '승인완료', '반려', '기안취소'];
-const POPEN_STS_STYLE = {
-  '저장':     { bg:'#f1f5f9', color:'#475569' },
-  '승인요청': { bg:'#fef3c7', color:'#b45309' },
-  '승인완료': { bg:'#dcfce7', color:'#166534' },
-  '반려':     { bg:'#fee2e2', color:'#991b1b' },
-  '기안취소': { bg:'#e5e7eb', color:'#374151' },
+// 신규 등록 세부 유형 — 리스트 박스에 1개만 노출
+const POPEN_SUBTYPES = {
+  'W/G':  [ ['WG00_01', 'WG00_01 운영 W/G'] ],
+  '사내': [ ['IV60_01', 'IV60_01 사내-활동관리 (PreSales)'] ],
 };
-const POPEN_TYPE_COLOR = { 'W/G':'#b45309', '사내':'#be185d' };
-// 사내 세부 유형 (현행 프로젝트_유형_코드). TO-BE 세션 자료(11.11) "사내 유형은 직접 생성" → 모두 이 화면에서 등록
-const POPEN_INCO_TYPES = [
-  { code:'IV58',    name:'사내-전사IT운영' },
-  { code:'IV59',    name:'사내-사업지원 전사비용' },
-  { code:'IV60_01', name:'사내-활동관리 (PreSales)' },
-  { code:'IV60_02', name:'사내-활동관리 (과제)' },
-];
-function popenIncoType(code) { return POPEN_INCO_TYPES.find(function (t) { return t.code === code; }) || POPEN_INCO_TYPES[0]; }
-function popenTypeLabel(a) { return a.type === '사내' ? a.incoType + ' ' + popenIncoType(a.incoType).name : 'TC27 (W/G)'; }
 
-let popenFilterDraft = { no:'', nm:'', pm:'', date:'', type:'', sts:'' };
-let popenFilter = Object.assign({}, popenFilterDraft);
+// 승인 상태(별개) — 등록 상태(별개)
+const POPEN_APPROVAL = ['개설 신청', '개설 승인 대기', '개설 승인 완료', '반려'];
+const POPEN_STATUS_STYLE = {
+  '개설 신청':       { bg:'#eff6ff', color:'#1d4ed8' },
+  '개설 승인 대기':   { bg:'#fef3c7', color:'#b45309' },
+  '개설 승인 완료':   { bg:'#dcfce7', color:'#166534' },
+  '반려':            { bg:'#fee2e2', color:'#991b1b' },
+  '프로젝트 등록 완료':{ bg:'#e0e7ff', color:'#3730a3' },
+};
 
-const POPEN_MEMBERS = ['한민석(20011)', '류준서(21043)', '이수연(21055)', '정우성(13071)', '오세훈(13052)', '장재호(15025)', '김가은(15031)', '신성호(13016)', '권재준(60521)', '박지훈(14022)'];
-const POPEN_ORGS = ['AX ERP사업부 1팀', 'AX ERP사업부', '보안사업부', '데이터사업부', '(전사)IT운영팀', 'Cloud사업부', 'NOVA PMO팀'];
-
-function popenCost(lbrMM, lbr, otsMM, ots, mat, exp, sale, saleCst) {
-  return { lbrMM:lbrMM, lbr:lbr, otsMM:otsMM, ots:ots, mat:mat, exp:exp, sale:sale, saleCst:saleCst };
-}
-function popenLines(svc, pm, done) {
-  // done: 처리된 단계 수 (기안 포함), rej: 반려 단계
-  const all = [
-    { type:'기안', unit:'수행PM',          name:pm },
-    { type:'협조', unit:'Account WG담당자', name:'장재호(15025)', svc:true },
-    { type:'협조', unit:'Account 팀장',     name:'김가은(15031)', svc:true },
-    { type:'협조', unit:'부문기획 담당자',  name:'박지훈(14022)', svc:false },
-    { type:'검토', unit:'팀장',             name:'신성호(13016)' },
-    { type:'승인', unit:'담당임원',         name:'권재준(60521)' },
-  ];
-  // 서비스기획 Y → 부문기획 담당자 제외 / N → Account 팀장 · Account WG담당자 제외
-  return all.filter(function (l) { return l.svc === undefined || l.svc === svc; })
-    .map(function (l) { return Object.assign({ status:'대기', date:'', comment:'' }, l); });
+// 표시 상태 = 등록 완료면 '프로젝트 등록 완료', 아니면 승인 상태
+function popenDisplayStatus(a) {
+  return (a.regStatus === '등록완료') ? '프로젝트 등록 완료' : a.approvalStatus;
 }
 
-// ── 목업 데이터 (현행 W/G 구조) ──
+// ── 개설 신청 목업 데이터 (W/G·사내, 5개 상태 모두 포함) ──
 const POPEN_APPS = {
-  'WG-001': {
-    type:'W/G', no:'70007601-D001', name:'2026년_차세대 ERP 고도화 W/G', svc:true,
-    cnrcType:'TC', cnrcCmpl:true, cstco:'공통(9999999999)', mainOrg:'AX ERP사업부 1팀', rodrOrg:'AX ERP사업부', saleOrg:'AX ERP사업부 1팀',
-    ldr:'류준서(21043)', pm:'한민석(20011)', acct:'장재호(15025)', acctLdr:'김가은(15031)',
-    start:'2026-11-01', end:'2027-10-31', regDate:'2026-10-02', erpReg:true,
-    versions:[ { ver:1, date:'2026-10-02', status:'승인요청', cost:popenCost(24, 192000000, 12, 108000000, 15000000, 8000000, 380000000, 323000000) } ],
-    memo:'차세대 ERP 전환 대비 W/G 선행 과제. 고객사: 공통 / 서비스: ERP 고도화',
-  },
-  'WG-002': {
-    type:'W/G', no:'70007602-D001', name:'2026년_보안관제 자동화 W/G', svc:false,
-    cnrcType:'TC', cnrcCmpl:true, cstco:'공통(9999999999)', mainOrg:'보안사업부', rodrOrg:'보안사업부', saleOrg:'보안사업부',
-    ldr:'정우성(13071)', pm:'한민석(20011)', acct:'', acctLdr:'',
-    start:'2026-11-15', end:'2027-09-30', regDate:'2026-10-20', erpReg:false,
-    versions:[ { ver:1, date:'2026-10-20', status:'저장', cost:popenCost(18, 144000000, 6, 54000000, 0, 6000000, 230000000, 204000000) } ],
-    memo:'',
-  },
-  'WG-003': {
-    type:'W/G', no:'70007588-D031', name:'2026년_데이터레이크 구축 W/G', svc:true,
-    cnrcType:'TC', cnrcCmpl:true, cstco:'공통(9999999999)', mainOrg:'데이터사업부', rodrOrg:'데이터사업부', saleOrg:'데이터사업부',
-    ldr:'이수연(21055)', pm:'한민석(20011)', acct:'장재호(15025)', acctLdr:'김가은(15031)',
-    start:'2026-09-10', end:'2027-08-31', regDate:'2026-08-28', erpReg:true,
-    versions:[
-      { ver:2, date:'2026-10-11', status:'승인완료', cost:popenCost(30, 240000000, 10, 90000000, 20000000, 10000000, 420000000, 360000000) },
-      { ver:1, date:'2026-08-30', status:'승인완료', cost:popenCost(24, 192000000, 10, 90000000, 20000000, 8000000, 360000000, 310000000) },
+  'OPN-001': {
+    type:'W/G', name:'2026년_차세대 ERP 고도화 W/G', reqDept:'AX ERP사업부 1팀',
+    requester:'류준서(21043)', requestDate:'2026-10-02 10:14',
+    period:'2026-11-01 ~ 2027-10-31', overview:'차세대 ERP 전환 대비 W/G 선행 과제 수행을 위한 개설 신청.',
+    approvalStatus:'개설 승인 대기', regStatus:'미등록', projectNo:'(승인 완료 후 부여)',
+    steps:[
+      { role:'기안', part:'PM',               name:'류준서(21043)', date:'2026-10-02 10:14', status:'기안' },
+      { role:'협조', part:'Account WG담당자', name:'장재호(15025)', date:'2026-10-02 11:20', status:'승인' },
+      { role:'검토', part:'팀장',              name:'신성호(13016)', date:'',                 status:'대기' },
+      { role:'승인', part:'담당임원',          name:'권재준(60521)', date:'',                 status:'대기' },
     ],
-    memo:'데이터레이크 범위 확대에 따른 인건비 증액. 고객사: 공통 / 서비스: 데이터 플랫폼',
+    rejectReason:'',
   },
-  'WG-004': {
-    type:'사내', incoType:'IV58', no:'70007610-D002', name:'26년 사내 그룹웨어 개편', svc:false,
-    cnrcType:'IV', cnrcCmpl:true, cstco:'공통(9999999999)', mainOrg:'(전사)IT운영팀', rodrOrg:'(전사)IT운영팀', saleOrg:'(전사)IT운영팀',
-    ldr:'오세훈(13052)', pm:'한민석(20011)', acct:'', acctLdr:'',
-    start:'2026-10-01', end:'2027-03-31', regDate:'2026-09-12', erpReg:true,
-    versions:[ { ver:1, date:'2026-09-13', status:'반려', cost:popenCost(10, 80000000, 4, 36000000, 30000000, 4000000, 0, 0) } ],
-    memo:'사내 그룹웨어 UX 개편. 고객사: 사내 / 서비스: 그룹웨어',
+  'OPN-002': {
+    type:'사내', name:'26년 사내 AI 지식검색 플랫폼', reqDept:'(전사)IT운영팀',
+    requester:'오세훈(13052)', requestDate:'2026-10-04 14:33',
+    period:'2026-11-15 ~ 2027-06-30', overview:'사내 임직원 대상 AI 지식검색 플랫폼 구축을 위한 사내 프로젝트 개설 신청.',
+    approvalStatus:'개설 신청', regStatus:'미등록', projectNo:'(승인 완료 후 부여)',
+    steps:[
+      { role:'기안', part:'신청자',  name:'오세훈(13052)', date:'2026-10-04 14:33', status:'기안' },
+      { role:'협조', part:'운영팀장', name:'김도현(13004)', date:'',                 status:'대기' },
+      { role:'승인', part:'담당임원', name:'권재준(60521)', date:'',                 status:'대기' },
+    ],
+    rejectReason:'',
   },
-  'WG-005': {
-    type:'사내', incoType:'IV59', no:'70007615-D001', name:'26년 전사 사업지원 공통 운영', svc:false,
-    cnrcType:'IV', cnrcCmpl:true, cstco:'공통(9999999999)', mainOrg:'(전사)IT운영팀', rodrOrg:'(전사)IT운영팀', saleOrg:'(전사)IT운영팀',
-    ldr:'오세훈(13052)', pm:'한민석(20011)', acct:'', acctLdr:'',
-    start:'2026-11-15', end:'2027-06-30', regDate:'2026-10-04', erpReg:true,
-    versions:[ { ver:1, date:'2026-10-05', status:'기안취소', cost:popenCost(8, 64000000, 0, 0, 12000000, 2000000, 0, 0) } ],
-    memo:'',
+  'OPN-003': {
+    type:'W/G', name:'2026년_보안관제 자동화 W/G', reqDept:'보안사업부',
+    requester:'한지민(21088)', requestDate:'2026-09-20 09:05',
+    period:'2026-10-15 ~ 2027-09-30', overview:'보안관제 업무 자동화 W/G 수행을 위한 개설 신청.',
+    approvalStatus:'개설 승인 완료', regStatus:'미등록', projectNo:'(등록 처리 중)',
+    steps:[
+      { role:'기안', part:'PM',               name:'한지민(21088)', date:'2026-09-20 09:05', status:'기안' },
+      { role:'협조', part:'Account WG담당자', name:'장재호(15025)', date:'2026-09-20 10:40', status:'승인' },
+      { role:'검토', part:'팀장',              name:'신성호(13016)', date:'2026-09-21 09:12', status:'승인' },
+      { role:'승인', part:'담당임원',          name:'권재준(60521)', date:'2026-09-22 15:30', status:'승인' },
+    ],
+    rejectReason:'',
+  },
+  'OPN-004': {
+    type:'사내', name:'26년 사내 그룹웨어 개편', reqDept:'(전사)IT운영팀',
+    requester:'정우성(13071)', requestDate:'2026-09-12 16:20',
+    period:'2026-10-01 ~ 2027-03-31', overview:'사내 그룹웨어 UX 개편을 위한 사내 프로젝트 개설 신청.',
+    approvalStatus:'반려', regStatus:'미등록', projectNo:'-',
+    steps:[
+      { role:'기안', part:'신청자',  name:'정우성(13071)', date:'2026-09-12 16:20', status:'기안' },
+      { role:'협조', part:'운영팀장', name:'김도현(13004)', date:'2026-09-13 09:40', status:'반려' },
+      { role:'승인', part:'담당임원', name:'권재준(60521)', date:'',                 status:'대기' },
+    ],
+    rejectReason:'사업 범위·예산 규모 재검토 필요. 투자심의 선행 후 재신청 바랍니다.',
+  },
+  'OPN-005': {
+    type:'W/G', name:'2026년_데이터레이크 구축 W/G', reqDept:'데이터사업부',
+    requester:'이수연(21055)', requestDate:'2026-08-28 11:02',
+    period:'2026-09-10 ~ 2027-08-31', overview:'전사 데이터레이크 구축 선행 W/G 수행을 위한 개설 신청.',
+    approvalStatus:'개설 승인 완료', regStatus:'등록완료', projectNo:'70007588-D031',
+    steps:[
+      { role:'기안', part:'PM',               name:'이수연(21055)', date:'2026-08-28 11:02', status:'기안' },
+      { role:'협조', part:'Account WG담당자', name:'장재호(15025)', date:'2026-08-28 13:15', status:'승인' },
+      { role:'검토', part:'팀장',              name:'신성호(13016)', date:'2026-08-29 10:05', status:'승인' },
+      { role:'승인', part:'담당임원',          name:'권재준(60521)', date:'2026-08-30 14:48', status:'승인' },
+    ],
+    rejectReason:'',
   },
 };
-// 결재선 (버전별)
-(function () {
-  const a1 = POPEN_APPS['WG-001'];
-  a1.versions[0].lines = popenLines(true, a1.pm);
-  a1.versions[0].lines[0].status = '기안'; a1.versions[0].lines[0].date = '2026-10-02 10:14'; a1.versions[0].lines[0].comment = a1.memo;
-  a1.versions[0].lines[1].status = '승인'; a1.versions[0].lines[1].date = '2026-10-02 11:20';
-  POPEN_APPS['WG-002'].versions[0].lines = popenLines(false, POPEN_APPS['WG-002'].pm);
-  const a3 = POPEN_APPS['WG-003'];
-  a3.versions.forEach(function (v) {
-    v.lines = popenLines(true, a3.pm);
-    v.lines.forEach(function (l, i) { l.status = i === 0 ? '기안' : '승인'; l.date = v.date + ' 1' + i + ':00'; });
-  });
-  const a4 = POPEN_APPS['WG-004'];
-  a4.versions[0].lines = popenLines(false, a4.pm);
-  a4.versions[0].lines[0].status = '기안'; a4.versions[0].lines[0].date = '2026-09-12 16:20'; a4.versions[0].lines[0].comment = a4.memo;
-  a4.versions[0].lines[1].status = '반려'; a4.versions[0].lines[1].date = '2026-09-13 09:40';
-  a4.versions[0].lines[1].comment = '사업 범위/예산 규모 재검토 필요. 재료비 산정 근거 보완 후 다시 올려 주세요.';
-  const a5 = POPEN_APPS['WG-005'];
-  a5.versions[0].lines = popenLines(false, a5.pm);
-  a5.versions[0].lines[0].status = '기안취소'; a5.versions[0].lines[0].date = '2026-10-05 09:30';
-})();
 
 function popenInjectStyle() {
   if (document.getElementById('popen-style')) return;
   const st = document.createElement('style'); st.id = 'popen-style';
   st.textContent = `
-   .popen-wrap{max-width:1180px;margin:0 auto;padding:4px 2px 40px}
+   .popen-wrap{max-width:1120px;margin:0 auto;padding:4px 2px 40px}
+   .popen-head{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:6px}
    .popen-title{font-size:21px;font-weight:900;color:#0f172a}
    .popen-sub{font-size:12.5px;color:#64748b;margin:2px 0 0;line-height:1.55}
-   .popen-flow{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 4px;align-items:center}
-   .popen-fstep{font-size:11.5px;font-weight:700;color:#64748b;background:#f8fafc;border:1px solid #e5e7eb;border-radius:99px;padding:4px 11px}
-   .popen-flow i{font-style:normal;color:#cbd5e1}
-   .popen-search{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin:12px 0;display:grid;grid-template-columns:repeat(3,1fr) auto;gap:10px 14px;align-items:end}
-   .popen-sf label{display:block;font-size:11.5px;font-weight:800;color:#475569;margin-bottom:4px}
-   .popen-sf input,.popen-sf select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:7px 9px;font-size:12.5px;font-family:inherit;color:#0f172a;background:#fff}
-   .popen-sbtns{display:flex;gap:6px;grid-row:1 / span 2;grid-column:4;align-self:center;flex-direction:column}
-   .popen-inwrap{display:flex;gap:4px}
-   .popen-btn{border:1px solid #d1d5db;background:#fff;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:700;color:#334155;cursor:pointer;font-family:inherit;white-space:nowrap}
+   .popen-flow{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 4px}
+   .popen-fstep{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#64748b;background:#f8fafc;border:1px solid #e5e7eb;border-radius:99px;padding:4px 11px}
+   .popen-fstep i{font-style:normal;color:#cbd5e1}
+   .popen-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin:12px 0}
+   .popen-toolbar input,.popen-toolbar select{border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;color:#0f172a;background:#fff}
+   .popen-toolbar input{flex:1;min-width:180px}
+   .popen-btn{border:1px solid #d1d5db;background:#fff;border-radius:8px;padding:8px 13px;font-size:12.5px;font-weight:700;color:#334155;cursor:pointer;font-family:inherit}
    .popen-btn:hover{border-color:#1d4ed8;color:#1d4ed8}
    .popen-btn.pri{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+   .popen-btn.pri:hover{background:#1742b0}
+   .popen-btn.warn{background:#fff;border-color:#f59e0b;color:#b45309}
+   .popen-btn.warn:hover{background:#fffbeb}
+   .popen-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;font-size:12.5px}
+   .popen-table th{background:#f8fafc;text-align:left;padding:11px 12px;font-weight:800;color:#475569;border-bottom:1px solid #e5e7eb;white-space:nowrap}
+   .popen-table td{padding:11px 12px;border-bottom:1px solid #f1f5f9;color:#1f2937}
+   .popen-table tr:last-child td{border-bottom:0}
+   .popen-table tr:hover td{background:#f8faff}
+   .popen-tbadge{display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:99px;white-space:nowrap}
+   .popen-sbadge{display:inline-block;font-size:11px;font-weight:800;padding:3px 10px;border-radius:99px;white-space:nowrap}
+   .popen-regbadge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap;background:#f1f5f9;color:#475569}
+   .popen-regbadge.done{background:#e0e7ff;color:#3730a3}
+   .popen-pname{font-weight:800;color:#0f172a}
+   .popen-link{border:1px solid #d1d5db;background:#fff;border-radius:7px;padding:5px 11px;font-size:12px;font-weight:700;color:#1d4ed8;cursor:pointer;font-family:inherit}
+   .popen-link:hover{background:#eff6ff;border-color:#1d4ed8}
+   .popen-empty{padding:40px;text-align:center;color:#94a3b8;font-size:13px}
+   .popen-note{font-size:11.5px;color:#94a3b8;margin-top:12px;line-height:1.6}
+   /* 상세 */
+   .popen-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:20px 22px;margin-top:14px}
+   .popen-dtop{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:space-between}
+   .popen-dname{font-size:18px;font-weight:900;color:#0f172a}
+   .popen-dmeta{display:grid;grid-template-columns:140px 1fr;gap:8px 14px;margin-top:16px;font-size:12.5px}
+   .popen-dmeta dt{color:#64748b;font-weight:700}
+   .popen-dmeta dd{color:#0f172a;margin:0;font-weight:600}
+   .popen-steps{display:flex;flex-direction:column;gap:0;margin-top:8px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}
+   .popen-step{display:grid;grid-template-columns:70px 1fr 150px 80px;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid #f1f5f9;font-size:12.5px}
+   .popen-step:last-child{border-bottom:0}
+   .popen-step .r{font-weight:800;color:#334155}
+   .popen-step .d{color:#94a3b8;font-size:11.5px}
+   .popen-stt{font-weight:800;text-align:center;border-radius:99px;padding:3px 0;font-size:11px}
+   .popen-stt.기안{background:#eff6ff;color:#1d4ed8}
+   .popen-stt.승인{background:#dcfce7;color:#166534}
+   .popen-stt.반려{background:#fee2e2;color:#991b1b}
+   .popen-stt.대기{background:#f1f5f9;color:#94a3b8}
+   .popen-reject{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 14px;margin-top:14px;font-size:12.5px;color:#991b1b}
+   .popen-sec{font-size:13px;font-weight:900;color:#0f172a;margin:18px 0 8px}
+   /* 신규 폼 */
+   .popen-form{display:grid;grid-template-columns:150px 1fr;gap:12px 14px;margin-top:14px;font-size:12.5px;align-items:center}
+   .popen-form label{color:#475569;font-weight:700}
+   .popen-form input,.popen-form select,.popen-form textarea{border:1px solid #d1d5db;border-radius:8px;padding:9px 11px;font-size:12.5px;font-family:inherit;color:#0f172a;width:100%;box-sizing:border-box}
+   .popen-form textarea{min-height:72px;resize:vertical;grid-column:2}
+   .popen-policy{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:11px 14px;margin-top:16px;font-size:12px;color:#92400e;line-height:1.6}
+   /* [합침] 엑셀 업로드 · 선택등록/삭제 · 확인창 (남주 버전) */
    .popen-btn.del{border-color:#fca5a5;color:#b91c1c}
    .popen-btn.xls{border-color:#86efac;color:#166534}
-   .popen-btn.sm{padding:4px 9px;font-size:11.5px}
    .popen-gbar{display:flex;align-items:center;gap:6px;margin:4px 0 8px;flex-wrap:wrap}
    .popen-gbar .cnt{font-size:12.5px;color:#475569;margin-right:auto}
    .popen-gbar .cnt b{color:#1d4ed8}
    .popen-guide{font-size:11.5px;color:#64748b;margin:0 0 8px}
-   .popen-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e5e7eb;font-size:12.5px}
-   .popen-table th{background:#f8fafc;text-align:center;padding:9px 10px;font-weight:800;color:#475569;border-bottom:1px solid #e5e7eb;white-space:nowrap}
-   .popen-table td{padding:9px 10px;border-bottom:1px solid #f1f5f9;color:#1f2937;text-align:center}
-   .popen-table td.l{text-align:left}.popen-table td.r{text-align:right}
-   .popen-table tr.click{cursor:pointer}
-   .popen-table tr.click:hover td{background:#f8faff}
    .popen-table tr.err td{background:#fef9c3}
    .popen-table tr.new td{background:#f0fdf4}
-   .popen-tbadge{display:inline-block;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:99px;margin-left:6px}
-   .popen-sbadge{display:inline-block;font-size:11px;font-weight:800;padding:3px 10px;border-radius:99px;white-space:nowrap}
    .popen-errbtn{border:1px solid #f59e0b;background:#fff7ed;color:#b45309;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:800;cursor:pointer}
-   .popen-empty{padding:30px;text-align:center;color:#94a3b8}
-   .popen-wf{display:flex;gap:0;margin:10px 0 0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff}
-   .popen-wf span{flex:1;text-align:center;padding:8px;font-size:12px;font-weight:800;color:#94a3b8;border-right:1px solid #e5e7eb}
-   .popen-wf span:last-child{border-right:0}
-   .popen-wf span.on{background:#eff6ff;color:#1d4ed8}
-   .popen-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:18px 20px;margin-top:12px}
-   .popen-dtop{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-   .popen-dno{font-size:13px;font-weight:800;color:#64748b}
-   .popen-dname{font-size:18px;font-weight:900;color:#0f172a}
-   .popen-nameinput{font-size:16px;font-weight:800;border:1px solid #d1d5db;border-radius:8px;padding:6px 10px;min-width:380px;font-family:inherit}
-   .popen-dbtns{margin-left:auto;display:flex;gap:6px}
-   .popen-grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #e5e7eb;border-left:1px solid #e5e7eb;margin-top:14px}
-   .popen-cell{display:grid;grid-template-columns:110px 1fr;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;min-height:38px}
-   .popen-cell .k{background:#f8fafc;font-size:12px;font-weight:800;color:#475569;padding:9px 10px}
-   .popen-cell .k em{color:#dc2626;font-style:normal}
-   .popen-cell .v{font-size:12.5px;color:#0f172a;padding:6px 10px;display:flex;align-items:center;gap:4px}
-   .popen-cell .v input,.popen-cell .v select{flex:1;min-width:0;border:1px solid #d1d5db;border-radius:6px;padding:5px 8px;font-size:12.5px;font-family:inherit;background:#fff}
-   .popen-ver{display:flex;gap:6px;margin:16px 0 10px;flex-wrap:wrap}
-   .popen-chip{border:1px solid #d1d5db;background:#fff;border-radius:99px;padding:5px 12px;font-size:12px;font-weight:700;color:#475569;cursor:pointer}
-   .popen-chip.on{border-color:#1d4ed8;background:#eff6ff;color:#1d4ed8}
-   .popen-sec{font-size:13px;font-weight:900;color:#0f172a;margin:16px 0 8px;display:flex;align-items:center;gap:8px}
-   .popen-total{display:inline-flex;gap:10px;align-items:center;border:1px solid #e5e7eb;border-radius:8px;padding:7px 12px;font-size:12.5px;background:#f8fafc}
-   .popen-total b{font-size:14px;color:#0f172a}
-   .popen-ct td input{width:100%;box-sizing:border-box;border:1px solid #93c5fd;border-radius:5px;padding:4px 6px;text-align:right;font-size:12.5px;font-weight:800;font-family:inherit;background:#eff6ff}
-   .popen-ct{table-layout:fixed}
-   .popen-ct td.b{font-weight:800}
-   .popen-ct tr.sum td{background:#f8fafc;font-weight:800}
-   .popen-up{color:#dc2626}.popen-dn{color:#16a34a}
-   .popen-lines{width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid #e5e7eb}
-   .popen-lines th{background:#f8fafc;padding:8px;font-weight:800;color:#475569;border-bottom:1px solid #e5e7eb}
-   .popen-lines td{padding:8px;border-bottom:1px solid #f1f5f9;text-align:center}
-   .popen-lines td.l{text-align:left}
-   .popen-stt{display:inline-block;min-width:56px;font-weight:800;border-radius:99px;padding:2px 8px;font-size:11px}
-   .popen-stt.기안{background:#eff6ff;color:#1d4ed8}.popen-stt.승인{background:#dcfce7;color:#166534}
-   .popen-stt.반려{background:#fee2e2;color:#991b1b}.popen-stt.대기{background:#f1f5f9;color:#94a3b8}
-   .popen-stt.기안취소{background:#e5e7eb;color:#374151}
-   .popen-memo{width:100%;box-sizing:border-box;min-height:64px;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit}
-   .popen-rule{font-size:11.5px;color:#475569;background:#f8fafc;border:1px solid #e5e7eb;border-radius:99px;padding:3px 10px;font-weight:700}
-   .popen-reject{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 12px;margin-top:10px;font-size:12.5px;color:#991b1b}
    .popen-mask{position:fixed;inset:0;background:rgba(15,23,42,.35);display:flex;align-items:center;justify-content:center;z-index:9000}
    .popen-modal{background:#fff;border-radius:12px;min-width:340px;max-width:620px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
    .popen-mhead{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #e5e7eb;font-weight:900;font-size:14px}
@@ -216,501 +193,773 @@ function popenInjectStyle() {
    .popen-mbody{padding:16px;font-size:13px;color:#0f172a;line-height:1.6}
    .popen-mbody ul{margin:0;padding-left:18px}
    .popen-mfoot{display:flex;justify-content:center;gap:8px;padding:0 16px 16px}
-   .popen-pick{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #f1f5f9;background:#fff;padding:9px 6px;font-size:12.5px;cursor:pointer;font-family:inherit}
-   .popen-pick:hover{background:#eff6ff}
-   .popen-form{display:grid;grid-template-columns:repeat(2,1fr);border-top:1px solid #e5e7eb;border-left:1px solid #e5e7eb;margin-top:12px}
-   #s-project-open .popen-table td,#s-project-open .popen-lines td{font-size:12.5px}
-   #s-project-open .popen-table th,#s-project-open .popen-lines th{font-size:12px}
   `;
   document.head.appendChild(st);
 }
 
-// ── 공통 계산 ──
-function popenWon(n) { return (Number(n) || 0).toLocaleString('ko-KR'); }
-function popenMM(n) { return (Math.round((Number(n) || 0) * 1000) / 1000).toString(); }
-function popenBgt(c) { return (Number(c.lbr) || 0) + (Number(c.ots) || 0) + (Number(c.mat) || 0) + (Number(c.exp) || 0); }
-function popenMargin(c) { return c.sale > 0 ? Math.round((c.sale - c.saleCst) * 1000 / c.sale) / 10 : 0; }
-function popenLatest(a) { return a.versions[0]; }
-function popenStatus(a) { return popenLatest(a).status; }
-function popenZero() { return popenCost(0, 0, 0, 0, 0, 0, 0, 0); }
-// 현행 findBfrCst: 지금 버전보다 낮고 반려 · 기안취소가 아닌 가장 가까운 버전
-function popenCompare(a, verNo) {
-  const cur = a.versions.find(function (v) { return v.ver === verNo; });
-  // 비교할 이전 버전이 없으면(첫 등록 V1 등) 최초 / 변경 전(A)은 0 (현행과 같음)
-  const ok = a.versions.filter(function (v) { return v.ver < verNo && v.status !== '반려' && v.status !== '기안취소'; });
-  if (!ok.length) return { fst: popenZero(), bf: popenZero(), lst: cur.cost };
-  return { fst: ok[ok.length - 1].cost, bf: ok[0].cost, lst: cur.cost };
+const POPEN_TYPE_COLOR = { 'W/G':'#b45309', '사내':'#be185d' };
+
+function popenFilter() {
+  const q = popenSearch.trim().toLowerCase();
+  return Object.keys(POPEN_APPS).map(function (k) {
+    return Object.assign({ id: k }, POPEN_APPS[k]);
+  }).filter(function (a) {
+    if (popenTypeFilter && a.type !== popenTypeFilter) return false;
+    if (popenStatusFilter && popenDisplayStatus(a) !== popenStatusFilter) return false;
+    if (q && !((a.name + ' ' + a.reqDept + ' ' + a.requester).toLowerCase().includes(q))) return false;
+    return true;
+  });
 }
-function popenRule(a, verNo) {
-  const cur = a.versions.find(function (v) { return v.ver === verNo; }) || popenLatest(a);
-  const amt = popenBgt(cur.cost);
-  if (a.versions.length < 2) return 'W/G 비용 ' + (amt < 3000000000 ? '30억 미만' : '30억 이상');
-  const cmp = popenCompare(a, cur.ver);
-  const chg = Math.abs(amt - popenBgt(cmp.bf));
-  let t;
-  if (amt < 1000000000) t = chg < 1000000 ? '1백만원 미만' : (chg < 30000000 ? '1백만~3천만원' : '3천만원 이상');
-  else if (amt < 3000000000) t = chg < 10000000 ? '1천만원 미만' : (chg < 50000000 ? '1천만~5천만원' : '5천만원 이상');
-  else t = chg < 20000000 ? '2천만원 미만' : (chg < 100000000 ? '2천만~1억원' : '1억원 이상');
-  return '변경 ' + t;
-}
-function popenToast(m) { if (typeof showToast === 'function') showToast(m); }
-function popenEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
 
 function renderProjectOpen() {
   popenInjectStyle();
   const host = document.getElementById('s-project-open');
   if (!host) return;
-  let html;
-  if (popenView === 'detail') html = popenDetailHtml();
-  else if (popenView === 'appr') html = popenApprHtml();
-  else if (popenView === 'new') html = popenNewHtml();
-  else html = popenListHtml();
-  host.innerHTML = html + popenModalHtml();
-}
+  if (popenView === 'detail') { host.innerHTML = popenDetailHtml() + popenModalHtml(); return; }
+  if (popenView === 'new')    { host.innerHTML = popenNewHtml() + popenModalHtml();    return; }
 
-// ── 목록 (현행 W/G관리) ──
-function popenRows() {
-  const f = popenFilter;
-  return Object.keys(POPEN_APPS).map(function (k) { return Object.assign({ id: k }, POPEN_APPS[k]); }).filter(function (a) {
-    if (f.no && a.no.toLowerCase().indexOf(f.no.trim().toLowerCase()) < 0) return false;
-    if (f.nm && a.name.toLowerCase().indexOf(f.nm.trim().toLowerCase()) < 0) return false;
-    if (f.pm && a.pm !== f.pm) return false;
-    if (f.date && a.regDate !== f.date) return false;
-    if (f.type && a.type !== f.type) return false;
-    if (f.sts && popenStatus(a) !== f.sts) return false;
-    return true;
-  });
-}
-function popenListHtml() {
-  const rows = popenRows();
-  const fd = popenFilterDraft;
-  const flow = ['저장 (등록)', '결재선 지정 → 승인요청', '승인완료', '반려 / 기안취소 → 비용변경 후 다시 승인요청']
-    .map(function (s, i) { return '<span class="popen-fstep">' + s + '</span>' + (i < 3 ? '<i>→</i>' : ''); }).join('');
-  const typeOpts = [['', '전체'], ['W/G', 'W/G'], ['사내', '사내']].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === fd.type ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('');
-  const stsOpts = ['<option value="">전체</option>'].concat(POPEN_STS.map(function (s) { return '<option' + (s === fd.sts ? ' selected' : '') + '>' + s + '</option>'; })).join('');
+  const rows = popenFilter();
+  const flow = ['개설 신청', '개설 승인 대기', '개설 승인 완료', '반려 / 재신청', '프로젝트 등록 완료']
+    .map(function (s, i) { return '<span class="popen-fstep">' + s + '</span>' + (i < 4 ? '<i>→</i>' : ''); }).join('');
+
+  const statusOpts = ['<option value="">전체 상태</option>']
+    .concat(['개설 신청', '개설 승인 대기', '개설 승인 완료', '반려', '프로젝트 등록 완료'].map(function (s) {
+      return '<option value="' + s + '"' + (s === popenStatusFilter ? ' selected' : '') + '>' + s + '</option>';
+    })).join('');
+  const typeOpts = [['', '전체 유형'], ['W/G', 'W/G'], ['사내', '사내']]
+    .map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === popenTypeFilter ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('');
+
+  const body = rows.length ? rows.map(function (a) {
+    const disp = popenDisplayStatus(a);
+    const ss = POPEN_STATUS_STYLE[disp] || POPEN_STATUS_STYLE['개설 신청'];
+    const tc = POPEN_TYPE_COLOR[a.type] || '#64748b';
+    const reg = a.regStatus === '등록완료'
+      ? '<span class="popen-regbadge done">등록완료 · ' + a.projectNo + '</span>'
+      : '<span class="popen-regbadge">미등록</span>';
+    const reApply = a.approvalStatus === '반려'
+      ? '<button class="popen-btn warn" style="padding:5px 10px;font-size:11.5px" onclick="popenReapply(\'' + a.id + '\')">재신청</button>' : '';
+    return '<tr>'
+      + '<td><input type="checkbox"' + (popenChecked[a.id] ? ' checked' : '') + ' onclick="popenCheck(\'' + a.id + '\',this.checked)"></td>'
+      + '<td><div class="popen-pname">' + a.name + '</div><div style="font-size:11px;color:#94a3b8">' + a.reqDept + '</div></td>'
+      + '<td><span class="popen-tbadge" style="background:' + tc + '22;color:' + tc + '">' + a.type + '</span></td>'
+      + '<td>' + a.requester + '</td>'
+      + '<td style="color:#64748b">' + a.requestDate + '</td>'
+      + '<td><span class="popen-sbadge" style="background:' + ss.bg + ';color:' + ss.color + '">' + disp + '</span></td>'
+      + '<td>' + reg + '</td>'
+      + '<td style="white-space:nowrap"><button class="popen-link" onclick="popenOpenDetail(\'' + a.id + '\')">상세</button> ' + reApply + '</td>'
+      + '</tr>';
+  }).join('') : (popenUploaded.length ? '' : '<tr><td colspan="8" class="popen-empty">조건에 맞는 개설 신청이 없습니다.</td></tr>');
+  // [합침] 엑셀로 올린 행 — 목록 맨 위. 오류 행도 체크해 [선택삭제]할 수 있고, [선택등록]은 오류 행을 건너뜀
   const up = popenUploaded.map(function (r, i) {
     const err = r.errors.length > 0;
     return '<tr class="' + (err ? 'err' : 'new') + '">'
-      // 오류 행도 체크 가능 — [선택삭제]로 지울 수 있게. [선택등록]에서는 오류 행을 건너뜀
-      + '<td><input type="checkbox"' + (popenChecked['U' + i] ? ' checked' : '') + ' onclick="event.stopPropagation();popenCheck(\'U' + i + '\',this.checked)"></td>'
-      + '<td>' + popenEsc(r.no) + '</td><td class="l">' + popenEsc(r.name) + '<span class="popen-tbadge" style="background:#b4530922;color:#b45309">W/G</span></td>'
-      + '<td>' + popenEsc(r.pm) + '</td><td>' + popenEsc(r.acct) + '</td><td class="r">' + popenWon(r.bgt) + '</td><td></td>'
-      + '<td>' + (err ? '<button class="popen-errbtn" onclick="popenShowErr(' + i + ')">오류</button>' : '') + '</td><td></td></tr>';
-  }).join('');
-  const body = rows.map(function (a) {
-    const st = popenStatus(a), ss = POPEN_STS_STYLE[st];
-    const tc = POPEN_TYPE_COLOR[a.type];
-    return '<tr class="click" onclick="popenOpenDetail(\'' + a.id + '\')">'
-      + '<td><input type="checkbox"' + (popenChecked[a.id] ? ' checked' : '') + ' onclick="event.stopPropagation();popenCheck(\'' + a.id + '\',this.checked)"></td>'
-      + '<td>' + a.no + '</td>'
-      + '<td class="l"><b>' + a.name + '</b><span class="popen-tbadge" style="background:' + tc + '22;color:' + tc + '">' + a.type + '</span>' + (a.type === '사내' ? '<div style="font-size:11px;color:#94a3b8">' + popenTypeLabel(a) + '</div>' : '') + '</td>'
-      + '<td>' + a.pm.replace(/\(.*/, '') + '</td><td>' + (a.acct ? a.acct.replace(/\(.*/, '') : '') + '</td>'
-      + '<td class="r">' + popenWon(popenBgt(popenLatest(a).cost)) + '</td><td>' + a.regDate + '</td>'
-      + '<td><span class="popen-sbadge" style="background:' + ss.bg + ';color:' + ss.color + '">' + st + '</span></td>'
-      + '<td style="white-space:nowrap"><button class="popen-btn sm" onclick="event.stopPropagation();popenOpenDetail(\'' + a.id + '\')">상세</button>'
-      + ((st === '반려' || st === '기안취소') ? ' <button class="popen-btn sm del" onclick="event.stopPropagation();popenReapply(\'' + a.id + '\')">재신청</button>' : '') + '</td></tr>';
+      + '<td><input type="checkbox"' + (popenChecked['U' + i] ? ' checked' : '') + ' onclick="popenCheck(\'U' + i + '\',this.checked)"></td>'
+      + '<td><div class="popen-pname">' + popenEsc(r.name) + '</div><div style="font-size:11px;color:#94a3b8">엑셀 업로드 · ' + popenEsc(r.no) + '</div></td>'
+      + '<td><span class="popen-tbadge" style="background:#b4530922;color:#b45309">W/G</span></td>'
+      + '<td>' + popenEsc(r.pm) + (r.pmNo ? '(' + popenEsc(r.pmNo) + ')' : '') + '</td><td style="color:#64748b">-</td>'
+      + '<td>' + (err ? '<button class="popen-errbtn" onclick="popenShowErr(' + i + ')">오류</button>' : '<span class="popen-regbadge">등록 전</span>') + '</td>'
+      + '<td></td><td></td></tr>';
   }).join('');
   const total = rows.length + popenUploaded.length;
-  return '<div class="popen-wrap">'
-    + '<div class="popen-title">프로젝트 개설 관리</div>'
-    + '<div class="popen-sub">W/G / 사내 프로젝트를 등록하고 비용 결재를 받는 화면입니다. 비용 결재가 승인완료되면 MIS 프로젝트로 자동 등록됩니다.</div>'
+
+  host.innerHTML =
+    '<div class="popen-wrap">'
+    + '<div class="popen-head"><div><div class="popen-title">프로젝트 개설 관리</div>'
+    + '<div class="popen-sub">W/G·사내 프로젝트의 개설 신청과 기안·승인을 처리합니다. 수주형·제안·투자·선투입은 선행 시스템에서 자동 등록되어 이 화면 대상이 아닙니다.</div></div></div>'
     + '<div class="popen-flow">' + flow + '</div>'
-    + '<div class="popen-search">'
-    + '<div class="popen-sf"><label>프로젝트번호</label><input value="' + popenEsc(fd.no) + '" oninput="popenFilterDraft.no=this.value" onkeydown="if(event.key===\'Enter\')popenDoSearch()"></div>'
-    + '<div class="popen-sf"><label>프로젝트명</label><input value="' + popenEsc(fd.nm) + '" oninput="popenFilterDraft.nm=this.value" onkeydown="if(event.key===\'Enter\')popenDoSearch()"></div>'
-    + '<div class="popen-sf"><label>PM</label><div class="popen-inwrap"><input readonly placeholder="사원 검색" value="' + popenEsc(fd.pm) + '" onclick="popenPickOpen(\'member\',\'filterPm\')"><button class="popen-btn sm" onclick="popenPickOpen(\'member\',\'filterPm\')">🔍</button></div></div>'
-    + '<div class="popen-sbtns"><button class="popen-btn pri" onclick="popenDoSearch()">조회</button><button class="popen-btn" onclick="popenResetFilter()">초기화</button></div>'
-    + '<div class="popen-sf"><label>등록일</label><input type="date" value="' + fd.date + '" onchange="popenFilterDraft.date=this.value"></div>'
-    + '<div class="popen-sf"><label>유형</label><select onchange="popenFilterDraft.type=this.value">' + typeOpts + '</select></div>'
-    + '<div class="popen-sf"><label>상태</label><select onchange="popenFilterDraft.sts=this.value">' + stsOpts + '</select></div>'
+    + '<div class="popen-toolbar">'
+    + '<input type="text" placeholder="프로젝트명·신청부서·신청자 검색" value="' + popenSearch.replace(/"/g, '&quot;') + '" oninput="popenOnSearch(this.value)">'
+    + '<select onchange="popenOnType(this.value)">' + typeOpts + '</select>'
+    + '<select onchange="popenOnStatus(this.value)">' + statusOpts + '</select>'
+    + '<button class="popen-btn" onclick="popenResetFilter()">초기화</button>'
+    + '<button class="popen-btn pri" onclick="popenNewApply()">+ 신규 개설 신청</button>'
     + '</div>'
     + '<div class="popen-gbar"><span class="cnt">총 <b>' + total + '</b> 건</span>'
-    + '<button class="popen-btn pri" onclick="popenNewOpen()">+ 신규 등록</button>'
-    + '<button class="popen-btn xls" onclick="popenUpload()">⬆ 엑셀</button>'
-    + '<button class="popen-btn xls" onclick="popenToast(\'WG.xlsx 파일을 내려받았습니다. (목업)\')">⬇ 엑셀</button>'
+    + '<button class="popen-btn xls" onclick="popenUpload()">⬆ 엑셀 업로드</button>'
+    + '<button class="popen-btn xls" onclick="popenToast(\'WG.xlsx 파일을 내려받았습니다. (목업)\')">⬇ 엑셀 다운로드</button>'
     + '<button class="popen-btn" onclick="popenToast(\'WorkingGroup템플릿.xlsx 파일을 내려받았습니다. (목업)\')">템플릿</button>'
     + '<button class="popen-btn del" onclick="popenDelChecked()">선택삭제</button>'
     + '<button class="popen-btn pri" onclick="popenRegChecked()">선택등록</button></div>'
-    + '<div class="popen-guide">※ 여러 건은 템플릿을 내려받아 작성한 뒤 엑셀 업로드 → 선택등록. 한 건은 "+ 신규 등록"</div>'
-    + '<table class="popen-table"><thead><tr><th style="width:34px"></th><th>프로젝트 번호</th><th>프로젝트명</th><th>PM</th><th>Account담당자</th><th>등록비용</th><th>등록일</th><th>상태</th><th></th></tr></thead><tbody>'
-    + up + (body || (up ? '' : '<tr><td colspan="9" class="popen-empty">데이터가 없습니다.</td></tr>')) + '</tbody></table>'
+    + '<div class="popen-guide">※ 여러 건은 템플릿을 내려받아 작성한 뒤 엑셀 업로드 → 선택등록. 한 건은 "+ 신규 개설 신청"</div>'
+    + '<table class="popen-table"><thead><tr>'
+    + '<th style="width:34px"></th><th>프로젝트</th><th>유형</th><th>신청자</th><th>신청일시</th><th>승인 상태</th><th>등록 상태</th><th></th>'
+    + '</tr></thead><tbody>' + up + body + '</tbody></table>'
+    + '<div class="popen-note">※ <b>개설</b>은 승인을 요청하는 업무 절차, <b>등록</b>은 MIS에 정식 생성되는 결과입니다. 두 상태는 별개로 관리됩니다.<br>'
+    + '※ 승인 권한·결재 단계·프로젝트 번호 생성 시점은 정책 확정 전 임시 구성이며 추후 변경될 수 있습니다.</div>'
+    + '</div>' + popenModalHtml();
+}
+
+// ════════════════════════════════════════
+//  W/G 상세 — 정보관리 / 비용승인 2탭 (캡처 반영)
+// ════════════════════════════════════════
+const POPEN_WGX_SEARCH = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+const POPEN_WGV_STYLE = { '승인완료':{bg:'#dbeafe',color:'#1d4ed8'}, '승인요청':{bg:'#e0f2fe',color:'#0369a1'}, '저장':{bg:'#f1f5f9',color:'#64748b'}, '기안취소':{bg:'#e5e7eb',color:'#374151'}, '반려':{bg:'#fee2e2',color:'#991b1b'} };
+const POPEN_APV_STYLE = { '기안':{bg:'#dcfce7',color:'#166534'}, '승인':{bg:'#dcfce7',color:'#166534'}, '대기':{bg:'#f1f5f9',color:'#94a3b8'}, '반려':{bg:'#fef3c7',color:'#b45309'} };
+
+// W/G 유형 3건의 비용·손익·결재선 상세 데이터
+const POPEN_WGX = {
+  // 보안관제 — 정보관리 캡처(작성/저장)
+  'OPN-003': {
+    code:'70007602-D001', name:'2026년_보안관제 자동화 W/G',
+    contractType:'TC', contractDone:'Yes', customer:'공통(9999999999)',
+    mainDept:'보안사업부', salesDept:'보안사업부', revDept:'보안사업부',
+    wgLeader:'정우성', wgLeaderCode:'13071', pm:'한민석', pmCode:'20011',
+    start:'2026-11-15', end:'2027-09-30', regDate:'2026-10-20', erpSend:'미전송', submitted:false,
+    versions:[{v:'V1.0',date:'2026-10-20',status:'저장'}],
+    costs:{
+      인건비:{base:{mm:0,amt:0},prevA:{mm:0,amt:0},afterB:{mm:18,amt:144000000}},
+      외주비:{base:{mm:0,amt:0},prevA:{mm:0,amt:0},afterB:{mm:6,amt:54000000}},
+      재료비:{base:{mm:'-',amt:0},prevA:{mm:'-',amt:0},afterB:{mm:'-',amt:0}},
+      경비:{base:{mm:'-',amt:0},prevA:{mm:'-',amt:0},afterB:{mm:'-',amt:6000000}},
+    },
+    pnl:{ 매출액:{base:0,prevA:0,afterB:230000000}, 매출원가:{base:0,prevA:0,afterB:204000000} },
+    lines:[{rule:'W/G 비용 30억 미만',service:'N',rows:[
+      {role:'기안',unit:'수행PM',approver:'한민석(20011)',status:'대기',date:'',opinion:'',fixed:true},
+      {role:'협조',unit:'부문기획 담당자',approver:'박지훈(14022)',status:'대기',date:'',opinion:''},
+      {role:'검토',unit:'팀장',approver:'신성호(13016)',status:'대기',date:'',opinion:''},
+      {role:'승인',unit:'담당임원',approver:'권재준(60521)',status:'대기',date:'',opinion:''},
+    ]}],
+    memo:'',
+  },
+  // 데이터레이크 — 정보관리 캡처(승인완료·비용변경, V2/V1)
+  'OPN-005': {
+    code:'70007588-D031', name:'2026년_데이터레이크 구축 W/G',
+    contractType:'TC', contractDone:'Yes', customer:'공통(9999999999)',
+    mainDept:'데이터사업부', salesDept:'데이터사업부', revDept:'데이터사업부',
+    wgLeader:'이수연', wgLeaderCode:'21055', pm:'한민석', pmCode:'20011',
+    start:'2026-09-10', end:'2027-08-31', regDate:'2026-08-28', erpSend:'전송', submitted:true,
+    versions:[{v:'V2.0',date:'2026-10-11',status:'승인완료'},{v:'V1.0',date:'2026-08-30',status:'승인완료'}],
+    costs:{
+      인건비:{base:{mm:24,amt:192000000},prevA:{mm:24,amt:192000000},afterB:{mm:30,amt:240000000}},
+      외주비:{base:{mm:10,amt:90000000},prevA:{mm:10,amt:90000000},afterB:{mm:10,amt:90000000}},
+      재료비:{base:{mm:'-',amt:20000000},prevA:{mm:'-',amt:20000000},afterB:{mm:'-',amt:20000000}},
+      경비:{base:{mm:'-',amt:8000000},prevA:{mm:'-',amt:8000000},afterB:{mm:'-',amt:10000000}},
+    },
+    pnl:{ 매출액:{base:470000000,prevA:470000000,afterB:520000000}, 매출원가:{base:310000000,prevA:310000000,afterB:360000000} },
+    lines:[{rule:'W/G 비용 30억 미만',service:'Y',rows:[
+      {role:'기안',unit:'수행PM',approver:'한민석(20011)',status:'기안',date:'2026-10-11 09:20',opinion:'데이터레이크 2차 확장 반영',fixed:true},
+      {role:'협조',unit:'Account WG담당자',approver:'장재호(15025)',status:'승인',date:'2026-10-11 10:02',opinion:''},
+      {role:'검토',unit:'팀장',approver:'신성호(13016)',status:'승인',date:'2026-10-11 11:15',opinion:''},
+      {role:'승인',unit:'담당임원',approver:'권재준(60521)',status:'승인',date:'2026-10-11 14:30',opinion:''},
+    ]}],
+    memo:'데이터레이크 2차 확장(인건비 6MM 증액). 고객사: 공통 / 서비스: 데이터플랫폼',
+  },
+  // 차세대 ERP — 비용승인 캡처(승인요청 + 반려 이력)
+  'OPN-001': {
+    code:'70007601-D001', name:'2026년_차세대 ERP 고도화 W/G',
+    contractType:'TC', contractDone:'Yes', customer:'공통(9999999999)',
+    mainDept:'AX ERP사업부', salesDept:'AX ERP사업부', revDept:'AX ERP사업부 1팀',
+    wgLeader:'류준서', wgLeaderCode:'21043', pm:'한민석', pmCode:'20011',
+    start:'2026-11-01', end:'2027-10-31', regDate:'2026-10-02', erpSend:'미전송', submitted:true,
+    versions:[{v:'V1.0',date:'2026-10-02',status:'승인요청'}],
+    costs:{
+      인건비:{base:{mm:0,amt:0},prevA:{mm:0,amt:0},afterB:{mm:20,amt:160000000}},
+      외주비:{base:{mm:0,amt:0},prevA:{mm:0,amt:0},afterB:{mm:4,amt:36000000}},
+      재료비:{base:{mm:'-',amt:0},prevA:{mm:'-',amt:0},afterB:{mm:'-',amt:0}},
+      경비:{base:{mm:'-',amt:0},prevA:{mm:'-',amt:0},afterB:{mm:'-',amt:4000000}},
+    },
+    pnl:{ 매출액:{base:0,prevA:0,afterB:240000000}, 매출원가:{base:0,prevA:0,afterB:200000000} },
+    lines:[
+      {rule:'W/G 비용 30억 미만',service:'Y',rows:[
+        {role:'기안',unit:'수행PM',approver:'한민석(20011)',status:'기안',date:'2026-10-02 10:14',opinion:'차세대 ERP 전환 대비 W/G 선행 과제. 고객사: 공통 / 서비스: ERP 고도화',fixed:true},
+        {role:'협조',unit:'Account WG담당자',approver:'장재호(15025)',status:'승인',date:'2026-10-02 11:20',opinion:''},
+        {role:'협조',unit:'Account 팀장',approver:'김기선(15031)',status:'대기',date:'',opinion:''},
+        {role:'검토',unit:'팀장',approver:'신성호(13016)',status:'대기',date:'',opinion:''},
+        {role:'승인',unit:'담당임원',approver:'권재준(60521)',status:'대기',date:'',opinion:''},
+      ]},
+      {rule:'W/G 비용 30억 미만',service:'N',reject:{by:'박지훈(14022)',text:'사업 범위/예산 규모 재검토 필요. 재료비 산정 근거 보완 후 다시 올려 주세요.'},rows:[
+        {role:'기안',unit:'수행PM',approver:'한민석(20011)',status:'기안',date:'2026-09-12 16:20',opinion:'사내 그룹웨어 UX 개편. 고객사: 사내 / 서비스: 그룹웨어',fixed:true},
+        {role:'협조',unit:'부문기획 담당자',approver:'박지훈(14022)',status:'반려',date:'2026-09-13 09:40',opinion:'사업 범위/예산 규모 재검토 필요. 재료비 산정 근거 보완 후 다시 올려 주세요.'},
+        {role:'검토',unit:'팀장',approver:'신성호(13016)',status:'대기',date:'',opinion:''},
+        {role:'승인',unit:'담당임원',approver:'권재준(60521)',status:'대기',date:'',opinion:''},
+      ]},
+    ],
+    memo:'사내 그룹웨어 UX 개편. 고객사: 사내 / 서비스: 그룹웨어',
+  },
+};
+
+function pwNum(v){ return (typeof v==='number')?v:0; }
+function pwAmt(v){ return (typeof v==='number' && v)?fmt(v):'0'; }
+function pwMm(v){ return (v==='-'||v===''||v==null)?'-':v; }
+function pwTotal(p){ return Object.keys(p.costs).reduce(function(s,k){return s+pwNum(p.costs[k].afterB.amt);},0); }
+
+function popenWgxInjectStyle() {
+  if (document.getElementById('popen-wgx-style')) return;
+  const st = document.createElement('style'); st.id = 'popen-wgx-style';
+  st.textContent = `
+   .pwx-tabs{display:flex;gap:4px;border-bottom:1px solid #e2e8f0;margin-bottom:16px}
+   .pwx-tab{flex:1;text-align:center;padding:12px 14px;font-size:14px;font-weight:700;color:#94a3b8;background:#f8fafc;border:1px solid #e2e8f0;border-bottom:none;cursor:pointer;border-radius:10px 10px 0 0}
+   .pwx-tab.on{color:#1d4ed8;background:#fff;border-color:#cdd9f5;box-shadow:inset 0 -3px 0 #1d4ed8}
+   .pwx-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+   .pwx-code{font-size:14px;font-weight:800;color:#64748b;padding-top:9px;white-space:nowrap}
+   .pwx-name-wrap{flex:1;display:flex;align-items:center;gap:8px;min-width:200px}
+   .pwx-name{flex:1;min-width:0;font-size:19px;font-weight:800;color:#1e293b;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-family:inherit}
+   .pwx-name:focus{outline:none;border-color:#1d4ed8;box-shadow:0 0 0 3px rgba(29,78,216,.12)}
+   .pwx-badge{flex:0 0 auto;font-size:11px;font-weight:800;color:#6d28d9;background:#ede9fe;border-radius:6px;padding:4px 9px}
+   .pwx-hbtns{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding-top:2px}
+   .pwx-btn{font-size:13px;font-weight:700;border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit;border:1px solid #d1d5db;background:#fff;color:#374151}
+   .pwx-btn:hover{border-color:#1d4ed8;color:#1d4ed8}
+   .pwx-btn.pri{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+   .pwx-btn.pri:hover{background:#1742b0;color:#fff}
+   .pwx-info{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#e8ecf3;border:1px solid #e8ecf3;border-radius:12px;overflow:hidden;margin-bottom:14px}
+   .pwx-cell{background:#fff;padding:11px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+   .pwx-k{font-size:12px;color:#64748b;font-weight:600}
+   .pwx-k .req{color:#94a3b8;margin-left:2px}
+   .pwx-v{font-size:13.5px;color:#1e293b;font-weight:600;word-break:break-all}
+   .pwx-vfield{display:flex;align-items:center;gap:6px}
+   .pwx-vfield input{flex:1;min-width:0;border:1px solid #e2e8f0;border-radius:7px;padding:6px 9px;font-size:13px;font-family:inherit;color:#1e293b;background:#fff}
+   .pwx-vfield input:focus{outline:none;border-color:#1d4ed8;box-shadow:0 0 0 3px rgba(29,78,216,.1)}
+   .pwx-sbtn{flex:0 0 auto;width:28px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e2e8f0;background:#f8fafc;color:#94a3b8;border-radius:7px;cursor:pointer}
+   .pwx-sbtn:hover{border-color:#1d4ed8;color:#1d4ed8}
+   .pwx-vers{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+   .pwx-vchip{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#334155;background:#fff;border:1px solid #cdd9f5;border-radius:99px;padding:5px 12px}
+   .pwx-vchip .vb{font-size:11px;font-weight:800;border-radius:99px;padding:2px 8px}
+   .pwx-total{font-size:15px;color:#334155;margin:4px 0 12px}
+   .pwx-total b{font-size:20px;color:#1e293b;font-weight:900;margin:0 4px}
+   .pwx-sec{font-size:14px;font-weight:800;color:#0f172a;margin:0 0 8px}
+   .pwx-tblwrap{overflow-x:auto;border:1px solid #e8ecf3;border-radius:12px;margin-bottom:18px}
+   .pwx-tbl{width:100%;border-collapse:collapse;font-size:12.5px;min-width:720px}
+   .pwx-tbl th,.pwx-tbl td{border-bottom:1px solid #eef1f6;border-right:1px solid #eef1f6;padding:9px 10px;text-align:right}
+   .pwx-tbl th:last-child,.pwx-tbl td:last-child{border-right:none}
+   .pwx-tbl thead th{background:#f3f6fc;color:#475569;font-weight:800;text-align:center;border-bottom:1px solid #e2e8f0}
+   .pwx-tbl .lab{text-align:left;font-weight:700;color:#334155;background:#fafbfe}
+   .pwx-tbl .grp-b{background:#f6f9ff}
+   .pwx-tbl td.grp-b{background:#fbfdff}
+   .pwx-tbl .diff{color:#1e293b;font-weight:700}
+   .pwx-tbl .muted{color:#cbd5e1}
+   .pwx-tbl .total td{background:#eef2fb;font-weight:900;color:#0f172a;border-top:2px solid #cdd9f5}
+   .pwx-cin{width:92px;max-width:100%;text-align:right;border:1px solid #cdd9f5;border-radius:6px;padding:5px 7px;font-size:12.5px;font-family:inherit;background:#f6f9ff;color:#1e293b}
+   .pwx-cin.mm{width:52px}
+   .pwx-cin:focus{outline:none;border-color:#1d4ed8;box-shadow:0 0 0 2px rgba(29,78,216,.14)}
+   .pwx-apvblock{border:1px solid #e8ecf3;border-radius:12px;padding:12px 14px;margin-bottom:14px}
+   .pwx-apv-head{display:flex;gap:8px;align-items:center;margin:2px 0 8px;flex-wrap:wrap}
+   .pwx-apv-label{font-size:13px;font-weight:800;color:#0f172a;margin-right:4px}
+   .pwx-chip{font-size:12px;font-weight:700;color:#475569;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:99px;padding:4px 10px}
+   .pwx-apv{width:100%;border-collapse:collapse;font-size:12.5px;min-width:720px}
+   .pwx-apv th,.pwx-apv td{border-bottom:1px solid #eef1f6;padding:9px 12px;text-align:left}
+   .pwx-apv thead th{background:#f3f6fc;color:#475569;font-weight:800;border-bottom:1px solid #e2e8f0}
+   .pwx-stbadge{display:inline-block;font-size:11px;font-weight:800;border-radius:99px;padding:2px 10px}
+   .pwx-chg{font-size:11px;font-weight:700;border:1px solid #d1d5db;background:#fff;color:#475569;border-radius:6px;padding:3px 8px;margin-left:6px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;vertical-align:middle}
+   .pwx-chg:hover{border-color:#1d4ed8;color:#1d4ed8}
+   .pwx-reject{margin-top:8px;font-size:12.5px;color:#b45309;background:#fff8ed;border:1px solid #fde4bf;border-radius:8px;padding:10px 12px}
+   .pwx-memo textarea{width:100%;min-height:72px;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;font-size:13px;font-family:inherit;color:#1e293b;resize:vertical;box-sizing:border-box}
+   .pwx-memo textarea:focus{outline:none;border-color:#1d4ed8;box-shadow:0 0 0 3px rgba(29,78,216,.1)}
+   @media(max-width:720px){ .pwx-info{grid-template-columns:1fr 1fr} }
+  `;
+  document.head.appendChild(st);
+}
+
+function popenWgDetailHtml(id) {
+  popenWgxInjectStyle();
+  const p = POPEN_WGX[id];
+  return '<div class="popen-wrap">'
+    + '<div class="pwx-tabs">'
+    + '<div class="pwx-tab ' + (popenTab==='info'?'on':'') + '" onclick="popenWgTab(\'info\')">◉ W/G 정보관리</div>'
+    + '<div class="pwx-tab ' + (popenTab==='approval'?'on':'') + '" onclick="popenWgTab(\'approval\')">◉ W/G 비용승인</div>'
+    + '</div>'
+    + (popenTab==='info' ? popenWgInfoTab(id,p) : popenWgApprovalTab(id,p))
     + '</div>';
 }
 
-// ── 정보관리 (현행 WorkingGroupDetail) ──
-function popenCan(a, ver) {
-  // 현행 setBtnView. 목업 로그인 = 수행PM
-  const st = ver.status, latest = ver === popenLatest(a);
-  if (st === '저장' && latest) return { del:true, save:true, appr:true, cost:false, cancel:false, edit:true };
-  if (st === '승인요청' || !latest) return { del:false, save:false, appr:true, cost:false, cancel: st === '승인요청' && latest, edit:false };
-  return { del:false, save:false, appr:true, cost:true, cancel:false, edit:false };
-}
-function popenVerChips(a) {
-  return '<div class="popen-ver">' + a.versions.map(function (v) {
-    const ss = POPEN_STS_STYLE[v.status];
-    return '<span class="popen-chip' + (v.ver === popenVer ? ' on' : '') + '" onclick="popenPickVer(' + v.ver + ')">V' + v.ver + '.0 ' + v.date
-      + ' <span class="popen-sbadge" style="background:' + ss.bg + ';color:' + ss.color + ';padding:1px 7px">' + v.status + '</span></span>';
-  }).join('') + '</div>';
-}
-function popenCostHtml(a, ver, edit) {
-  const cmp = popenCompare(a, ver.ver), c = edit ? popenDraft.cost : cmp.lst;
-  function cell(key, isMM) {
-    if (edit) return '<input value="' + (c[key] || 0) + '" oninput="popenSetCost(\'' + key + '\',this.value)">';
-    return isMM ? popenMM(c[key]) : popenWon(c[key]);
-  }
-  function d(n, isMM) { const v = isMM ? Math.round(n * 1000) / 1000 : n; return '<span class="' + (v > 0 ? 'popen-up' : (v < 0 ? 'popen-dn' : '')) + '">' + (isMM ? popenMM(v) : popenWon(v)) + '</span>'; }
-  const mmv = function (x, k) { return k ? popenMM(x[k]) : '-'; };
-  const wonv = function (v) { return popenWon(v); };
-  function row(label, mmKey, amtKey) {
-    const f = cmp.fst, b = cmp.bf;
-    return '<tr><td><b>' + label + '</b></td>'
-      + '<td>' + mmv(f, mmKey) + '</td><td class="r">' + wonv(f[amtKey]) + '</td>'
-      + '<td>' + mmv(b, mmKey) + '</td><td class="r">' + wonv(b[amtKey]) + '</td>'
-      + '<td class="b">' + (mmKey ? cell(mmKey, true) : '-') + '</td><td class="r b">' + cell(amtKey, false) + '</td>'
-      + '<td>' + (mmKey ? d((Number(c[mmKey]) || 0) - (b[mmKey] || 0), true) : '-') + '</td><td class="r">' + d((Number(c[amtKey]) || 0) - (b[amtKey] || 0)) + '</td></tr>';
-  }
-  const sumMM = function (x) { return (Number(x.lbrMM) || 0) + (Number(x.otsMM) || 0); };
-  const sum = '<tr class="sum"><td>합계</td><td>' + popenMM(sumMM(cmp.fst)) + '</td><td class="r">' + wonv(popenBgt(cmp.fst)) + '</td>'
-    + '<td>' + popenMM(sumMM(cmp.bf)) + '</td><td class="r">' + wonv(popenBgt(cmp.bf)) + '</td>'
-    + '<td>' + popenMM(sumMM(c)) + '</td><td class="r">' + popenWon(popenBgt(c)) + '</td>'
-    + '<td>' + d(sumMM(c) - sumMM(cmp.bf), true) + '</td><td class="r">' + d(popenBgt(c) - popenBgt(cmp.bf)) + '</td></tr>';
-  const m = function (x) { return popenMargin(x); };
-  function prow(label, key, pct) {
-    const f = pct ? m(cmp.fst) : cmp.fst[key], b = pct ? m(cmp.bf) : cmp.bf[key], l = pct ? m(c) : c[key];
-    const lv = pct ? l + '%' : (edit ? '<input value="' + (c[key] || 0) + '" oninput="popenSetCost(\'' + key + '\',this.value)">' : popenWon(l));
-    const diff = Math.round(((Number(l) || 0) - (b || 0)) * 10) / 10;
-    return '<tr><td><b>' + label + '</b></td><td class="r">' + (pct ? f + '%' : popenWon(f)) + '</td><td class="r">' + (pct ? b + '%' : popenWon(b)) + '</td>'
-      + '<td class="r b">' + lv + '</td><td class="r"><span class="' + (diff > 0 ? 'popen-up' : (diff < 0 ? 'popen-dn' : '')) + '">' + (pct ? diff + '%p' : popenWon(diff)) + '</span></td></tr>';
-  }
-  return '<div class="popen-sec">총 비용 <span class="popen-total"><b>' + popenWon(popenBgt(c)) + '</b> 원</span></div>'
-    + '<div class="popen-sec">W/G 비용정보</div>'    + '<table class="popen-table popen-ct"><thead><tr><th rowspan="2">구분</th><th colspan="2">최초</th><th colspan="2">변경 전(A)</th><th colspan="2">변경 후(B)</th><th colspan="2">증감(B-A)</th></tr>'
-    + '<tr><th>M/M</th><th>금액</th><th>M/M</th><th>금액</th><th>M/M</th><th>금액</th><th>M/M</th><th>금액</th></tr></thead><tbody>'
-    + row('인건비', 'lbrMM', 'lbr') + row('외주비', 'otsMM', 'ots') + row('재료비', null, 'mat') + row('경비', null, 'exp') + sum + '</tbody></table>'
-    + '<div class="popen-sec">W/G 손익정보</div>'
-    + '<table class="popen-table popen-ct"><thead><tr><th>구분</th><th>최초</th><th>변경 전(A)</th><th>변경 후(B)</th><th>증감(B-A)</th></tr></thead><tbody>'
-    + prow('매출액', 'sale') + prow('매출원가', 'saleCst') + prow('매출마진', null, true) + '</tbody></table>';
-}
-function popenField(k, req, val, editKind, key) {
-  let v = popenEsc(val || '');
-  if (editKind === 'text') v = '<input value="' + v + '" oninput="popenDraft.' + key + '=this.value">';
-  else if (editKind === 'date') v = '<input type="date" value="' + v + '" onchange="popenDraft.' + key + '=this.value">';
-  else if (editKind === 'member' || editKind === 'org') v = '<input readonly value="' + v + '" onclick="popenPickOpen(\'' + editKind + '\',\'' + key + '\')"><button class="popen-btn sm" onclick="popenPickOpen(\'' + editKind + '\',\'' + key + '\')">🔍</button>';
-  return '<div class="popen-cell"><div class="k">' + k + (req ? ' <em>*</em>' : '') + '</div><div class="v">' + v + '</div></div>';
-}
-function popenWfHtml(step) {
-  return '<div class="popen-wf"><span class="' + (step === 1 ? 'on' : '') + '">① W/G 정보관리</span><span class="' + (step === 2 ? 'on' : '') + '">② W/G 비용승인</span></div>';
-}
-function popenDetailHtml() {
-  const a = POPEN_APPS[popenSelectedId];
-  if (!a) { popenView = 'list'; return popenListHtml(); }
-  const ver = a.versions.find(function (v) { return v.ver === popenVer; }) || popenLatest(a);
-  const can = popenCan(a, ver), e = can.edit, D = e ? popenDraft : a;
-  const tc = POPEN_TYPE_COLOR[a.type];
-  const btns = '<button class="popen-btn" onclick="popenBackToList()">목록</button>'
-    + (can.del ? '<button class="popen-btn del" onclick="popenDelete()">삭제</button>' : '')
-    + (can.cost ? '<button class="popen-btn pri" onclick="popenModifyCost()">비용변경</button>' : '')
-    + (can.save ? '<button class="popen-btn pri" onclick="popenSave()">저장</button>' : '')
-    + (can.cancel ? '<button class="popen-btn del" onclick="popenCancelDraft()">기안취소</button>' : '')
-    + (can.appr ? '<button class="popen-btn pri" onclick="popenGoAppr()">결재선생성</button>' : '');
-  return '<div class="popen-wrap">' + popenWfHtml(1)
-    + '<div class="popen-card">'
-    + '<div class="popen-dtop"><span class="popen-dno">' + a.no + '</span>'
-    + (e ? '<input class="popen-nameinput" value="' + popenEsc(popenDraft.name) + '" placeholder="사업기회명을 등록해주세요." oninput="popenDraft.name=this.value">' : '<span class="popen-dname">' + a.name + '</span>')
-    + '<span class="popen-tbadge" style="background:' + tc + '22;color:' + tc + '">' + a.type + '</span>'
-    + '<div class="popen-dbtns">' + btns + '</div></div>'
-    // 승인완료된 버전이 하나라도 있으면 MIS 프로젝트로 자동 등록된 상태 (PM 답변 11.05: 선행 단계 완료 → I/F 자동 등록, 처음 상태 착수완료)
-    + (a.versions.some(function (v) { return v.status === '승인완료'; })
-      ? '<div class="popen-reject" style="background:#eff6ff;border-color:#bfdbfe;color:#1e3a8a;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-        + '<span><b>MIS 프로젝트 자동 등록됨</b> 비용 결재가 승인완료되어 MIS 프로젝트로 자동 등록됐습니다 (처음 상태 착수완료). 이후 비용변경 승인도 프로젝트에 반영됩니다.</span>'
-        + '<button class="popen-btn" style="margin-left:auto" onclick="showProjectStatus()">프로젝트 현황에서 보기</button></div>'
-      : '')
-    + '<div class="popen-grid">'
-    + popenField('계약유형', false, a.cnrcType)
-    + popenField('계약완료여부', false, a.cnrcCmpl ? 'Yes' : 'No')
-    + popenField('고객사', false, a.cstco)
-    + popenField('주 수행부서', false, D.mainOrg, e ? 'org' : '', 'mainOrg')
-    + popenField('영업부서', false, D.rodrOrg, e ? 'org' : '', 'rodrOrg')
-    + popenField('매출귀속부서', true, D.saleOrg, e ? 'org' : '', 'saleOrg')
-    + popenField('W/G리더', false, D.ldr, e ? 'member' : '', 'ldr')
-    + popenField('수행PM', true, D.pm, e ? 'member' : '', 'pm')
-    + popenField('프로젝트시작일', false, D.start, e ? 'date' : '', 'start')
-    + popenField('프로젝트종료일', false, D.end, e ? 'date' : '', 'end')
-    + popenField('등록일', false, a.regDate)
-    + popenField('프로젝트 유형', false, popenTypeLabel(a))
-    + '</div>'
-    + popenVerChips(a)
-    + popenCostHtml(a, ver, e)
-    + '</div></div>';
-}
+function popenWgInfoTab(id, p) {
+  // [합침] 버튼 실제 동작 — 저장(작성 중) · 삭제(최신 버전) · 비용변경(새 버전) · 결재선생성
+  const btns = p.submitted
+    ? '<button class="pwx-btn" onclick="popenBackToList()">목록</button><button class="pwx-btn" onclick="popenWgCostChange(\'' + id + '\')">비용변경</button><button class="pwx-btn pri" onclick="popenWgTab(\'approval\')">결재선생성</button>'
+    : '<button class="pwx-btn" onclick="popenBackToList()">목록</button><button class="pwx-btn" onclick="popenWgDelete(\'' + id + '\')">삭제</button><button class="pwx-btn pri" onclick="popenWgSave(\'' + id + '\')">저장</button><button class="pwx-btn pri" onclick="popenWgTab(\'approval\')">결재생성</button>';
 
-// ── 비용승인 · 결재선 지정 (현행 WorkingGroupApprovalDetail) ──
-function popenApprHtml() {
-  const a = POPEN_APPS[popenSelectedId];
-  if (!a) { popenView = 'list'; return popenListHtml(); }
-  const ver = a.versions.find(function (v) { return v.ver === popenVer; }) || popenLatest(a);
-  const editable = ver.status === '저장' && ver === popenLatest(a);
-  const lines = ver.lines || [];
-  const rejected = lines.find(function (l) { return l.status === '반려'; });
-  const btns = '<button class="popen-btn" onclick="popenBackToList()">목록</button>'
-    + '<button class="popen-btn" onclick="popenGoDetail()">← 정보관리</button>'
-    + (ver.status === '승인요청' && ver === popenLatest(a) ? '<button class="popen-btn del" onclick="popenCancelDraft()">기안취소</button>' : '')
-    + (editable ? '<button class="popen-btn pri" onclick="popenRequest()">승인요청</button>' : '');
-  const lineRows = lines.map(function (l, i) {
-    const chg = editable && i > 0 ? ' <button class="popen-btn sm" onclick="popenPickOpen(\'member\',\'line' + i + '\')">🔍 변경</button>' : '';
-    return '<tr><td>' + l.type + '</td><td>' + l.unit + '</td><td class="l">' + l.name + chg + '</td>'
-      + '<td><span class="popen-stt ' + l.status + '">' + l.status + '</span></td><td>' + (l.date || '-') + '</td><td class="l">' + popenEsc(l.comment || '') + '</td></tr>';
+  const fld = function (k, v, req, search) {
+    return '<div class="pwx-cell"><div class="pwx-k">' + k + (req?'<span class="req">*</span>':'') + '</div>'
+      + (search
+        ? '<div class="pwx-vfield"><input value="' + String(v||'').replace(/"/g,'&quot;') + '"><button class="pwx-sbtn" onclick="popenWgStub(\'' + k + ' 검색\')">' + POPEN_WGX_SEARCH + '</button></div>'
+        : '<div class="pwx-v">' + (v||'-') + '</div>') + '</div>';
+  };
+  const info = [
+    fld('계약유형', p.contractType), fld('계약완료여부', p.contractDone), fld('고객사', p.customer),
+    fld('주 수행부서', p.mainDept, false, true), fld('영업부서', p.salesDept, false, true), fld('매출귀속부서', p.revDept, true, true),
+    fld('W/G리더', p.wgLeader+'('+p.wgLeaderCode+')', false, true), fld('수행PM', p.pm+'('+p.pmCode+')', true, true), fld('프로젝트착수일', p.start),
+    fld('프로젝트종료일', p.end), fld('등록일', p.regDate), fld('ERP 전송', p.erpSend),
+  ].join('');
+
+  const vers = p.versions.map(function (v,i) {
+    const vs = POPEN_WGV_STYLE[v.status] || {bg:'#eef2fb',color:'#1d4ed8'};
+    return '<span class="pwx-vchip"' + (i===0?'':' style="border-color:#e2e8f0;color:#64748b"') + '>' + v.v + ' &nbsp;' + v.date
+      + '<span class="vb" style="background:' + vs.bg + ';color:' + vs.color + '">' + v.status + '</span></span>';
   }).join('');
-  return '<div class="popen-wrap">' + popenWfHtml(2)
-    + '<div class="popen-card">'
-    + '<div class="popen-dtop"><span class="popen-dno">' + a.no + '</span><span class="popen-dname">' + a.name + '</span>'
-    + '<div class="popen-dbtns">' + btns + '</div></div>'
-    + '<div class="popen-grid">'
-    + popenField('영업부서', false, a.rodrOrg) + popenField('매출귀속부서', false, a.saleOrg) + popenField('W/G리더', false, a.ldr)
-    + popenField('수행PM', false, a.pm) + popenField('프로젝트시작일', false, a.start) + popenField('프로젝트종료일', false, a.end)
-    + '</div>'
-    + popenVerChips(a)
-    + '<div class="popen-sec">결재선 <span class="popen-rule">전결 규정: ' + popenRule(a, ver.ver) + '</span>'
-    + '<span class="popen-rule">서비스기획 ' + (a.svc ? 'Y' : 'N') + '</span></div>'
-    + '<table class="popen-lines"><thead><tr><th style="width:60px">구분</th><th style="width:150px">결재 단위</th><th>결재자</th><th style="width:80px">상태</th><th style="width:130px">처리일시</th><th>의견</th></tr></thead><tbody>' + lineRows + '</tbody></table>'
-    + (rejected ? '<div class="popen-reject"><b>반려</b> ' + rejected.name + ' — ' + popenEsc(rejected.comment || '') + '</div>' : '')
-    + '<div class="popen-sec">메모</div>'
-    + (editable
-      ? '<textarea class="popen-memo" placeholder="비용총액 신규등록 및 변경 사유 (해당 고객사 및 서비스 명시)" oninput="popenMemo=this.value">' + popenEsc(popenMemo) + '</textarea>'
-      : '<div class="popen-memo" style="min-height:0;background:#f8fafc">' + popenEsc((lines[0] && lines[0].comment) || '-') + '</div>')
-    + popenCostHtml(a, ver, false)
-    + '</div></div>';
+
+  return '<div class="pwx-head"><div class="pwx-code">' + p.code + '</div>'
+    + '<div class="pwx-name-wrap"><input class="pwx-name" value="' + p.name.replace(/"/g,'&quot;') + '"><span class="pwx-badge">W/G</span></div>'
+    + '<div class="pwx-hbtns">' + btns + '</div></div>'
+    + '<div class="pwx-info">' + info + '</div>'
+    + '<div class="pwx-vers">' + vers + '</div>'
+    + '<div class="pwx-total">총 비용 <b>' + fmt(pwTotal(p)) + '</b> 원</div>'
+    + '<div class="pwx-sec">W/G 비용정보</div>' + popenWgCostTable(id,p)
+    + '<div class="pwx-sec">W/G 손익정보</div>' + popenWgPnlTable(id,p);
 }
 
-// ── 신규 등록 (엑셀 템플릿과 같은 항목, 1건) ──
-function popenNewHtml() {
-  const f = popenNewForm;
-  function inp(k, req, key, kind) {
-    let v;
-    if (kind === 'member' || kind === 'org') v = '<input readonly value="' + popenEsc(f[key]) + '" onclick="popenPickOpen(\'' + kind + '\',\'new.' + key + '\')"><button class="popen-btn sm" onclick="popenPickOpen(\'' + kind + '\',\'new.' + key + '\')">🔍</button>';
-    else if (kind === 'yn') v = '<select onchange="popenNewForm.' + key + '=this.value;renderProjectOpen()"><option' + (f[key] === 'Y' ? ' selected' : '') + '>Y</option><option' + (f[key] === 'N' ? ' selected' : '') + '>N</option></select>';
-    else if (kind === 'type') v = '<select onchange="popenNewForm.type=this.value;renderProjectOpen()"><option' + (f.type === 'W/G' ? ' selected' : '') + '>W/G</option><option' + (f.type === '사내' ? ' selected' : '') + '>사내</option></select>';
-    else v = '<input' + (kind === 'date' ? ' type="date"' : '') + ' value="' + popenEsc(f[key]) + '" placeholder="' + (key === 'no' ? '예: 70007620-D001' : '') + '" oninput="popenNewForm.' + key + '=this.value">';
-    return '<div class="popen-cell"><div class="k">' + k + (req ? ' <em>*</em>' : '') + '</div><div class="v">' + v + '</div></div>';
+function popenWgCostTable(id, p) {
+  const accts = Object.keys(p.costs);
+  const rowHtml = accts.map(function (a) {
+    const c = p.costs[a];
+    const diffMm = (typeof c.afterB.mm==='number' && typeof c.prevA.mm==='number') ? (c.afterB.mm-c.prevA.mm) : '-';
+    const diffAmt = pwNum(c.afterB.amt) - pwNum(c.prevA.amt);
+    const mmEd = (c.afterB.mm!=='-');
+    return '<tr><td class="lab">' + a + '</td>'
+      + '<td>' + pwMm(c.base.mm) + '</td><td>' + pwAmt(c.base.amt) + '</td>'
+      + '<td>' + pwMm(c.prevA.mm) + '</td><td>' + pwAmt(c.prevA.amt) + '</td>'
+      + '<td class="grp-b">' + (mmEd ? '<input class="pwx-cin mm" value="' + c.afterB.mm + '" onchange="popenWgCostEdit(\'' + id + '\',\'' + a + '\',\'mm\',this.value)">' : '<span class="muted">-</span>') + '</td>'
+      + '<td class="grp-b"><input class="pwx-cin" value="' + pwNum(c.afterB.amt) + '" onchange="popenWgCostEdit(\'' + id + '\',\'' + a + '\',\'amt\',this.value)"></td>'
+      + '<td class="diff">' + (diffMm==='-'?'<span class="muted">-</span>':diffMm) + '</td>'
+      + '<td class="diff">' + fmt(diffAmt) + '</td></tr>';
+  }).join('');
+  const sum = function (k) { return accts.reduce(function (s,a) { return s+pwNum(p.costs[a][k].amt); },0); };
+  const sumMm = function (k) { return accts.reduce(function (s,a) { return s+(typeof p.costs[a][k].mm==='number'?p.costs[a][k].mm:0); },0); };
+  const tB=sum('base'),tP=sum('prevA'),tA=sum('afterB'), tBm=sumMm('base'),tPm=sumMm('prevA'),tAm=sumMm('afterB');
+  return '<div class="pwx-tblwrap"><table class="pwx-tbl">'
+    + '<thead><tr><th rowspan="2" class="lab">구분</th><th colspan="2">최초</th><th colspan="2">변경 전(A)</th><th colspan="2" class="grp-b">변경 후(B)</th><th colspan="2">증감(B-A)</th></tr>'
+    + '<tr><th>M/M</th><th>금액</th><th>M/M</th><th>금액</th><th class="grp-b">M/M</th><th class="grp-b">금액</th><th>M/M</th><th>금액</th></tr></thead>'
+    + '<tbody>' + rowHtml
+    + '<tr class="total"><td class="lab">합계</td><td>' + (tBm||'-') + '</td><td>' + fmt(tB) + '</td><td>' + (tPm||'-') + '</td><td>' + fmt(tP) + '</td>'
+    + '<td class="grp-b">' + (tAm||'-') + '</td><td class="grp-b">' + fmt(tA) + '</td><td>' + ((tAm-tPm)||'-') + '</td><td>' + fmt(tA-tP) + '</td></tr>'
+    + '</tbody></table></div>';
+}
+
+function popenWgPnlTable(id, p) {
+  const rev=p.pnl.매출액, cogs=p.pnl.매출원가;
+  const pct = function (r,c) { return r>0 ? ((r-c)/r*100) : 0; };
+  const mrow = function (label, v, key) {
+    return '<tr><td class="lab">' + label + '</td><td>' + pwAmt(v.base) + '</td><td>' + pwAmt(v.prevA) + '</td>'
+      + '<td class="grp-b"><input class="pwx-cin" value="' + pwNum(v.afterB) + '" onchange="popenWgPnlEdit(\'' + id + '\',\'' + key + '\',this.value)"></td>'
+      + '<td class="diff">' + fmt(pwNum(v.afterB)-pwNum(v.prevA)) + '</td></tr>';
+  };
+  return '<div class="pwx-tblwrap"><table class="pwx-tbl" style="min-width:560px">'
+    + '<thead><tr><th class="lab">구분</th><th>최초</th><th>변경 전(A)</th><th class="grp-b">변경 후(B)</th><th>증감(B-A)</th></tr></thead>'
+    + '<tbody>' + mrow('매출액',rev,'매출액') + mrow('매출원가',cogs,'매출원가')
+    + '<tr class="total"><td class="lab">매출마진</td><td>' + pct(rev.base,cogs.base).toFixed(1) + '%</td><td>' + pct(rev.prevA,cogs.prevA).toFixed(1) + '%</td>'
+    + '<td class="grp-b">' + pct(rev.afterB,cogs.afterB).toFixed(1) + '%</td><td class="diff">' + (pct(rev.afterB,cogs.afterB)-pct(rev.prevA,cogs.prevA)).toFixed(1) + '%p</td></tr>'
+    + '</tbody></table></div>';
+}
+
+function popenWgApprovalTab(id, p) {
+  // [합침] 승인요청(메모 필수) · 기안취소(승인요청 상태일 때만) 실제 동작
+  const st = (p.versions[0] || {}).status;
+  const btns = p.submitted
+    ? '<button class="pwx-btn" onclick="popenBackToList()">목록</button><button class="pwx-btn" onclick="popenWgTab(\'info\')">← 정보관리</button>'
+      + (st === '승인요청' ? '<button class="pwx-btn" onclick="popenWgCancel(\'' + id + '\')">기안취소</button>' : '')
+    : '<button class="pwx-btn" onclick="popenBackToList()">목록</button><button class="pwx-btn" onclick="popenWgTab(\'info\')">← 정보관리</button><button class="pwx-btn pri" onclick="popenWgRequest(\'' + id + '\')">승인요청</button>';
+
+  const mini = '<div class="pwx-info">'
+    + '<div class="pwx-cell"><div class="pwx-k">영업부서</div><div class="pwx-v">' + p.salesDept + '</div></div>'
+    + '<div class="pwx-cell"><div class="pwx-k">매출귀속부서</div><div class="pwx-v">' + p.revDept + '</div></div>'
+    + '<div class="pwx-cell"><div class="pwx-k">W/G리더</div><div class="pwx-v">' + p.wgLeader + '(' + p.wgLeaderCode + ')</div></div>'
+    + '<div class="pwx-cell"><div class="pwx-k">수행PM</div><div class="pwx-v">' + p.pm + '(' + p.pmCode + ')</div></div>'
+    + '<div class="pwx-cell"><div class="pwx-k">프로젝트시작일</div><div class="pwx-v">' + p.start + '</div></div>'
+    + '<div class="pwx-cell"><div class="pwx-k">프로젝트종료일</div><div class="pwx-v">' + p.end + '</div></div></div>';
+
+  const vers = p.versions.map(function (v) {
+    const vs = POPEN_WGV_STYLE[v.status] || {bg:'#eef2fb',color:'#1d4ed8'};
+    return '<span class="pwx-vchip">' + v.v + ' &nbsp;' + v.date + '<span class="vb" style="background:' + vs.bg + ';color:' + vs.color + '">' + v.status + '</span></span>';
+  }).join('');
+
+  const blocks = p.lines.map(popenWgApvLine).join('');
+
+  return '<div class="pwx-head"><div class="pwx-code">' + p.code + '</div>'
+    + '<div class="pwx-name-wrap"><div class="pwx-name" style="border:none;padding-left:0">' + p.name + '</div><span class="pwx-badge">W/G</span></div>'
+    + '<div class="pwx-hbtns">' + btns + '</div></div>'
+    + mini + '<div class="pwx-vers">' + vers + '</div>' + blocks
+    + '<div class="pwx-memo"><div class="pwx-sec">메모</div><textarea placeholder="비용출예 신규등록 및 변경 사유 (해당 고객사 및 서비스 명시)"' + (p.submitted ? ' readonly' : '') + ' oninput="POPEN_WGX[\'' + id + '\'].memo=this.value">' + (p.memo||'') + '</textarea></div>';
+}
+
+function popenWgApvLine(line) {
+  const rows = line.rows.map(function (r) {
+    const s = POPEN_APV_STYLE[r.status] || POPEN_APV_STYLE['대기'];
+    const chg = (!r.fixed && r.status==='대기') ? '<button class="pwx-chg" onclick="popenWgStub(\'결재자 변경\')">' + POPEN_WGX_SEARCH + ' 변경</button>' : '';
+    return '<tr><td>' + r.role + '</td><td>' + r.unit + '</td><td>' + r.approver + chg + '</td>'
+      + '<td><span class="pwx-stbadge" style="background:' + s.bg + ';color:' + s.color + '">' + r.status + '</span></td>'
+      + '<td>' + (r.date||'-') + '</td><td style="color:#475569">' + (r.opinion||'-') + '</td></tr>';
+  }).join('');
+  const reject = line.reject ? '<div class="pwx-reject"><b>반려</b> ' + line.reject.by + ' — ' + line.reject.text + '</div>' : '';
+  return '<div class="pwx-apvblock"><div class="pwx-apv-head"><span class="pwx-apv-label">결재선</span>'
+    + '<span class="pwx-chip">전결 규정: ' + line.rule + '</span><span class="pwx-chip">서비스기획 ' + line.service + '</span></div>'
+    + '<div class="pwx-tblwrap" style="margin-bottom:0;border:none"><table class="pwx-apv">'
+    + '<thead><tr><th>구분</th><th>결재 단위</th><th>결재자</th><th>상태</th><th>처리일시</th><th>의견</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody></table></div>' + reject + '</div>';
+}
+
+function popenWgTab(t) { popenTab = t; renderProjectOpen(); }
+function popenWgCostEdit(id, acct, field, val) {
+  const p = POPEN_WGX[id]; if (!p) return;
+  p.costs[acct].afterB[field] = Number(String(val).replace(/,/g,'')) || 0;
+  renderProjectOpen();
+}
+function popenWgPnlEdit(id, key, val) {
+  const p = POPEN_WGX[id]; if (!p) return;
+  p.pnl[key].afterB = Number(String(val).replace(/,/g,'')) || 0;
+  renderProjectOpen();
+}
+function popenWgStub(label) { if (typeof showToast === 'function') showToast(label + ' (목업)'); }
+
+// ── [합침 · 남주 버전] 정보관리 / 비용승인 버튼 실제 동작 ──
+function popenNow() { const d = new Date(), z = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()); }
+function popenWgSync(id) {                       // 목록 상태(POPEN_APPS)를 W/G 상세 버전 상태에 맞춤
+  const p = POPEN_WGX[id], a = POPEN_APPS[id];
+  if (!p || !a) return;
+  a.name = p.name;
+  const st = (p.versions[0] || {}).status;
+  if (a.regStatus !== '등록완료') a.approvalStatus = st === '승인요청' ? '개설 승인 대기' : st === '승인완료' ? '개설 승인 완료' : st === '반려' ? '반려' : '개설 신청';
+}
+// 저장 — 작성 중(저장 상태) 프로젝트명 · 비용을 그대로 저장
+function popenWgSave(id) {
+  const p = POPEN_WGX[id]; if (!p) return;
+  const nm = document.querySelector('#s-project-open .pwx-name');
+  if (nm && 'value' in nm) {
+    if (!String(nm.value).trim()) { popenToast('프로젝트명은 필수입니다.'); return; }
+    p.name = nm.value.trim();
   }
-  const inco = f.type === '사내' ? popenIncoType(f.incoType) : null;
-  const incoSel = '<div class="popen-cell"><div class="k">사내 세부 유형 <em>*</em></div><div class="v"><select onchange="popenNewForm.incoType=this.value;renderProjectOpen()">'
-    + POPEN_INCO_TYPES.map(function (t) { return '<option value="' + t.code + '"' + (t.code === f.incoType ? ' selected' : '') + '>' + t.code + ' ' + t.name + '</option>'; }).join('')
-    + '</select></div></div>';
-  const head = '<div class="popen-wrap">'
-    + '<div class="popen-card">'
-    + '<div class="popen-dtop"><span class="popen-dname">W/G / 사내 프로젝트 신규 등록</span>'
-    + '<div class="popen-dbtns"><button class="popen-btn" onclick="popenBackToList()">취소</button>'
-    + '<button class="popen-btn pri" onclick="popenNewSubmit()">등록</button>'
-    + '</div></div>';
-  return head
-    + '<div class="popen-sub" style="margin-top:4px">엑셀 템플릿과 같은 항목을 한 건씩 입력합니다. 등록하면 상태 "저장"으로 만들어지고, 정보관리에서 결재선생성 → 승인요청을 합니다.</div>'
-    + '<div class="popen-form">'
-    + inp('유형', true, 'type', 'type') + (inco ? incoSel : inp('서비스기획여부', true, 'svc', 'yn'))
-    + (inco ? inp('서비스기획여부', true, 'svc', 'yn') + '<div class="popen-cell"></div>' : '')
-    + inp('프로젝트번호', true, 'no') + inp('프로젝트명', true, 'name')
-    + inp('수행PM', true, 'pm', 'member') + inp('매출귀속부서', true, 'saleOrg', 'org')
-    + inp('PJT 시작일', true, 'start', 'date') + inp('PJT 종료일', true, 'end', 'date')
-    + inp('영업부서', false, 'rodrOrg', 'org') + '<div class="popen-cell"></div>'
-    + (f.svc === 'Y' ? inp('Account담당자', false, 'acct', 'member') + inp('Account팀장', false, 'acctLdr', 'member') : '')
-    + inp('인건비 투입MM', false, 'lbrMM') + inp('인건비', false, 'lbr')
-    + inp('외주비 투입MM', false, 'otsMM') + inp('외주비', false, 'ots')
-    + inp('재료비', false, 'mat') + inp('경비', false, 'exp')
-    + inp('예산금액', true, 'bgt') + '<div class="popen-cell"></div>'
-    + '</div></div></div>';
+  popenWgSync(id);
+  popenToast('저장했습니다.'); renderProjectOpen();
+}
+// 삭제 — 최신 비용 버전을 지움(현행). 버전이 1개면 이 개설 신청을 삭제
+function popenWgDelete(id) {
+  const p = POPEN_WGX[id]; if (!p) return;
+  if (p.versions.length > 1) {
+    p.versions.shift();
+    p.submitted = ['승인요청', '승인완료'].indexOf(p.versions[0].status) >= 0;
+    popenWgSync(id); popenToast('최신 비용 버전을 삭제했습니다.'); renderProjectOpen(); return;
+  }
+  popenConfirm = { msg: '이 개설 신청을 삭제하시겠습니까?', ok: function () {
+    delete POPEN_WGX[id]; delete POPEN_APPS[id];
+    popenView = 'list'; popenToast('삭제 되었습니다.');
+  } };
+  renderProjectOpen();
+}
+// 비용변경 — 새 비용 버전(저장 상태)을 만들고, 변경 전(A) = 지금 금액으로 둠
+function popenWgCostChange(id) {
+  const p = POPEN_WGX[id]; if (!p) return;
+  const n = p.versions.length + 1;
+  p.versions.unshift({ v: 'V' + n + '.0', date: popenNow().slice(0, 10), status: '저장' });
+  Object.keys(p.costs).forEach(function (k) { const c = p.costs[k]; c.prevA = Object.assign({}, c.afterB); c.afterB = Object.assign({}, c.afterB); });
+  Object.keys(p.pnl).forEach(function (k) { p.pnl[k].prevA = p.pnl[k].afterB; });
+  const tpl = p.lines[0];
+  p.lines.unshift({ rule: tpl.rule, service: tpl.service, rows: tpl.rows.map(function (r) { return { role: r.role, unit: r.unit, approver: r.approver, status: '대기', date: '', opinion: '', fixed: r.fixed }; }) });
+  p.submitted = false; p.memo = '';
+  popenWgSync(id);
+  popenToast('비용 버전 V' + n + '.0(저장)을 만들었습니다. 변경 후(B) 금액을 고친 뒤 결재선생성 → 승인요청하세요.'); renderProjectOpen();
+}
+// 승인요청 — 메모(변경 사유) 필수
+function popenWgRequest(id) {
+  const p = POPEN_WGX[id]; if (!p) return;
+  if (!String(p.memo || '').trim()) { popenToast('비용총액 신규등록 및 변경 사유를 메모에 입력바랍니다. (해당 고객사 및 서비스 명시 필수)'); return; }
+  p.versions[0].status = '승인요청'; p.submitted = true;
+  const r0 = p.lines[0].rows[0]; r0.status = '기안'; r0.date = popenNow(); r0.opinion = p.memo;
+  popenWgSync(id);
+  popenToast('승인요청했습니다.'); renderProjectOpen();
+}
+// 기안취소 — 승인요청 상태에서만. 다시 결재선생성 → 승인요청 가능
+function popenWgCancel(id) {
+  popenConfirm = { msg: '기안을 취소하시겠습니까?', ok: function () {
+    const p = POPEN_WGX[id]; if (!p) return;
+    p.versions[0].status = '기안취소'; p.submitted = false;
+    p.lines[0].rows.forEach(function (r) { r.status = '대기'; r.date = ''; });
+    popenWgSync(id);
+    popenToast('기안을 취소했습니다.');
+  } };
+  renderProjectOpen();
 }
 
-// ── 팝업 (확인 · 오류 · 검색) ──
+// ── [합침 · 남주 버전] 목록 — 엑셀 업로드 · 선택등록 · 선택삭제 · 확인창 ──
+function popenToast(m) { if (typeof showToast === 'function') showToast(m); }
+function popenEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+function popenCheck(id, v) { popenChecked[id] = v; }
+function popenShowErr(i) { popenErrPopup = i; renderProjectOpen(); }
+function popenConfirmOk() { const f = popenConfirm.ok; popenConfirm = null; if (f) f(); renderProjectOpen(); }
 function popenModalHtml() {
   if (popenConfirm) {
     return '<div class="popen-mask"><div class="popen-modal"><div class="popen-mbody" style="text-align:center;font-weight:800;padding:24px 20px">' + popenConfirm.msg + '</div>'
       + '<div class="popen-mfoot">' + (popenConfirm.ok ? '<button class="popen-btn pri" onclick="popenConfirmOk()">확인</button><button class="popen-btn" onclick="popenConfirm=null;renderProjectOpen()">취소</button>'
         : '<button class="popen-btn pri" onclick="popenConfirm=null;renderProjectOpen()">확인</button>') + '</div></div></div>';
   }
-  if (popenErrPopup !== null) {
+  if (popenErrPopup !== null && popenUploaded[popenErrPopup]) {
     const r = popenUploaded[popenErrPopup];
     return '<div class="popen-mask"><div class="popen-modal" style="width:560px"><div class="popen-mhead">업로드 오류 메시지<button onclick="popenErrPopup=null;renderProjectOpen()">✕</button></div>'
       + '<div class="popen-mbody"><ul>' + r.errors.map(function (e) { return '<li>' + e + '</li>'; }).join('') + '</ul></div>'
       + '<div class="popen-mfoot"><button class="popen-btn" onclick="popenErrPopup=null;renderProjectOpen()">닫기</button></div></div></div>';
   }
-  if (popenPick) {
-    const list = popenPick.kind === 'org' ? POPEN_ORGS : POPEN_MEMBERS;
-    return '<div class="popen-mask" onclick="if(event.target===this){popenPick=null;renderProjectOpen()}"><div class="popen-modal" style="width:380px"><div class="popen-mhead">' + (popenPick.kind === 'org' ? '조직 검색' : '사원 검색') + '<button onclick="popenPick=null;renderProjectOpen()">✕</button></div>'
-      + '<div class="popen-mbody" style="max-height:320px;overflow:auto;padding:8px 12px">' + list.map(function (x) { return '<button class="popen-pick" onclick="popenPickSet(\'' + x + '\')">' + x + '</button>'; }).join('') + '</div></div></div>';
-  }
   return '';
 }
-
-// ── 이벤트 ──
-function popenDoSearch() { popenFilter = Object.assign({}, popenFilterDraft); renderProjectOpen(); }
-function popenResetFilter() { popenFilterDraft = { no:'', nm:'', pm:'', date:'', type:'', sts:'' }; popenFilter = Object.assign({}, popenFilterDraft); renderProjectOpen(); }
-function popenCheck(id, v) { popenChecked[id] = v; }
-function popenShowErr(i) { popenErrPopup = i; renderProjectOpen(); }
-function popenPickOpen(kind, target) { popenPick = { kind: kind, target: target }; renderProjectOpen(); }
-function popenPickSet(v) {
-  const t = popenPick.target; popenPick = null;
-  if (t === 'filterPm') popenFilterDraft.pm = v;
-  else if (t.indexOf('line') === 0) { const a = POPEN_APPS[popenSelectedId]; popenLatest(a).lines[+t.substring(4)].name = v; }
-  else if (t.indexOf('new.') === 0) popenNewForm[t.substring(4)] = v;
-  else if (popenDraft) popenDraft[t] = v;
-  renderProjectOpen();
-}
-function popenConfirmOk() { const f = popenConfirm.ok; popenConfirm = null; f(); renderProjectOpen(); }
-
 // 엑셀 업로드 (목업: 정상 1행 + 오류 1행이 올라온 것으로 표시)
 function popenUpload() {
   popenUploaded = [
-    { no:'70007620-D001', name:'2026년_클라우드 운영 자동화 W/G', pm:'류준서', pmNo:'21043', acct:'장재호', bgt:186000000, start:'2026-12-01', end:'2027-11-30', errors:[] },
-    { no:'7000762-D01', name:'2026년_보안관제 자동화 W/G', pm:'이수연', pmNo:'', acct:'', bgt:0, start:'2027-03-01', end:'2026-12-31',
+    { no:'70007620-D001', name:'2026년_클라우드 운영 자동화 W/G', pm:'류준서', pmNo:'21043', dept:'Cloud사업부', bgt:186000000, start:'2026-12-01', end:'2027-11-30', errors:[] },
+    { no:'7000762-D01', name:'2026년_보안관제 자동화 W/G', pm:'이수연', pmNo:'', dept:'', bgt:0, start:'2027-03-01', end:'2026-12-31',
       errors:['프로젝트번호 형식을 확인해 주세요.', '수행PM사번을 입력해 주세요.', 'PJT 시작일/종료일을 확인해 주세요', '예산금액을 입력해 주세요.'] },
   ];
-  popenChecked['U0'] = true;
+  popenChecked = { U0: true };
   renderProjectOpen();
   const errCnt = popenUploaded.filter(function (r) { return r.errors.length; }).length;
   popenToast('엑셀 ' + popenUploaded.length + '행을 읽었습니다 (정상 ' + (popenUploaded.length - errCnt) + ' / 오류 ' + errCnt + '). [선택등록]을 눌러야 등록됩니다.');
 }
+// 선택등록 — 정상 행만 개설 신청(W/G 상세 포함)으로 만들고, 이번에 올린 행은 모두 목록에서 정리(오류 행도 남기지 않음)
 function popenRegChecked() {
   const idx = popenUploaded.map(function (r, i) { return i; }).filter(function (i) { return popenChecked['U' + i] && !popenUploaded[i].errors.length; });
   if (!idx.length) {
-    // 오류 행만 체크했으면 안내 (체크한 행이 아예 없으면 현행처럼 아무것도 하지 않음)
     const errOnly = popenUploaded.some(function (r, i) { return popenChecked['U' + i] && r.errors.length; });
-    if (errOnly) { popenConfirm = { msg: '오류가 있는 행은 등록할 수 없습니다.<br>엑셀을 고쳐 다시 올리거나 [선택삭제]하세요.' }; renderProjectOpen(); }
-    return;
+    popenConfirm = { msg: errOnly ? '오류가 있는 행은 등록할 수 없습니다.<br>엑셀을 고쳐 다시 올리거나 [선택삭제]하세요.' : '등록할 엑셀 업로드 행을 선택하세요.' };
+    renderProjectOpen(); return;
   }
   popenConfirm = { msg: "'" + idx.length + "'건의 WG프로젝트를 등록하시겠습니까?", ok: function () {
-    const dup = idx.some(function (i) { return Object.keys(POPEN_APPS).some(function (k) { return POPEN_APPS[k].no === popenUploaded[i].no; }); });
+    const dup = idx.some(function (i) { return Object.keys(POPEN_WGX).some(function (k) { return POPEN_WGX[k].code === popenUploaded[i].no; }); });
     if (dup) { popenConfirm = { msg: '중복된 프로젝트가 있습니다.<br>확인후 다시 등록 바랍니다.' }; return; }
-    idx.forEach(function (i) {
-      const r = popenUploaded[i], id = 'WG-N' + Date.now() + i;
-      POPEN_APPS[id] = { type:'W/G', no:r.no, name:r.name, svc:true, cnrcType:'TC', cnrcCmpl:true, cstco:'공통(9999999999)', mainOrg:'', rodrOrg:'', saleOrg:'Cloud사업부',
-        ldr:'', pm:r.pm + '(' + r.pmNo + ')', acct:r.acct ? r.acct + '(15025)' : '', acctLdr:'', start:r.start, end:r.end, regDate:'2026-11-04', erpReg:false,
-        versions:[ { ver:1, date:'2026-11-04', status:'저장', cost:popenCost(12, 120000000, 6, 54000000, 0, 12000000, 0, 0) } ], memo:'' };
-      POPEN_APPS[id].versions[0].lines = popenLines(true, POPEN_APPS[id].pm);
+    const today = popenNow();
+    idx.forEach(function (i, n) {
+      const r = popenUploaded[i], id = 'OPN-U' + Date.now() + n;
+      POPEN_APPS[id] = { type:'W/G', name:r.name, reqDept:r.dept || '-', requester:r.pm + '(' + r.pmNo + ')', requestDate:today,
+        period:r.start + ' ~ ' + r.end, overview:'엑셀 업로드로 등록한 W/G 개설 신청.', approvalStatus:'개설 신청', regStatus:'미등록',
+        projectNo:'(승인 완료 후 부여)', steps:[], rejectReason:'' };
+      POPEN_WGX[id] = { code:r.no, name:r.name, contractType:'TC', contractDone:'Yes', customer:'공통(9999999999)',
+        mainDept:r.dept || '-', salesDept:r.dept || '-', revDept:r.dept || '-', wgLeader:r.pm, wgLeaderCode:r.pmNo, pm:r.pm, pmCode:r.pmNo,
+        start:r.start, end:r.end, regDate:today.slice(0, 10), erpSend:'미전송', submitted:false,
+        versions:[{ v:'V1.0', date:today.slice(0, 10), status:'저장' }],
+        costs:{ 인건비:{base:{mm:0,amt:0},prevA:{mm:0,amt:0},afterB:{mm:0,amt:r.bgt}}, 외주비:{base:{mm:0,amt:0},prevA:{mm:0,amt:0},afterB:{mm:0,amt:0}},
+          재료비:{base:{mm:'-',amt:0},prevA:{mm:'-',amt:0},afterB:{mm:'-',amt:0}}, 경비:{base:{mm:'-',amt:0},prevA:{mm:'-',amt:0},afterB:{mm:'-',amt:0}} },
+        pnl:{ 매출액:{base:0,prevA:0,afterB:0}, 매출원가:{base:0,prevA:0,afterB:0} },
+        lines:[{ rule:'W/G 비용 30억 미만', service:'Y', rows:[
+          { role:'기안', unit:'수행PM', approver:r.pm + '(' + r.pmNo + ')', status:'대기', date:'', opinion:'', fixed:true },
+          { role:'협조', unit:'Account WG담당자', approver:'장재호(15025)', status:'대기', date:'', opinion:'' },
+          { role:'검토', unit:'팀장', approver:'신성호(13016)', status:'대기', date:'', opinion:'' },
+          { role:'승인', unit:'담당임원', approver:'권재준(60521)', status:'대기', date:'', opinion:'' } ] }],
+        memo:'' };
     });
-    // [2026.11.12] 선택등록이 끝나면 이번에 올린 엑셀 행은 모두 목록에서 정리합니다(오류 행도 남기지 않음).
-    //   오류 행은 등록되지 않았으니, 엑셀을 고쳐 다시 올리면 됩니다.
-    const left = popenUploaded.filter(function (r, i) { return idx.indexOf(i) < 0; }).length;
-    popenUploaded = [];
-    popenChecked = {};
+    const left = popenUploaded.length - idx.length;
+    popenUploaded = []; popenChecked = {};
     popenToast(idx.length + '건을 저장했습니다.' + (left ? ' 등록하지 않은 ' + left + '행(오류 포함)은 목록에서 뺐습니다 — 엑셀을 고쳐 다시 올려 주세요.' : ''));
   } };
   renderProjectOpen();
 }
+// 선택삭제 — 엑셀로 올린(아직 등록 전) 행만
 function popenDelChecked() {
   const keys = Object.keys(popenChecked).filter(function (k) { return popenChecked[k]; });
   if (!keys.length) { popenConfirm = { msg: '삭제할 W/G을 선택하세요.' }; renderProjectOpen(); return; }
-  if (keys.some(function (k) { return k.charAt(0) !== 'U'; })) { popenConfirm = { msg: '새로 엑셀 업로드된 프로젝트만 선택삭제 가능합니다.' }; renderProjectOpen(); return; }
+  if (keys.some(function (k) { return k.charAt(0) !== 'U'; })) { popenConfirm = { msg: '새로 엑셀 업로드된 프로젝트만 선택삭제 가능합니다.<br>등록된 신청은 상세에서 삭제하세요.' }; renderProjectOpen(); return; }
   popenUploaded = popenUploaded.filter(function (r, i) { return !popenChecked['U' + i]; });
   popenChecked = {};
   renderProjectOpen();
 }
 
+function popenDetailHtml() {
+  const a = POPEN_APPS[popenSelectedId];
+  if (!a) { popenView = 'list'; return ''; }
+  // W/G 유형이면서 상세 데이터가 있으면 정보관리/비용승인 2탭으로 표시
+  if (a.type === 'W/G' && POPEN_WGX[popenSelectedId]) return popenWgDetailHtml(popenSelectedId);
+  const disp = popenDisplayStatus(a);
+  const ss = POPEN_STATUS_STYLE[disp] || POPEN_STATUS_STYLE['개설 신청'];
+  const tc = POPEN_TYPE_COLOR[a.type] || '#64748b';
+  const steps = a.steps.map(function (s) {
+    return '<div class="popen-step"><span class="r">' + s.role + '</span>'
+      + '<span>' + s.part + ' · ' + s.name + '</span>'
+      + '<span class="d">' + (s.date || '—') + '</span>'
+      + '<span class="popen-stt ' + s.status + '">' + s.status + '</span></div>';
+  }).join('');
+  const reject = a.approvalStatus === '반려'
+    ? '<div class="popen-reject"><b>반려 사유</b><br>' + (a.rejectReason || '(사유 미기재)') + '</div>' : '';
+  const reApplyBtn = a.approvalStatus === '반려'
+    ? '<button class="popen-btn warn" onclick="popenReapply(\'' + a.id + '\')">반려 건 재신청</button>' : '';
+  const reg = a.regStatus === '등록완료'
+    ? '<span class="popen-regbadge done">등록완료 · ' + a.projectNo + '</span>'
+    : '<span class="popen-regbadge">미등록 (' + a.projectNo + ')</span>';
+
+  return '<div class="popen-wrap">'
+    + '<button class="popen-btn" onclick="popenBackToList()">← 목록</button>'
+    + '<div class="popen-card">'
+    + '<div class="popen-dtop"><div><span class="popen-tbadge" style="background:' + tc + '22;color:' + tc + '">' + a.type + '</span> '
+    + '<span class="popen-dname">' + a.name + '</span></div>'
+    + '<span class="popen-sbadge" style="background:' + ss.bg + ';color:' + ss.color + ';font-size:12.5px;padding:5px 14px">' + disp + '</span></div>'
+    + '<dl class="popen-dmeta">'
+    + '<dt>신청부서</dt><dd>' + a.reqDept + '</dd>'
+    + '<dt>신청자</dt><dd>' + a.requester + '</dd>'
+    + '<dt>신청일시</dt><dd>' + a.requestDate + '</dd>'
+    + '<dt>수행기간</dt><dd>' + a.period + '</dd>'
+    + '<dt>승인 상태</dt><dd>' + a.approvalStatus + '</dd>'
+    + '<dt>등록 상태</dt><dd>' + reg + '</dd>'
+    + '<dt>개요</dt><dd>' + a.overview + '</dd>'
+    + '</dl>'
+    + reject
+    + '<div class="popen-sec">기안·승인 진행</div>'
+    + '<div class="popen-steps">' + steps + '</div>'
+    + '<div class="popen-policy">※ 승인 권한·결재 단계 구성, 프로젝트 번호 생성 시점은 <b>정책 확정 전 임시 구성</b>입니다. '
+    + '현재는 개설 승인 완료 후 등록 처리 시점에 프로젝트 번호를 부여하는 흐름으로 가정합니다(추후 변경 가능).</div>'
+    + '<div style="display:flex;gap:8px;margin-top:16px">' + reApplyBtn + '</div>'
+    + '</div></div>';
+}
+
+function popenNewHtml() {
+  const req = ' <span style="color:#94a3b8">*</span>';
+  const EMPTY = '<div></div><div></div>';
+  const typeSel = '<select id="popen-f-type" onchange="popenNewType=this.value;renderProjectOpen()"><option' + (popenNewType==='W/G'?' selected':'') + '>W/G</option><option' + (popenNewType==='사내'?' selected':'') + '>사내</option></select>';
+  const svcSel = '<select id="popen-f-service"><option>Y</option><option>N</option></select>';
+  const srch = function (id, kind) {
+    const opener = (kind === 'org') ? 'popenOpenOrgSearch' : 'popenOpenMemberSearch';
+    return '<div style="display:flex;gap:6px;align-items:center">'
+      + '<input type="text" id="' + id + '" style="flex:1;min-width:0">'
+      + '<button class="popen-btn" style="flex:0 0 auto;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;padding:0;color:#94a3b8" onclick="' + opener + '(\'' + id + '\')">' + POPEN_WGX_SEARCH + '</button></div>';
+  };
+  const txt = function (id, ph) { return '<input type="text" id="' + id + '"' + (ph?' placeholder="'+ph+'"':'') + '>'; };
+  const cell = function (label, field) { return '<label>' + label + '</label>' + field; };
+
+  // 유형(W/G·사내) 선택 — 사내면 세부유형 추가
+  const cells = [ cell('유형' + req, typeSel) ];
+  if (popenNewType === '사내') {
+    const subs = POPEN_SUBTYPES['사내'];
+    const subOpts = subs.map(function (s) { return '<option value="' + s[0] + '">' + s[1] + '</option>'; }).join('');
+    cells.push(cell('사내 세부 유형' + req, '<select id="popen-f-sub">' + subOpts + '</select>'));
+  }
+  // 상세 정보 입력
+  cells.push(cell('서비스기획여부' + req, svcSel));
+  cells.push(cell('프로젝트번호', '<input type="text" id="popen-f-code" value="' + popenNextWgNo() + '" readonly title="시스템 자동 생성" style="background:#f1f5f9;color:#64748b;cursor:not-allowed">'));
+  cells.push(cell('프로젝트명' + req, txt('popen-f-name', '프로젝트명 입력')));
+  cells.push(cell('수행PM' + req, srch('popen-f-pm', 'member')));
+  cells.push(cell('매출귀속부서' + req, srch('popen-f-revdept', 'org')));
+  cells.push(cell('PJT 시작일' + req, '<input type="date" id="popen-f-start">'));
+  cells.push(cell('PJT 종료일' + req, '<input type="date" id="popen-f-end">'));
+  cells.push(cell('영업부서', srch('popen-f-salesdept', 'org')));
+  cells.push(EMPTY);
+  cells.push(cell('Account담당자', srch('popen-f-accmgr', 'member')));
+  cells.push(cell('Account팀장', srch('popen-f-accteam', 'member')));
+  cells.push(cell('인건비 투입MM', txt('popen-f-laborMM', '0')));
+  cells.push(cell('인건비', txt('popen-f-labor', '0')));
+  cells.push(cell('외주비 투입MM', txt('popen-f-outMM', '0')));
+  cells.push(cell('외주비', txt('popen-f-out', '0')));
+  cells.push(cell('재료비', txt('popen-f-material', '0')));
+  cells.push(cell('경비', txt('popen-f-expense', '0')));
+  cells.push(cell('예산금액', txt('popen-f-budget', '0')));
+
+  const grid = '<div class="popen-form" style="grid-template-columns:116px 1fr 116px 1fr;gap:12px 18px;align-items:center;margin-top:2px">' + cells.join('') + '</div>';
+
+  return '<div class="popen-wrap">'
+    + '<div class="popen-head" style="display:flex;justify-content:space-between;align-items:flex-start;width:100%">'
+    + '<div><div class="popen-title">W/G / 사내 프로젝트 신규 등록</div>'
+    + '<div class="popen-sub">유형(W/G·사내)을 고르면 상세 정보를 입력합니다. 등록하면 상태 \'저장\'으로 만들어지고, 정보관리에서 결재선생성 → 승인요청을 합니다.</div></div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<button class="popen-btn" onclick="popenBackToList()">취소</button>'
+    + '<button class="popen-btn pri" onclick="popenRegisterNew()">등록</button>'
+    + '</div></div>'
+    + '<div class="popen-card">' + grid + '</div></div>';
+}
+
+// 프로젝트번호 — 시스템 자동 시퀀스(사용자 입력 아님)
+function popenNextWgNo() {
+  let max = 70007602;
+  try {
+    Object.keys(POPEN_WGX).forEach(function (k) { const m = /^(\d+)/.exec(POPEN_WGX[k].code || ''); if (m) max = Math.max(max, parseInt(m[1], 10)); });
+  } catch (e) {}
+  return (max + 1) + '-D001';
+}
+
+function popenRegisterNew() {
+  const name = (document.getElementById('popen-f-name') || {}).value || '';
+  if (!name.trim()) { if (typeof showToast === 'function') showToast('프로젝트명은 필수입니다.'); return; }
+  if (typeof showToast === 'function') showToast('신규 W/G/사내 프로젝트가 등록(상태 \'저장\')되었습니다. 정보관리에서 결재선생성 → 승인요청하세요. (목업)');
+  popenView = 'list'; renderProjectOpen();
+}
+
+// ── 등록 폼 돋보기 검색 팝업 (project-status.js의 PSV 데이터·모달 재사용) ──
+let popenSrchTarget = null;
+let popenMemKw = '', popenMemMode = 'name', popenMemPick = '', popenMemFiltered = [];
+let popenOrgKw = '', popenOrgPick = '', popenOrgExpanded = null;
+
+function popenPickField(name) { const el = document.getElementById(popenSrchTarget); if (el) el.value = name; psvCloseModal(); }
+
+// 구성원 검색 (수행PM / Account담당자 / Account팀장)
+function popenOpenMemberSearch(targetId) {
+  popenSrchTarget = targetId; popenMemKw = ''; popenMemMode = 'name'; popenMemPick = '';
+  psvShowModal('구성원 검색'); popenRenderMember();
+}
+function popenMemKwSet(v) { popenMemKw = v; }
+function popenMemModeSet(m) { popenMemMode = m; popenRenderMember(); }
+function popenMemClick(i) { const r = popenMemFiltered[i]; if (r) { popenMemPick = r.empno; popenRenderMember(); } }
+function popenMemConfirm(i) { const r = popenMemFiltered[i]; if (r) popenPickField(r.name); }
+function popenMemSelect() { const r = popenMemFiltered.find(function (m) { return m.empno === popenMemPick; }); if (!r) { if (typeof showToast === 'function') showToast('구성원을 선택하세요.'); return; } popenPickField(r.name); }
+function popenRenderMember() {
+  const kw = popenMemKw.trim().toLowerCase();
+  const field = popenMemMode === 'empno' ? 'empno' : 'name';
+  popenMemFiltered = PSV_MEMBERS.filter(function (m) { return !kw || String(m[field]).toLowerCase().includes(kw); });
+  const rows = popenMemFiltered.length ? popenMemFiltered.map(function (m, i) {
+    return '<tr class="' + (m.empno === popenMemPick ? 'sel' : '') + '" onclick="popenMemClick(' + i + ')" ondblclick="popenMemConfirm(' + i + ')"><td>' + m.name + '</td><td>' + m.empno + '</td><td>' + m.title + '</td><td>' + m.dept + '</td></tr>';
+  }).join('') : '<tr><td colspan="4" class="psv-md-empty">검색 결과가 없습니다.</td></tr>';
+  document.getElementById('psv-md-body').innerHTML =
+    '<div class="psv-md-tools"><div class="psv-md-radio">'
+    + '<label><input type="radio" name="popmm" ' + (popenMemMode==='name'?'checked':'') + ' onclick="popenMemModeSet(\'name\')">이름</label>'
+    + '<label><input type="radio" name="popmm" ' + (popenMemMode==='empno'?'checked':'') + ' onclick="popenMemModeSet(\'empno\')">사번</label>'
+    + '</div><div class="psv-md-srch"><input id="psv-md-search" type="text" placeholder="검색어 입력 후 Enter" value="' + psvEsc(popenMemKw) + '" oninput="popenMemKwSet(this.value)" onkeydown="if(event.key===\'Enter\')popenRenderMember()"><button onclick="popenRenderMember()">' + PSV_SEARCH_ICON + '</button></div></div>'
+    + '<table class="psv-mt"><thead><tr><th>이름</th><th>사번</th><th>직책</th><th>부서</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  document.getElementById('psv-md-foot').innerHTML = '<button class="popen-btn pri" onclick="popenMemSelect()">선택</button><button class="popen-btn" onclick="psvCloseModal()">취소</button>';
+}
+
+// 조직 검색 (매출귀속부서 / 영업부서)
+function popenOpenOrgSearch(targetId) {
+  popenSrchTarget = targetId; popenOrgKw = ''; popenOrgPick = '';
+  popenOrgExpanded = { 'SK주식회사 AX': true, 'AX 사장': true, 'CAIO': true };
+  psvShowModal('조직 검색'); popenRenderOrg();
+}
+function popenOrgKwSet(v) { popenOrgKw = v; }
+function popenOrgToggle(name) { popenOrgExpanded[name] = !popenOrgExpanded[name]; popenRenderOrg(); }
+function popenOrgClick(name) { popenOrgPick = name; popenRenderOrg(); }
+function popenOrgDbl(name) { popenPickField(name); }
+function popenOrgSelect() { if (!popenOrgPick) { if (typeof showToast === 'function') showToast('조직을 선택하세요.'); return; } popenPickField(popenOrgPick); }
+function popenOrgNodeHtml(node, depth, kw) {
+  if (!psvOrgMatch(node, kw)) return '';
+  const hasKids = node.children && node.children.length;
+  const expanded = kw ? true : !!popenOrgExpanded[node.name];
+  const safe = node.name.replace(/'/g, "\\'");
+  const tog = hasKids
+    ? '<span class="psv-ttog" onclick="event.stopPropagation();popenOrgToggle(\'' + safe + '\')">' + (expanded ? '−' : '+') + '</span>'
+    : '<span class="psv-tspace"></span>';
+  let html = '<div class="psv-tnode ' + (node.name === popenOrgPick ? 'sel' : '') + '" style="padding-left:' + (depth*16+4) + 'px" onclick="popenOrgClick(\'' + safe + '\')" ondblclick="popenOrgDbl(\'' + safe + '\')">' + tog + '<span>' + node.name + '</span></div>';
+  if (hasKids && expanded) html += node.children.map(function (c) { return popenOrgNodeHtml(c, depth+1, kw); }).join('');
+  return html;
+}
+function popenRenderOrg() {
+  const kw = popenOrgKw.trim().toLowerCase();
+  const tree = popenOrgNodeHtml(PSV_ORG_TREE, 0, kw) || '<div class="psv-md-empty">검색 결과가 없습니다.</div>';
+  document.getElementById('psv-md-body').innerHTML =
+    '<div class="psv-md-tools"><div class="psv-md-srch"><input id="psv-md-search" type="text" placeholder="조직명 검색 후 Enter" value="' + psvEsc(popenOrgKw) + '" oninput="popenOrgKwSet(this.value)" onkeydown="if(event.key===\'Enter\')popenRenderOrg()"><button onclick="popenRenderOrg()">' + PSV_SEARCH_ICON + '</button></div></div>'
+    + '<div class="psv-tree">' + tree + '</div>';
+  document.getElementById('psv-md-foot').innerHTML = '<button class="popen-btn pri" onclick="popenOrgSelect()">선택</button><button class="popen-btn" onclick="psvCloseModal()">취소</button>';
+}
+
+// ── 이벤트 핸들러 ──
+function popenOnSearch(v) { popenSearch = v; renderProjectOpen(); }
+function popenOnStatus(v) { popenStatusFilter = v; renderProjectOpen(); }
+function popenOnType(v)   { popenTypeFilter = v; renderProjectOpen(); }
+function popenResetFilter() { popenSearch = ''; popenStatusFilter = ''; popenTypeFilter = ''; renderProjectOpen(); }
 function popenOpenDetail(id) {
   const desc = { kind: 'popenDetail', id: id };
+  // 프로젝트는 새 탭으로(이미 열린 프로젝트면 그 탭 포커스)
   if (typeof window.tabOpenProjectHint === 'function') window.tabOpenProjectHint(desc);
   if (typeof setScreen === 'function') setScreen('s-project-open');
-  popenSelectedId = id;
-  const a = POPEN_APPS[id];
-  popenVer = popenLatest(a).ver;
-  popenStartDraft();
-  // 현행: 저장 상태면 정보관리, 그 밖이면 워크플로 진행 단계(비용승인) 화면
-  popenView = popenStatus(a) === '저장' ? 'detail' : 'appr';
-  renderProjectOpen();
-  try { if (typeof window.tabTagProject === 'function') window.tabTagProject(a.no, a.name || '', desc); } catch (e) {}
+  popenSelectedId = id; popenView = 'detail'; popenTab = 'info'; renderProjectOpen();
+  // 탭에 "프로젝트번호 + 명칭" 태깅 (등록 전이면 번호 자리에 신청유형 표시)
+  try {
+    const a = POPEN_APPS[id];
+    if (a && typeof window.tabTagProject === 'function') {
+      const no = (a.regStatus === '등록완료' && a.projectNo) ? a.projectNo : ('개설·' + a.type);
+      window.tabTagProject(no, a.name || '', desc);
+    }
+  } catch (e) {}
 }
-function popenStartDraft() {
-  const a = POPEN_APPS[popenSelectedId];
-  popenDraft = { name:a.name, mainOrg:a.mainOrg, rodrOrg:a.rodrOrg, saleOrg:a.saleOrg, ldr:a.ldr, pm:a.pm, start:a.start, end:a.end, cost:Object.assign({}, popenLatest(a).cost) };
-  popenMemo = '';
-}
-// 재신청: 현행처럼 정보관리에서 비용변경(새 비용 버전)을 만든 뒤 다시 결재선생성 → 승인요청
-function popenReapply(id) { popenOpenDetail(id); popenView = 'detail'; popenModifyCost(); }
-function popenPickVer(v) { popenVer = v; renderProjectOpen(); }
-function popenSetCost(k, v) { popenDraft.cost[k] = v; }
-function popenGoDetail() { popenView = 'detail'; renderProjectOpen(); }
 function popenBackToList() { popenView = 'list'; renderProjectOpen(); }
+function popenNewApply() { popenView = 'new'; renderProjectOpen(); }
 
-function popenValidate() {
-  const c = popenDraft.cost;
-  if (['lbr', 'ots', 'mat', 'exp'].some(function (k) { return !/^[0-9]*$/.test(String(c[k] || 0)); })) { popenToast('정수만 입력 가능합니다.'); return false; }
-  if (!String(popenDraft.name || '').trim()) { popenToast('프로젝트명은 필수입니다.'); return false; }
-  if (!popenDraft.saleOrg) { popenToast('매출귀속부서는 필수입니다.'); return false; }
-  if (!popenDraft.pm) { popenToast('수행PM은 필수입니다.'); return false; }
-  ['lbrMM', 'lbr', 'otsMM', 'ots', 'mat', 'exp', 'sale', 'saleCst'].forEach(function (k) { c[k] = Number(c[k]) || 0; });
-  if (c.saleCst > popenBgt(c)) { popenToast('매출원가가 비용합계를 초과할 수 없습니다.'); return false; }
-  if (Math.abs(popenMargin(c)) > 999.99) { popenToast('매출마진이 입력 허용범위(-999.99 ~ 999.99)를 초과합니다.'); return false; }
-  return true;
+function popenSubmitNew() {
+  const name = (document.getElementById('popen-f-name') || {}).value || '';
+  if (!name.trim()) { if (typeof showToast === 'function') showToast('프로젝트명을 입력하세요.'); return; }
+  // 목업 스텁: 실제 저장 없이 안내만
+  if (typeof showToast === 'function') showToast('개설 신청이 등록되었습니다. 기안·승인 절차가 진행됩니다. (목업)');
+  popenView = 'list'; renderProjectOpen();
 }
-function popenApplyDraft() {
-  const a = POPEN_APPS[popenSelectedId];
-  ['name', 'mainOrg', 'rodrOrg', 'saleOrg', 'ldr', 'pm', 'start', 'end'].forEach(function (k) { a[k] = popenDraft[k]; });
-  popenLatest(a).cost = Object.assign({}, popenDraft.cost);
-}
-function popenSave() {
-  if (!popenValidate()) return;
-  popenApplyDraft(); popenStartDraft();
-  popenToast('저장했습니다.'); renderProjectOpen();
-}
-function popenDelete() {
-  // 현행: 최신 비용 버전만 지움. 버전이 1개면 지워지는 것 없음
-  const a = POPEN_APPS[popenSelectedId];
-  if (a.versions.length > 1) a.versions.shift();
-  popenVer = popenLatest(a).ver; popenStartDraft();
-  popenToast('삭제 되었습니다.'); renderProjectOpen();
-}
-function popenModifyCost() {
-  // 현행: 새 비용 버전(저장 상태, 금액 0)을 만들고 다시 조회
-  const a = POPEN_APPS[popenSelectedId];
-  const nv = { ver: popenLatest(a).ver + 1, date: '2026-11-04', status: '저장', cost: popenZero() };
-  nv.lines = popenLines(a.svc, a.pm);
-  a.versions.unshift(nv);
-  popenVer = nv.ver; popenStartDraft(); renderProjectOpen();
-}
-function popenGoAppr() {
-  const a = POPEN_APPS[popenSelectedId];
-  const ver = popenLatest(a);
-  if (ver.status === '저장' && popenVer === ver.ver) {
-    if (!popenValidate()) return;
-    popenApplyDraft();
-    ver.lines = popenLines(a.svc, a.pm);   // 저장 상태면 결재선을 지우고 다시 만듦
-  }
-  popenView = 'appr'; renderProjectOpen();
-}
-function popenRequest() {
-  if (!String(popenMemo).trim()) { popenToast('비용총액 신규등록 및 변경 사유를 메모에 입력바랍니다. (해당 고객사 및 서비스 명시 필수)'); return; }
-  const a = POPEN_APPS[popenSelectedId], ver = popenLatest(a);
-  ver.status = '승인요청'; a.erpReg = true;
-  ver.lines[0].status = '기안'; ver.lines[0].date = '2026-11-04 10:00'; ver.lines[0].comment = popenMemo;
-  popenToast('승인요청했습니다.'); renderProjectOpen();
-}
-function popenCancelDraft() {
-  popenConfirm = { msg: '기안을 취소하시겠습니까?', ok: function () {
-    const a = POPEN_APPS[popenSelectedId], ver = popenLatest(a);
-    ver.status = '기안취소';
-    ver.lines.forEach(function (l, i) { if (i === 0) { l.status = '기안취소'; l.date = '2026-11-04 11:00'; } else { l.status = '대기'; l.date = ''; } });
-    popenToast('기안을 취소했습니다.');
-  } };
-  renderProjectOpen();
-}
-
-function popenNewOpen() {
-  popenNewForm = { type:'W/G', incoType:'IV58', svc:'Y', no:'', name:'', pm:'', saleOrg:'', start:'', end:'', rodrOrg:'', acct:'', acctLdr:'', lbrMM:'', lbr:'', otsMM:'', ots:'', mat:'', exp:'', bgt:'' };
+function popenReapply(id) {
+  if (typeof showToast === 'function') showToast('반려 건을 재신청합니다. 신청 내용을 수정해 다시 상신하세요. (목업)');
+  popenNewType = (POPEN_APPS[id] && POPEN_APPS[id].type) || 'W/G';
   popenView = 'new'; renderProjectOpen();
-}
-function popenNewSubmit() {
-  const f = popenNewForm, need = [['svc', '서비스기획여부'], ['no', '프로젝트번호'], ['name', '프로젝트명'], ['pm', '수행PM'], ['saleOrg', '매출귀속부서'], ['start', 'PJT 시작일'], ['end', 'PJT 종료일'], ['bgt', '예산금액']];
-  for (let i = 0; i < need.length; i++) if (!String(f[need[i][0]] || '').trim()) { popenToast(need[i][1] + '을 입력해 주세요.'); return; }
-  if (!/^[0-9]{8}-D[0-9]{3}$/.test(f.no)) { popenToast('프로젝트번호 형식을 확인해 주세요.'); return; }
-  if (f.end < f.start) { popenToast('PJT 시작일/종료일을 확인해 주세요'); return; }
-  const nums = [['lbrMM', '인건비 투입MM'], ['lbr', '인건비'], ['otsMM', '외주비 투입MM'], ['ots', '외주비'], ['mat', '재료비'], ['exp', '경비'], ['bgt', '예산금액']];
-  for (let i = 0; i < nums.length; i++) if (f[nums[i][0]] !== '' && !isFinite(f[nums[i][0]])) { popenToast(nums[i][1] + '에 수량을 입력해 주세요.'); return; }
-  if (Object.keys(POPEN_APPS).some(function (k) { return POPEN_APPS[k].no === f.no; })) { popenConfirm = { msg: '중복된 프로젝트가 있습니다.<br>확인후 다시 등록 바랍니다.' }; renderProjectOpen(); return; }
-  const id = 'WG-N' + Date.now();
-  POPEN_APPS[id] = { type:f.type, incoType:f.type === '사내' ? f.incoType : undefined, no:f.no, name:f.name, svc:f.svc === 'Y', cnrcType:f.type === '사내' ? 'IV' : 'TC', cnrcCmpl:true, cstco:'공통(9999999999)', mainOrg:'', rodrOrg:f.rodrOrg, saleOrg:f.saleOrg,
-    ldr:'', pm:f.pm, acct:f.acct, acctLdr:f.acctLdr, start:f.start, end:f.end, regDate:'2026-11-04', erpReg:false,
-    versions:[ { ver:1, date:'2026-11-04', status:'저장', cost:popenCost(+f.lbrMM || 0, +f.lbr || 0, +f.otsMM || 0, +f.ots || 0, +f.mat || 0, +f.exp || 0, 0, 0) } ], memo:'' };
-  POPEN_APPS[id].versions[0].lines = popenLines(f.svc === 'Y', f.pm);
-  popenToast('저장했습니다.');
-  popenOpenDetail(id);
 }
 
 // 진입점
@@ -721,5 +970,6 @@ function showProjectOpen() {
   renderProjectOpen();
 }
 
+// 라우트 등록 (app.js 로드 뒤 실행)
 if (typeof SCREEN_ROUTES !== 'undefined') SCREEN_ROUTES['s-project-open'] = 'project-open';
 if (typeof ROUTE_ACTIONS !== 'undefined') ROUTE_ACTIONS['project-open'] = function () { showProjectOpen(); };
