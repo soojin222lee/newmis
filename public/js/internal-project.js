@@ -204,7 +204,7 @@ function renderIPDetail() {
         <div style="font-size:14px;color:#94a3b8;margin-bottom:2px">${p.code}</div>
         <div style="font-size:20px;font-weight:800;color:#1e293b">${p.name}</div>
       </div>
-      <span class="ipc-status-badge" style="background:${st.bg};color:${st.color};font-size:15px;padding:6px 14px">${p.status}</span>
+      ${psvStatusBadge('사내', ipSelectedId)}
     </div>
 
     <!-- 버전 바 -->
@@ -224,7 +224,7 @@ function renderIPDetail() {
     <div class="card" style="margin-bottom:16px">
       <div class="card-head"><span class="card-title">기본정보</span></div>
       <div class="wg-basic-grid" style="padding:16px 20px">
-        ${[['기간',p.period],['프로젝트 유형',p.projType],['요청부서',p.requestDept],['책임부서',p.responseDept]]
+        ${[['기간',p.period],['프로젝트 유형 (세부 유형)',(psvTobeOf('사내',ipSelectedId)||{}).sub||p.projType],['요청부서',p.requestDept],['책임부서',p.responseDept]]
           .map(([k,v])=>`<div class="wg-basic-item"><div class="wg-basic-key">${k}</div><div class="wg-basic-val">${v}</div></div>`).join('')}
       </div>
     </div>
@@ -244,26 +244,7 @@ function renderIPDetail() {
       <div style="padding:0 20px 20px;overflow-x:auto">${buildIPBudgetTable(p.budget)}</div>
     </div>
 
-    ${p.status === '기안중' ? `
-    <div class="reg-erp-bar">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:22px">⏳</span>
-        <div>
-          <div style="font-size:15px;font-weight:700;color:#166534">결재 진행 중</div>
-          <div style="font-size:14px;color:#64748b;margin-top:2px">승인이 완료되면 ERP IF를 통해 프로젝트가 자동 생성됩니다.</div>
-        </div>
-      </div>
-      <button class="save-btn" onclick="approveIPProject('${ipSelectedId}')">✅ 승인 처리</button>
-    </div>` : p.status === '승인' ? `
-    <div class="reg-erp-bar reg-erp-done" style="margin-bottom:24px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:22px">✅</span>
-        <div>
-          <div style="font-size:15px;font-weight:700;color:#1d4ed8">ERP 생성 완료</div>
-          <div style="font-size:14px;color:#64748b;margin-top:2px">승인 완료 후 ERP IF를 통해 프로젝트가 생성되었습니다.</div>
-        </div>
-      </div>
-    </div>` : ''}`;
+    ${psvRegisteredBar('사내', ipSelectedId)}`;
 }
 
 function buildIPApproval(approval) {

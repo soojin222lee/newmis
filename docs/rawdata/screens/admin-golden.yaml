@@ -1,0 +1,89 @@
+# rawdata: 관리자 > Golden Data set 관리 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 소비: 이 YAML을 AI가 읽어 스토리보드/요구사항명세서/버튼 인벤토리로 변환.
+
+screen:
+  id: s-admin-golden
+  name: Golden Data set 관리 (Agent 평가 질문·정답 셋 + 기준 데이터 셋)
+  menu_path: 관리자 > Golden Data set 관리
+  route: "/admin.html#golden"
+  entry: "adminGo('golden') → asiteRender() → admSectionBody('golden') → admGoldenHtml()"
+  source_files:
+    - public/js/admin-golden.js   # 메뉴 등록(ADMIN_SECTIONS) · admSectionBody 데코레이터 · 렌더 · 핸들러 · 전용 CSS 주입
+    - public/js/admin.js          # 관리자 사이트 셸(탭·메뉴·라우팅) — 수정하지 않음
+    - public/admin.html           # admin-golden.js 로드(admin.js 다음)
+  purpose: >
+    예산관리 Agent의 답변 품질을 관리한다. ① 질문·정답 셋 — 대표 질문과 기대 의도·기대 답변 요지·근거 데이터를 등록하고
+    평가 실행 결과(통과/실패)를 본다. ② 기준 데이터 셋 — Agent 제안·답변의 근거가 되는 기준값(CP총액·계정 CP한도·마감월 등)을
+    출처 시스템·기준일과 함께 관리한다.
+
+states:
+  - id: qa
+    when: "admGoldenTab == 'qa'"
+    shows: [요약 카드(평가 대상·통과·실패·최근 실행), 툴바, 질문·정답 표]
+  - id: ref
+    when: "admGoldenTab == 'ref'"
+    shows: [툴바, 기준 데이터 표]
+  - id: editing
+    when: "admGoldenEdit != null"
+    effect: "idx −1 이면 표 위 등록 폼, 아니면 해당 행 자리에 수정 폼"
+  - id: delete_armed
+    when: "admGoldenDelArm != null"
+    effect: "해당 행 동작 칸이 '삭제할까요? [삭제][취소]'로 바뀜"
+
+elements:
+  - { id: tab-qa, label: "질문·정답 셋 탭", type: button(tab), crud: N, area: 화면 상단, event: onclick,
+      front: { handler: "admGoldenTabSet('qa')", file: "admin-golden.js:189", logic: "탭 전환, 편집/삭제 상태 초기화", state_writes: [admGoldenTab] }, backend: null, result: 질문·정답 표 }
+  - { id: tab-ref, label: "기준 데이터 셋 탭", type: button(tab), crud: N, area: 화면 상단, event: onclick,
+      front: { handler: "admGoldenTabSet('ref')", file: "admin-golden.js:189", logic: "탭 전환", state_writes: [admGoldenTab] }, backend: null, result: 기준 데이터 표 }
+  - { id: btn-run, label: 평가 실행, type: button, crud: N, area: "질문·정답 셋 툴바", event: onclick,
+      front: { handler: "admGoldenRun()", file: "admin-golden.js:251", logic: "목업 스텁 — 사용 중 질문의 미실행 결과를 통과로 채우고 최근 실행 시각 갱신. 실제로는 질문을 Agent에 보내 의도·핵심 수치를 판정", state_writes: [ADM_GOLDEN_QA, admGoldenRunAt] }, backend: "향후 Agent 평가 API", result: 최근 결과 · 요약 카드 갱신 }
+  - { id: btn-qa-add, label: "+ 질문 등록", type: button, crud: N, area: "질문·정답 셋 툴바", event: onclick,
+      front: { handler: "admGoldenAdd('qa')", file: "admin-golden.js:190", logic: "표 위에 등록 폼을 연다", state_writes: [admGoldenEdit] }, backend: null, result: 등록 폼 }
+  - { id: btn-qa-save-all, label: 저장, type: button, crud: U, area: "질문·정답 셋 툴바", event: onclick,
+      front: { handler: "admSave('Golden 질문·정답 셋')", file: "admin.js:191", logic: "목업 스텁, 동작 없음(토스트)" }, backend: null, result: 저장 토스트 }
+  - { id: input-qa-question, label: 질문, type: input(text), crud: C, area: 질문 폼, event: input, front: { handler: null, file: "admin-golden.js:154", logic: "필수" }, backend: null, result: null }
+  - { id: select-qa-intent, label: 기대 의도, type: select, crud: C, area: 질문 폼, event: change, front: { handler: null, file: "admin-golden.js:154", logic: "ADM_GOLDEN_INTENTS(CP 여유·계정 증감·이관·상세계정 편성·전부 반영·제안 다시 불러오기·기안·계정 상세)" }, backend: null, result: null }
+  - { id: input-qa-answer, label: 기대 답변 요지, type: textarea, crud: C, area: 질문 폼, event: input, front: { handler: null, file: "admin-golden.js:154", logic: "필수" }, backend: null, result: null }
+  - { id: input-qa-data, label: 근거 데이터, type: input(text), crud: C, area: 질문 폼, event: input, front: { handler: null, file: "admin-golden.js:154", logic: 선택 }, backend: null, result: null }
+  - { id: btn-qa-submit, label: "등록 / 수정", type: button, crud: C, area: 질문 폼, event: onclick,
+      front: { handler: "admGoldenSaveQa()", file: "admin-golden.js:218", logic: "질문·기대 답변 필수. 새 항목은 GQ-NNN 발번·사용·미실행. 수정하면 최근 결과를 미실행으로 되돌림(다시 평가)", validation: "질문·기대 답변 요지 필수", state_writes: [ADM_GOLDEN_QA] }, backend: null, result: 표 갱신 }
+  - { id: btn-form-cancel, label: 취소, type: button, crud: N, area: "질문/기준 데이터 폼", event: onclick,
+      front: { handler: "admGoldenEditClose()", file: "admin-golden.js:192", logic: "폼 닫기", state_writes: [admGoldenEdit] }, backend: null, result: 폼 닫힘 }
+  - { id: col-qa, label: "표 컬럼 — ID · 질문·기대 답변 · 기대 의도 · 근거 데이터 · 최근 결과(통과/실패/미실행) · 사용", type: grid, crud: R, area: 질문·정답 표, event: null,
+      front: { handler: "admGoldenQaHtml()", file: "admin-golden.js:88", logic: "ADM_GOLDEN_QA 렌더" }, backend: null, result: null }
+  - { id: toggle-use, label: "사용 / 제외", type: button(toggle), crud: U, area: "두 표의 사용 칸", event: onclick,
+      front: { handler: "admGoldenToggle(tab, i)", file: "admin-golden.js:197", logic: "평가·근거 사용 여부 전환", state_writes: [ADM_GOLDEN_QA, ADM_GOLDEN_REF] }, backend: null, result: 토글 }
+  - { id: btn-row-edit, label: 수정, type: button, crud: U, area: "두 표의 동작 칸", event: onclick,
+      front: { handler: "admGoldenEditOpen(tab, i)", file: "admin-golden.js:191", logic: "행 자리에 수정 폼", state_writes: [admGoldenEdit] }, backend: null, result: 수정 폼 }
+  - { id: btn-row-delete, label: 삭제, type: button, crud: N, area: "두 표의 동작 칸", event: onclick,
+      front: { handler: "admGoldenDelAsk(tab, i)", file: "admin-golden.js:201", logic: "행 동작 칸을 삭제 확인으로 바꿈", state_writes: [admGoldenDelArm] }, backend: null, result: 삭제 확인 }
+  - { id: btn-row-delete-confirm, label: "삭제(확인)", type: button, crud: D, area: "행 삭제 확인", event: onclick,
+      front: { handler: "admGoldenDelete(tab, i)", file: "admin-golden.js:203", logic: "행 제거", state_writes: [ADM_GOLDEN_QA, ADM_GOLDEN_REF] }, backend: null, result: 행 삭제 · 토스트 }
+  - { id: btn-row-delete-cancel, label: 취소, type: button, crud: N, area: "행 삭제 확인", event: onclick,
+      front: { handler: "admGoldenDelCancel()", file: "admin-golden.js:202", logic: "삭제 확인 해제", state_writes: [admGoldenDelArm] }, backend: null, result: null }
+  - { id: btn-ref-save-all, label: 저장, type: button, crud: U, area: "기준 데이터 셋 툴바", event: onclick,
+      front: { handler: "admSave('Golden 기준 데이터 셋')", file: "admin.js:191", logic: "목업 스텁, 동작 없음(토스트)" }, backend: null, result: 저장 토스트 }
+  - { id: btn-ref-add, label: "+ 기준 데이터 등록", type: button, crud: N, area: "기준 데이터 셋 툴바", event: onclick,
+      front: { handler: "admGoldenAdd('ref')", file: "admin-golden.js:190", logic: "표 위 등록 폼", state_writes: [admGoldenEdit] }, backend: null, result: 등록 폼 }
+  - { id: input-ref-fields, label: "항목 · 출처 시스템 · 프로젝트 · 기준일 · 기준값 · 단위", type: "input/select/date", crud: C, area: 기준 데이터 폼, event: input,
+      front: { handler: null, file: "admin-golden.js:170", logic: "항목·기준값 필수, 출처는 AI PMO·ERP·구매·SCM·CRM·BMS Agent" }, backend: null, result: null }
+  - { id: btn-ref-submit, label: "등록 / 수정", type: button, crud: C, area: 기준 데이터 폼, event: onclick,
+      front: { handler: "admGoldenSaveRef()", file: "admin-golden.js:233", logic: "항목·기준값 필수, 쉼표 제거 후 숫자 저장. 새 항목은 GD-NNN 발번", validation: "항목·기준값 필수", state_writes: [ADM_GOLDEN_REF] }, backend: null, result: 표 갱신 }
+  - { id: col-ref, label: "표 컬럼 — ID · 항목 · 프로젝트 · 기준값 · 출처 시스템 · 기준일 · 사용", type: grid, crud: R, area: 기준 데이터 표, event: null,
+      front: { handler: "admGoldenRefHtml()", file: "admin-golden.js:121", logic: "ADM_GOLDEN_REF 렌더" }, backend: null, result: null }
+
+data:
+  datasets:
+    - { name: ADM_GOLDEN_QA, file: "admin-golden.js", note: "{id:'GQ-NNN', intent, q, a, data, on, last:'pass'|'fail'|'none'}" }
+    - { name: ADM_GOLDEN_REF, file: "admin-golden.js", note: "{id:'GD-NNN', item, pjt, val, unit, src, base, on}" }
+    - { name: ADM_GOLDEN_INTENTS, file: "admin-golden.js", note: "기대 의도 = 예산관리 Agent 대화 의도(agentSimReadFinal kind)와 같은 값" }
+
+requirements:
+  - { id: FR-AGD-01, text: "관리자는 Admin 메뉴의 Golden Data set 관리에서 질문·정답 셋과 기준 데이터 셋을 탭으로 나눠 관리할 수 있어야 한다" }
+  - { id: FR-AGD-02, text: "관리자는 Agent 평가용 질문을 질문 · 기대 의도 · 기대 답변 요지 · 근거 데이터와 함께 등록·수정·삭제할 수 있어야 한다" }
+  - { id: FR-AGD-03, text: "기대 답변을 수정하면 그 질문의 최근 결과가 미실행으로 바뀌어 다시 평가하도록 해야 한다" }
+  - { id: FR-AGD-04, text: "관리자는 사용 중인 질문 전체를 평가 실행하고 통과·실패 건수와 최근 실행 시각을 볼 수 있어야 한다" }
+  - { id: FR-AGD-05, text: "관리자는 Agent 답변의 근거가 되는 기준값을 출처 시스템·프로젝트·기준일과 함께 등록·수정·삭제할 수 있어야 한다" }
+  - { id: FR-AGD-06, text: "질문과 기준 데이터는 삭제하지 않고 사용/제외로 평가·근거 대상에서 뺄 수 있어야 한다" }
+  - { id: FR-AGD-07, text: "삭제는 행 안에서 한 번 더 확인한 뒤에만 실행되어야 한다" }

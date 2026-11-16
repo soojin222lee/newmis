@@ -169,6 +169,122 @@ elements:
     result: "총액 자체 변경은 이 화면 불가 — Cost 재산정으로 안내(이관은 총액 내에서만)"
 
 
+  # ── [2026.11.11] 메인 [이상징후] 항목 → 해당 PJT · 계정 원가조정 + 이상징후 진단 ──
+  - id: panel-risk-focus
+    label: "이상징후 진단 (근거 · Agent 해결안)"
+    type: panel
+    crud: R
+    area: "원가조정 화면 · LIVE 바 아래 (계정 상세 위). '전 계정' 이상징후는 프로젝트 메인 위"
+    event: null
+    front:
+      handler: renderAgentRiskFocusFinal(roll)
+      file: "budget-agent-console.js:renderAgentRiskFocusFinal (진입 = homePjtGo 런타임 래핑 wrapHomePjtGoForRisk · 항목 기억 = document click capture)"
+      logic: "[2026.11.11] 예측형 이상징후(CP 한도 초과 예상 · 예: 목업용 외주비 mr-01)는 근거를 실적 추세로 계산한다 — 최근 3개월 월평균 · 월 증가 폭이 종료월까지 이어질 때의 누적 집행(agentRiskTrendFinal)을 CP 계정 한도와 비교해 초과액 · 한도 도달월을 보여 주고, 해결안은 CP 계정 한도 중 실행예산으로 편성하지 않은 여유(외주비는 인건비 우선)에서 이관할 금액을 천만원 단위로 제안한다. 누계 조정액(자가전결 한도) 통제는 없다. 그 외: 메인(가운데 답변 목록 .v2-ci.risk · 좌측 레일 .v2-item.risk)에서 이상징후를 누르면 그 건(SCEN_RISKS_BY_PJT)을 기억하고, 해당 PJT · 계정의 원가조정 계정 상세를 연다. 왼쪽 근거 = 이상징후 설명(why) + 계정 승인 예산 · 실적(확정) · CP 승인액 · 소진율, 오른쪽 Agent 해결안 = 유형(scen)별 해결 순서(AGENT_RISK_PLAY_FINAL) + 같은 계정의 검토 대기 조정안(최대 4건). 다른 계정으로 옮기거나 다른 PJT로 가면 숨기고, 해야 할 일 항목으로 들어오면 닫는다"
+      validation: null
+      state_writes: [agentRiskFocusFinal, agentAiSheetFinal, agentRiskSheetSetFinal]
+    backend: null
+    result: 이상징후의 근거와 해결 방법을 계정 화면에서 바로 확인
+  - id: btn-risk-fix-apply
+    label: "반영 / ✓ 반영됨 (이상징후 해결 조정안)"
+    type: button
+    crud: U
+    area: "이상징후 진단 · Agent 해결안 · 조정안 행 우측"
+    event: onclick
+    front:
+      handler: agentAiPickFinal(id, on)
+      file: "budget-agent-console.js:renderAgentRiskFocusFinal"
+      logic: "예산 조정안의 [반영]과 같은 동작 — 해당 조정안을 반영/해제해 상단 숫자에 바로 보인다. 택1(1안/2안) 조정안은 [안 고르기]로 예산 조정안을 연다"
+      validation: null
+      state_writes: [agentMiniSelFinal]
+    backend: null
+    result: 조정안 반영 여부 전환 · 반영 시 합계 표시
+  - id: btn-risk-move
+    label: "{계정} → {계정} {금액} 이관안 만들기"
+    type: button
+    crud: N
+    area: "이상징후 진단 · Agent 해결안 하단 (예측형 이상징후 · 부족액이 있을 때, 최대 2개)"
+    event: onclick
+    front:
+      handler: agentRiskAskFinal(text)
+      file: "budget-agent-console.js:agentRiskAskFinal"
+      logic: "Agent와 대화하기를 펼치고 '인건비에서 외주비로 2억6천만원 옮겨줘' 같은 이관 지시를 대신 보내, Agent가 이관 시뮬레이션(총액 불변)을 계산하게 한다. 기안은 대화의 [예산 조정안으로 바로 기안]으로 이어진다"
+      validation: null
+      state_writes: [agentGaChatFoldFinal, AGENT_CHAT_FINAL]
+    backend: null
+    result: 대화하기에 이관 계산 결과 표시
+  - id: btn-risk-fix-pick
+    label: "안 고르기 (택1 조정안)"
+    type: button
+    crud: N
+    area: "이상징후 진단 · 택1 조정안 행"
+    event: onclick
+    front:
+      handler: agentGaTodoOpenSetFinal(true)
+      file: "budget-agent-console.js:renderAgentRiskFocusFinal"
+      logic: "예산 조정안 칸을 펼쳐 1안/2안 중 고르게 한다"
+      validation: null
+      state_writes: [agentGaTodoOpenFinal]
+    backend: null
+    result: 예산 조정안 펼침
+  - id: btn-risk-todo-open
+    label: "예산 조정안 열기"
+    type: button
+    crud: N
+    area: "이상징후 진단 · Agent 해결안 하단"
+    event: onclick
+    front:
+      handler: agentGaTodoOpenSetFinal(true)
+      file: "budget-agent-console.js:renderAgentRiskFocusFinal"
+      logic: "계정 상세 왼쪽에 예산 조정안 칸을 펼친다 (직책자 화면에서는 숨김)"
+      validation: null
+      state_writes: [agentGaTodoOpenFinal]
+    backend: null
+    result: 예산 조정안 펼침
+  - id: btn-risk-chat-open
+    label: "💬 Agent와 대화로 조정"
+    type: button
+    crud: N
+    area: "이상징후 진단 · Agent 해결안 하단"
+    event: onclick
+    front:
+      handler: agentGaChatFoldSetFinal(false)
+      file: "budget-agent-console.js:renderAgentRiskFocusFinal"
+      logic: "Agent와 대화하기 칸을 펼쳐 금액 조정을 말로 지시하게 한다"
+      validation: null
+      state_writes: [agentGaChatFoldFinal, agentChatSeenFinal]
+    backend: null
+    result: 대화하기 펼침
+  - id: btn-risk-close
+    label: "닫기 ✕ (이상징후 진단)"
+    type: button
+    crud: N
+    area: "이상징후 진단 머리 우측"
+    event: onclick
+    front:
+      handler: agentRiskFocusCloseFinal()
+      file: "budget-agent-console.js:agentRiskFocusCloseFinal"
+      logic: "이상징후 진단 칸을 닫는다 (계정 상세는 그대로)"
+      validation: null
+      state_writes: [agentRiskFocusFinal]
+    backend: null
+    result: 진단 칸 닫힘
+
+  # ── [2026.11.10] 예산관리 Agent ON · 메인 — 좌우 비율 바꾸기 ──
+  - id: btn-agent-main-wide-toggle
+    label: "넓게 › / ‹ 좁게 (예산 조정안 폭 전환)"
+    type: button
+    crud: N
+    area: "메인 화면 · 예산 조정안 칸 머리 우측"
+    event: onclick
+    front:
+      handler: agentGaWideToggleFinal()
+      file: "budget-agent-console.js:agentGaWideToggleFinal (그리드 조합 renderAgentGaViewFinal)"
+      logic: "기본 예산 조정안 30% · Agent와 대화하기 70% 를 70% · 30% 로 뒤집고, 다시 누르면 되돌린다. 선택은 브라우저(localStorage 'agga-wide')에 기억한다. 계정 상세 화면에서는 보이지 않는다. 1100px 이하 좁은 화면은 위아래 1단 그대로"
+      validation: null
+      state_writes: [agentGaWideFinal]
+    backend: null
+    result: "예산 조정안 칸이 넓어져(70%) 카드 제목·근거를 한눈에 본다 / 다시 누르면 30%로 복귀"
+
   # ── [2026.10.12] 예산관리 Agent ON · 계정 상세(5대 계정 공통) — 양옆 칸 접기/펼치기 ──
   - id: btn-agent-detail-chat-fold
     label: "접기 ›(Agent와 대화하기)"
@@ -269,7 +385,229 @@ elements:
       validation: null
       state_writes: [agentAcctMonthlyFinal, laborBudgetTreeOpenFinal, outsourceBudgetTreeOpenV3]
     backend: null
-    result: "{계정} 월별 계획 / 실적 팝업"
+    result: "{계정} 월별 계획 / 실적 팝업 — 월별/분기별/연도별 · 연도 · 단위 · 실적 접기(2026.11.12 budget-monthly-view.js)"
+
+  - id: seg-agent-monthly-mode
+    label: "[월별] [분기별] [연도별]"
+    type: tab
+    crud: R
+    area: "월별 계획/실적 팝업 위 도구줄 왼쪽"
+    event: onclick
+    front:
+      handler: "bmvSet('mode','month'|'quarter'|'year')"
+      file: "budget-monthly-view.js:bmvSet · bmvTable (renderAgentAcctMonthlyPopFinal 재정의)"
+      logic: "[2026.11.12] 표의 달 열을 월 · 분기 · 연도로 묶어 본다. 월별은 연도 머리줄 + 11월처럼 짧은 이름, 월별 · 분기별은 연도마다 연도 합계 칸을 붙인다. 연도별은 실적/계획이 섞인 해를 실적+계획으로 표시"
+      validation: null
+      state_writes: [bmvMode]
+    backend: null
+    result: "고른 단위로 묶인 열"
+
+  - id: select-agent-monthly-year
+    label: "연도"
+    type: select
+    crud: R
+    area: "월별 계획/실적 팝업 위 도구줄"
+    event: onchange
+    front:
+      handler: "bmvSet('year', value)"
+      file: "budget-monthly-view.js:bmvSet · bmvTable (renderAgentAcctMonthlyPopFinal 재정의)"
+      logic: "전체 또는 연도 하나의 달만 보이게 한다(프로젝트 기간의 연도 목록)"
+      validation: null
+      state_writes: [bmvYear]
+    backend: null
+    result: "고른 연도의 열만 표시"
+
+  - id: select-agent-monthly-unit
+    label: "단위 (원 / 만원 / 억원)"
+    type: select
+    crud: R
+    area: "월별 계획/실적 팝업 위 도구줄"
+    event: onchange
+    front:
+      handler: "bmvSet('unit', value)"
+      file: "budget-monthly-view.js:bmvSet · bmvTable (renderAgentAcctMonthlyPopFinal 재정의)"
+      logic: "금액 표시 단위를 바꾼다(2026.11.12 원 / 만원 / 억원으로 변경). 기본 만원(표 폭을 줄임), 억원은 소수 둘째 자리까지. 오른쪽 끝에 현재 단위 표시"
+      validation: null
+      state_writes: [bmvUnit]
+    backend: null
+    result: "단위가 바뀐 금액"
+
+  - id: btn-agent-monthly-actual-fold
+    label: "실적 {기간} 펼치기 ▾ / 접기 ▴"
+    type: button
+    crud: N
+    area: "월별 계획/실적 팝업 위 도구줄(월별 · 분기별 보기)"
+    event: onclick
+    front:
+      handler: "bmvSet('act')"
+      file: "budget-monthly-view.js:bmvSet · bmvTable (renderAgentAcctMonthlyPopFinal 재정의)"
+      logic: "지난 달(확정 실적)은 기본으로 실적 합계 한 칸(확정 실적 머리)으로 접고, 누르면 월별로 펼친다. 펼친 지난 달 금액을 누르면 기존처럼 실적 상세 팝업(actualCellHtml → showActualDetailModal)"
+      validation: null
+      state_writes: [bmvActOpen]
+    backend: null
+    result: "실적 열 접힘 / 펼침"
+
+  - id: btn-actual-detail-excel
+    label: "⬇ 엑셀 다운로드"
+    type: button
+    crud: R
+    area: "실적조회 팝업(월별 표의 지난 달 실적 금액 클릭) 표 위"
+    event: onclick
+    front:
+      handler: "bxeActual(계정, 월)"
+      file: "budget-excel-export.js:showActualDetailModal 감싸기 · bxeActual"
+      logic: "[2026.11.12] 원래 동작이 없던 실적조회 팝업 [엑셀] 버튼에 내려받기를 연결한다(공유 렌더러는 그대로, 팝업을 그린 뒤 버튼의 onclick만 붙임). 지금 탭의 실적 표(합계 줄 포함)를 .xlsx로. 파일명 {계정}_실적조회_{월}_YYYYMMDD.xlsx"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "{계정}_실적조회_{월}_YYYYMMDD.xlsx 다운로드"
+
+  - id: handle-agent-detail-split
+    label: "칸 경계 손잡이(끌어서 폭 조절 · 더블클릭 기본 폭)"
+    type: splitter
+    crud: N
+    area: "계정 상세 화면 — 예산 조정안 칸 오른쪽 경계 · Agent와 대화하기 칸 왼쪽 경계"
+    event: "onpointerdown / ondblclick"
+    front:
+      handler: "buiSplitStart(event,'L'|'R') · buiSplitReset('L'|'R')"
+      file: "budget-ui-unify.js:buiSplitApply · buiSplitStart · buiSplitReset"
+      logic: "[2026.11.12] 경계를 끌면 양옆 칸 폭이 바뀌고 가운데 상세 예산내역이 나머지를 쓴다. 최소 폭 양옆 240px · 가운데 480px(넘으면 멈춤). 화면이 좁아지면 비율대로 줄임. 더블클릭하면 기본(20 : 60 : 20). 정한 폭은 다시 그려도 유지하고 브라우저(localStorage bui-split)에 기억. 1100px 이하 화면은 세로로 쌓여 손잡이 숨김"
+      validation: null
+      state_writes: [buiSplit]
+    backend: null
+    result: "세 칸 폭 조절"
+
+  - id: btn-agent-chat-more
+    label: "이전 대화 N개 보기 ▾ / 이전 대화 접기 ▴"
+    type: button
+    crud: N
+    area: "계정 상세 화면 오른쪽 [Agent와 대화하기] 칸 맨 위"
+    event: onclick
+    front:
+      handler: "buiChatToggle()"
+      file: "budget-ui-unify.js:buiChatToggle · buiChatCollapse (MutationObserver로 렌더 후 적용)"
+      logic: "[2026.11.12 3안] 계정 상세를 열면 세 칸 폭을 20 : 60 : 20(양옆 최소 240px)으로 두어 상세 예산내역을 넓히고, 대화 칸은 입력창 · 추천 질문과 마지막 대화 1쌍(질문 + 답)만 보이게 접는다. 누르면 이전 대화를 펼치거나 다시 접는다. 세 칸은 화면 높이 기준 같은 높이 · 칸마다 안쪽 스크롤. 상세계정 탭이 4개를 넘으면 가로 스크롤"
+      validation: null
+      state_writes: [buiChatAll]
+    backend: null
+    result: "이전 대화 펼침 / 접힘"
+
+  - id: btn-agent-monthly-excel
+    label: "⬇ 엑셀 다운로드"
+    type: button
+    crud: R
+    area: "월별 계획/실적 팝업 위 도구줄 오른쪽 끝"
+    event: onclick
+    front:
+      handler: "bxeMonthly('{계정}')"
+      file: "budget-excel-export.js:bxeMonthly · bxeTableRows · bxeXlsx"
+      logic: "[2026.11.12] 지금 보이는 표(고른 보기 · 연도 · 단위 · 실적 접기 상태 그대로)를 .xlsx로 내려받는다. 1행 제목(프로젝트 · 계정), 2행 단위·보기·연도·내려받은 날, 표 머리는 병합 셀 그대로, 금액은 숫자 셀(#,##0), 합계 줄 굵게, 머리 줄 틀 고정. 파일명 {계정}_월별계획실적_YYYYMMDD.xlsx. 외부 라이브러리 없이 브라우저에서 파일 생성(목업)"
+      validation: null
+      state_writes: []
+    backend: { note: "실서비스는 서버 엑셀 생성 API로 대체 가능 — 목업은 화면 표 기준 클라이언트 생성" }
+    result: "{계정}_월별계획실적_YYYYMMDD.xlsx 다운로드"
+
+  - id: btn-agent-proposal-delete
+    label: 삭제
+    type: button
+    crud: N
+    area: "예산 조정안 카드 동작 줄(반영 · 근거 다음)"
+    event: onclick
+    front:
+      handler: "agentGaDeleteAskFinal(id)"
+      file: "budget-agent-console.js:4717 (카드 renderAgentGaCardFinal:1068)"
+      logic: "카드 안에 삭제 확인 띠를 연다. 출처별로 지운 뒤 결과(되살리기 가능 · 상세 값 유지 · 초안 복귀 · 사라짐)를 안내한다. 직책자(결재 화면)에는 보이지 않는다"
+      validation: null
+      state_writes: [agentGaDelArmFinal]
+    backend: null
+    result: "삭제 확인 띠 열림"
+
+  - id: btn-agent-proposal-delete-confirm
+    label: 삭제(확인)
+    type: button
+    crud: D
+    area: "예산 조정안 카드 삭제 확인 띠"
+    event: onclick
+    front:
+      handler: "agentGaDeleteFinal(id)"
+      file: "budget-agent-console.js:4719"
+      logic: >
+        반영을 풀고 출처별로 지운다 — 🤖 Agent 제안: status='dismissed'(되살리기 대상) ·
+        💬 대화로 추가(sim): 목록에서 제거 · ✎ 수동 개입(manual): 편집을 Agent 초안으로 되돌림 ·
+        ✎ 수기 입력(hand): status='deleted' — 상세 화면 값은 남고 결재 전 기준선에서도 계속 빠져 승인 예산은 그대로.
+        택1 묶음은 묶음 전체를 지운다
+      validation: "검토 대기(pending) 건만"
+      state_writes: [AGENT_PROPOSALS_FINAL, agentMiniSelFinal, agentManualEditFinal]
+    backend: null
+    result: "조정안에서 빠짐 · LIVE 바/기안 대상에서 제외"
+
+  - id: btn-agent-proposal-delete-cancel
+    label: 취소
+    type: button
+    crud: N
+    area: "예산 조정안 카드 삭제 확인 띠"
+    event: onclick
+    front:
+      handler: "agentGaDeleteCancelFinal()"
+      file: "budget-agent-console.js:4718"
+      logic: "삭제 확인 띠를 닫는다"
+      validation: null
+      state_writes: [agentGaDelArmFinal]
+    backend: null
+    result: "삭제 취소"
+
+  - id: btn-agent-proposal-restore
+    label: 제안 다시 불러오기
+    type: button
+    crud: U
+    area: "예산 조정안 목록 위 '삭제한 Agent 제안 N건' 띠(삭제한 Agent 제안이 있을 때만)"
+    event: onclick
+    front:
+      handler: "agentGaRestoreBtnFinal()"
+      file: "budget-agent-console.js:4742 (agentGaRestoreFinal:4737)"
+      logic: "현재 프로젝트의 dismissed Agent 제안을 모두 pending 으로 되돌린다. 반영(선택)은 하지 않는다. 대화로 '삭제한 제안 다시 불러와줘'도 같은 동작(agentSimReadFinal kind=restore)"
+      validation: null
+      state_writes: [AGENT_PROPOSALS_FINAL]
+    backend: null
+    result: "삭제했던 Agent 제안이 예산 조정안에 다시 표시"
+
+  - id: tab-agent-todo-filter
+    label: "[전체 N] [검토 대기 N] [반영 N]"
+    type: tab
+    crud: R
+    area: "예산 조정안 칸 카드 목록 머리(원래 '검토 대기 N · 반영 N' 숫자 자리)"
+    event: onclick
+    front:
+      handler: "bapTodoFilterSet('all'|'wait'|'on')"
+      file: "budget-adjust-panel.js:bapTodoFilterSet · renderAgentGaTodoFinal(데코레이터 — 원래 budget-agent-console.js:renderAgentGaTodoFinal)"
+      logic: >
+        카드를 상태별로 조회한다. 전체 = 모든 카드(기본), 검토 대기 = 아직 [반영] 안 한 카드, 반영 = [반영]한 카드(.agga-card.on).
+        탭마다 건수를 붙이고, 고른 탭에 해당 카드가 없으면 '반영한 조정안이 없습니다.' / '검토 대기 중인 조정안이 없습니다.' 안내.
+        [전부 반영] · [전부 해제] · [기안 →]은 탭과 관계없이 전체 기준으로 그대로 동작한다. 고른 탭은 화면을 다시 그려도 유지된다
+      validation: null
+      state_writes: [bapTodoFilter]
+    backend: null
+    result: "고른 상태의 조정안 카드만 표시"
+
+  # [2026.11.12] 계정 상세 맨 위 "예산 조정안 반영 내역"(panel-acct-applied · 수정/저장/취소) 제거 — budget-adjust-panel.js:renderAgentAcctAppliedFinal 이 빈 칸을 돌려줌
+
+  - id: chat-cp-gap
+    label: "지금 CP 여유 얼마야? (대화 · 추천 칩)"
+    type: input(chat) + chip
+    crud: R
+    area: "Agent와 대화하기 입력창 · 추천 칩"
+    event: onclick / Enter
+    front:
+      handler: "agentChatSendFinal() → agentSimReadFinal(q) kind='cpgap' → agentCpGapSayFinal()"
+      file: "budget-agent-console.js:4305 (계산 agentCpGapFinal:4654, 표 renderAgentCpGapFinal:4696)"
+      logic: >
+        CP총액(roll.cp) 기준 GAP을 세 단계로 답하고 답변 아래 표를 붙인다 —
+        ① 최종 승인 실행예산(roll.plan, 결재 전 수기 입력 제외) ② [반영]해 둔 조정안이 승인됐을 때
+        ③ 조정안을 모두 반영했을 때(택1 묶음은 고른 안, 없으면 1안). 금액이 들어 있거나 계정명만 있는 '여유' 질문은 해당하지 않는다
+      validation: "CP총액을 못 찾으면 버전 선택 안내"
+      state_writes: [AGENT_CHAT_FINAL]
+    backend: null
+    result: "CP총액 · 단계별 실행예산 · GAP(여유/초과) 답변"
 
 # ── 비즈니스 로직 & 규칙 ──
 rules:
@@ -313,17 +651,34 @@ flows:
 
 # ── 요구사항 후보(FR) ──
 requirements:
-  - { id: FR-BAD-01, text: 원가조정은 #/budget-adjust(및 계정별 /labor·/outsource·/material·/expense·/as, ?pj=) 딥링크로 진입할 수 있어야 한다 }
-  - { id: FR-BAD-02, text: 진입 시 계정별 작성 스테퍼(이력 → 계정별 작성 → 결재)로 열려야 한다 }
-  - { id: FR-BAD-03, text: 사용자는 5대 계정 타일에서 계정을 선택해 계정별 상세 계획을 편집할 수 있어야 한다 }
-  - { id: FR-BAD-04, text: PM은 계정 간 예산을 이관할 수 있으며, 저장 시 총액은 불변이어야 한다(조정배분 합계 = 총액) }
-  - { id: FR-BAD-05, text: 각 계정의 조정배분은 실집행+투입확정 금액 미만으로 설정할 수 없어야 한다 }
-  - { id: FR-BAD-06, text: 경비 계정 조정배분은 ERP 가용 한도를 초과하거나 가용성 검증에 실패하면 저장을 거부해야 한다 }
-  - { id: FR-BAD-07, text: 예산 이관 저장 시 변경 내역(계정별 변경 전/후/증감)을 버전으로 기록하고 로컬 영속화해야 한다 }
-  - { id: FR-BAD-08, text: 총 Cost 변경은 이 화면에서 불가하며 AI PMO Cost 재산정으로 안내해야 한다 }
-  - { id: FR-BAD-09, text: 작성중 버전만 결재요청이 가능하며, 결재라인(기안자→팀장)과 버전 diff 써머리를 제공해야 한다 }
+  - { id: FR-BAD-01, text: "원가조정은 #/budget-adjust(및 계정별 /labor·/outsource·/material·/expense·/as, ?pj=) 딥링크로 진입할 수 있어야 한다" }
+  - { id: FR-BAD-02, text: "진입 시 계정별 작성 스테퍼(이력 → 계정별 작성 → 결재)로 열려야 한다" }
+  - { id: FR-BAD-03, text: "사용자는 5대 계정 타일에서 계정을 선택해 계정별 상세 계획을 편집할 수 있어야 한다" }
+  - { id: FR-BAD-04, text: "PM은 계정 간 예산을 이관할 수 있으며, 저장 시 총액은 불변이어야 한다(조정배분 합계 = 총액)" }
+  - { id: FR-BAD-05, text: "각 계정의 조정배분은 실집행+투입확정 금액 미만으로 설정할 수 없어야 한다" }
+  - { id: FR-BAD-06, text: "경비 계정 조정배분은 ERP 가용 한도를 초과하거나 가용성 검증에 실패하면 저장을 거부해야 한다" }
+  - { id: FR-BAD-07, text: "예산 이관 저장 시 변경 내역(계정별 변경 전/후/증감)을 버전으로 기록하고 로컬 영속화해야 한다" }
+  - { id: FR-BAD-08, text: "총 Cost 변경은 이 화면에서 불가하며 AI PMO Cost 재산정으로 안내해야 한다" }
+  - { id: FR-BAD-09, text: "작성중 버전만 결재요청이 가능하며, 결재라인(기안자→팀장)과 버전 diff 써머리를 제공해야 한다" }
   - { id: FR-BAD-10, text: "Agent ON 화면에서 계정 상세에 들어가면 Agent와 대화하기 칸을 접고 펼칠 수 있어야 한다" }
   - { id: FR-BAD-11, text: "Agent ON 화면의 계정 상세에서도 예산 조정안을 펼쳐 보며 반영·기안할 수 있어야 한다" }
   - { id: FR-BAD-12, text: "Agent ON 화면에서 계정 상세에 들어가면 계정색 강조로 프로젝트 메인 화면과 구분되어야 하며, [← 프로젝트 메인]으로 한 번에 돌아갈 수 있어야 한다" }
   - { id: FR-BAD-13, text: "Agent ON 화면의 모든 계정 상세에서 [월별 계획/실적 보기] 팝업으로 상세계정별 계획·실적·미집행과 월별 금액을 볼 수 있어야 한다" }
   - { id: FR-BAD-14, text: "메인에서 계정 상세로 들어가면 예산 조정안과 Agent와 대화하기가 모두 접힌 상태로 열려야 한다(계정 상세를 넓게)" }
+  - { id: FR-BAD-15, text: "Agent에게 CP 여유를 물으면 CP총액 대비 ① 최종 승인 실행예산 ② 반영해 둔 조정안 승인 시 ③ 조정안 모두 반영 시의 실행예산과 GAP을 함께 답해야 한다" }
+  - { id: FR-BAD-16, text: "예산 조정안에는 Agent 데이터 기반 제안 · Agent 대화로 들어온 조정 · 계정 상세에서 사용자가 직접 조정한 내역이 출처 표시와 함께 모두 보여야 한다" }
+  - { id: FR-BAD-17, text: "사용자는 중복된 조정안을 출처와 관계없이 확인 후 삭제할 수 있어야 하며, 삭제한 건은 반영·기안 대상에서 빠져야 한다" }
+  - { id: FR-BAD-18, text: "삭제한 Agent 제안은 [제안 다시 불러오기](또는 대화)로 예산 조정안에 되살릴 수 있어야 한다" }
+  - { id: FR-BAD-19, text: "계정 상세 수기 입력 조정안을 삭제해도 승인된 실행예산(기준선)은 바뀌지 않아야 하며, 상세 화면에 '조정안 삭제' 상태로 표시되어야 한다" }
+  - { id: FR-BAD-20, text: "[2026.11.12 변경] 계정 상세 맨 위에는 예산 조정안 반영 내역을 따로 두지 않아야 하며, 반영한 조정안은 [예산 조정안] 칸의 [반영] 탭에서 확인해야 한다" }
+  - { id: FR-BAD-21, text: "[2026.11.12 삭제] 계정 상세 반영 내역 편집기를 없앰에 따라 해당 없음 — Agent 제안 · 대화 조정의 금액은 Agent 대화로 지시하거나 조정안 삭제 후 계정 상세에서 직접 수정한다" }
+  - { id: FR-BAD-22, text: "사용자는 메인의 이상징후 항목을 눌러 해당 프로젝트 · 계정의 원가조정 화면으로 바로 이동할 수 있어야 하며, 그 화면에서 이상징후의 근거(설명 · 계정 예산 · 실적 · CP · 소진율)와 Agent 해결안(유형별 해결 순서 · 반영 가능한 조정안)을 확인할 수 있어야 한다" }
+  - { id: FR-BAD-23, text: "[2026.11.12] 예산 조정안 칸은 [전체] · [검토 대기] · [반영] 탭으로 상태별 조정안을 건수와 함께 조회할 수 있어야 하며, 기본은 전체여야 한다" }
+  - { id: FR-BAD-24, text: "[2026.11.12] 월별 계획/실적 팝업은 월별 · 분기별 · 연도별 보기, 연도 선택, 금액 단위(원 · 만원 · 억원)를 제공하고, 확정 실적(지난 달)은 기본으로 합계 한 칸으로 접혀야 하며, 연도마다 합계를 보여야 한다" }
+  - { id: FR-BAD-25, text: "[2026.11.12] 월별 계획/실적 팝업은 지금 보이는 표(보기 · 연도 · 단위 그대로)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
+  - { id: FR-BAD-26, text: "[2026.11.12] 실적조회 팝업은 지금 탭의 실적 표를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
+  - { id: FR-BAD-27, text: "[2026.11.12] 계정 상세의 세 칸(예산 조정안 · 상세 예산내역 · Agent와 대화하기)은 같은 높이(화면 높이 기준)로 맞춰지고 칸마다 안쪽에서 스크롤되어야 하며, 폭은 상세 예산내역 중심(20 : 60 : 20)이어야 한다" }
+  - { id: FR-BAD-28, text: "[2026.11.12] 계정 상세의 대화 칸은 마지막 대화 1쌍만 보이고 이전 대화는 접어 두며 펼쳐 볼 수 있어야 하고, 상세계정 탭이 많으면 가로 스크롤로 볼 수 있어야 한다" }
+  - { id: FR-BAD-29, text: "[2026.11.12] 원가조정 · 원가현황의 버튼은 역할(주요 · 보조 · 위험 · 긍정 · 엑셀)별 같은 모양과 두 가지 크기(도구줄 30px · 행 안 26px)로 통일되어야 한다" }
+  - { id: FR-BAD-30, text: "[2026.11.12] 계정 상세의 세 칸은 경계를 끌어 가로 폭을 조절할 수 있어야 하며(최소 폭: 양옆 240px · 상세 480px), 정한 폭은 유지되고 더블클릭으로 기본 폭으로 되돌릴 수 있어야 한다" }
+  - { id: FR-BAD-31, text: "[2026.11.12] 계정 상세의 입력 행(등록 · 수정)은 만든 탭(계정 + 상세계정 탭, 경비는 연도)에서만 보여야 하며, 다른 탭으로 옮기면 숨었다가 돌아오면 다시 보여야 한다. 저장 단위는 상세계정 탭마다(경비만 연도 탭을 한 번에 저장 — 다른 계정의 저장 단위는 논의 중)" }

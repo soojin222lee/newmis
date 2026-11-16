@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/css/sk-theme.css?v=20260814-split2" />
 <link rel="stylesheet" href="/css/home.css?v=20261014-hid" />
 <link rel="stylesheet" href="/css/ai-agent.css?v=20261014-hid" />
-<link rel="stylesheet" href="/css/si-project.css?v=20260819-ifredesign4" />
+<link rel="stylesheet" href="/css/si-project.css?v=20261103-cur2" />
 <link rel="stylesheet" href="/css/shell-v2.css?v=20261111-cost4" />
 </head>
 <body>
@@ -261,20 +261,34 @@
 <script src="/js/budget-area-labor.js?v=20260827-costterms"></script>
 <!-- [2026.08.27 위클리 피드백 반영] 원가조정 = 예산관리전문Agent 콘솔. budget-area-* 전부 뒤에 로드해야 override가 이깁니다. -->
 <script src="/js/budget-agent-console.js?v=20261014-hid3"></script>
-<script src="/js/project-close.js?v=20260814-fontbump"></script>
+<!-- [2026.11.11] 원가조정 A/S Cost 직접 수정(등록·수정·삭제). budget-agent-console.js 뒤에 로드 -->
+<script src="/js/budget-direct-edit.js?v=20261111-bde3"></script>
+<!-- [2026.11.11] 원가조정 계정 상세 — 등록=표 맨 위 행추가 · 수정=칸에서 바로 · 체크박스 선택삭제. budget-direct-edit.js 뒤에 로드 -->
+<script src="/js/budget-inline-edit.js?v=20261116-bie10"></script>
+<script src="/js/budget-os-po.js?v=20261116-bop6"></script>
+<!-- [2026.11.12] 원가조정 Agent 화면 정리 — 계정 상세 반영 내역 제거 · 예산 조정안 상태 탭. budget-agent-console.js 뒤에 로드 -->
+<script src="/js/budget-adjust-panel.js?v=20261112-bap2"></script>
+<!-- [2026.11.12] 원가조정 [월별 계획/실적 보기] 팝업 — 월별/분기별/연도별 · 연도 선택 · 단위 · 실적 접기 · 연도 합계. budget-agent-console.js 뒤에 로드 -->
+<script src="/js/budget-monthly-view.js?v=20261112-bmv4"></script>
+<script src="/js/budget-excel-export.js?v=20261112-bxe4"></script>
+<script src="/js/budget-status-view.js?v=20261112-bsv1"></script>
+<script src="/js/budget-ui-unify.js?v=20261112-bui4"></script>
+<script src="/js/project-close.js?v=20261111-s1"></script>
 <script src="/js/custom-report.js?v=20260825-crassist"></script>
 <script src="/js/initiation-report.js?v=20260814-fontbump"></script>
 <script src="/js/interim-report.js?v=20260814-fontbump"></script>
 <script src="/js/closure-report.js?v=20260814-fontbump"></script>
 <script src="/js/system-desc.js?v=20260814-fontbump"></script>
-<script src="/js/si-project.js?v=20260820-ppdash"></script>
-<script src="/js/proposal-project.js?v=20260820-ppdash"></script>
-<script src="/js/wg-project.js?v=20260814-fontbump"></script>
-<script src="/js/internal-project.js?v=20260814-fontbump"></script>
-<script src="/js/investment-project.js?v=20260814-fontbump"></script>
-<script src="/js/advance-project.js?v=20260814-fontbump"></script>
-<script src="/js/project-status.js?v=20261013-projrework"></script>
-<script src="/js/project-open.js?v=20261013-projrework"></script>
+<script src="/js/si-project.js?v=20261105-tobe3"></script>
+<script src="/js/project-close-inline.js?v=20261112-pci4"></script>
+<script src="/js/proposal-project.js?v=20261105-tobe6"></script>
+<script src="/js/project-detail-route.js?v=20261112-pdr2"></script>
+<script src="/js/wg-project.js?v=20261105-tobe3"></script>
+<script src="/js/internal-project.js?v=20261105-tobe3"></script>
+<script src="/js/investment-project.js?v=20261105-tobe3"></script>
+<script src="/js/advance-project.js?v=20261105-tobe3"></script>
+<script src="/js/project-status.js?v=20261111-tobe1"></script>
+<script src="/js/project-open.js?v=20261116-mrg1"></script>
 <script src="/js/master-config.js?v=20260814-fontbump"></script>
 <script src="/js/checkpoint-extra.js?v=20260814-fontbump"></script>
 <script src="/js/screen-desc.js?v=20260918-desc"></script>
