@@ -242,7 +242,8 @@ elements:
   - id: btn-goto-confirm
     label: "예산 확정 화면 →"
     type: button
-    area: 상세 하단
+    crud: N
+    area: "전체 현황 머리줄 .budget-process-actions — 한 곳만 둔다(2026.11.17 프로젝트 수행비용 카드 안의 중복 버튼 제거, budget-status-view.js:renderProjectPlanSummary)"
     event: onclick
     front:
       handler: "budgetDetailStep='confirm' 이동"

@@ -94,9 +94,6 @@ function bsvSummary(data, actual, quasi) {
     <div class="project-plan-summary">
       <div class="pps-titlebar">
         <div><span></span><strong>프로젝트 수행비용</strong></div>
-        <div class="pps-actions">
-          <button class="labor-main-btn" onclick="budgetDetailStep='confirm';renderBudgetPage()">예산 확정 화면 →</button>
-        </div>
       </div>
       <div class="pps-top">
         <div>
