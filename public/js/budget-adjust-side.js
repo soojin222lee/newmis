@@ -75,7 +75,7 @@ function b2cApply() {
       + '<div class="b2c-tabs" role="tablist">'
       + '<button type="button" class="b2c-tab" data-tab="todo" role="tab" onclick="b2cTab(\'todo\')">예산 조정안<em class="b2c-cnt"></em></button>'
       + '<button type="button" class="b2c-tab" data-tab="chat" role="tab" onclick="b2cTab(\'chat\')">Agent와 대화</button>'
-      + '<button type="button" class="b2c-fold" onclick="b2cFold(true)" title="오른쪽 칸 접기" aria-label="오른쪽 칸 접기">' + ((typeof BUI_IC !== 'undefined') ? BUI_IC.right2 : '»') + '</button></div>'
+      + '<button type="button" class="b2c-fold" onclick="b2cFold(true)" title="오른쪽 칸 접기" aria-label="오른쪽 칸 접기">»</button></div>'
       + '<div class="b2c-rail">'
       + '<button type="button" class="b2c-rail-btn" data-tab="todo" onclick="b2cTab(\'todo\')" title="예산 조정안 열기"><span>예산 조정안</span><em class="b2c-cnt"></em></button>'
       + '<button type="button" class="b2c-rail-btn" data-tab="chat" onclick="b2cTab(\'chat\')" title="Agent와 대화 열기"><span>Agent</span></button></div>'
@@ -168,12 +168,8 @@ function b2cCards(todo, compact) {
     c.classList.toggle('b2c-open', open);
     if (!compact) return;
     const pick = !!c.querySelector('.agai-seg');
-    const label = open ? '접기' : (pick ? '안 고르기' : '자세히');
-    if (why.getAttribute('data-b2c') !== label) {          // 꺾쇠는 선 아이콘(budget-ui-unify.js BUI_IC)으로 — 글자 기호를 쓰지 않음
-      why.innerHTML = label + ((typeof BUI_IC !== 'undefined') ? BUI_IC[open ? 'up' : 'down'] : (open ? ' ▴' : ' ▾'));
-      why.setAttribute('data-b2c', label);
-      why.setAttribute('data-bui-ic', '1');
-    }
+    const label = open ? '접기 ▴' : (pick ? '안 고르기 ▾' : '자세히 ▾');
+    if (why.textContent !== label) why.textContent = label;
     const t = c.querySelector('.agga-title');
     if (t && !t.getAttribute('onclick')) {
       t.setAttribute('onclick', why.getAttribute('onclick'));
