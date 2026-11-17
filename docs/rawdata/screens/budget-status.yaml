@@ -127,6 +127,34 @@ elements:
       state_writes: [bmvMode]
     backend: null
     result: "고른 단위로 묶인 열"
+  - id: btn-summary-acct-fold
+    label: "꺾쇠 아이콘(계정 행 접기·펴기 — 인건비 · 외주비 · 재료비 · 경비)"
+    type: button
+    crud: N
+    area: "전체 현황 그리드 · 계정(1단) 행 이름 왼쪽"
+    event: onclick
+    front:
+      handler: "bsvToggle('{계정}')"
+      file: "budget-status-view.js:bsvToggle · bsvSummary"
+      logic: "[2026.11.17] 계정 아래 하위 계정(예: 인건비 → 실투입인건비 · 이관인건비 · 증업일급여-OT) 행을 숨기거나 보인다. 꺾쇠 아이콘(펼침 = 아래, 접힘 = 오른쪽 — 글자 기호 ⊟⊞○ 대신 선 아이콘 BSV_CHEVRON), 하위 계정 행은 아이콘 없이 들여쓰기. 처음엔 모두 펼침. 보기(월별 · 분기별 · 연도별 · 기간)나 단위를 바꿔도 유지. 접은 행은 그리지 않아 엑셀도 보이는 그대로. 맨 위 '프로젝트 총 실행비용' 행의 꺾쇠는 모든 계정을 한 번에 접기/펴기"
+      validation: null
+      state_writes: [bsvFold]
+    backend: null
+    result: "계정 하위 행 접힘/펼침"
+  - id: btn-summary-fold-all
+    label: "전체 접기 ↔ 전체 펴기 (버튼 하나)"
+    type: button
+    crud: N
+    area: "전체 현황 그리드 위 도구줄(단위 표시 왼쪽)"
+    event: onclick
+    front:
+      handler: "bsvFoldAll(true|false)"
+      file: "budget-status-view.js:bsvFoldAll · bsvAllFolded"
+      logic: "[2026.11.17] 모든 계정의 하위 계정을 한 번에 펼치거나 접는다. 버튼 하나로 합침 — 하나라도 펼쳐져 있으면 [전체 접기], 모두 접혀 있으면 [전체 펴기]로 바뀐다(꺾쇠 아이콘도 함께 회전). 전체 접기면 프로젝트 총 실행비용 + 계정 합계(인건비 · 외주비 · 재료비 · 경비)만 남는다"
+      validation: null
+      state_writes: [bsvFold]
+    backend: null
+    result: "모든 계정 펼침/접힘"
   - id: input-summary-range
     label: "기간 시작 월 ~ 끝 월(연·월만, 일 없음)"
     type: input
@@ -283,3 +311,4 @@ requirements:
   - { id: FR-BST-10, text: "[2026.11.12] 전체 현황 그리드는 원가조정 월별 계획/실적 팝업과 같은 UI로 월별 · 분기별 · 연도별 보기, 연도 선택, 단위(원 · 만원 · 억원), 확정 실적 접기, 연도 합계, 왼쪽 고정 열을 제공해야 한다" }
   - { id: FR-BST-11, text: "[2026.11.12] 전체 현황 그리드와 실적조회 · 투입계획 조회 팝업은 지금 보이는 표를 엑셀(.xlsx)로 다운로드할 수 있어야 하며, 엑셀 버튼은 원가조정과 같은 공통 디자인이어야 한다" }
   - { id: FR-BST-12, text: "[2026.11.17] 전체 현황 그리드는 시작 월 ~ 끝 월(일 제외)을 골라 그 기간의 월별 계획/실적과 기간 합계를 조회할 수 있어야 한다" }
+  - { id: FR-BST-13, text: "[2026.11.17] 전체 현황 그리드는 계정(인건비 · 외주비 · 재료비 · 경비)마다 하위 계정 행을 접고 펼 수 있어야 하며, 도구줄에서 전체 펴기 · 전체 접기를 할 수 있어야 한다" }
