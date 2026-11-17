@@ -23,6 +23,7 @@ let popenErrPopup = null;  // 업로드 오류 팝업 대상 행 index
 let popenConfirm = null;   // 확인 창 { msg, ok }
 let popenSelectedId = null;
 let popenSearch = '';
+let popenF = { no:'', nm:'', pm:'', date:'', type:'', sts:'' };   // 검색 패널 — [조회] 시 적용된 조건
 let popenStatusFilter = '';
 let popenTypeFilter = '';
 let popenNewType = 'W/G';  // 신규 신청 유형
@@ -128,6 +129,14 @@ function popenInjectStyle() {
    .popen-flow{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 4px}
    .popen-fstep{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#64748b;background:#f8fafc;border:1px solid #e5e7eb;border-radius:99px;padding:4px 11px}
    .popen-fstep i{font-style:normal;color:#cbd5e1}
+   .popen-search{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin:12px 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:10px 14px;align-items:end}
+   .popen-sf label{display:block;font-size:11.5px;font-weight:800;color:#475569;margin-bottom:4px}
+   .popen-sf input,.popen-sf select{width:100%;height:34px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:0 10px;font-size:12.5px;font-family:inherit;color:#0f172a;background:#fff}
+   .popen-sf input[readonly]{cursor:pointer}
+   .popen-sfin{display:flex;gap:6px}
+   .popen-sfic{flex:0 0 34px;height:34px;border:1px solid #d1d5db;border-radius:8px;background:#f8fafc;color:#475569;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+   .popen-sfic:hover{background:#eef2f7}
+   .popen-sbtns{display:flex;flex-direction:column;gap:6px;grid-column:4;grid-row:1 / span 2;align-self:center}
    .popen-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin:12px 0}
    .popen-toolbar input,.popen-toolbar select{border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;color:#0f172a;background:#fff}
    .popen-toolbar input{flex:1;min-width:180px}
@@ -200,13 +209,17 @@ function popenInjectStyle() {
 const POPEN_TYPE_COLOR = { 'W/G':'#b45309', '사내':'#be185d' };
 
 function popenFilter() {
-  const q = popenSearch.trim().toLowerCase();
+  const f = popenF, low = function (s) { return String(s || '').toLowerCase(); };
   return Object.keys(POPEN_APPS).map(function (k) {
     return Object.assign({ id: k }, POPEN_APPS[k]);
   }).filter(function (a) {
-    if (popenTypeFilter && a.type !== popenTypeFilter) return false;
-    if (popenStatusFilter && popenDisplayStatus(a) !== popenStatusFilter) return false;
-    if (q && !((a.name + ' ' + a.reqDept + ' ' + a.requester).toLowerCase().includes(q))) return false;
+    const wg = (typeof POPEN_WGX !== 'undefined' && POPEN_WGX[a.id]) || {};
+    if (f.no && !low((wg.code || '') + ' ' + a.projectNo).includes(low(f.no.trim()))) return false;
+    if (f.nm && !low(a.name).includes(low(f.nm.trim()))) return false;
+    if (f.pm && !low((wg.pm || '') + ' ' + a.requester).includes(low(f.pm.trim()))) return false;
+    if (f.date && String(a.requestDate || '').slice(0, 10) !== f.date) return false;
+    if (f.type && a.type !== f.type) return false;
+    if (f.sts && popenDisplayStatus(a) !== f.sts) return false;
     return true;
   });
 }
@@ -222,12 +235,12 @@ function renderProjectOpen() {
   const flow = ['개설 신청', '개설 승인 대기', '개설 승인 완료', '반려 / 재신청', '프로젝트 등록 완료']
     .map(function (s, i) { return '<span class="popen-fstep">' + s + '</span>' + (i < 4 ? '<i>→</i>' : ''); }).join('');
 
-  const statusOpts = ['<option value="">전체 상태</option>']
+  const statusOpts = ['<option value="">전체</option>']
     .concat(['개설 신청', '개설 승인 대기', '개설 승인 완료', '반려', '프로젝트 등록 완료'].map(function (s) {
-      return '<option value="' + s + '"' + (s === popenStatusFilter ? ' selected' : '') + '>' + s + '</option>';
+      return '<option value="' + s + '"' + (s === popenF.sts ? ' selected' : '') + '>' + s + '</option>';
     })).join('');
-  const typeOpts = [['', '전체 유형'], ['W/G', 'W/G'], ['사내', '사내']]
-    .map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === popenTypeFilter ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('');
+  const typeOpts = [['', '전체'], ['W/G', 'W/G'], ['사내', '사내']]
+    .map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === popenF.type ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('');
 
   const body = rows.length ? rows.map(function (a) {
     const disp = popenDisplayStatus(a);
@@ -267,14 +280,19 @@ function renderProjectOpen() {
     + '<div class="popen-head"><div><div class="popen-title">프로젝트 개설 관리</div>'
     + '<div class="popen-sub">W/G·사내 프로젝트의 개설 신청과 기안·승인을 처리합니다. 수주형·제안·투자·선투입은 선행 시스템에서 자동 등록되어 이 화면 대상이 아닙니다.</div></div></div>'
     + '<div class="popen-flow">' + flow + '</div>'
-    + '<div class="popen-toolbar">'
-    + '<input type="text" placeholder="프로젝트명·신청부서·신청자 검색" value="' + popenSearch.replace(/"/g, '&quot;') + '" oninput="popenOnSearch(this.value)">'
-    + '<select onchange="popenOnType(this.value)">' + typeOpts + '</select>'
-    + '<select onchange="popenOnStatus(this.value)">' + statusOpts + '</select>'
-    + '<button class="popen-btn" onclick="popenResetFilter()">초기화</button>'
-    + '<button class="popen-btn pri" onclick="popenNewApply()">+ 신규 개설 신청</button>'
+    // [복원 2026.11.17] 검색 패널 — 프로젝트번호 · 프로젝트명 · PM(사원 검색) / 등록일 · 유형 · 상태 + [조회][초기화]
+    + '<div class="popen-search">'
+    + '<div class="popen-sf"><label>프로젝트번호</label><input id="popen-f-no" value="' + popenEsc(popenF.no) + '" onkeydown="if(event.key===\'Enter\')popenDoSearch()"></div>'
+    + '<div class="popen-sf"><label>프로젝트명</label><input id="popen-f-nm" value="' + popenEsc(popenF.nm) + '" onkeydown="if(event.key===\'Enter\')popenDoSearch()"></div>'
+    + '<div class="popen-sf"><label>PM</label><div class="popen-sfin"><input id="popen-f-pm" readonly placeholder="사원 검색" value="' + popenEsc(popenF.pm) + '" onclick="popenOpenMemberSearch(\'popen-f-pm\')">'
+    + '<button class="popen-sfic" title="사원 검색" onclick="popenOpenMemberSearch(\'popen-f-pm\')">' + POPEN_WGX_SEARCH + '</button></div></div>'
+    + '<div class="popen-sbtns"><button class="popen-btn pri" onclick="popenDoSearch()">조회</button><button class="popen-btn" onclick="popenResetFilter()">초기화</button></div>'
+    + '<div class="popen-sf"><label>등록일</label><input id="popen-f-date" type="date" value="' + popenEsc(popenF.date) + '"></div>'
+    + '<div class="popen-sf"><label>유형</label><select id="popen-f-type">' + typeOpts + '</select></div>'
+    + '<div class="popen-sf"><label>상태</label><select id="popen-f-sts">' + statusOpts + '</select></div>'
     + '</div>'
     + '<div class="popen-gbar"><span class="cnt">총 <b>' + total + '</b> 건</span>'
+    + '<button class="popen-btn pri" onclick="popenNewApply()">+ 신규 개설 신청</button>'
     + '<button class="popen-btn xls" onclick="popenUpload()">⬆ 엑셀 업로드</button>'
     + '<button class="popen-btn xls" onclick="popenToast(\'WG.xlsx 파일을 내려받았습니다. (목업)\')">⬇ 엑셀 다운로드</button>'
     + '<button class="popen-btn" onclick="popenToast(\'WorkingGroup템플릿.xlsx 파일을 내려받았습니다. (목업)\')">템플릿</button>'
@@ -930,7 +948,13 @@ function popenRenderOrg() {
 function popenOnSearch(v) { popenSearch = v; renderProjectOpen(); }
 function popenOnStatus(v) { popenStatusFilter = v; renderProjectOpen(); }
 function popenOnType(v)   { popenTypeFilter = v; renderProjectOpen(); }
-function popenResetFilter() { popenSearch = ''; popenStatusFilter = ''; popenTypeFilter = ''; renderProjectOpen(); }
+function popenResetFilter() { popenF = { no:'', nm:'', pm:'', date:'', type:'', sts:'' }; renderProjectOpen(); }
+// [조회] — 입력칸 값을 읽어 조건 적용 (PM 칸은 사원 검색 팝업이 이름을 넣음)
+function popenDoSearch() {
+  const v = function (id) { const el = document.getElementById(id); return el ? el.value : ''; };
+  popenF = { no: v('popen-f-no'), nm: v('popen-f-nm'), pm: v('popen-f-pm'), date: v('popen-f-date'), type: v('popen-f-type'), sts: v('popen-f-sts') };
+  renderProjectOpen();
+}
 function popenOpenDetail(id) {
   const desc = { kind: 'popenDetail', id: id };
   // 프로젝트는 새 탭으로(이미 열린 프로젝트면 그 탭 포커스)
