@@ -121,3 +121,38 @@ function uisIconize() {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
 
+// ── 6) 화면 이동 시 스크롤 맨 위로 (2026.11.17) ─────────────────────────────
+// 페이지 스크롤은 window 에 있는데, 화면(메뉴 카테고리)을 바꿔도 아무도 되돌리지 않아 아래로 내린 자리가 남았습니다.
+// 화면 id 가 바뀌거나 주소의 화면 부분(#/xxx, ? 앞)이 바뀌면 맨 위로 올립니다.
+// 상세 → [목록]으로 "보던 자리"를 되돌리는 코드(project-detail-route.js)는 uisScrollHold() 로 잠깐 막아 둡니다.
+var uisScrollHoldAt = 0;
+function uisScrollHold() { uisScrollHoldAt = Date.now(); }
+function uisScrollTop() {
+  if (Date.now() - uisScrollHoldAt < 700) return;
+  window.scrollTo(0, 0);
+  document.querySelectorAll('.main, .content, .screen.active').forEach(function (e) { if (e.scrollTop) e.scrollTop = 0; });
+}
+(function uisNavScroll() {
+  if (typeof window === 'undefined') return;
+  const wrap = function () {
+    const before = window.setScreen;
+    if (typeof before !== 'function' || before.uisScroll) return;
+    window.setScreen = function (id) {
+      const cur = document.querySelector('.screen.active');
+      const r = before.apply(this, arguments);
+      if (!cur || cur.id !== id) uisScrollTop();
+      return r;
+    };
+    window.setScreen.uisScroll = true;
+  };
+  wrap();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wrap);
+  let lastBase = (location.hash || '').split('?')[0];
+  window.addEventListener('hashchange', function () {
+    const b = (location.hash || '').split('?')[0];
+    if (b === lastBase) return;
+    lastBase = b;
+    uisScrollTop();
+  });
+})();
+
