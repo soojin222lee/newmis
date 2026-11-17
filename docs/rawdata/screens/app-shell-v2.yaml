@@ -16,6 +16,7 @@ screen:
     - public/css/shell-v2.css   # body.app-v2 범위의 틀·공통 부품·대화 화면 스타일 (신규)
     - public/index.html         # 위 두 파일 로드 줄만 추가 (기존 줄 수정 없음)
     - public/js/dashboard.js    # 재사용: v2BrandHtml · v2MeHtml · homeV2PjtListHtml · toggleHomeV2Pjt · toggleV2Rail · homeV2Hero
+    - public/js/rail-project-go.js  # 레일 프로젝트 행 분리: ▸ 칸=펼치기 · 이름=프로젝트로 이동 (남주, 신규)
   purpose: >
     선행 오픈 시스템 AiPMO · Talent AX (AXGENTIC WIRE 브랜드)의 UI 사상을 실행예산 전 화면에 적용해
     개발자 전달용 확정 UI 를 만든다. 메인화면 버전2(main-home-v2.yaml)를 앱 전체로 넓힌 것이다.
@@ -132,8 +133,8 @@ elements:
     kind: button
     crud: R
     where: "레일 '담당 프로젝트'/'팀 프로젝트' 카드 #v2-rail-body"
-    handler: "toggleHomeV2Pjt(id) · 항목 homePjtGo(pjtId, acct)"
-    logic: "main-home-v2.yaml 의 btn-rail-pjt-toggle / btn-rail-item 과 동일. 버전2 의 주 이동 경로 — 항목 클릭 시 해당 계정 원가조정 화면으로 가고 레일이 자동 축소된다"
+    handler: "▸ 칸 toggleHomeV2Pjt(id) · 이름 railPjtGo(id) · 항목 homePjtGo(pjtId, acct)"
+    logic: "main-home-v2.yaml 의 btn-rail-pjt-toggle / btn-rail-pjt-go / btn-rail-item 과 동일. 행은 ▸ 칸(펼치기)과 이름 영역(프로젝트로 이동, ↗ 표시)으로 나뉜다(rail-project-go.js:wrapRailRow). 버전2 의 주 이동 경로 — 항목 클릭 시 해당 계정 원가조정 화면으로 가고 레일이 자동 축소된다"
     api: 없음
   - id: btn-pjsec-toggle
     label: 담당 프로젝트 목록 펼치기/접기
@@ -316,6 +317,7 @@ requirements:
   - { id: FR-SHELL-08, text: "목록 화면의 검색 패널·주요 버튼·건수·표는 선행 시스템(AiPMO)과 같은 형태로 보여야 하되 기존 기능과 버튼은 모두 유지되어야 한다" }
   - { id: FR-SHELL-09, text: "AI 대화창과 AI 레포트는 선행 시스템(Talent AX)과 같은 대화 형태(말풍선·구슬 아이콘·보라 테두리 입력창·면책 문구)로 보여야 한다" }
   - { id: FR-SHELL-10, text: "표가 화면 폭보다 넓으면 버튼이 잘리지 않고 표 안에서 가로로 스크롤되어야 한다" }
+  - { id: FR-SHELL-11, text: "레일 담당 프로젝트의 이름을 누르면 그 프로젝트의 원가조정 화면으로 바로 이동할 수 있어야 하며, 이동과 펼치기 영역이 눈으로 구분되어야 한다(▸ 칸 = 펼치기, 이름 끝 ↗ = 이동)" }
 
 # ── 확인 시나리오 (2026-10-07) ──
 verification:

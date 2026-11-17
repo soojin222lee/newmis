@@ -102,7 +102,7 @@ elements:
     label: 담당 프로젝트 행 펼치기/접기 (조회)
     kind: button
     crud: R
-    where: "좌측 레일 '담당 프로젝트' 카드 .v2-pjt-h"
+    where: "좌측 레일 '담당 프로젝트' 카드 행 왼쪽 ▸ 칸 .rpg-tog (rail-project-go.js 가 .v2-pjt-h 를 두 버튼으로 나눔)"
     handler: "toggleHomeV2Pjt(id)"
     logic: >
       homeV2Open 을 해당 id 로 바꿔 한 번에 하나만 펼친다(같은 id 재클릭 시 접힘).
@@ -110,6 +110,18 @@ elements:
       행 우측 배지 = v2TodosOf(id).open + v2RisksOf(id).open 건수(역할별로 다름),
       0건이면 leadCostBreak(id).plan 유무에 따라 '정상' 또는 '편성 전' 태그.
     api: 없음 (AGENT_PROPOSALS_FINAL · SCEN_RISKS_BY_PJT · BUDGET_SOURCE 집계)
+  - id: btn-rail-pjt-go
+    label: 담당 프로젝트로 이동
+    kind: button
+    crud: N
+    where: "좌측 레일 '담당 프로젝트' 카드 행의 이름 영역 .rpg-go (이름 · ↗ 아이콘 · 건수 배지)"
+    handler: "railPjtGo(id)"
+    logic: >
+      rail-project-go.js:railPjtGo — 팀장이면 agentPersonaFinal='exec', PM이면 'pm' 으로 맞춘 뒤
+      openCostAdjust(id) 로 그 프로젝트의 원가조정 화면을 연다. (매니저님 요청: 레일에서 프로젝트로 바로 이동)
+      이름 끝 ↗ 를 항상 표시하고, hover 시 이름 파랑+밑줄·화살표 이동·툴팁 "프로젝트로 이동".
+      ▸ 칸은 hover 시 그 칸만 진한 배경·툴팁 "업무 펼치기" — 두 영역을 눈으로 구분한다.
+    api: 없음 (해시 라우팅 #/budget-adjust?pj=<key>)
   - id: btn-rail-item
     label: 해야 할 일 · 이상징후 항목 조회
     kind: button
@@ -230,6 +242,7 @@ requirements:
   - { id: FR-HOME2-08, text: "업무 항목을 클릭하면 해당 계정의 원가조정 화면으로 이동해야 하고, 처리된 항목은 처리완료로 구분되어야 한다" }
   - { id: FR-HOME2-09, text: "AI 채팅의 업무 답변은 화면(레일·히어로)과 동일한 건수를 보여야 하고, 질문에 프로젝트명이 있으면 그 프로젝트로 범위를 좁혀 답해야 한다" }
   - { id: FR-HOME2-10, text: "버전2 색상은 선행 시스템(AiTeaming·AiPMO)과 동일한 계열을 사용해야 하며 버전1 스타일에 영향을 주지 않아야 한다" }
+  - { id: FR-HOME2-11, text: "레일 담당 프로젝트의 이름을 누르면 펼치지 않고도 그 프로젝트의 원가조정 화면으로 바로 이동할 수 있어야 하며, 펼치기는 왼쪽 ▸ 칸으로 따로 할 수 있어야 한다" }
 
 # ── 확인 시나리오 ──
 verification:

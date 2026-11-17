@@ -11,6 +11,23 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 /* ── 전체 현황 ─────────────────────────────────────────────────────────── */
+// [2026.11.17] 계정 접기/펴기 상태 — { 계정 이름: true(접힘) }. 처음엔 모두 펼침, 다시 그려도 유지
+var bsvFold = {};
+var bsvAllFolded = false;                     // 지금 모든 계정이 접혀 있나(도구줄 버튼 하나로 [전체 접기] ↔ [전체 펴기])
+var BSV_CHEVRON = '<svg class="bsv-chev" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function bsvToggle(name) {                    // crud N — 계정(인건비 등) 하위 계정 접기/펴기
+  bsvFold[name] = !bsvFold[name];
+  bmvRerender();
+}
+function bsvFoldAll(fold) {                   // crud N — 모든 계정 접기(true) / 펴기(false)
+  bsvFold = {};
+  if (fold) {
+    try {
+      document.querySelectorAll('.bsv-table tr.bsv-lv1 td.bmv-c0').forEach(function (td) { bsvFold[td.textContent.replace(/^[⊟⊞○\s]+/, '').trim()] = true; });
+    } catch (e) { /* 화면에 없으면 무시 */ }
+  }
+  bmvRerender();
+}
 var renderProjectPlanSummaryBeforeBsv = (typeof renderProjectPlanSummary === 'function') ? renderProjectPlanSummary : null;
 renderProjectPlanSummary = function (data, actual, quasi) {
   try { return bsvSummary(data, actual, quasi); } catch (e) {
@@ -38,10 +55,34 @@ function bsvSummary(data, actual, quasi) {
     return v ? bmvNum(v) : '<span class="bmv-zero">–</span>';
   };
   const head = bmvHead(cols, [['계정', 'bmv-fix bmv-c0'], ['계획', 'bmv-fix bmv-c1'], ['실적', 'bmv-fix bmv-c2'], ['잔여예산', 'bmv-fix bmv-c3'], ['진행률', 'bmv-fix bsv-c4']]);
-  const body = rows.map(function (row) {
-    const icon = row.level === 2 ? '○' : '⊟';
-    return `<tr class="bsv-lv${row.level}${row.level === 0 ? ' bmv-total' : ''}">
-      <td class="bmv-fix bmv-c0"><span class="bsv-ico">${icon}</span>${escHtml(row.name)}</td>
+  // [2026.11.17] 계정(1단) 접기/펴기 — 접은 계정의 하위(2단) 행은 그리지 않습니다(엑셀도 보이는 그대로)
+  const parents = rows.filter(function (r) { return r.level === 1; }).map(function (r) { return r.name; });
+  const hasKids = {};
+  let cur = null;
+  rows.forEach(function (r) { if (r.level === 1) cur = r.name; else if (r.level === 2 && cur) hasKids[cur] = true; });
+  cur = null;
+  const allFolded = parents.some(function (p) { return hasKids[p]; }) && parents.every(function (p) { return !hasKids[p] || bsvFold[p]; });
+  bsvAllFolded = !!allFolded;
+  const body = rows.filter(function (row) {
+    if (row.level === 1) cur = row.name;
+    else if (row.level === 0) cur = null;
+    return !(row.level === 2 && cur && bsvFold[cur]);
+  }).map(function (row) {
+    // [2026.11.17] 트리 표시 — ⊟⊞○ 글자 대신 꺾쇠 아이콘(펼침 = 아래, 접힘 = 오른쪽). 하위 계정은 아이콘 없이 들여쓰기
+    let icon = '<span class="bsv-sp"></span>';
+    if (row.level === 1 && hasKids[row.name]) {
+      const folded = !!bsvFold[row.name];
+      const q = escHtml(String(row.name).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+      icon = `<button type="button" class="bsv-tog${folded ? '' : ' open'}" onclick="bsvToggle('${q}')" aria-expanded="${folded ? 'false' : 'true'}"
+        aria-label="${escHtml(row.name)} 하위 계정 ${folded ? '펴기' : '접기'}" title="${escHtml(row.name)} 하위 계정 ${folded ? '펴기' : '접기'}">${BSV_CHEVRON}</button>`;
+    } else if (row.level === 0) {
+      icon = `<button type="button" class="bsv-tog${allFolded ? '' : ' open'}" onclick="bsvFoldAll(${allFolded ? 'false' : 'true'})" aria-expanded="${allFolded ? 'false' : 'true'}"
+        aria-label="모든 계정 ${allFolded ? '펴기' : '접기'}" title="모든 계정 ${allFolded ? '펴기' : '접기'}">${BSV_CHEVRON}</button>`;
+    } else if (row.level === 2) {
+      icon = '';
+    }
+    return `<tr class="bsv-lv${row.level}${row.level === 0 ? ' bmv-total' : ''}${row.level === 1 && bsvFold[row.name] ? ' bsv-folded' : ''}">
+      <td class="bmv-fix bmv-c0">${icon}${escHtml(row.name)}</td>
       <td class="bmv-fix bmv-c1 num">${bmvNum(row.totalPlan)}</td>
       <td class="bmv-fix bmv-c2 num">${bmvNum(row.totalActual)}</td>
       <td class="bmv-fix bmv-c3 num">${bmvNum(row.remain)}</td>
@@ -53,9 +94,6 @@ function bsvSummary(data, actual, quasi) {
     <div class="project-plan-summary">
       <div class="pps-titlebar">
         <div><span></span><strong>프로젝트 수행비용</strong></div>
-        <div class="pps-actions">
-          <button class="labor-main-btn" onclick="budgetDetailStep='confirm';renderBudgetPage()">예산 확정 화면 →</button>
-        </div>
       </div>
       <div class="pps-top">
         <div>
@@ -72,7 +110,9 @@ function bsvSummary(data, actual, quasi) {
         </ul>
       </div>
       <div class="bmv-wrap bsv-wrap">
-        ${bmvTools(cv, "bxeMonthly('전체 현황', this)")}
+        ${bmvTools(cv, "bxeMonthly('전체 현황', this)").replace('<em class="bmv-unit">',
+          `<button type="button" class="bmv-act bsv-foldall${bsvAllFolded ? '' : ' open'}" onclick="bsvFoldAll(${bsvAllFolded ? 'false' : 'true'})"
+            aria-expanded="${bsvAllFolded ? 'false' : 'true'}" title="${bsvAllFolded ? '모든 계정의 하위 계정을 펼칩니다' : '모든 계정의 하위 계정을 접고 계정 합계만 봅니다'}">${BSV_CHEVRON}${bsvAllFolded ? '전체 펴기' : '전체 접기'}</button><em class="bmv-unit">`)}
         <div class="bmv-scroll">
           <table class="bmv-table bsv-table">
             <thead>${head}</thead>
@@ -99,8 +139,16 @@ function bsvInjectStyle() {
   .bsv-c4 .bsv-rate i { display:block; height:100%; background:#3b82f6; border-radius:99px; }
   .bsv-c4 b { font-size:11.5px; color:#475569; font-variant-numeric:tabular-nums; }
   .bsv-ico { display:inline-block; width:16px; color:#64748b; font-weight:700; }
+  .bsv-tog, .bsv-sp { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; margin:0 6px 0 -4px; vertical-align:-5px; }
+  .bsv-tog { padding:0; border:0; border-radius:6px; background:transparent; color:#64748b; cursor:pointer; }
+  .bsv-tog:hover { background:#e8eef6; color:#1d4ed8; }
+  .bsv-tog:focus-visible { outline:2px solid #93c5fd; outline-offset:1px; }
+  .bsv-chev { display:block; transition:transform .15s ease; }
+  .bsv-tog.open .bsv-chev, .bsv-foldall.open .bsv-chev { transform:rotate(90deg); }
+  .bsv-foldall .bsv-chev { margin-right:2px; }
+  .bsv-table tr.bsv-folded td { border-bottom-color:#e2e8f0; }
   .bsv-table tr.bsv-lv1 td.bmv-c0 { padding-left:22px; }
-  .bsv-table tr.bsv-lv2 td.bmv-c0 { padding-left:38px; font-weight:600; color:#334155; }
+  .bsv-table tr.bsv-lv2 td.bmv-c0 { padding-left:46px; font-weight:600; color:#334155; }
   .bsv-table tr.bsv-lv1 td { border-top:1px solid #e2e8f0; }
   .bsv-table tr.bsv-lv1 td:not(.sum):not(.act):not(.past) { background:#fcfdff; }
   `;
