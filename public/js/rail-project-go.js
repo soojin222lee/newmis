@@ -73,7 +73,7 @@ function railPjtGo(pj) {                          // crud N — 프로젝트로 
   const before = homeV2PjtRowHtml;
   const RE = /<button class="v2-pjt-h" onclick="toggleHomeV2Pjt\('([^']*)'\)" aria-expanded="(\w+)">\s*(<span class="v2-pjt-ic">[^<]*<\/span>)\s*(<span class="v2-row-t">[^<]*<\/span>)([\s\S]*?)<\/button>/;
   homeV2PjtRowHtml = function (p) {
-    const html = before.apply(this, arguments);
+    const html = rpgMoneyLabel(before.apply(this, arguments));
     return html.replace(RE, function (m, id, exp, ic, name, badge) {
       const nm = (p && p.name) ? escAttr(p.name) : '';
       return `<div class="v2-pjt-h rpg-h">`
@@ -86,4 +86,61 @@ function railPjtGo(pj) {                          // crud N — 프로젝트로 
   // 이미 그려진 레일이 있으면 새 모양으로 다시 그린다
   const el = document.getElementById('v2-rail-body');
   if (el && typeof homeV2PjtListHtml === 'function') el.innerHTML = homeV2PjtListHtml();
+})();
+
+// ── 금액 요약 이름 (2026.11.17 PM 답변) ─────────────────────────────────────
+// "수행원가총액 N · 소진율 N%" → AS-IS 와 같은 "총 계획예산 N · 진행률 N%".
+//   총 계획예산 = 지금 버전 5개 계정 계획 합(저장 후엔 DB 값 그대로), 진행률 = 실적 ÷ 총 계획예산.
+//   월 구분은 회계 마감일 기준(마감된 달 실적 / 마감 전 당월 실적+계획 / 이후 계획) — 관리자 > 회계결산일자.
+function rpgMoneyLabel(s) {
+  return String(s).replace(/수행원가총액 /g, '총 계획예산 ').replace(/ · 소진율 /g, ' · 진행률 ');
+}
+(function wrapHeroMoney() {
+  if (typeof homeV2Hero !== 'function' || homeV2Hero.rpgMoney) return;
+  const before = homeV2Hero;
+  homeV2Hero = function () {
+    const h = before.apply(this, arguments);
+    if (h && typeof h === 'object') ['note', 'extra', 'head'].forEach(function (k) { if (typeof h[k] === 'string') h[k] = rpgMoneyLabel(h[k]); });
+    return h;
+  };
+  homeV2Hero.rpgMoney = true;
+})();
+// 숫자도 원가 현황(05) 상단 요약과 같은 계산으로 — 5개 계정(A/S Cost 포함) 계획 합 · 실적 ÷ 계획
+function rpgPlanRate(id) {
+  try {
+    const d = (typeof BUDGET_SOURCE !== 'undefined') ? BUDGET_SOURCE[id] : null;
+    if (!d || typeof getProjectSummaryGridRows !== 'function' || typeof CATS === 'undefined') return null;
+    if (typeof leadCostBreak === 'function' && !leadCostBreak(id).plan) return null;   // 편성 전
+    const keep = (typeof currentBudgetProj !== 'undefined') ? currentBudgetProj : undefined;
+    if (keep !== undefined) currentBudgetProj = id;               // 원가 현황 계산은 "지금 프로젝트" 기준이라 잠깐 바꿔 계산
+    try {
+    if (typeof syncLaborAssignmentsToBudget === 'function') syncLaborAssignmentsToBudget(id);   // 원가 현황을 열 때와 같은 인력 반영
+    if (typeof ensureAsCostPlanAmount === 'function') ensureAsCostPlanAmount(d);        // A/S Cost 계획도 원가 현황과 같게
+    const act = CATS.reduce(function (o, c) { o[c] = calcActual(d, c); return o; }, {});
+    const qua = CATS.reduce(function (o, c) { o[c] = calcQuasi(d, c); return o; }, {});
+    const t = getProjectSummaryGridRows(d, act, qua)[0];
+      return (t && t.totalPlan) ? { plan: t.totalPlan, rate: Number(t.rate) || 0 } : null;
+    } finally { if (keep !== undefined) currentBudgetProj = keep; }
+  } catch (e) { return null; }
+}
+(function wrapRailMoney() {
+  if (typeof homeV2PjtRowHtml !== 'function') return;
+  const before = homeV2PjtRowHtml;
+  homeV2PjtRowHtml = function (p) {
+    const html = before.apply(this, arguments);
+    const r = p && rpgPlanRate(p.id);
+    if (!r) return html;
+    return html.replace(/총 계획예산 [^<·]+ · 진행률 [0-9.]+%/, '총 계획예산 ' + homeWon(r.plan) + ' · 진행률 ' + r.rate.toFixed(1) + '%');
+  };
+})();
+(function wrapHeroPlan() {
+  if (typeof homeV2Hero !== 'function') return;
+  const before = homeV2Hero;
+  homeV2Hero = function () {
+    const h = before.apply(this, arguments);
+    if (!h || typeof h.note !== 'string' || h.note.indexOf('총 계획예산') < 0 || typeof homeCardPjts !== 'function') return h;
+    const sum = homeCardPjts().reduce(function (s, p) { const r = rpgPlanRate(p.id); return s + (r ? r.plan : 0); }, 0);
+    h.note = h.note.replace(/총 계획예산 [^<·]+$/, '총 계획예산 ' + homeWon(sum));
+    return h;
+  };
 })();
