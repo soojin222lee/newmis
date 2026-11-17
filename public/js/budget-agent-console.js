@@ -1557,11 +1557,119 @@ function agentLaborBaseRowsFinal() {
   return base.filter(r => Number(r.totalMm || 0) > 0);
 }
 
+// [추가:수진] 실투입인건비 — 인력 클릭 시 해당 행 아래로 월별 투입MM(+실적 생성 여부) 인라인 확장(외주비 업체 펼침과 동일 UX)
+var agentLaborOpenFinal = {};
+function agentLaborToggleRowFinal(key) { agentLaborOpenFinal[key] = !agentLaborOpenFinal[key]; renderBudgetPage(); }
+function agentLaborToggleAllFinal() {
+  const keys = agentLaborRowsFinal().map(r => r.key || r.name);
+  const allOpen = keys.length && keys.every(k => agentLaborOpenFinal[k]);
+  keys.forEach(k => { if (allOpen) delete agentLaborOpenFinal[k]; else agentLaborOpenFinal[k] = true; });
+  renderBudgetPage();
+}
+// 월마감(실적 생성) 완료 기준월 — 이 월 이하이면 실적 생성됨(목업, 회계결산일자 2026-10 마감과 맞춤)
+function agentLaborActualDoneFinal(m) { return String(m) <= '2026-10'; }
+function agentLaborMonthsFinal(r) {
+  if (r.monthly && Object.keys(r.monthly).length) {
+    return Object.keys(r.monthly).sort().map(m => ({ m: m, mm: Number(r.monthly[m] || 0) }));
+  }
+  // monthly 없으면(제안 인력 등) 투입기간 균등 배분
+  const s = String(r.start || '').slice(0, 7), e = String(r.end || '').slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(s) || !/^\d{4}-\d{2}$/.test(e)) return [];
+  const list = []; let y = Number(s.slice(0, 4)), mo = Number(s.slice(5, 7));
+  while (list.length < 60) {
+    const key = y + '-' + ('0' + mo).slice(-2);
+    list.push(key);
+    if (key === e) break;
+    mo++; if (mo > 12) { mo = 1; y++; }
+  }
+  const per = list.length ? Number(r.mm || 0) / list.length : 0;
+  return list.map(m => ({ m: m, mm: per }));
+}
+function agentLaborMonthlyRowFinal(r) {
+  const unit = Number(r.unitPrice || r.unit || 0);
+  const ms = agentLaborMonthsFinal(r);
+  if (!ms.length) return '<tr class="aglb-detail"><td colspan="8"><div class="aglbd-empty">월별 투입 내역이 없습니다.</div></td></tr>';
+  let sumMm = 0, doneMm = 0;
+  const cells = ms.map(x => {
+    sumMm += x.mm; const done = agentLaborActualDoneFinal(x.m); if (done) doneMm += x.mm;
+    return '<tr>'
+      + '<td class="aglbd-m">' + x.m + '</td>'
+      + '<td class="num">' + x.mm.toFixed(2) + 'MM</td>'
+      + '<td class="num">' + fmt(Math.round(x.mm * unit)) + '원</td>'
+      + '<td>' + (done
+        ? '<span class="aglbd-b done" style="cursor:pointer" title="실적 전표 보기(직접비·간접비)" onclick="event.stopPropagation();laborActualVoucherPopupFinal(\'' + String(r.name).replace(/'/g, '') + '\',\'' + x.m + '\')">● 실적 생성</span>'
+        : '<span class="aglbd-b plan">○ 미생성(계획)</span>') + '</td>'
+      + '</tr>';
+  }).join('');
+  return '<tr class="aglb-detail"><td colspan="8">'
+    + '<div class="aglbd"><div class="aglbd-t">' + escHtml(r.name) + ' · 월별 투입MM '
+    + '<span>' + escHtml(r.start || '-') + ' ~ ' + escHtml(r.end || '-') + ' · 실적 생성 ' + doneMm.toFixed(2) + 'MM / 총 ' + sumMm.toFixed(2) + 'MM</span></div>'
+    + '<table class="aglbd-tbl"><thead><tr><th>투입 월</th><th class="num">투입 MM</th><th class="num">금액</th><th>실적 생성 여부</th></tr></thead>'
+    + '<tbody>' + cells + '</tbody></table></div></td></tr>';
+}
+// [추가:수진] 실적 생성 월 클릭 시 직접비·간접비 전표번호 2건을 보여줍니다(목업).
+function laborActualVoucherFinal(month) {
+  const ym = String(month).replace('-', '');     // 예: 202607
+  return { direct: '03' + ym + '00', indirect: '03' + ym + '01' };
+}
+function laborActualVoucherPopupFinal(name, month) {
+  const v = laborActualVoucherFinal(month);
+  let ov = document.getElementById('labor-voucher-ov');
+  if (ov) ov.remove();
+  ov = document.createElement('div');
+  ov.id = 'labor-voucher-ov';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:400;background:rgba(17,21,32,.42);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML =
+    '<div style="background:#fff;border-radius:14px;width:420px;max-width:94vw;box-shadow:0 24px 60px -18px rgba(17,21,32,.5);font-family:inherit;overflow:hidden">'
+    + '<div style="display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid #eef1f5">'
+    + '<b style="flex:1;font-size:14.5px;color:#0f172a">' + escHtml(name) + ' · ' + escHtml(month) + ' 실적 전표</b>'
+    + '<button style="border:0;background:#f1f3f6;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:14px;color:#475569" onclick="var o=document.getElementById(\'labor-voucher-ov\');if(o)o.remove()">✕</button></div>'
+    + '<div style="padding:14px 18px">'
+    + '<table style="width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid #e9edf4;border-radius:8px;overflow:hidden">'
+    + '<thead><tr><th style="background:#eef2f7;color:#475569;font-weight:800;text-align:left;padding:8px 12px;border-bottom:1px solid #e3e9f2">구분</th>'
+    + '<th style="background:#eef2f7;color:#475569;font-weight:800;text-align:left;padding:8px 12px;border-bottom:1px solid #e3e9f2">전표번호</th></tr></thead>'
+    + '<tbody>'
+    + '<tr><td style="padding:9px 12px;border-bottom:1px solid #f1f4f8"><span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:#e8f0fe;color:#1746a0;border:1px solid #cfe0fb">직접비</span></td>'
+    + '<td style="padding:9px 12px;border-bottom:1px solid #f1f4f8;font-family:ui-monospace,Menlo,monospace;font-weight:700;color:#0f172a">' + v.direct + '</td></tr>'
+    + '<tr><td style="padding:9px 12px"><span style="display:inline-block;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;background:#fff7ed;color:#b4740a;border:1px solid #fed7aa">간접비</span></td>'
+    + '<td style="padding:9px 12px;font-family:ui-monospace,Menlo,monospace;font-weight:700;color:#0f172a">' + v.indirect + '</td></tr>'
+    + '</tbody></table>'
+    + '<div style="font-size:11.5px;color:#64748b;margin-top:10px;line-height:1.6">※ 월마감 실적 생성 시 <b>직접비</b>·<b>간접비</b> 전표가 각각 생성됩니다. ERP 전표번호 기준(조회 전용).</div>'
+    + '</div>'
+    + '<div style="display:flex;justify-content:flex-end;padding:0 18px 16px"><button style="border:1px solid #d3d9e2;background:#fff;border-radius:9px;padding:8px 16px;font-size:12.5px;font-weight:800;color:#334155;cursor:pointer" onclick="var o=document.getElementById(\'labor-voucher-ov\');if(o)o.remove()">닫기</button></div>'
+    + '</div>';
+  ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
+  document.body.appendChild(ov);
+}
+(function agentLaborInlineStyleInjectFinal() {
+  if (typeof document === 'undefined' || document.getElementById('agent-labor-inline-style')) return;
+  var st = document.createElement('style'); st.id = 'agent-labor-inline-style';
+  st.textContent = [
+    '.aglb .aglb-prow{cursor:pointer}',
+    '.aglb .aglb-prow:hover>td{background:#f4f7fc}',
+    '.aglb .aglb-caret{display:inline-block;width:1em;color:#1d4ed8;font-size:11px}',
+    '.aglb tr.aglb-detail>td{background:#f7f9fc;padding:10px 12px;border-top:0}',
+    '.aglbd-t{font-size:12px;font-weight:800;color:#0f172a;margin:0 0 8px}',
+    '.aglbd-t span{font-weight:600;color:#64748b;margin-left:8px;font-size:11px}',
+    '.aglbd-tbl{width:100%;border-collapse:collapse;font-size:11.5px;background:#fff;border:1px solid #e9edf4;border-radius:8px;overflow:hidden}',
+    '.aglbd-tbl th{background:#eef2f7;color:#475569;font-weight:800;text-align:left;padding:6px 10px;border-bottom:1px solid #e3e9f2;white-space:nowrap}',
+    '.aglbd-tbl td{padding:5px 10px;border-bottom:1px solid #f1f4f8;color:#1f2937}',
+    '.aglbd-tbl .num{text-align:right;font-variant-numeric:tabular-nums}',
+    '.aglbd-m{font-variant-numeric:tabular-nums;font-weight:700}',
+    '.aglbd-b{display:inline-block;font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:999px;border:1px solid}',
+    '.aglbd-b.done{background:#e8f3ec;color:#167a4a;border-color:#c9e7d4}',
+    '.aglbd-b.plan{background:#f1f3f6;color:#94a3b8;border-color:#e2e6ec}',
+    '.aglbd-empty{color:#94a3b8;font-size:12px;padding:6px}',
+  ].join('\n');
+  (document.head || document.documentElement).appendChild(st);
+})();
+
 function agentLaborRowsFinal() {
   const base = agentLaborBaseRowsFinal();
   const rows = base.map(r => ({
-    name: r.name, org: r.org, role: r.role, unit: r.unitPrice,
+    key: r.id || r.name, name: r.name, org: r.org, role: r.role, unit: r.unitPrice,
     start: r.startDate, end: r.endDate, mm: r.totalMm, amount: r.amount,
+    monthly: r.monthly || null, unitPrice: r.unitPrice || 0,
     state: '', dMm: 0, dAmt: 0,
   }));
 
@@ -1570,10 +1678,10 @@ function agentLaborRowsFinal() {
     if (p.acct !== '인건비' || !agentMiniSelFinal[p.id]) return;
     (p.persons || []).forEach(x => {
       rows.push({
-        name: x.name, org: x.org || '—', role: x.role || 'SCM 확정 인력', unit: x.unit,
+        key: x.name, name: x.name, org: x.org || '—', role: x.role || 'SCM 확정 인력', unit: x.unit,
         start: String(x.period || '').split('~')[0].trim(),
         end: String(String(x.period || '').split('~')[1] || '').trim(),
-        mm: x.mm, amount: x.amount, state: '신규추가', dMm: x.mm, dAmt: x.amount,
+        mm: x.mm, amount: x.amount, monthly: null, unitPrice: x.unit, state: '신규추가', dMm: x.mm, dAmt: x.amount,
       });
     });
     (p.leaves || []).forEach(x => {
@@ -1584,9 +1692,9 @@ function agentLaborRowsFinal() {
         if (x.newEnd) hit.end = x.newEnd;
       } else {
         rows.push({
-          name: x.name, org: x.org || '—', role: x.role || '설계', unit: x.unit,
+          key: x.name, name: x.name, org: x.org || '—', role: x.role || '설계', unit: x.unit,
           start: x.start || '', end: x.newEnd || x.end || '',
-          mm: 0, amount: 0, state: '철수', dMm: -Math.abs(x.mm || 0), dAmt: -Math.abs(x.amount || 0),
+          mm: 0, amount: 0, monthly: null, unitPrice: x.unit, state: '철수', dMm: -Math.abs(x.mm || 0), dAmt: -Math.abs(x.amount || 0),
         });
       }
     });
@@ -1824,15 +1932,20 @@ function renderAgentLaborDetailFinal(viewData, roll) {
 
   return `
     ${tabs}
+    <div class="aglb-bar" style="display:flex;justify-content:flex-end;gap:8px;margin:0 0 8px">
+      <button class="bxe-btn aglb-xpand-btn" onclick="agentLaborToggleAllFinal()" title="모든 인력의 월별 투입MM을 한 번에 펼치거나 접습니다">${(rows.length && rows.every(r => agentLaborOpenFinal[r.key || r.name])) ? '▴ 전체 접기' : '▾ 전체 펼치기'}</button>
+    </div>
     <div class="aglb-wrap">
       <table class="aglb">
         <thead><tr>
           <th>인력</th><th>조직명</th><th>역할</th><th class="num">단가</th>
           <th>투입기간</th><th class="num">총MM</th><th class="num">금액</th><th>상태</th>
         </tr></thead>
-        <tbody>${rows.map(r => `
-          <tr class="${r.state === '신규추가' ? 'new' : r.state === '철수' ? 'out' : ''}">
-            <td><b>${escHtml(r.name)}</b></td>
+        <tbody>${rows.map(r => {
+            const _open = !!agentLaborOpenFinal[r.key || r.name];
+            return `
+          <tr class="aglb-prow ${_open ? 'open' : ''} ${r.state === '신규추가' ? 'new' : r.state === '철수' ? 'out' : ''}" onclick="agentLaborToggleRowFinal('${String(r.key || r.name).replace(/'/g, '')}')" title="월별 투입MM 보기">
+            <td><b><span class="aglb-caret">${_open ? '▾' : '▸'}</span> ${escHtml(r.name)}</b></td>
             <td>${escHtml(r.org || '')}</td>
             <td>${escHtml(r.role || '')}</td>
             <td class="num">${fmt(r.unit || 0)}</td>
@@ -1840,7 +1953,8 @@ function renderAgentLaborDetailFinal(viewData, roll) {
             <td class="num">${(r.mm || 0).toFixed(1)}MM</td>
             <td class="num"><b>${fmt(r.amount || 0)}원</b></td>
             ${st(r)}
-          </tr>`).join('')}
+          </tr>${_open ? agentLaborMonthlyRowFinal(r) : ''}`;
+          }).join('')}
           ${(function () {
             const dir = agentSubDirectiveAtFinal('인건비', kindNames, 0);
             if (!dir) return '';
