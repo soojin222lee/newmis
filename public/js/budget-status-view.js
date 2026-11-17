@@ -47,6 +47,13 @@ function bsvSummary(data, actual, quasi) {
   const vals = function (row) { return (row.months || []).map(function (it, i) { return bmvIsPast(months[i]) ? Number(it.actual) || 0 : Number(it.plan) || 0; }); };
   const cell = function (row, c) {
     const v = bmvSumIdx(vals(row), c.idx);
+    // [2026.11.17] 마감 전 당월 — 칸을 넓히지 않고 두 줄로: 위 계획 · 아래 실적(작게, 파랑). 실적 ≤ 계획
+    if (c.m && typeof CUR_YM !== 'undefined' && c.m === CUR_YM) {
+      const it = (row.months || [])[c.idx[0]] || {};
+      const p = Number(it.plan) || 0, a = Number(it.actual) || 0;
+      if (!p && !a) return '<span class="bmv-zero">–</span>';
+      return '<span class="bsv-cur">' + bmvNum(p) + '<em title="이번 달 지금까지 실적">실적 ' + bmvNum(a) + '</em></span>';
+    }
     if (c.m && c.kind === 'past' && v && typeof summaryActualCell === 'function') {
       const it = row.months[c.idx[0]];
       const h = String(summaryActualCell(row, it));
@@ -119,7 +126,7 @@ function bsvSummary(data, actual, quasi) {
             <tbody>${body}</tbody>
           </table>
         </div>
-        <p class="bmv-note"><b class="act"></b>확정 실적 <b class="plan"></b>계획 <b class="sum"></b>합계 · 지난 달은 실적, 이후 달은 계획 · 실적 금액(밑줄)을 누르면 계정별 상세 실적 내역을 볼 수 있습니다.</p>
+        <p class="bmv-note"><b class="act"></b>확정 실적 <b class="plan"></b>계획 <b class="sum"></b>합계 · 회계 마감된 달은 실적, 진행 중인 달은 계획(위) + 지금까지 실적(아래 파랑), 이후 달은 계획 · 실적 금액(밑줄)을 누르면 계정별 상세 실적 내역을 볼 수 있습니다.</p>
       </div>
     </div>`;
 }
@@ -129,6 +136,8 @@ function bsvInjectStyle() {
   const st = document.createElement('style');
   st.id = 'bsv-style';
   st.textContent = `
+  #s-budget .bsv-cur { display:inline-flex; flex-direction:column; align-items:flex-end; line-height:1.15; }
+  #s-budget .bsv-cur em { font-style:normal; font-size:11.5px; font-weight:700; color:#2563eb; margin-top:2px; white-space:nowrap; }
   .bsv-wrap { margin-top:14px; }
   .bsv-wrap .bmv-scroll { max-height:none; }
   .bsv-table .bmv-c0 { min-width:178px; }

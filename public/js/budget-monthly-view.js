@@ -35,6 +35,8 @@ function bmvSet(k, v) {
   if (k === 'to' && /^\d{4}-\d{2}$/.test(v)) bmvTo = v;
   bmvRerender();
 }
+// [2026.11.17] 마감 전 당월(close-month.js CUR_YM) — 칸 제목 아래 "진행 중"
+function bmvCurSub(m) { return (typeof CUR_YM !== 'undefined' && m === CUR_YM) ? '진행 중' : ''; }
 function bmvIsPast(m) {
   return (typeof isPastActualMonth === 'function') ? !!isPastActualMonth(m) : false;
 }
@@ -100,7 +102,7 @@ function bmvColumns(months) {
       cols.push({ label: '기간 합계', sub: r.from.slice(2).replace('-', '.') + (inR.length > 1 ? '~' + r.to.slice(2).replace('-', '.') : '') + ' · ' + inR.length + '개월',
         group: '', idx: inR.map(function (x) { return x.i; }), kind: 'sum' });
     }
-    inR.forEach(function (x) { cols.push({ label: Number(x.m.slice(5)) + '월', group: x.y + '년', idx: [x.i], kind: x.past ? 'past' : 'plan', m: x.m }); });
+    inR.forEach(function (x) { cols.push({ label: Number(x.m.slice(5)) + '월', group: x.y + '년', idx: [x.i], kind: x.past ? 'past' : 'plan', m: x.m, sub: bmvCurSub(x.m) }); });
     return { cols: cols, years: years, pastList: pastList, pastLabel: pastLabel, range: r };
   }
   if (bmvMode === 'year') {
@@ -128,7 +130,7 @@ function bmvColumns(months) {
           cols.push({ label: q + '분기', sub: Number(qs[0].m.slice(5)) + (qs.length > 1 ? '~' + Number(qs[qs.length - 1].m.slice(5)) : '') + '월', group: y + '년', idx: qs.map(function (x) { return x.i; }), kind: allPast ? 'past' : 'plan' });
         });
       } else {
-        list.forEach(function (x) { cols.push({ label: Number(x.m.slice(5)) + '월', group: y + '년', idx: [x.i], kind: x.past ? 'past' : 'plan', m: x.m }); });
+        list.forEach(function (x) { cols.push({ label: Number(x.m.slice(5)) + '월', group: y + '년', idx: [x.i], kind: x.past ? 'past' : 'plan', m: x.m, sub: bmvCurSub(x.m) }); });
       }
       // 연도 합계(그 해의 보이는 달 전부 — 접힌 실적 포함)
       if (years.length > 1 || bmvMode !== 'month') {
