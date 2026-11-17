@@ -388,33 +388,19 @@ elements:
     result: "{계정} 월별 계획 / 실적 팝업 — 월별/분기별/연도별 · 연도 · 단위 · 실적 접기(2026.11.12 budget-monthly-view.js)"
 
   - id: seg-agent-monthly-mode
-    label: "[월별] [분기별] [연도별] [기간]"
+    label: "[월별] [분기별] [연도별]"
     type: tab
     crud: R
     area: "월별 계획/실적 팝업 위 도구줄 왼쪽"
     event: onclick
     front:
-      handler: "bmvSet('mode','month'|'quarter'|'year'|'range')"
+      handler: "bmvSet('mode','month'|'quarter'|'year')"
       file: "budget-monthly-view.js:bmvSet · bmvTable (renderAgentAcctMonthlyPopFinal 재정의)"
-      logic: "[2026.11.12] 표의 달 열을 월 · 분기 · 연도로 묶어 본다. 월별은 연도 머리줄 + 11월처럼 짧은 이름, 월별 · 분기별은 연도마다 연도 합계 칸을 붙인다. 연도별은 실적/계획이 섞인 해를 실적+계획으로 표시. [2026.11.17] [기간] — 원가현황과 같은 부품: 연도 선택 대신 시작 월 ~ 끝 월 칸, 고른 달만 월별로 + 맨 앞 '기간 합계'"
+      logic: "[2026.11.12] 표의 달 열을 월 · 분기 · 연도로 묶어 본다. 월별은 연도 머리줄 + 11월처럼 짧은 이름, 월별 · 분기별은 연도마다 연도 합계 칸을 붙인다. 연도별은 실적/계획이 섞인 해를 실적+계획으로 표시"
       validation: null
       state_writes: [bmvMode]
     backend: null
     result: "고른 단위로 묶인 열"
-  - id: input-agent-monthly-range
-    label: "기간 시작 월 ~ 끝 월(연·월만, 일 없음)"
-    type: input
-    crud: R
-    area: "월별 계획/실적 팝업 위 도구줄 — [기간] 보기일 때 연도 선택 자리"
-    event: onchange
-    front:
-      handler: "bmvSet('from', value) · bmvSet('to', value)"
-      file: "budget-monthly-view.js:bmvSet · bmvRangeFix · bmvColumns · bmvTools"
-      logic: "[2026.11.17] input type=month 두 칸(프로젝트 기간 안). 처음엔 올해 1~12월(프로젝트 기간 안으로 맞춤), 거꾸로 고르면 서로 바꾼다. 고른 달 열 + 맨 앞 '기간 합계'. 원가현황 전체 현황과 같은 상태(bmvFrom · bmvTo)를 쓴다"
-      validation: "프로젝트 기간 밖 · 거꾸로 입력은 자동 보정"
-      state_writes: [bmvFrom, bmvTo]
-    backend: null
-    result: "고른 기간의 월별 표 + 기간 합계"
 
   - id: select-agent-monthly-year
     label: "연도"
@@ -777,5 +763,4 @@ requirements:
   - { id: FR-BAD-33, text: "[2026.11.16] 예산 조정안 카드는 첫 화면에서 계정 · 금액 · 한 줄 제목 · [반영]만 보여야 하며, 날짜 · Agent 제안 표시 · 근거 · 삭제 · 1안/2안 고르기는 [자세히]로 펼쳐 볼 수 있어야 한다" }
   - { id: FR-BAD-34, text: "[2026.11.16] 프로젝트 메인도 2칸(왼쪽 예산 조정안 · 오른쪽 Agent와 대화)으로 보여야 하며, 오른쪽 칸은 메인과 계정 상세에서 같은 자리 · 폭 · 높이를 유지해 계정을 오가도 왼쪽만 바뀌어야 한다" }
   - { id: FR-BAD-35, text: "[2026.11.16] 예산 조정안 카드는 반영했을 때의 영향(그 계정 CP 여유 · 한도 초과액 · 이관 방향)을 한 줄로 보여 줘야 한다" }
-  - { id: FR-BAD-36, text: "[2026.11.17] 월별 계획/실적 팝업은 시작 월 ~ 끝 월(일 제외)을 골라 그 기간의 월별 계획/실적과 기간 합계를 조회할 수 있어야 한다" }
   - { id: FR-BAD-31, text: "[2026.11.12] 계정 상세의 입력 행(등록 · 수정)은 만든 탭(계정 + 상세계정 탭, 경비는 연도)에서만 보여야 하며, 다른 탭으로 옮기면 숨었다가 돌아오면 다시 보여야 한다. 저장 단위는 상세계정 탭마다(경비만 연도 탭을 한 번에 저장 — 다른 계정의 저장 단위는 논의 중)" }

@@ -116,7 +116,7 @@ function buiChatCollapse(force) {
 (function buiWatch() {
   if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return;
   let t = null;
-  const run = function () { t = null; try { buiChatCollapse(false); } catch (e) { /* 화면에 없으면 무시 */ } try { buiSplitApply(); } catch (e) { /* 화면에 없으면 무시 */ } try { buiIconize(); } catch (e) { /* 화면에 없으면 무시 */ } };
+  const run = function () { t = null; try { buiChatCollapse(false); } catch (e) { /* 화면에 없으면 무시 */ } try { buiSplitApply(); } catch (e) { /* 화면에 없으면 무시 */ } };
   const start = function () {
     const root = document.getElementById('s-budget') || document.body;
     new MutationObserver(function () { if (!t) t = setTimeout(run, 0); }).observe(root, { childList: true, subtree: true });
@@ -239,104 +239,5 @@ if (typeof window !== 'undefined') window.addEventListener('resize', function ()
   body.bui-resizing { cursor:col-resize !important; user-select:none !important; }
   body.bui-resizing * { cursor:col-resize !important; }
   @media (max-width: 1100px) { #s-budget .bui-split { display:none; } }`;
-  document.head.appendChild(st);
-})();
-
-/* ── 5) 버튼 · 아이콘 체계 정리 (2026.11.17) ──────────────────────────────
-   수행원가 화면 버튼을 조사하니 모양이 40가지로 제각각이었습니다. 아래 규칙 하나로 맞춥니다.
-   [버튼]  크기 2단 — 기본 M 30px(도구줄 · 칸 머리 · 안내 줄) / 작은 S 26px(카드 · 표 행 안). 글자 12px · 800, 모서리 8px
-           역할 5종 — 주요(파랑 채움) · 보조(흰 바탕 회색 테두리) · 위험(빨강 테두리) · 긍정(초록 테두리) · 엑셀(연초록)
-           아이콘 버튼 — 30×30 정사각(보조 모양)
-   [탭형 선택] 월별/분기별/연도별/기간 · 전체/검토 대기/반영 · 2026년/2027년 예산 — 회색 바탕 3px 안에 24px 항목, 고른 항목은 흰 바탕
-   [기호] 글자 기호(∨ ∧ ▾ ▴ ⌄ ⬇)를 같은 굵기의 선 아이콘으로 바꿉니다(펼침 = 아래 꺾쇠, 접힘 = 위 꺾쇠, 엑셀 = 내려받기).
-          화살표(← →)는 글자 그대로 둡니다.
-   따로 놀던 버튼: '원가 조정에서 편성 →'(exec-text-btn) · '← 목록으로'(mc-back-btn) → 보조 M / '이월 반영'(agex-btn) → 주요 M,
-                   '반영 해제'(agex-btn.ghost) → 보조 M / 오른쪽 칸 접기(b2c-fold) → 아이콘 버튼 */
-var BUI_IC = {
-  down: '<svg class="bui-ic" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  up: '<svg class="bui-ic" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 10l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  dl: '<svg class="bui-ic lead" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 2.5v7.5M4.8 7 8 10.2 11.2 7M3 13h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  right: '<svg class="bui-ic solo" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  right2: '<svg class="bui-ic solo" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M4 4l4 4-4 4M8.5 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-};
-// 버튼 글자 끝/앞의 기호를 선 아이콘으로 — 안쪽 요소(건수 em 등)는 그대로 두고 글자 마디만 고칩니다
-function buiIconize() {
-  const root = document.getElementById('s-budget');
-  if (!root) return;
-  // 외주비 · 경비 표 행의 펼침 표시(∨ 펼치기 / ∧ 접기) → 오른쪽 꺾쇠(접힘) · 아래 꺾쇠(펼침)
-  root.querySelectorAll('.agos-caret:not([data-bui-ic])').forEach(function (c) {
-    const open = /∧/.test(c.textContent);
-    c.textContent = '';
-    c.appendChild(buiIcNode(open ? 'down' : 'right'));
-    c.setAttribute('data-bui-ic', '1');
-  });
-  root.querySelectorAll('button:not([data-bui-ic])').forEach(function (b) {
-    // 기호만 든 안쪽 요소(예: 실행예산 버전 버튼의 <u>⌄</u>)도 아이콘으로
-    Array.prototype.forEach.call(b.querySelectorAll('u, i, span, em'), function (el) {
-      const g = el.children.length ? '' : el.textContent.trim();
-      if (/^[∨⌄▾∧▴]$/.test(g)) { el.textContent = ''; el.appendChild(buiIcNode(/[∧▴]/.test(g) ? 'up' : 'down')); el.style.textDecoration = 'none'; b.setAttribute('data-bui-ic', '1'); }
-    });
-    const texts = Array.prototype.filter.call(b.childNodes, function (n) { return n.nodeType === 3 && n.nodeValue.trim(); });
-    if (!texts.length) return;
-    const last = texts[texts.length - 1], first = texts[0];
-    let done = false;
-    const tail = /\s*([∨⌄▾∧▴])\s*$/.exec(last.nodeValue);
-    if (tail) {
-      last.nodeValue = last.nodeValue.slice(0, tail.index);
-      last.parentNode.insertBefore(buiIcNode(/[∧▴]/.test(tail[1]) ? 'up' : 'down'), last.nextSibling);
-      done = true;
-    }
-    const head = /^\s*⬇\s*/.exec(first.nodeValue);
-    if (head) {
-      first.nodeValue = first.nodeValue.slice(head[0].length);
-      first.parentNode.insertBefore(buiIcNode('dl'), first);
-      done = true;
-    }
-    if (done) b.setAttribute('data-bui-ic', '1');
-  });
-}
-function buiIcNode(kind) {
-  const t = document.createElement('template');
-  t.innerHTML = BUI_IC[kind];
-  return t.content.firstChild;
-}
-(function buiInjectSystem() {
-  if (typeof document === 'undefined' || !document.head || document.getElementById('bui-sys-style')) return;
-  const S = '#s-budget ';
-  const L = function (a) { return a.map(function (x) { return S + x; }).join(', '); };
-  const M = ['.v2-pre-note .exec-text-btn', '.budget-process-head .exec-text-btn', '.mc-back-btn', '.agex-btn'];
-  const st = document.createElement('style');
-  st.id = 'bui-sys-style';
-  st.textContent = `
-  /* 따로 놀던 버튼 → M(30px) */
-  ${L(M)} { display:inline-flex !important; align-items:center; justify-content:center; gap:4px; box-sizing:border-box;
-    height:30px !important; min-height:30px; padding:0 12px !important; font-family:inherit; font-size:12px !important; font-weight:800 !important;
-    line-height:1 !important; border-radius:8px !important; border:1px solid #cbd5e1 !important; background:#fff !important; color:#1c2432 !important;
-    box-shadow:none !important; white-space:nowrap; cursor:pointer; text-decoration:none !important; }
-  ${L(M.map(function (x) { return x + ':hover'; }))} { background:#f8fafc !important; border-color:#94a3b8 !important; }
-  ${S}.agex-btn:not(.ghost) { background:#2563eb !important; border-color:#2563eb !important; color:#fff !important; }
-  ${S}.agex-btn:not(.ghost):hover { background:#1d4ed8 !important; border-color:#1d4ed8 !important; }
-  ${S}.v2-pre-note { align-items:center; gap:12px; }
-  /* 아이콘 버튼 30×30 */
-  ${S}.b2c-fold { display:inline-flex !important; align-items:center; justify-content:center; width:30px !important; height:30px !important; padding:0 !important; }
-  /* 탭형 선택 — 한 모양 */
-  ${S}.bmv-seg, ${S}.agga-group-head.bap-tabs, ${S}.agex-years { display:inline-flex; align-items:center; gap:2px !important; padding:3px !important;
-    background:#f1f5f9 !important; border:0 !important; border-radius:9px !important; box-shadow:none !important; }
-  ${S}.agga-group-head.bap-tabs { display:flex; }
-  ${S}.bmv-seg > button, ${S}.bap-tab, ${S}.agex-years > button { display:inline-flex !important; align-items:center; justify-content:center; gap:6px;
-    height:24px !important; min-height:24px; padding:0 12px !important; border:0 !important; border-radius:7px !important; background:transparent !important;
-    font-family:inherit; font-size:12px !important; font-weight:800 !important; line-height:1 !important; color:#64748b !important; box-shadow:none !important; cursor:pointer; }
-  ${S}.bmv-seg > button:hover, ${S}.bap-tab:hover, ${S}.agex-years > button:hover { color:#1c2432 !important; }
-  ${S}.bmv-seg > button.on, ${S}.bap-tab.sel, ${S}.agex-years > button.on { background:#fff !important; color:#0b1220 !important;
-    box-shadow:0 1px 2px rgba(15,23,42,.10), 0 0 0 1px rgba(15,23,42,.04) !important; }
-  /* 선 아이콘 */
-  ${S}.bui-ic { display:inline-block; flex:0 0 auto; vertical-align:-2px; margin-left:3px; }
-  ${S}.bui-ic.lead { margin:0 3px 0 0; }
-  ${S}.bui-ic.solo { margin:0; }
-  ${S}.agos-caret { display:inline-flex !important; align-items:center; justify-content:center; width:18px; margin-right:4px; color:#64748b !important; vertical-align:-3px; }
-  ${S}.agos-caret .bui-ic { margin:0; }
-  /* 글자 링크(이력) — 읽히는 크기로 */
-  ${S}.agai-hist { font-size:12px !important; font-weight:800 !important; color:#64748b !important; text-decoration:none !important; }
-  ${S}.agai-hist:hover { color:#1d4ed8 !important; text-decoration:underline !important; }`;
   document.head.appendChild(st);
 })();

@@ -95,7 +95,7 @@ function pdrWireScroll() {
         const r = close.apply(this, arguments);
         const act = document.querySelector('.screen.active');
         const y = act && PDR_LIST_SCROLL[act.id];
-        if (y) { if (typeof uisScrollHold === 'function') uisScrollHold(); window.scrollTo(0, y); }   // 보던 목록으로 돌아오면 보던 자리 (화면 이동 맨 위 올림보다 우선)
+        if (y) window.scrollTo(0, y);                             // 보던 목록으로 돌아오면 보던 자리
         else pdrScrollTop();
         return r;
       };

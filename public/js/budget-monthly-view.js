@@ -6,8 +6,6 @@
 // - 문제: 기존 표는 프로젝트 기간의 모든 달(2026-01, 2026-02 …)을 한 줄로 늘어놔 옆으로 너무 길었습니다.
 // - 바꾸는 것(공유 렌더러 renderAccountMonthlyBudgetTable 은 고치지 않고, 같은 데이터 getMonthlyBudgetRows 로 새로 그림)
 //   · 보기  : [월별] [분기별] [연도별] 로 묶어서 보기
-//             [기간](2026.11.17) — 시작 월 ~ 끝 월(input type=month, 일은 고르지 않음)을 골라 그 달만 월별로 + 맨 앞 '기간 합계'.
-//             처음엔 올해(프로젝트 기간 안), 거꾸로 고르면 바꿔 줌. 기간 보기에선 연도 선택 · 실적 접기 대신 기간 칸
 //   · 연도  : 전체 / 연도 하나만 골라 보기
 //   · 단위  : 원 / 만원(기본) / 억원 — 숫자 폭을 줄임 (억원은 소수 둘째 자리)
 //   · 실적  : 지난 달(확정 실적)은 기본으로 "실적 합계" 한 칸으로 접고, [펼치기]로 월별 표시
@@ -16,11 +14,8 @@
 //   · 지난 달 금액을 누르면 기존과 같은 실적 상세(actualCellHtml → showActualDetailModal)
 // - 공유 파일은 고치지 않고, 이 파일이 뒤에 로드되어 renderAgentAcctMonthlyPopFinal 을 덮어씁니다.
 
-var bmvMode = 'month';      // month | quarter | year | range
+var bmvMode = 'month';      // month | quarter | year
 var bmvYear = 'all';        // all | '2026' …
-// [2026.11.17] 기간 보기 — 시작 월 ~ 끝 월(YYYY-MM, 일은 고르지 않음). 처음 [기간]을 누르면 올해(프로젝트 기간 안)로 채움
-var bmvFrom = '';
-var bmvTo = '';
 var BMV_UNITS = [[1, '원', 0], [10000, '만원', 0], [100000000, '억원', 2]];   // [나눌 값, 이름, 소수 자리]
 var bmvUnit = 10000;        // 1 | 10000 | 100000000
 function bmvUnitInfo() { return BMV_UNITS.find(function (u) { return u[0] === bmvUnit; }) || BMV_UNITS[0]; }
@@ -31,8 +26,6 @@ function bmvSet(k, v) {
   if (k === 'year') bmvYear = v;
   if (k === 'unit') bmvUnit = Number(v) || 1;
   if (k === 'act') bmvActOpen = !bmvActOpen;
-  if (k === 'from' && /^\d{4}-\d{2}$/.test(v)) bmvFrom = v;
-  if (k === 'to' && /^\d{4}-\d{2}$/.test(v)) bmvTo = v;
   bmvRerender();
 }
 function bmvIsPast(m) {
@@ -91,18 +84,6 @@ function bmvColumns(months) {
     .filter(function (x) { return bmvYear === 'all' || x.y === bmvYear; });
 
   const cols = [];
-  if (bmvMode === 'range') {
-    // 기간: 고른 달만 월별로(실적 접기 · 연도 필터 없이), 맨 앞에 기간 합계
-    const r = bmvRangeFix(months);
-    const inR = months.map(function (m, i) { return { m: m, i: i, y: m.slice(0, 4), past: bmvIsPast(m) }; })
-      .filter(function (x) { return x.m >= r.from && x.m <= r.to; });
-    if (inR.length) {
-      cols.push({ label: '기간 합계', sub: r.from.slice(2).replace('-', '.') + (inR.length > 1 ? '~' + r.to.slice(2).replace('-', '.') : '') + ' · ' + inR.length + '개월',
-        group: '', idx: inR.map(function (x) { return x.i; }), kind: 'sum' });
-    }
-    inR.forEach(function (x) { cols.push({ label: Number(x.m.slice(5)) + '월', group: x.y + '년', idx: [x.i], kind: x.past ? 'past' : 'plan', m: x.m }); });
-    return { cols: cols, years: years, pastList: pastList, pastLabel: pastLabel, range: r };
-  }
   if (bmvMode === 'year') {
     years.filter(function (y) { return bmvYear === 'all' || y === bmvYear; }).forEach(function (y) {
       const idx = vis.filter(function (x) { return x.y === y; });
@@ -139,22 +120,6 @@ function bmvColumns(months) {
   }
   return { cols: cols, years: years, pastList: pastList, pastLabel: pastLabel };
 }
-// 기간 보기 — 시작 · 끝 월을 프로젝트 기간 안으로 맞춤(비어 있으면 올해, 거꾸로면 바꿈)
-function bmvRangeFix(months) {
-  const first = months[0], last = months[months.length - 1];
-  if (!bmvFrom || !bmvTo) {
-    const past = months.filter(bmvIsPast);
-    const y = (past.length ? past[past.length - 1] : first).slice(0, 4);
-    bmvFrom = bmvFrom || (y + '-01' < first ? first : y + '-01');
-    bmvTo = bmvTo || (y + '-12' > last ? last : y + '-12');
-  }
-  if (bmvFrom > bmvTo) { const t = bmvFrom; bmvFrom = bmvTo; bmvTo = t; }
-  if (bmvFrom < first) bmvFrom = first;
-  if (bmvTo > last) bmvTo = last;
-  if (bmvFrom > last) bmvFrom = last;
-  if (bmvTo < first) bmvTo = first;
-  return { from: bmvFrom, to: bmvTo, min: first, max: last };
-}
 function bmvSumIdx(arr, idx) { return idx.reduce(function (t, i) { return t + (Number(arr[i]) || 0); }, 0); }
 // 공통: 연도 묶음 머리줄. fixed = [[머리 글자, 고정 열 class], …]
 function bmvHead(cols, fixed) {
@@ -177,17 +142,13 @@ function bmvTools(cv, xlsCall) {
   const seg = function (k, v, label) { return `<button class="${bmvMode === v ? 'on' : ''}" onclick="bmvSet('${k}','${v}')">${label}</button>`; };
   return `
     <div class="bmv-tools">
-      <div class="bmv-seg" role="tablist" aria-label="보기">${seg('mode', 'month', '월별')}${seg('mode', 'quarter', '분기별')}${seg('mode', 'year', '연도별')}${seg('mode', 'range', '기간')}</div>
-      ${cv.range ? `<span class="bmv-range"><span>기간</span>
-        <input type="month" value="${cv.range.from}" min="${cv.range.min}" max="${cv.range.max}" onchange="bmvSet('from',this.value)" aria-label="조회 시작 월">
-        <i>~</i>
-        <input type="month" value="${cv.range.to}" min="${cv.range.min}" max="${cv.range.max}" onchange="bmvSet('to',this.value)" aria-label="조회 끝 월"></span>`
-      : `<label class="bmv-sel"><span>연도</span><select onchange="bmvSet('year',this.value)">
+      <div class="bmv-seg" role="tablist" aria-label="보기">${seg('mode', 'month', '월별')}${seg('mode', 'quarter', '분기별')}${seg('mode', 'year', '연도별')}</div>
+      <label class="bmv-sel"><span>연도</span><select onchange="bmvSet('year',this.value)">
         <option value="all" ${bmvYear === 'all' ? 'selected' : ''}>전체</option>
-        ${cv.years.map(function (y) { return `<option value="${y}" ${bmvYear === y ? 'selected' : ''}>${y}년</option>`; }).join('')}</select></label>`}
+        ${cv.years.map(function (y) { return `<option value="${y}" ${bmvYear === y ? 'selected' : ''}>${y}년</option>`; }).join('')}</select></label>
       <label class="bmv-sel"><span>단위</span><select onchange="bmvSet('unit',this.value)">
         ${BMV_UNITS.map(function (u) { return `<option value="${u[0]}" ${bmvUnit === u[0] ? 'selected' : ''}>${u[1]}</option>`; }).join('')}</select></label>
-      ${(bmvMode !== 'year' && bmvMode !== 'range' && cv.pastList.length) ? `<button class="bmv-act ${bmvActOpen ? 'on' : ''}" onclick="bmvSet('act')"
+      ${(bmvMode !== 'year' && cv.pastList.length) ? `<button class="bmv-act ${bmvActOpen ? 'on' : ''}" onclick="bmvSet('act')"
         title="지난 달(확정 실적)을 ${bmvActOpen ? '실적 합계 한 칸으로 접습니다' : '월별로 펼칩니다'}">실적 ${cv.pastLabel} ${bmvActOpen ? '접기 ▴' : '펼치기 ▾'}</button>` : ''}
       <em class="bmv-unit">단위: ${bmvUnitInfo()[1]}</em>
       ${(xlsCall && typeof bxeMonthly === 'function') ? `<button class="bxe-btn" onclick="${xlsCall}" title="지금 보이는 표(보기 · 연도 · 단위 그대로)를 엑셀(.xlsx)로 내려받습니다">⬇ 엑셀 다운로드</button>` : ''}
@@ -249,10 +210,6 @@ function bmvInjectStyle() {
   .bmv-seg button.on { background:#fff; color:#0b1220; box-shadow:0 1px 3px rgba(15,23,42,.12); }
   .bmv-sel { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:800; color:#64748b; }
   .bmv-sel select { border:1px solid #cbd5e1; border-radius:8px; padding:6px 8px; font:inherit; font-size:12.5px; color:#0b1220; background:#fff; }
-  .bmv-range { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:800; color:#64748b; }
-  .bmv-range input { height:30px; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:8px; padding:0 8px; font:inherit; font-size:12.5px; color:#0b1220; background:#fff; }
-  .bmv-range input:focus { outline:2px solid #bfdbfe; border-color:#2563eb; }
-  .bmv-range i { font-style:normal; color:#94a3b8; }
   .bmv-act { border:1px solid #cbd5e1; background:#fff; color:#334155; border-radius:8px; padding:6px 12px; font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; }
   .bmv-act.on { border-color:#94a3b8; background:#f8fafc; }
   .bmv-unit { margin-left:auto; font-style:normal; font-size:11.5px; font-weight:800; color:#94a3b8; }
