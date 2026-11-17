@@ -1568,6 +1568,20 @@ function agentLaborToggleAllFinal() {
 }
 // 월마감(실적 생성) 완료 기준월 — 이 월 이하이면 실적 생성됨(목업, 회계결산일자 2026-10 마감과 맞춤)
 function agentLaborActualDoneFinal(m) { return String(m) <= '2026-10'; }
+// P레벨 단가는 매년 5월경 확정 — 2026-05 미만은 전년(unitPrev) 단가, 이후는 당해(unitPrice) 단가 적용(목업)
+var LABOR_RATE_CUTOFF_FINAL = '2026-05';
+function laborMonthUnitFinal(r, m) {
+  // 1) 명시적 단가 스케줄(rateSched: [{from:'YYYY-MM', unit}]) — 해당 월 이하 중 가장 늦은 구간 단가
+  if (Array.isArray(r.rateSched) && r.rateSched.length) {
+    var sorted = r.rateSched.slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+    var u = sorted[0].unit;
+    sorted.forEach(function (s) { if (String(m) >= s.from) u = s.unit; });
+    return Number(u || r.unitPrice || r.unit || 0);
+  }
+  // 2) 전년(unitPrev) + 5월 확정 cutoff
+  var prev = Number(r.unitPrev || 0);
+  return (prev && String(m) < LABOR_RATE_CUTOFF_FINAL) ? prev : Number(r.unitPrice || r.unit || 0);
+}
 function agentLaborMonthsFinal(r) {
   if (r.monthly && Object.keys(r.monthly).length) {
     return Object.keys(r.monthly).sort().map(m => ({ m: m, mm: Number(r.monthly[m] || 0) }));
@@ -1586,26 +1600,34 @@ function agentLaborMonthsFinal(r) {
   return list.map(m => ({ m: m, mm: per }));
 }
 function agentLaborMonthlyRowFinal(r) {
-  const unit = Number(r.unitPrice || r.unit || 0);
   const ms = agentLaborMonthsFinal(r);
   if (!ms.length) return '<tr class="aglb-detail"><td colspan="8"><div class="aglbd-empty">월별 투입 내역이 없습니다.</div></td></tr>';
-  let sumMm = 0, doneMm = 0;
+  let sumMm = 0, doneMm = 0, sumAmt = 0;
+  const unitSet = {};
   const cells = ms.map(x => {
-    sumMm += x.mm; const done = agentLaborActualDoneFinal(x.m); if (done) doneMm += x.mm;
+    const unit = laborMonthUnitFinal(r, x.m);
+    const amt = Math.round(x.mm * unit);
+    unitSet[unit] = 1;
+    sumMm += x.mm; sumAmt += amt;
+    const done = agentLaborActualDoneFinal(x.m); if (done) doneMm += x.mm;
     return '<tr>'
       + '<td class="aglbd-m">' + x.m + '</td>'
       + '<td class="num">' + x.mm.toFixed(2) + 'MM</td>'
-      + '<td class="num">' + fmt(Math.round(x.mm * unit)) + '원</td>'
+      + '<td class="num">' + fmt(unit) + '원</td>'
+      + '<td class="num">' + fmt(amt) + '원</td>'
       + '<td>' + (done
         ? '<span class="aglbd-b done" style="cursor:pointer" title="실적 전표 보기(직접비·간접비)" onclick="event.stopPropagation();laborActualVoucherPopupFinal(\'' + String(r.name).replace(/'/g, '') + '\',\'' + x.m + '\')">● 실적 생성</span>'
         : '<span class="aglbd-b plan">○ 미생성(계획)</span>') + '</td>'
       + '</tr>';
   }).join('');
+  const rateNote = Object.keys(unitSet).length > 1 ? ' · 단가 시점별 상이(연도 인상)' : '';
   return '<tr class="aglb-detail"><td colspan="8">'
     + '<div class="aglbd"><div class="aglbd-t">' + escHtml(r.name) + ' · 월별 투입MM '
-    + '<span>' + escHtml(r.start || '-') + ' ~ ' + escHtml(r.end || '-') + ' · 실적 생성 ' + doneMm.toFixed(2) + 'MM / 총 ' + sumMm.toFixed(2) + 'MM</span></div>'
-    + '<table class="aglbd-tbl"><thead><tr><th>투입 월</th><th class="num">투입 MM</th><th class="num">금액</th><th>실적 생성 여부</th></tr></thead>'
-    + '<tbody>' + cells + '</tbody></table></div></td></tr>';
+    + '<span>' + escHtml(r.start || '-') + ' ~ ' + escHtml(r.end || '-') + ' · 실적 생성 ' + doneMm.toFixed(2) + 'MM / 총 ' + sumMm.toFixed(2) + 'MM · 금액 ' + fmt(sumAmt) + '원' + rateNote + '</span></div>'
+    + '<table class="aglbd-tbl"><thead><tr><th>투입 월</th><th class="num">투입 MM</th><th class="num">단가</th><th class="num">금액</th><th>실적 생성 여부</th></tr></thead>'
+    + '<tbody>' + cells + '</tbody>'
+    + '<tfoot><tr><td>합계</td><td class="num">' + sumMm.toFixed(2) + 'MM</td><td></td><td class="num">' + fmt(sumAmt) + '원</td><td></td></tr></tfoot>'
+    + '</table></div></td></tr>';
 }
 // [추가:수진] 실적 생성 월 클릭 시 직접비·간접비 전표번호 2건을 보여줍니다(목업).
 function laborActualVoucherFinal(month) {
@@ -1641,6 +1663,132 @@ function laborActualVoucherPopupFinal(name, month) {
   ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
   document.body.appendChild(ov);
 }
+
+// [추가:수진] SCM 확정 인력 등록 — 프로젝트 티밍 인력 조회 → 현재 실행예산과 비교(신규/변경) → 선택 반영
+var agentScmPopOpenFinal = false;
+var agentScmSelFinal = {};
+// 프로젝트 단위 SCM 티밍(최종 확정) 사내 인력 — 월별MM·SCM 최종승인일 포함(목업)
+var AGENT_SCM_TEAMING_FINAL = [
+  { emp: '21043', name: '박지훈', role: 'PM/분석설계', pLevel: 'P4', unit: 18000000, start: '2026-07-01', end: '2027-01-31',
+    monthly: { '2026-07': 1, '2026-08': 1, '2026-09': 1, '2026-10': 1, '2026-11': 1, '2026-12': 1, '2027-01': 1 }, approvedAt: '2026-08-27 09:12' },
+  { emp: '21055', name: '김서린', role: 'Vue Front', pLevel: 'P3', unit: 15000000, start: '2026-08-01', end: '2027-02-28',
+    monthly: { '2026-08': 0.5, '2026-09': 0.5, '2026-10': 0.5, '2026-11': 0.5, '2026-12': 0.5, '2027-01': 0.5, '2027-02': 0.5 }, approvedAt: '2026-08-20 14:05' },
+  { emp: '21088', name: '한도윤', role: 'Java Backend', pLevel: 'P4', unit: 16500000, start: '2026-09-01', end: '2027-03-31',
+    monthly: { '2026-09': 0.7, '2026-10': 0.7, '2026-11': 0.7, '2026-12': 0.7, '2027-01': 0.7, '2027-02': 0.7, '2027-03': 0.8 }, approvedAt: '2026-09-05 10:40' },
+  { emp: '21091', name: '최유나', role: 'QA/테스트', pLevel: 'P2', unit: 12000000, start: '2026-10-01', end: '2027-02-28',
+    monthly: { '2026-10': 0.8, '2026-11': 0.8, '2026-12': 0.8, '2027-01': 0.8, '2027-02': 0.8 }, approvedAt: '2026-09-28 16:20' },
+];
+function agentScmTotalMmFinal(r) { return Object.keys(r.monthly || {}).reduce(function (s, m) { return s + Number(r.monthly[m] || 0); }, 0); }
+function agentScmPlanRowFinal(name) {
+  var rows = (typeof getLaborRows === 'function') ? getLaborRows() : [];
+  return rows.filter(function (x) { return x.name === name; })[0] || null;
+}
+// 현재 실행예산(등록 인력)과 비교: 미등록=신규 / 총MM·투입기간 다름=변경 / 같음=동일
+function agentScmStatusFinal(r) {
+  var p = agentScmPlanRowFinal(r.name);
+  if (!p) return '신규';
+  var scmMm = Math.round(agentScmTotalMmFinal(r) * 10) / 10;
+  var planMm = Math.round(Number(p.totalMm || 0) * 10) / 10;
+  if (scmMm !== planMm || String(p.endDate) !== String(r.end) || String(p.startDate) !== String(r.start)) return '변경';
+  return '동일';
+}
+function agentScmOpenFinal() { agentScmPopOpenFinal = true; agentScmSelFinal = {}; renderBudgetPage(); }
+function agentScmCloseFinal() { agentScmPopOpenFinal = false; renderBudgetPage(); }
+function agentScmToggleSelFinal(emp) { agentScmSelFinal[emp] = !agentScmSelFinal[emp]; renderBudgetPage(); }
+function agentScmMonthlyTextFinal(r) {
+  var ms = Object.keys(r.monthly || {}).sort();
+  if (!ms.length) return '<span class="muted">-</span>';
+  var head = ms.map(function (m) { return '<td>' + m.slice(2).replace('-', '.') + '</td>'; }).join('');
+  var vals = ms.map(function (m) { return '<td class="v">' + Number(r.monthly[m]).toFixed(1) + '</td>'; }).join('');
+  return '<table class="ascm-mg"><tbody><tr class="mh">' + head + '</tr><tr>' + vals + '</tr></tbody></table>';
+}
+function agentScmApplyFinal() {
+  var picked = AGENT_SCM_TEAMING_FINAL.filter(function (r) { return agentScmSelFinal[r.emp] && agentScmStatusFinal(r) !== '동일'; });
+  if (!picked.length) { if (typeof showToast === 'function') showToast('반영할 신규·변경 인력을 선택해 주세요.'); return; }
+  var rows = (typeof getLaborRows === 'function') ? getLaborRows() : null;
+  if (!rows) return;
+  picked.forEach(function (r) {
+    var mm = Math.round(agentScmTotalMmFinal(r) * 100) / 100;
+    var exist = rows.filter(function (x) { return x.name === r.name; })[0];
+    if (exist) {
+      exist.pLevel = r.pLevel; exist.role = r.role; exist.unitPrice = r.unit;
+      exist.startDate = r.start; exist.endDate = r.end; exist.totalMm = mm;
+      exist.amount = Math.round(mm * r.unit); exist.monthly = JSON.parse(JSON.stringify(r.monthly));
+      exist.status = 'SCM 승인완료'; exist.approvedAt = r.approvedAt; exist.scmDocNo = 'SCM-' + r.emp;
+    } else {
+      rows.unshift({ id: 'scm-' + r.emp, personId: 'emp-' + r.emp, name: r.name, org: '사내', role: r.role, pLevel: r.pLevel,
+        unitPrice: r.unit, startDate: r.start, endDate: r.end, workType: 'SCM 확정', totalMm: mm, amount: Math.round(mm * r.unit),
+        status: 'SCM 확정완료', requestedAt: 'SCM 확정 데이터 수신', approvedAt: r.approvedAt, scmDocNo: 'SCM-' + r.emp,
+        monthly: JSON.parse(JSON.stringify(r.monthly)) });
+    }
+  });
+  try { if (typeof persistBudgetLaborState === 'function') persistBudgetLaborState(); } catch (e) {}
+  try { if (typeof syncLaborAssignmentsToBudget === 'function') syncLaborAssignmentsToBudget(); } catch (e) {}
+  agentScmPopOpenFinal = false; agentScmSelFinal = {};
+  renderBudgetPage();
+  if (typeof showToast === 'function') showToast(picked.length + '명을 인력계획에 반영했습니다.');
+}
+function renderAgentScmPopupFinal() {
+  var rowsHtml = AGENT_SCM_TEAMING_FINAL.map(function (r) {
+    var stt = agentScmStatusFinal(r);
+    var mm = agentScmTotalMmFinal(r);
+    var same = stt === '동일';
+    var badge = stt === '신규' ? '<span class="ascm-b new">신규</span>' : stt === '변경' ? '<span class="ascm-b chg">변경</span>' : '<span class="ascm-b same">동일</span>';
+    var checked = agentScmSelFinal[r.emp] ? 'checked' : '';
+    return '<tr class="' + (same ? 'ascm-same' : '') + '">'
+      + '<td>' + (same ? '<span class="ascm-done">반영됨</span>' : '<input type="checkbox" ' + checked + ' onclick="agentScmToggleSelFinal(\'' + r.emp + '\')">') + '</td>'
+      + '<td>' + badge + '</td>'
+      + '<td><b>' + escHtml(r.name) + '</b></td><td>' + r.emp + '</td><td>' + escHtml(r.role) + '</td><td>' + r.pLevel + '</td>'
+      + '<td>' + r.start + ' ~ ' + r.end + '</td><td class="num">' + mm.toFixed(1) + 'MM</td>'
+      + '<td class="ascm-mm">' + agentScmMonthlyTextFinal(r) + '</td>'
+      + '<td>' + r.approvedAt + '</td></tr>';
+  }).join('');
+  var selCnt = AGENT_SCM_TEAMING_FINAL.filter(function (r) { return agentScmSelFinal[r.emp] && agentScmStatusFinal(r) !== '동일'; }).length;
+  return '<div class="ascm-ov" onclick="if(event.target===this)agentScmCloseFinal()">'
+    + '<div class="ascm-card">'
+    + '<div class="ascm-head"><b>SCM 확정 인력 등록 — 프로젝트 티밍 인력</b><button onclick="agentScmCloseFinal()">✕</button></div>'
+    + '<div class="ascm-note">현재 프로젝트에 <b>SCM 티밍(최종 확정)</b>된 사내 인력입니다. <b>현재 실행예산과 비교</b>해 <span class="ascm-b new">신규</span>·<span class="ascm-b chg">변경</span>을 표시합니다. 반영할 인력을 선택해 [인력계획에 반영]하세요.</div>'
+    + '<div class="ascm-tblwrap"><table class="ascm-tbl"><thead><tr>'
+    + '<th>선택</th><th>구분</th><th>이름</th><th>사번</th><th>역할</th><th>P레벨</th><th>투입기간</th><th class="num">총MM</th><th>월별 MM</th><th>SCM 최종승인일</th>'
+    + '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>'
+    + '<div class="ascm-foot"><span class="ascm-cnt">선택 ' + selCnt + '건</span>'
+    + '<button class="ascm-sub" onclick="agentScmCloseFinal()">닫기</button>'
+    + '<button class="ascm-pri" onclick="agentScmApplyFinal()">인력계획에 반영</button></div>'
+    + '</div></div>';
+}
+(function agentScmStyleInjectFinal() {
+  if (typeof document === 'undefined' || document.getElementById('agent-scm-style')) return;
+  var st = document.createElement('style'); st.id = 'agent-scm-style';
+  st.textContent = [
+    '.ascm-ov{position:fixed;inset:0;z-index:420;background:rgba(17,21,32,.45);display:flex;align-items:center;justify-content:center;padding:24px}',
+    '.ascm-card{background:#fff;border-radius:16px;width:1000px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 60px -18px rgba(17,21,32,.5);font-family:inherit;overflow:hidden}',
+    '.ascm-head{display:flex;align-items:center;gap:10px;padding:15px 20px;border-bottom:1px solid #eef1f5}',
+    '.ascm-head b{flex:1;font-size:15px;color:#0f172a}',
+    '.ascm-head button{border:0;background:#f1f3f6;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:14px;color:#475569}',
+    '.ascm-note{padding:12px 20px 0;font-size:12px;color:#64748b;line-height:1.6}',
+    '.ascm-tblwrap{overflow:auto;padding:12px 20px}',
+    '.ascm-tbl{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}',
+    '.ascm-tbl th{background:#f3f5f9;color:#3d4a5c;font-weight:800;text-align:left;padding:8px 10px;border-bottom:1px solid #dfe3ea;position:sticky;top:0}',
+    '.ascm-tbl td{padding:8px 10px;border-bottom:1px solid #f1f3f6;color:#1f2937}',
+    '.ascm-tbl .num{text-align:right;font-variant-numeric:tabular-nums}',
+    '.ascm-mm{font-variant-numeric:tabular-nums;color:#64748b;font-size:11px}',
+    '.ascm-mg{border-collapse:collapse;font-size:10.5px;margin:1px 0}',
+    '.ascm-mg td{border:1px solid #e9edf4;padding:2px 7px;text-align:center;min-width:36px;font-variant-numeric:tabular-nums}',
+    '.ascm-mg tr.mh td{background:#f3f5f9;color:#64748b;font-weight:700}',
+    '.ascm-mg td.v{font-weight:800;color:#1f2937}',
+    '.ascm-tbl tr.ascm-same td{background:#fafbfc;color:#94a3b8}',
+    '.ascm-done{font-size:11px;font-weight:800;color:#94a3b8}',
+    '.ascm-b{display:inline-block;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:999px;border:1px solid}',
+    '.ascm-b.new{background:#e8f3ec;color:#167a4a;border-color:#c9e7d4}',
+    '.ascm-b.chg{background:#fff7ed;color:#b4740a;border-color:#fed7aa}',
+    '.ascm-b.same{background:#f1f3f6;color:#94a3b8;border-color:#e2e6ec}',
+    '.ascm-foot{display:flex;align-items:center;gap:8px;padding:13px 20px;border-top:1px solid #eef1f5}',
+    '.ascm-cnt{flex:1;font-size:12px;font-weight:800;color:#475569}',
+    '.ascm-sub{border:1px solid #d3d9e2;background:#fff;border-radius:9px;padding:8px 16px;font-size:12.5px;font-weight:800;color:#334155;cursor:pointer}',
+    '.ascm-pri{border:1px solid #1d4ed8;background:#1d4ed8;color:#fff;border-radius:9px;padding:8px 16px;font-size:12.5px;font-weight:800;cursor:pointer}',
+  ].join('\n');
+  (document.head || document.documentElement).appendChild(st);
+})();
 (function agentLaborInlineStyleInjectFinal() {
   if (typeof document === 'undefined' || document.getElementById('agent-labor-inline-style')) return;
   var st = document.createElement('style'); st.id = 'agent-labor-inline-style';
@@ -1667,9 +1815,9 @@ function laborActualVoucherPopupFinal(name, month) {
 function agentLaborRowsFinal() {
   const base = agentLaborBaseRowsFinal();
   const rows = base.map(r => ({
-    key: r.id || r.name, name: r.name, org: r.org, role: r.role, unit: r.unitPrice,
+    key: r.id || r.name, name: r.name, org: r.org, role: r.role, pLevel: r.pLevel, unit: r.unitPrice,
     start: r.startDate, end: r.endDate, mm: r.totalMm, amount: r.amount,
-    monthly: r.monthly || null, unitPrice: r.unitPrice || 0,
+    monthly: r.monthly || null, unitPrice: r.unitPrice || 0, unitPrev: r.unitPrev || 0, rateSched: r.rateSched || null,
     state: '', dMm: 0, dAmt: 0,
   }));
 
@@ -1678,7 +1826,7 @@ function agentLaborRowsFinal() {
     if (p.acct !== '인건비' || !agentMiniSelFinal[p.id]) return;
     (p.persons || []).forEach(x => {
       rows.push({
-        key: x.name, name: x.name, org: x.org || '—', role: x.role || 'SCM 확정 인력', unit: x.unit,
+        key: x.name, name: x.name, org: x.org || '—', role: x.role || 'SCM 확정 인력', pLevel: x.pLevel || '-', unit: x.unit,
         start: String(x.period || '').split('~')[0].trim(),
         end: String(String(x.period || '').split('~')[1] || '').trim(),
         mm: x.mm, amount: x.amount, monthly: null, unitPrice: x.unit, state: '신규추가', dMm: x.mm, dAmt: x.amount,
@@ -1692,7 +1840,7 @@ function agentLaborRowsFinal() {
         if (x.newEnd) hit.end = x.newEnd;
       } else {
         rows.push({
-          key: x.name, name: x.name, org: x.org || '—', role: x.role || '설계', unit: x.unit,
+          key: x.name, name: x.name, org: x.org || '—', role: x.role || '설계', pLevel: x.pLevel || '-', unit: x.unit,
           start: x.start || '', end: x.newEnd || x.end || '',
           mm: 0, amount: 0, monthly: null, unitPrice: x.unit, state: '철수', dMm: -Math.abs(x.mm || 0), dAmt: -Math.abs(x.amount || 0),
         });
@@ -1932,13 +2080,15 @@ function renderAgentLaborDetailFinal(viewData, roll) {
 
   return `
     ${tabs}
-    <div class="aglb-bar" style="display:flex;justify-content:flex-end;gap:8px;margin:0 0 8px">
+    <div class="aglb-bar" style="display:flex;align-items:center;gap:8px;margin:0 0 8px">
+      <button class="bxe-btn aglb-scm-btn" style="background:#1d4ed8;color:#fff;border-color:#1d4ed8" onclick="agentScmOpenFinal()" title="프로젝트에 SCM 티밍된 확정 인력을 조회해 인력계획에 반영합니다">＋ SCM확정인력등록</button>
+      <span style="flex:1"></span>
       <button class="bxe-btn aglb-xpand-btn" onclick="agentLaborToggleAllFinal()" title="모든 인력의 월별 투입MM을 한 번에 펼치거나 접습니다">${(rows.length && rows.every(r => agentLaborOpenFinal[r.key || r.name])) ? '▴ 전체 접기' : '▾ 전체 펼치기'}</button>
     </div>
     <div class="aglb-wrap">
       <table class="aglb">
         <thead><tr>
-          <th>인력</th><th>조직명</th><th>역할</th><th class="num">단가</th>
+          <th>인력</th><th>조직명</th><th>역할</th><th>P레벨</th>
           <th>투입기간</th><th class="num">총MM</th><th class="num">금액</th><th>상태</th>
         </tr></thead>
         <tbody>${rows.map(r => {
@@ -1948,7 +2098,7 @@ function renderAgentLaborDetailFinal(viewData, roll) {
             <td><b><span class="aglb-caret">${_open ? '▾' : '▸'}</span> ${escHtml(r.name)}</b></td>
             <td>${escHtml(r.org || '')}</td>
             <td>${escHtml(r.role || '')}</td>
-            <td class="num">${fmt(r.unit || 0)}</td>
+            <td>${escHtml(r.pLevel || '-')}</td>
             <td>${escHtml(r.start || '')} ~ ${escHtml(r.end || '')}</td>
             <td class="num">${(r.mm || 0).toFixed(1)}MM</td>
             <td class="num"><b>${fmt(r.amount || 0)}원</b></td>
@@ -1979,7 +2129,8 @@ function renderAgentLaborDetailFinal(viewData, roll) {
     ${renderAgentAcctCpFinal('인건비', ((typeof getMonthlyBudgetRows === 'function'
        ? getMonthlyBudgetRows(viewData, '인건비') : []).reduce((a, r) => a + r.plan, 0))
        + agentAcctPickedDeltaFinal('인건비'))}
-    ${agentLaborGanttFinal(viewData, rows)}`;
+    ${agentLaborGanttFinal(viewData, rows)}
+    ${agentScmPopOpenFinal ? renderAgentScmPopupFinal() : ''}`;
 }
 
 
@@ -1993,13 +2144,15 @@ var AGENT_LABOR_SEED_FINAL = {
   budgetMock: {
     head: [
       { id:'lb-2001', personId:'emp-parkjh', name:'박지훈', org:'NOVA PMO팀', role:'PM/분석설계',
-        pLevel:'P4', unitPrice:18000000, startDate:'2026-07-01', endDate:'2026-12-31',
-        workType:'Full', totalMm:6, amount:108000000, status:'SCM 승인완료',
+        pLevel:'P4', unitPrice:18000000, unitPrev:17000000, startDate:'2026-01-01', endDate:'2026-12-31',
+        workType:'Full', totalMm:12, amount:212000000, status:'SCM 승인완료',
         requestedAt:'2026. 6. 24. 09:30', approvedAt:'2026. 6. 25. 16:10', scmDocNo:'SCM-HR-202607-001',
-        monthly:{ '2026-07':1, '2026-08':1, '2026-09':1, '2026-10':1, '2026-11':1, '2026-12':1 } },
+        monthly:{ '2026-01':1, '2026-02':1, '2026-03':1, '2026-04':1, '2026-05':1, '2026-06':1,
+                  '2026-07':1, '2026-08':1, '2026-09':1, '2026-10':1, '2026-11':1, '2026-12':1 } },
       { id:'lb-2002', personId:'emp-kimsr', name:'김서린', org:'AX 개발1팀', role:'Vue Front',
         pLevel:'P3', unitPrice:14500000, startDate:'2026-08-01', endDate:'2027-02-28',
-        workType:'Part', totalMm:3.5, amount:50750000, status:'SCM 승인완료',
+        rateSched:[{ from:'2026-08', unit:14500000 }, { from:'2027-01', unit:15200000 }],
+        workType:'Part', totalMm:3.5, amount:51450000, status:'SCM 승인완료',
         requestedAt:'2026. 6. 24. 09:30', approvedAt:'2026. 6. 25. 16:10', scmDocNo:'SCM-HR-202607-002',
         monthly:{ '2026-08':0.5, '2026-09':0.5, '2026-10':0.5, '2026-11':0.5, '2026-12':0.5,
                   '2027-01':0.5, '2027-02':0.5 } },
