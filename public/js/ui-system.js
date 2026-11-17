@@ -113,7 +113,7 @@ function uisIconize() {
 (function uisWatch() {
   if (typeof document === 'undefined') return;
   let t = null;
-  const run = function () { t = null; try { uisIconize(); } catch (e) { /* 무시 */ } };
+  const run = function () { t = null; try { uisIconize(); } catch (e) { /* 무시 */ } try { uisBackLabel(); } catch (e) { /* 무시 */ } };
   const start = function () {
     run();
     new MutationObserver(function () { if (!t) t = setTimeout(run, 30); }).observe(document.body, { childList: true, subtree: true });
@@ -156,3 +156,23 @@ function uisScrollTop() {
   });
 })();
 
+// ── 7) [← 목록] 버튼 위치 통일 (2026.11.17) ────────────────────────────────
+// main.css 의 옛 규칙(.back-btn, .mc-back-btn { position:fixed; top:24px; right:28px })이 버전2 화면에서
+// 상단 탭 줄 · Admin 버튼 밑으로 숨어 W/G · 사내 · 투자 · 선투입 상세와 수행원가에서 [← 목록]이 안 보였습니다.
+// 수주형 · 제안 상세처럼 내용 영역 오른쪽 위에 보이게 합니다(공유 CSS 는 고치지 않음).
+(function uisInjectBack() {
+  if (typeof document === 'undefined' || !document.head || document.getElementById('uis-back-style')) return;
+  const st = document.createElement('style');
+  st.id = 'uis-back-style';
+  st.textContent = `
+  .screen { position: relative; }
+  .screen .back-btn, .screen .mc-back-btn { position: absolute !important; top: 0 !important; right: 0 !important; left: auto !important; z-index: 5 !important; }`;
+  document.head.appendChild(st);
+})();
+
+// [← 목록] 이름 통일 — "← 목록으로"(수행원가 · 보고서)를 수주형 · 제안 · W/G 상세와 같은 "← 목록"으로
+function uisBackLabel() {
+  document.querySelectorAll('.screen .back-btn, .screen .mc-back-btn').forEach(function (b) {
+    if (b.textContent.trim() === '← 목록으로') b.textContent = '← 목록';
+  });
+}
