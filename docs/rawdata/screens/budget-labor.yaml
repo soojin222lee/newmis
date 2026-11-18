@@ -184,6 +184,88 @@ elements:
     backend: null
     result: 실투입인건비 계획 rows 등록 + 예산내역 투입확정(q) 갱신
 
+  # ── [2026.11.18] Agent 콘솔 인건비 상세 — SCM 확정 인력 등록 팝업 (월별 MM 표 칸 펼침) ──
+  #   데이터·선택·반영: budget-agent-console.js(수진) / 렌더러 재정의: labor-scm-grid.js(남주)
+  - id: btn-agent-scm-open
+    label: "＋ SCM확정인력등록 (팝업 열기)"
+    type: button
+    crud: N
+    area: "Agent 콘솔 인건비 상세 · 실투입인건비 인력표 위"
+    event: onclick
+    front:
+      handler: agentScmOpenFinal()
+      file: "budget-agent-console.js:agentScmOpenFinal (버튼 renderAgentLaborDetailFinal 내부)"
+      logic: "agentScmPopOpenFinal=true, 선택 초기화 후 renderBudgetPage → SCM 확정 인력 등록 팝업 표시"
+      validation: null
+      state_writes: [agentScmPopOpenFinal, agentScmSelFinal]
+    backend: { note: "목업: 프로젝트 SCM 티밍 인력 AGENT_SCM_TEAMING_FINAL (실제는 SCM I/F 수신)" }
+    result: SCM 확정 인력 등록 팝업
+
+  - id: grid-agent-scm-teaming
+    label: "SCM 티밍 인력 조회 표 (선택 / 구분 / 이름·사번·투입기간 / 역할·P레벨 / 총MM / 연·월별 MM / SCM 승인일)"
+    type: grid
+    crud: R
+    area: SCM 확정 인력 등록 팝업
+    event: null
+    front:
+      handler: renderAgentScmPopupFinal()
+      file: "labor-scm-grid.js:renderAgentScmPopupFinal (원본 budget-agent-console.js 재정의)"
+      logic: >
+        월 = 티밍 인력 전체 monthly 키의 합집합(lsgMonthsFinal). 머리는 연도(colspan)/월 2줄, 사람마다 같은 달이 같은 칸에 정렬.
+        투입 없는 달은 '·'. 구분은 agentScmStatusFinal(신규=계획에 없음 / 변경=총MM·기간 다름 / 동일).
+        변경 인력은 총MM 아래 '계획 N.N'을 함께 표시하고, 현재 계획과 MM이 다른 달 칸을 주황으로 강조(title에 계획→SCM 값).
+      validation: null
+      state_writes: []
+    backend: null
+    result: 신규·변경 인력과 달라진 달을 한눈에 비교
+
+  - id: chk-agent-scm-row
+    label: "반영할 인력 선택 (체크박스, 동일 인력은 '반영됨')"
+    type: checkbox
+    crud: N
+    area: SCM 확정 인력 등록 팝업 · 선택 칸
+    event: onclick
+    front:
+      handler: "agentScmToggleSelFinal(emp)"
+      file: "budget-agent-console.js:agentScmToggleSelFinal"
+      logic: "agentScmSelFinal[emp] 토글 → 하단 '선택 N건' 갱신. 구분이 동일이면 체크박스 대신 '반영됨'"
+      validation: null
+      state_writes: [agentScmSelFinal]
+    backend: null
+    result: 선택 건수 갱신
+
+  - id: btn-agent-scm-apply
+    label: 인력계획에 반영 (선택 인력 등록·수정)
+    type: button
+    crud: C
+    area: SCM 확정 인력 등록 팝업 하단
+    event: onclick
+    front:
+      handler: agentScmApplyFinal()
+      file: "budget-agent-console.js:agentScmApplyFinal"
+      logic: >
+        선택된 신규·변경 인력만 대상. 신규는 인력계획 rows 맨 앞에 등록, 변경은 기존 행의 P레벨·단가·기간·총MM·월별MM 갱신 →
+        persistBudgetLaborState → syncLaborAssignmentsToBudget → 팝업 닫기 → 토스트 'N명을 인력계획에 반영했습니다.'
+      validation: "선택 0건이면 '반영할 신규·변경 인력을 선택해 주세요.' 토스트"
+      state_writes: [budgetLaborAssignments, "month[laborCat].q(투입확정)"]
+    backend: null
+    result: 실투입인건비 인력계획 등록·수정
+
+  - id: btn-agent-scm-close
+    label: 닫기 (팝업 닫기, ✕ 동일)
+    type: button
+    crud: N
+    area: SCM 확정 인력 등록 팝업
+    event: onclick
+    front:
+      handler: agentScmCloseFinal()
+      file: "budget-agent-console.js:agentScmCloseFinal"
+      logic: "agentScmPopOpenFinal=false 후 renderBudgetPage (바깥 영역 클릭도 동일)"
+      validation: null
+      state_writes: [agentScmPopOpenFinal]
+    backend: null
+    result: 팝업 닫힘
+
   # ── [2026.10.12] Agent 콘솔(예산관리 Agent ON) 인건비 상세 ──
   #   실투입인건비는 SCM 선행: 화면에서 인력을 직접 등록하는 버튼이 없다.
   #   SCM I/F 수신 → [예산 조정안] Agent 제안(ap-01 등) → PM [반영] → 인력표에 "반영(결재전)" 표시.
@@ -678,6 +760,7 @@ requirements:
   - { id: FR-LAB-23, text: "이관인건비는 상대 프로젝트(보낼 곳/받을 곳)를 필수로 입력해야 하며, 지금 프로젝트는 상대로 지정할 수 없어야 한다" }
   - { id: FR-LAB-19, text: "Agent 화면의 실투입인건비는 SCM이 선행되어야 하며, 화면에서 인력을 직접 등록할 수 없어야 한다(SCM 수신분은 [예산 조정안] Agent 제안으로 올라와야 한다)" }
   - { id: FR-LAB-20, text: "PM이 [예산 조정안]에서 인건비 제안을 [반영]하면 실투입인건비 인력표에 '반영(결재전)'으로 신규·철수 변동이 표시되어야 한다" }
+  - { id: FR-LAB-24, text: "SCM 확정 인력 등록 팝업은 월별 MM을 연도/월 칸으로 펼쳐 인력 간 같은 달을 세로로 비교할 수 있어야 하며, 변경 인력은 현재 계획 총MM과 달라진 달을 강조해 보여 줘야 한다" }
   - { id: FR-LAB-21, text: "Agent 화면에서 이관인건비와 OT비를 건 단위로 등록·수정·삭제할 수 있어야 하며, 결과가 인건비 상세 금액에 즉시 반영되어야 한다" }
   - { id: FR-LAB-22, text: "직책자 화면과 과거 확정 버전 조회 중에는 이관인건비·OT비를 열람만 할 수 있어야 한다" }
   - { id: FR-LAB-23, text: "이관인건비 계획은 '받을 인건비(+)'와 '보낼 인건비(−)' 두 구분으로 수립할 수 있어야 하며, 실제로 받거나 보낸 실적은 계획과 따로 표시되어야 한다(실적이 생긴 건은 조회 전용)" }
