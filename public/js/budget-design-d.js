@@ -323,3 +323,175 @@ function ddHidePopClose() {
   var start = function () { mo.observe(document.body, { childList: true, subtree: true }); ddHidePopClose(); };
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();
+
+// ── [2026.11.19] 화면 정리 — 겹치는 숫자 · 가끔 쓰는 버튼 덜어 내기(디자인시안_7) ──────────────────────
+//   ① 계정 상세 제목 옆 「실적(확정) ○원 · CP 승인액 ○원」 문구 → 숨기고 제목에 마우스를 올리면 보임
+//   ② 가끔 쓰는 버튼 → [⋯] 메뉴로: 예산 조정안 [전부 해제] / 계정 상세 [전체 펼치기] · [엑셀 다운로드] · 맨 위 [이력](계정 상세에서만)
+//   ③ 인력 투입 일정(막대그래프) → 기본 접힘, [▸ 인력 투입 일정 펼치기]로 열기(펼침 여부 기억)
+//   ④ 예산 조정안 상태 탭 [전체] [검토 대기] [반영] → ☐ 반영한 것만 보기 + 「검토 대기 N · 반영 N」
+//   원래 버튼 · 탭은 지우지 않고 숨긴 채 두고, 새 버튼이 그것을 대신 눌러 줌(동작 · 엑셀 · 이력 팝업은 원래 그대로)
+var ddGanttOpen = (function () { try { return localStorage.getItem('dd-gantt') === '1'; } catch (e) { return false; } })();
+var ddMoreSeq = 0;
+function ddHideEl(el, key) {
+  if (!el) return;
+  if (el.getAttribute('data-dd-more') !== key) el.setAttribute('data-dd-more', key);
+  if (!el.getAttribute('data-dd-key')) el.setAttribute('data-dd-key', 'k' + (++ddMoreSeq));
+  if (el.style.getPropertyValue('display') !== 'none') el.style.setProperty('display', 'none', 'important');
+}
+function ddSimplify() {
+  var ga = document.querySelector('#s-budget .agent-ga');
+  if (!ga) return;
+  var detail = ga.querySelector('.agga-col.detail');
+  // ① 제목 옆 문구 → 제목 툴팁
+  if (detail) {
+    var sub = detail.querySelector('.agga-col-head .agga-dsub');
+    var tt = detail.querySelector('.agga-col-head > strong');
+    if (sub && tt && tt.title !== sub.textContent.trim()) { tt.title = sub.textContent.trim(); tt.style.cursor = 'help'; }
+  }
+  // ② 예산 조정안 [전부 해제] → [⋯]
+  ga.querySelectorAll('.agga-col.todo > .agga-col-head').forEach(function (head) {
+    var un = Array.prototype.find.call(head.querySelectorAll('.agga-all'), function (b) { return /해제/.test(b.textContent); });
+    if (!un) return;
+    ddHideEl(un, 'todo');
+    if (!head.querySelector('.dd-more[data-for="todo"]')) {
+      var m = document.createElement('button');
+      m.type = 'button'; m.className = 'dd-more'; m.setAttribute('data-for', 'todo');
+      m.setAttribute('onclick', "ddMoreOpen(this,'todo')"); m.title = '더보기(전부 해제)'; m.setAttribute('aria-label', '더보기');
+      m.textContent = '⋯';
+      un.parentNode.insertBefore(m, un.nextSibling);
+    }
+  });
+  // ② 계정 상세 [전체 펼치기] · [엑셀 다운로드] · 맨 위 [이력] → [⋯ 더보기]
+  if (detail) {
+    var body = detail.querySelector('.agga-col-body.detail') || detail;
+    var xls = Array.prototype.filter.call(body.querySelectorAll('button'), function (b) { return /엑셀/.test(b.textContent); });
+    var xp = body.querySelector('.aglb-xpand-btn');
+    var hidden = [];
+    if (xp) { ddHideEl(xp, 'detail'); hidden.push(xp); }
+    xls.forEach(function (b) { ddHideEl(b, 'detail'); hidden.push(b); });
+    var hist = ga.querySelector('.agai-hist');
+    if (hist) ddHideEl(hist, 'detail');
+    var anchor = hidden[hidden.length - 1];
+    if (anchor && !anchor.parentNode.querySelector(':scope > .dd-more[data-for="detail"]')) {
+      var mm = document.createElement('button');
+      mm.type = 'button'; mm.className = 'dd-more wide'; mm.setAttribute('data-for', 'detail');
+      mm.setAttribute('onclick', "ddMoreOpen(this,'detail')"); mm.title = '전체 펼치기 · 엑셀 다운로드 · 이력';
+      mm.textContent = '⋯ 더보기';
+      anchor.parentNode.insertBefore(mm, anchor.nextSibling);
+    }
+  } else {
+    var h2 = ga.querySelector('.agai-hist[data-dd-more]');     // 프로젝트 메인에서는 [이력] 그대로
+    if (h2) { h2.removeAttribute('data-dd-more'); h2.style.removeProperty('display'); }
+  }
+  // ③ 인력 투입 일정 접기
+  ga.querySelectorAll('.agga-col.detail .aglg').forEach(function (g) {
+    var bar = g.previousElementSibling;
+    if (!bar || !bar.classList.contains('dd-gantt-tog')) {
+      bar = document.createElement('button');
+      bar.type = 'button'; bar.className = 'dd-gantt-tog'; bar.setAttribute('onclick', 'ddGanttToggle()');
+      g.parentNode.insertBefore(bar, g);
+    }
+    var hd = g.querySelector('.aglg-head');
+    var title = hd && hd.querySelector('b') ? hd.querySelector('b').textContent.trim() : '인력 투입 일정';
+    var range = hd && hd.querySelector('span') ? hd.querySelector('span').textContent.trim() : '';
+    var html = (ddGanttOpen ? '▾ ' + title + ' 접기' : '▸ ' + title + ' 펼치기') + (range ? '<span>' + range + '</span>' : '');
+    if (bar.innerHTML !== html) bar.innerHTML = html;
+    bar.setAttribute('aria-expanded', ddGanttOpen ? 'true' : 'false');
+    if (ddGanttOpen) { if (g.style.getPropertyValue('display')) g.style.removeProperty('display'); }
+    else if (g.style.getPropertyValue('display') !== 'none') g.style.setProperty('display', 'none', 'important');
+  });
+  // ④ 상태 탭 → 반영한 것만 보기
+  ga.querySelectorAll('.bap-tabs').forEach(function (tabs) {
+    var cnt = function (k) { var e = tabs.querySelector('.bap-tab.' + k + ' em'); return e ? e.textContent.trim() : '0'; };
+    var on = typeof bapTodoFilter !== 'undefined' && bapTodoFilter === 'on';
+    var row = tabs.nextElementSibling;
+    if (!row || !row.classList.contains('dd-onlyon')) {
+      row = document.createElement('label');
+      row.className = 'dd-onlyon';
+      row.innerHTML = '<input type="checkbox" onchange="ddOnlyOn(this.checked)"> <span>반영한 것만 보기</span><em></em>';
+      tabs.parentNode.insertBefore(row, tabs.nextSibling);
+    }
+    var inp = row.querySelector('input');
+    if (inp.checked !== on) inp.checked = on;
+    var t = '검토 대기 ' + cnt('wait') + ' · 반영 ' + cnt('on');
+    var em = row.querySelector('em');
+    if (em.textContent !== t) em.textContent = t;
+  });
+  //   빈 목록 안내도 탭 이름([검토 대기]) 대신 체크 기준으로
+  ga.querySelectorAll('.bap-empty').forEach(function (e) {
+    if (/\[검토 대기\]에서/.test(e.textContent)) e.textContent = '반영한 조정안이 없습니다. 체크를 풀고 조정안의 [반영]을 눌러 주세요.';
+  });
+}
+function ddOnlyOn(on) {                       // crud R — 예산 조정안을 반영한 것만 / 전체 보기
+  if (typeof bapTodoFilterSet === 'function') bapTodoFilterSet(on ? 'on' : 'all');
+}
+function ddGanttToggle() {                    // crud N — 인력 투입 일정(막대그래프) 펼치기/접기
+  ddGanttOpen = !ddGanttOpen;
+  try { localStorage.setItem('dd-gantt', ddGanttOpen ? '1' : '0'); } catch (e) { /* 저장 막힘 */ }
+  ddSimplify();
+}
+// [⋯] 메뉴 — 숨긴 원래 버튼들을 글자 그대로 나열, 누르면 원래 버튼을 대신 누름
+function ddMoreClose() { var m = document.getElementById('dd-more-menu'); if (m) m.remove(); }
+function ddMoreOpen(btn, key) {               // crud N — 더보기 메뉴 열기
+  var open = document.getElementById('dd-more-menu');
+  if (open && open.getAttribute('data-for') === key) { ddMoreClose(); return; }
+  ddMoreClose();
+  var items = Array.prototype.filter.call(document.querySelectorAll('#s-budget [data-dd-more="' + key + '"]'), function (el) { return el.isConnected; });
+  if (!items.length) return;
+  //   [이력]은 화면 맨 위에 있어 먼저 잡히지만 메뉴에서는 맨 끝으로(표 관련 기능부터)
+  items.sort(function (a, b) { return (a.classList.contains('agai-hist') ? 1 : 0) - (b.classList.contains('agai-hist') ? 1 : 0); });
+  var menu = document.createElement('div');
+  menu.id = 'dd-more-menu'; menu.className = 'dd-more-menu'; menu.setAttribute('role', 'menu'); menu.setAttribute('data-for', key);
+  menu.innerHTML = items.map(function (el) {
+    var label = (el.textContent || '').replace(/\s+/g, ' ').trim().replace(/^[⬇▾▴]\s*/, '');
+    var dis = el.disabled ? ' disabled' : '';
+    return '<button type="button" role="menuitem"' + dis + ' onclick="ddMoreRun(\'' + el.getAttribute('data-dd-key') + '\')">' + label + '</button>';
+  }).join('');
+  document.body.appendChild(menu);
+  var r = btn.getBoundingClientRect();
+  var w = menu.offsetWidth;
+  menu.style.top = Math.round(r.bottom + 4) + 'px';
+  menu.style.left = Math.round(Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8))) + 'px';
+}
+function ddMoreRun(k) {                       // crud N — 메뉴 항목 실행(원래 버튼을 대신 누름)
+  ddMoreClose();
+  var el = document.querySelector('#s-budget [data-dd-key="' + k + '"]');
+  if (el && !el.disabled) el.click();
+}
+(function ddWatchSimplify() {
+  if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return;
+  var q = false;
+  var mo = new MutationObserver(function () { if (q) return; q = true; requestAnimationFrame(function () { q = false; try { ddSimplify(); } catch (e) { /* 무시 */ } }); });
+  var start = function () { mo.observe(document.body, { childList: true, subtree: true }); ddSimplify(); };
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+  document.addEventListener('pointerdown', function (e) {
+    var m = document.getElementById('dd-more-menu');
+    if (m && !m.contains(e.target) && !(e.target.closest && e.target.closest('.dd-more'))) ddMoreClose();
+  }, true);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') ddMoreClose(); });
+  window.addEventListener('scroll', function (e) { if (!(e.target && e.target.id === 'dd-more-menu')) ddMoreClose(); }, true);
+  window.addEventListener('resize', ddMoreClose);
+})();
+(function ddSimplifyStyle() {
+  if (typeof document === 'undefined' || document.getElementById('dd-simplify-style')) return;
+  var st = document.createElement('style');
+  st.id = 'dd-simplify-style';
+  st.textContent = [
+    '#s-budget .agent-ga .agga-col.detail .agga-col-head .agga-dsub{display:none !important}',
+    '#s-budget .agent-ga .bap-tabs{display:none !important}',
+    '#s-budget .dd-more{height:32px;min-width:34px;padding:0 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font:inherit;font-size:14px;font-weight:800;color:#334155;cursor:pointer;white-space:nowrap;flex:0 0 auto}',
+    '#s-budget .dd-more.wide{font-size:13px;padding:0 12px}',
+    '#s-budget .dd-more:hover{border-color:#94a3b8;background:#f8fafc}',
+    '.dd-more-menu{position:fixed;z-index:3000;min-width:160px;padding:6px;background:#fff;border:1px solid #cfd6df;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.16);display:flex;flex-direction:column}',
+    '.dd-more-menu button{border:0;background:none;text-align:left;padding:9px 12px;border-radius:7px;font:inherit;font-size:14px;font-weight:700;color:#1c2432;cursor:pointer;white-space:nowrap}',
+    '.dd-more-menu button:hover:not(:disabled){background:#f1f5f9}',
+    '.dd-more-menu button:disabled{color:#b6bec9;cursor:default}',
+    '#s-budget .dd-gantt-tog{display:flex;align-items:center;gap:10px;width:100%;margin:14px 0 10px;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;font:inherit;font-size:14px;font-weight:800;color:#334155;cursor:pointer;text-align:left}',
+    '#s-budget .dd-gantt-tog:hover{border-color:#94a3b8;background:#f1f5f9}',
+    '#s-budget .dd-gantt-tog span{font-weight:600;color:#64748b;font-size:13px}',
+    '#s-budget .dd-onlyon{display:flex;align-items:center;gap:8px;padding:4px 2px 10px;font-size:14px;font-weight:700;color:#334155;cursor:pointer;user-select:none}',
+    '#s-budget .dd-onlyon input{width:16px;height:16px;margin:0;cursor:pointer;accent-color:#2f5bea}',
+    '#s-budget .dd-onlyon em{font-style:normal;margin-left:auto;font-weight:600;color:#64748b;font-size:13px}'
+  ].join('\n');
+  (document.head || document.documentElement).appendChild(st);
+})();

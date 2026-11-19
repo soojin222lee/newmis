@@ -544,6 +544,84 @@ elements:
     backend: null
     result: "월별 표로 돌아감"
 
+  # ── [2026.11.19] 화면 정리(디자인시안_7) — 겹치는 숫자 · 가끔 쓰는 버튼 덜어 내기(budget-design-d.js:ddSimplify) ──
+  #    원래 버튼 · 탭은 지우지 않고 숨긴 채 두고, 아래 새 버튼이 그것을 대신 누름(원래 동작 그대로)
+  #    계정 상세 제목 옆 「실적(확정) · CP 승인액」 문구는 숨기고 제목에 마우스를 올리면 보임
+  - id: btn-dd-more-todo
+    label: "⋯ (예산 조정안 더보기)"
+    type: button
+    crud: N
+    area: "예산 조정안 머리 — [전부 반영] 오른쪽"
+    event: onclick
+    front:
+      handler: "ddMoreOpen(this,'todo')"
+      file: "budget-design-d.js:ddMoreOpen · ddSimplify"
+      logic: "가끔 쓰는 [전부 해제]를 메뉴로 옮김. 메뉴 항목은 숨겨 둔 원래 버튼 글자 그대로, 누르면 원래 버튼을 대신 누름(ddMoreRun). 원래 버튼이 비활성이면 메뉴 항목도 비활성"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "더보기 메뉴 열림"
+
+  - id: btn-dd-more-detail
+    label: "⋯ 더보기 (계정 상세)"
+    type: button
+    crud: N
+    area: "계정 상세 표 위 도구줄 오른쪽"
+    event: onclick
+    front:
+      handler: "ddMoreOpen(this,'detail')"
+      file: "budget-design-d.js:ddMoreOpen · ddSimplify"
+      logic: "[전체 펼치기/접기] · [엑셀 다운로드] · 맨 위 [이력](계정 상세에서만, 프로젝트 메인에서는 그대로 보임)을 메뉴로 옮김. 순서: 표 기능 먼저, [이력]은 맨 끝"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "더보기 메뉴 열림"
+
+  - id: menu-dd-more-item
+    label: "더보기 메뉴 항목(전부 해제 · 전체 펼치기 · 엑셀 다운로드 · 이력)"
+    type: button
+    crud: N
+    area: "[⋯] 버튼 아래 떠 있는 메뉴"
+    event: onclick
+    front:
+      handler: "ddMoreRun(key)"
+      file: "budget-design-d.js:ddMoreRun"
+      logic: "숨겨 둔 원래 버튼을 대신 누름 — 전부 해제(agentGa 일괄 해제) · 전체 펼치기(agentLaborToggleAllFinal) · 엑셀(bxe 내려받기, crud R) · 이력(결재/변경 이력 팝업). 바깥 클릭 · Esc · 스크롤 시 메뉴 닫힘"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "원래 버튼 동작 실행"
+
+  - id: btn-dd-gantt-toggle
+    label: "▸ 인력 투입 일정 펼치기 / ▾ 접기"
+    type: button
+    crud: N
+    area: "인건비 계정 상세 — 인력 표 아래"
+    event: onclick
+    front:
+      handler: "ddGanttToggle()"
+      file: "budget-design-d.js:ddGanttToggle"
+      logic: "인력 투입 일정(막대그래프)은 기본 접힘, 누르면 펼침/접힘. 펼침 여부는 브라우저에 기억(localStorage dd-gantt)"
+      validation: null
+      state_writes: [ddGanttOpen]
+    backend: null
+    result: "막대그래프 펼침 / 접힘"
+
+  - id: chk-dd-only-applied
+    label: "☐ 반영한 것만 보기 (검토 대기 N · 반영 N)"
+    type: checkbox
+    crud: R
+    area: "예산 조정안 카드 목록 위"
+    event: onchange
+    front:
+      handler: "ddOnlyOn(this.checked)"
+      file: "budget-design-d.js:ddOnlyOn → budget-adjust-panel.js:bapTodoFilterSet"
+      logic: "상태 탭 [전체] [검토 대기] [반영]을 숨기고 체크 하나로 — 체크하면 반영한 조정안만(bapTodoFilter='on'), 풀면 전체('all'). 오른쪽에 검토 대기 · 반영 건수"
+      validation: null
+      state_writes: [bapTodoFilter]
+    backend: null
+    result: "예산 조정안 목록 필터"
+
   - id: btn-actual-detail-excel
     label: "⬇ 엑셀 다운로드"
     type: button
@@ -863,5 +941,6 @@ requirements:
   - { id: FR-BAD-36, text: "[2026.11.17] 월별 계획/실적 팝업은 시작 월 ~ 끝 월(일 제외)을 골라 그 기간의 월별 계획/실적과 기간 합계를 조회할 수 있어야 한다" }
   - { id: FR-BAD-37, text: "[2026.11.19] 월별 계획/실적 팝업에서 지난 달 실적 금액을 누르면 새 팝업을 띄우지 않고 같은 팝업 안에서 그 달 실적 상세를 볼 수 있어야 하며, [← 월별 표로]로 보던 표(보기 · 단위 · 스크롤 그대로)로 돌아갈 수 있어야 한다" }
   - { id: FR-BAD-38, text: "[2026.11.19] 수행원가 화면의 팝업은 오른쪽 위 ✕ 하나로 닫을 수 있어야 하며, ✕ 와 같은 일을 하는 [닫음] · [닫기] 버튼은 함께 두지 않아야 한다(✕ 가 없는 팝업은 닫기 버튼 유지 — budget-design-d.js:ddHidePopClose)" }
+  - { id: FR-BAD-39, text: "[2026.11.19] 원가조정 화면은 핵심(계정 탭 · 예산 조정안 카드 · 상세 표)만 늘 보여 주고, 가끔 쓰는 기능(전부 해제 · 전체 펼치기 · 엑셀 다운로드 · 이력)은 [⋯] 더보기 메뉴로, 인력 투입 일정은 접어 두었다가 펼쳐 볼 수 있어야 하며, 예산 조정안은 '반영한 것만 보기' 체크 하나로 거를 수 있어야 한다" }
   - { id: FR-BAD-40, text: "[2026.11.19][E안] Agent와 대화는 상단 [✦ AI에게 물어보기]로 오른쪽 사이드바에서 볼 수 있어야 하며(창이 좁으면 화면 위에 덮어서), 아이콘으로 옮길 수 있는 창으로 띄웠다가 ✕로 다시 사이드바로 돌아올 수 있어야 하고, 계정 탭이나 다른 메뉴 화면으로 옮겨도 꺼지지 않아야 한다" }
   - { id: FR-BAD-31, text: "[2026.11.12] 계정 상세의 입력 행(등록 · 수정)은 만든 탭(계정 + 상세계정 탭, 경비는 연도)에서만 보여야 하며, 다른 탭으로 옮기면 숨었다가 돌아오면 다시 보여야 한다. 저장 단위는 상세계정 탭마다(경비만 연도 탭을 한 번에 저장 — 다른 계정의 저장 단위는 논의 중)" }
