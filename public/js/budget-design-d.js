@@ -270,3 +270,56 @@ if (typeof b2cSplitReset === 'function') {
   ].join('\n');
   (document.head || document.documentElement).appendChild(st);
 })();
+
+// ── [2026.11.19] 팝업의 [닫음] · [닫기] 버튼 없애기 — 오른쪽 위 ✕ 와 같은 일을 하는 버튼이 두 개라 하나로 ──
+//   수행원가 화면(#s-budget)에 떠 있는 팝업만, 그리고 그 팝업 안에 ✕ 버튼이 따로 있을 때만 숨깁니다
+//   (✕ 가 없는 팝업은 닫을 방법이 없어지므로 그대로). 버튼만 숨기고 남은 줄이 비면 그 줄도 숨김.
+//   팝업 코드는 여러 공유 파일에 흩어져 있어 고치지 않고, 그려진 뒤 화면에서 찾아 숨깁니다.
+// ✕ 버튼 — 글자 ✕ · × 이거나, 글자 없이 아이콘만 있고 이름(aria-label · title · class)이 닫기 · close · x 인 것
+function ddIsX(b) {
+  var t = (b.textContent || '').replace(/\s+/g, '');
+  if (t === '✕' || t === '×' || t === 'X' || t === 'x') return true;
+  if (t) return false;
+  var name = (b.getAttribute('aria-label') || '') + ' ' + (b.getAttribute('title') || '') + ' ' + (b.className && b.className.baseVal !== undefined ? b.className.baseVal : (b.className || ''));
+  return /닫기|닫음|close|(^|[\s_-])x($|[\s_-])/i.test(name);
+}
+// 팝업 = 화면 위에 고정으로 떠 있는 겹창(position:fixed) — 버튼에서 위로 올라가며 처음 만나는 것
+function ddPopOf(b) {
+  for (var el = b.parentElement; el && el !== document.body; el = el.parentElement) {
+    if (getComputedStyle(el).position === 'fixed') return el;
+  }
+  return null;
+}
+function ddHidePopClose() {
+  if (!document.querySelector('#s-budget.active')) return;
+  var btns = document.querySelectorAll('button');
+  for (var i = 0; i < btns.length; i++) {
+    var b = btns[i];
+    if (b.getAttribute('data-dd-close') === '1') continue;
+    var t = (b.textContent || '').replace(/\s+/g, '');
+    if (t !== '닫음' && t !== '닫기') continue;
+    if (b.closest('#setup-guide-overlay')) continue;             // 팀 그라운드 룰 팝업은 화면 밖 공용 팝업
+    var pop = ddPopOf(b);
+    if (!pop) continue;
+    // ✕ 가 같은 팝업 안에 있어야 함
+    var hasX = Array.prototype.some.call(pop.querySelectorAll('button'), function (x) { return x !== b && ddIsX(x); });
+    if (!hasX) continue;
+    b.setAttribute('data-dd-close', '1');
+    b.style.setProperty('display', 'none', 'important');
+    var row = b.parentElement;
+    if (row && row !== pop) {
+      // 줄에 다른 버튼 · 글자가 남아 있으면 줄은 그대로(팝업이 아직 안 보일 때도 판단되도록 화면 표시 대신 내용으로 봄)
+      var left = Array.prototype.some.call(row.children, function (c) {
+        return c !== b && c.getAttribute('data-dd-close') !== '1' && c.style.display !== 'none' && (c.tagName === 'BUTTON' || (c.textContent || '').trim());
+      }) || Array.prototype.some.call(row.childNodes, function (n) { return n.nodeType === 3 && n.nodeValue.trim(); });
+      if (!left) row.style.setProperty('display', 'none', 'important');
+    }
+  }
+}
+(function ddWatchPopClose() {
+  if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return;
+  var q = false;
+  var mo = new MutationObserver(function () { if (q) return; q = true; requestAnimationFrame(function () { q = false; try { ddHidePopClose(); } catch (e) { /* 무시 */ } }); });
+  var start = function () { mo.observe(document.body, { childList: true, subtree: true }); ddHidePopClose(); };
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+})();

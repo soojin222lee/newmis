@@ -252,15 +252,15 @@ elements:
     result: 실투입인건비 인력계획 등록·수정
 
   - id: btn-agent-scm-close
-    label: 닫기 (팝업 닫기, ✕ 동일)
+    label: "✕ (팝업 닫기)"
     type: button
     crud: N
-    area: SCM 확정 인력 등록 팝업
+    area: SCM 확정 인력 등록 팝업 우상단
     event: onclick
     front:
       handler: agentScmCloseFinal()
-      file: "budget-agent-console.js:agentScmCloseFinal"
-      logic: "agentScmPopOpenFinal=false 후 renderBudgetPage (바깥 영역 클릭도 동일)"
+      file: "budget-agent-console.js:agentScmCloseFinal · budget-design-d.js:ddHidePopClose"
+      logic: "agentScmPopOpenFinal=false 후 renderBudgetPage (바깥 영역 클릭도 동일). [2026.11.19] 같은 일을 하던 하단 [닫기] 버튼은 숨김 — 닫기는 ✕ 하나로(ddHidePopClose: 수행원가 팝업에 ✕ 가 있으면 [닫음]·[닫기]를 숨김)"
       validation: null
       state_writes: [agentScmPopOpenFinal]
     backend: null
@@ -507,15 +507,15 @@ elements:
     result: 인건비 월별 계획/실적 팝업
 
   - id: btn-agent-labor-monthly-close
-    label: 닫음
+    label: "✕ (팝업 닫기)"
     type: button
     crud: N
-    area: "월별 계획/실적 팝업 하단 / 우상단 ✕ / 바깥 영역"
+    area: "월별 계획/실적 팝업 우상단 ✕ / 바깥 영역"
     event: onclick
     front:
       handler: "agentAcctMonthlySetFinal('')"
-      file: "budget-agent-console.js:2128"
-      logic: 팝업 닫기
+      file: "budget-monthly-view.js:renderAgentAcctMonthlyPopFinal · budget-design-d.js:ddHidePopClose"
+      logic: "팝업 닫기. [2026.11.19] 하단 [닫음] 버튼은 ✕ 와 같은 일이라 숨김(버튼만 있던 하단 줄도 함께 숨김)"
       validation: null
       state_writes: [agentAcctMonthlyFinal]
     backend: null
