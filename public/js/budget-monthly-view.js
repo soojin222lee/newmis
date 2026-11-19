@@ -47,20 +47,69 @@ function bmvNum(v) {
   return fmt(x);
 }
 
+// [2026.11.19] 실적 상세를 팝업 위 팝업 대신 같은 팝업 안에서 — 지난 달 금액을 누르면 표 자리에 실적 상세가 들어오고
+//   [← 월별 표로]로 돌아감(보기 · 연도 · 단위 · 실적 펼침 · 가로 스크롤 위치는 그대로).
+//   원가 현황 등 다른 화면의 실적 상세(showActualDetailModal 팝업)는 그대로입니다 — 이 팝업 안 링크만 바꿈.
+var bmvDrill = null;        // null | { acct, m, name } — 팝업 안에서 보고 있는 실적 상세
+var bmvDrillScroll = 0;     // 들어가기 전 월별 표 가로 스크롤 위치
+function bmvDrillOpen(acct, m, name) {      // crud R — 월별 팝업 안에서 그 달 실적 상세 조회
+  const sc = document.querySelector('.bmv-pop .bmv-scroll');
+  bmvDrillScroll = sc ? sc.scrollLeft : 0;
+  bmvDrill = { acct: acct, m: m, name: name };
+  bmvRerender();
+}
+function bmvDrillBack() {                   // crud N — 실적 상세 → 월별 표로 돌아가기
+  bmvDrill = null;
+  bmvRerender();
+  const x = bmvDrillScroll;
+  requestAnimationFrame(function () { const sc = document.querySelector('.bmv-pop .bmv-scroll'); if (sc) sc.scrollLeft = x; });
+}
+// 실적 상세 내용 — 공유 실적조회(showActualDetailModal)를 그대로 그려 그 안쪽(조회 조건 · 탭 · 엑셀 · 표)만 가져옴
+//   (공유 팝업은 열자마자 닫아 화면에 뜨지 않음. [엑셀]은 엑셀 파일(budget-excel-export.js)이 그 숨은 팝업 표로 내려받음)
+function bmvDrillHtml(d) {
+  if (typeof showActualDetailModal !== 'function') return '<p class="bmv-note">실적 상세를 불러올 수 없습니다.</p>';
+  showActualDetailModal(d.acct, d.m, d.name);
+  const modal = document.getElementById('actual-detail-modal');
+  if (!modal) return '';
+  modal.classList.remove('open');
+  const box = modal.querySelector('.actual-detail-modal');
+  const parts = box ? Array.prototype.filter.call(box.children, function (el) {
+    return !el.classList.contains('actual-detail-head') && !el.classList.contains('actual-detail-foot');
+  }) : [];
+  return '<div class="bmv-drill">' + parts.map(function (el) { return el.outerHTML; }).join('') + '</div>';
+}
+
 renderAgentAcctMonthlyPopFinal = function (viewData, acct) {
-  if (!agentAcctMonthlyFinal || agentAcctMonthlyFinal !== acct) return '';
-  bmvInjectStyle();
-  let body = '';
-  try { body = bmvTable(viewData, acct); } catch (e) {
-    body = (typeof renderAccountMonthlyBudgetTable === 'function') ? renderAccountMonthlyBudgetTable(viewData, acct) : '';
+  if (!agentAcctMonthlyFinal || agentAcctMonthlyFinal !== acct) {
+    if (!agentAcctMonthlyFinal) bmvDrill = null;           // 팝업을 닫으면 다음엔 월별 표부터
+    return '';
   }
+  bmvInjectStyle();
+  if (bmvDrill && bmvDrill.acct !== acct) bmvDrill = null;
+  const d = bmvDrill;
+  let body = '';
+  if (d) {
+    try { body = bmvDrillHtml(d); } catch (e) { body = ''; }
+  } else {
+    try { body = bmvTable(viewData, acct); } catch (e) {
+      body = (typeof renderAccountMonthlyBudgetTable === 'function') ? renderAccountMonthlyBudgetTable(viewData, acct) : '';
+    }
+    body = body.replace(/showActualDetailModal\(/g, 'bmvDrillOpen(');   // 이 팝업 안에서는 새 팝업 대신 안에서 전환
+  }
+  const title = d
+    ? `<button type="button" class="bmv-back" onclick="bmvDrillBack()">← 월별 표로</button>
+       <strong>${escHtml(acct)} 월별 계획 / 실적 <em class="bmv-crumb">› ${escHtml(d.m)} 실적 상세${d.name ? ' · ' + escHtml(d.name) : ''}</em></strong>`
+    : `<strong>${escHtml(acct)} 월별 계획 / 실적</strong>`;
+  const sub = d
+    ? '그 달에 확정된 실적 내역입니다. [← 월별 표로]를 누르면 보던 표로 돌아갑니다.'
+    : '지난 달은 실적(확정), 이후 달은 계획입니다. 지난 달 금액을 누르면 그 달 실적 상세를 볼 수 있습니다.';
   return `
     <div class="agv-pop-dim" onclick="if(event.target===this)agentAcctMonthlySetFinal('')">
-      <div class="agv-pop aglm-pop bmv-pop" role="dialog" aria-modal="true" aria-label="${escHtml(acct)} 월별 계획/실적">
+      <div class="agv-pop aglm-pop bmv-pop ${d ? 'bmv-pop-drill' : ''}" role="dialog" aria-modal="true" aria-label="${escHtml(acct)} 월별 계획/실적">
         <div class="agv-pop-head">
           <div>
-            <strong>${escHtml(acct)} 월별 계획 / 실적</strong>
-            <span>지난 달은 실적(확정), 이후 달은 계획입니다. 지난 달 금액을 누르면 그 달 실적 상세를 볼 수 있습니다.</span>
+            <div class="bmv-title">${title}</div>
+            <span>${sub}</span>
           </div>
           <button class="agv-pop-x" onclick="agentAcctMonthlySetFinal('')">✕</button>
         </div>
@@ -245,6 +294,19 @@ function bmvInjectStyle() {
   st.id = 'bmv-style';
   st.textContent = `
   .agv-pop.bmv-pop { width:min(1180px, 96vw) !important; }
+  /* 팝업 안 실적 상세 — 제목 줄: [← 월별 표로] 계정 월별 계획 / 실적 › 2026-10 실적 상세 */
+  .bmv-pop .bmv-title { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .bmv-pop .bmv-title strong { display:inline; }
+  .bmv-pop .bmv-crumb { font-style:normal; font-weight:800; color:#2f5bea; margin-left:4px; }
+  .bmv-pop .bmv-back { height:32px; padding:0 12px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font:inherit;
+    font-size:13px; font-weight:800; color:#334155; cursor:pointer; white-space:nowrap; }
+  .bmv-pop .bmv-back:hover { border-color:#2f5bea; color:#2f5bea; background:#f5f8ff; }
+  .bmv-pop .bmv-drill { display:flex; flex-direction:column; gap:10px; }
+  .bmv-pop .bmv-drill .actual-detail-filter { margin:0; }
+  .bmv-pop .bmv-drill .actual-detail-tabs { padding:0; }
+  .bmv-pop .bmv-drill .actual-detail-tabs button { width:auto; padding:0 16px; white-space:nowrap; }
+  .bmv-pop .bmv-drill .actual-detail-toolbar { margin:0; padding:0; }
+  .bmv-pop .bmv-drill .actual-detail-table-wrap { max-height:none; margin:0; padding:0; }
   .bmv-tools { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:0 0 10px; }
   .bmv-seg { display:inline-flex; gap:3px; padding:3px; background:#f1f5f9; border-radius:9px; }
   .bmv-seg button { border:0; background:transparent; border-radius:7px; padding:6px 12px; font:inherit; font-size:12.5px; font-weight:800; color:#64748b; cursor:pointer; }

@@ -455,17 +455,47 @@ elements:
     front:
       handler: "bmvSet('act')"
       file: "budget-monthly-view.js:bmvSet · bmvTable (renderAgentAcctMonthlyPopFinal 재정의)"
-      logic: "지난 달(확정 실적)은 기본으로 실적 합계 한 칸(확정 실적 머리)으로 접고, 누르면 월별로 펼친다. 펼친 지난 달 금액을 누르면 기존처럼 실적 상세 팝업(actualCellHtml → showActualDetailModal)"
+      logic: "지난 달(확정 실적)은 기본으로 실적 합계 한 칸(확정 실적 머리)으로 접고, 누르면 월별로 펼친다. 펼친 지난 달 금액을 누르면 같은 팝업 안에서 실적 상세로 전환(link-agent-monthly-actual 참고)"
       validation: null
       state_writes: [bmvActOpen]
     backend: null
     result: "실적 열 접힘 / 펼침"
 
+  - id: link-agent-monthly-actual
+    label: "지난 달 실적 금액(밑줄 링크) — 실적 상세 조회"
+    type: link
+    crud: R
+    area: "월별 계획/실적 팝업 표 — 지난 달(확정 실적) 칸의 금액"
+    event: onclick
+    front:
+      handler: "bmvDrillOpen(계정, 월, 상세계정)"
+      file: "budget-monthly-view.js:bmvDrillOpen · bmvDrillHtml · renderAgentAcctMonthlyPopFinal"
+      logic: "[2026.11.19] 팝업 위에 팝업을 또 띄우지 않고, 같은 팝업 안의 표 자리에 그 달 실적 상세(조회 조건 · 탭 · 엑셀 · 표 · 합계)를 보여 준다. 제목은 '{계정} 월별 계획 / 실적 › {월} 실적 상세 · {상세계정}'. 내용은 공유 실적조회(showActualDetailModal)를 그대로 그려 안쪽만 가져옴(공유 팝업은 화면에 뜨지 않음). 원가 현황 등 다른 화면의 실적 상세 팝업은 그대로"
+      validation: null
+      state_writes: [bmvDrill, bmvDrillScroll]
+    backend: null
+    result: "팝업 안 내용이 그 달 실적 상세로 바뀜"
+
+  - id: btn-agent-monthly-drill-back
+    label: "← 월별 표로"
+    type: button
+    crud: N
+    area: "월별 계획/실적 팝업 제목 왼쪽(실적 상세를 보고 있을 때만)"
+    event: onclick
+    front:
+      handler: "bmvDrillBack()"
+      file: "budget-monthly-view.js:bmvDrillBack"
+      logic: "[2026.11.19] 실적 상세 → 월별 표로 돌아간다. 보기(월별 · 분기별 · 연도별 · 기간) · 연도 · 단위 · 실적 펼침 · 가로 스크롤 위치는 들어가기 전 그대로. 팝업을 닫았다 다시 열면 월별 표부터"
+      validation: null
+      state_writes: [bmvDrill]
+    backend: null
+    result: "월별 표로 돌아감"
+
   - id: btn-actual-detail-excel
     label: "⬇ 엑셀 다운로드"
     type: button
     crud: R
-    area: "실적조회 팝업(월별 표의 지난 달 실적 금액 클릭) 표 위"
+    area: "월별 계획/실적 팝업 안 실적 상세(지난 달 실적 금액 클릭) 표 위"
     event: onclick
     front:
       handler: "bxeActual(계정, 월)"
@@ -778,4 +808,5 @@ requirements:
   - { id: FR-BAD-34, text: "[2026.11.16] 프로젝트 메인도 2칸(왼쪽 예산 조정안 · 오른쪽 Agent와 대화)으로 보여야 하며, 오른쪽 칸은 메인과 계정 상세에서 같은 자리 · 폭 · 높이를 유지해 계정을 오가도 왼쪽만 바뀌어야 한다" }
   - { id: FR-BAD-35, text: "[2026.11.16] 예산 조정안 카드는 반영했을 때의 영향(그 계정 CP 여유 · 한도 초과액 · 이관 방향)을 한 줄로 보여 줘야 한다" }
   - { id: FR-BAD-36, text: "[2026.11.17] 월별 계획/실적 팝업은 시작 월 ~ 끝 월(일 제외)을 골라 그 기간의 월별 계획/실적과 기간 합계를 조회할 수 있어야 한다" }
+  - { id: FR-BAD-37, text: "[2026.11.19] 월별 계획/실적 팝업에서 지난 달 실적 금액을 누르면 새 팝업을 띄우지 않고 같은 팝업 안에서 그 달 실적 상세를 볼 수 있어야 하며, [← 월별 표로]로 보던 표(보기 · 단위 · 스크롤 그대로)로 돌아갈 수 있어야 한다" }
   - { id: FR-BAD-31, text: "[2026.11.12] 계정 상세의 입력 행(등록 · 수정)은 만든 탭(계정 + 상세계정 탭, 경비는 연도)에서만 보여야 하며, 다른 탭으로 옮기면 숨었다가 돌아오면 다시 보여야 한다. 저장 단위는 상세계정 탭마다(경비만 연도 탭을 한 번에 저장 — 다른 계정의 저장 단위는 논의 중)" }
