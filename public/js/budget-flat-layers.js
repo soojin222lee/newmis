@@ -106,14 +106,15 @@
 })();
 
 // ── ⑩ 요약 금액 — 큰 숫자 = 반영 후 금액(계정 5칸을 더하면 왼쪽 「반영 시」 합계와 맞음) ──
-//   그 아래 바뀐 계정만 한 줄: 「70,000,000원 증액」(빨강) / 「10,000,000원 감액」(파랑). 기존 금액은 마우스 말풍선.
-//   왼쪽 「반영 시」 합계 아래 증감도 같은 말(「60,600,000원 증액」)로 맞춤 — 원래는 합계는 「+」, 계정 칸은 「증액」으로 달랐음.
+//   그 아래 바뀐 계정만 한 줄: 「+70,000,000원」(빨강) / 「−10,000,000원」(파랑). 기존 금액은 마우스 말풍선.
+//   왼쪽 「반영 시」 합계 아래 증감도 같은 모양(「+60,600,000원」)으로 맞춤. [2026.11.19] 「증액/감액」 글자 → 부호로 변경.
 //   원래는 큰 숫자 아래에 부호만 붙은 「+70,000,000원」이 있어 "588,800,000 에 또 더해진다"로 읽힐 수 있었음.
 //   증감 줄 자리는 늘 잡아 둬(아래 CSS min-height) 반영해도 칸 높이가 출렁이지 않게 함.
 //   원본 renderAgentAiTopFinal 의 결과 HTML만 고침(데코레이터).
 if (typeof renderAgentAiTopFinal === 'function') {
   var bflRenderAgentAiTopBefore = renderAgentAiTopFinal;
-  var bflWord = function (sign) { return sign === '+' ? '증액' : '감액'; };
+  //   [2026.11.19] 「증액/감액」 글자 대신 부호로 — 「+70,000,000원」(빨강) / 「−10,000,000원」(파랑)
+  var bflDelta = function (sign, d) { return (sign === '+' ? '+' : '−') + d + '원'; };
   renderAgentAiTopFinal = function () {
     var html = bflRenderAgentAiTopBefore.apply(this, arguments);
     var at = html.indexOf('agai-accts');
@@ -121,7 +122,7 @@ if (typeof renderAgentAiTopFinal === 'function') {
     var head = html.slice(0, at), tail = html.slice(at);
     //   왼쪽 「반영 시」 합계 아래: <em class="up">+60,600,000원</em> → <em class="up">60,600,000원 증액</em>
     head = head.replace(/<em class="(up|down)">([+−-])([\d,]+)원<\/em>/, function (m, cls, sign, d) {
-      return '<em class="' + cls + '">' + d + '원 ' + bflWord(sign) + '</em>';
+      return '<em class="' + cls + '">' + bflDelta(sign, d) + '</em>';
     });
     tail = tail.replace(/<b>([\d,]+)<\/b>(\s*)<span>([+−-])([\d,]+)원<\/span>/g, function (m, after, sp, sign, d) {
       var a = Number(after.replace(/,/g, '')), dv = Number(d.replace(/,/g, ''));
@@ -130,7 +131,7 @@ if (typeof renderAgentAiTopFinal === 'function') {
       var was = up ? a - dv : a + dv;
       return '<b>' + after + '</b>' + sp
         + '<span class="bfl-after" title="기존 ' + fmt(was) + '원 → 반영 후 ' + after + '원">'
-        + '<u class="bfl-d ' + (up ? 'up' : 'down') + '">' + d + '원 ' + bflWord(sign) + '</u></span>';
+        + '<u class="bfl-d ' + (up ? 'up' : 'down') + '">' + bflDelta(sign, d) + '</u></span>';
     });
     return head + tail;
   };
