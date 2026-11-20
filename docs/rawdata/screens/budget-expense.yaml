@@ -411,6 +411,52 @@ elements:
     backend: null
     result: "'비우기 예정' 표시 → [저장] 시 반영 + 토스트"
 
+  # ── [2026.11.20] 경비 편성 세부계정 고르기 다듬기 (budget-acct-tune.js) ──
+  - id: btn-act-exp-pick
+    label: "세부계정 버튼 (중분류별 묶음 — 이름 · 계정코드 · 통제)"
+    type: button
+    crud: N
+    area: "[＋ 경비 편성] 입력 행 — 세부계정 고르기"
+    event: onclick
+    front:
+      handler: "actPickSet(this,'{입력 행 key}','{세부계정 id}')"
+      file: "budget-acct-tune.js:actPickSet · actExpPicker"
+      logic: "기본 드롭다운(중분류 optgroup) 대신 중분류별 묶음 버튼으로 보여 준다. 누르면 숨겨 둔 원래 드롭다운 값을 바꿔 원래 onchange(bieExpPick)를 그대로 불러 월별 입력칸이 열린다 — 저장 · 검증은 원래 그대로"
+      validation: null
+      state_writes: [BIE_DRAFTS]
+    backend: null
+    result: "월별 계획 입력칸 열림"
+
+  - id: input-act-exp-find
+    label: "세부계정 찾기 (이름 · 계정코드로 찾기)"
+    type: input(search)
+    crud: R
+    area: "세부계정 고르기 위"
+    event: oninput
+    front:
+      handler: "actPickFind(this)"
+      file: "budget-acct-tune.js:actPickFind"
+      logic: "입력한 글자가 들어간 세부계정(중분류 이름 포함)만 남기고, 없으면 '찾는 세부계정이 없습니다.'"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "세부계정 버튼 걸러짐"
+
+  - id: btn-act-exp-change
+    label: "바꾸기 / 닫기 (고른 세부계정)"
+    type: button
+    crud: N
+    area: "세부계정을 고른 뒤 한 줄로 접힌 자리"
+    event: onclick
+    front:
+      handler: "actPickToggle('{입력 행 key}', true|false)"
+      file: "budget-acct-tune.js:actPickToggle"
+      logic: "고른 세부계정을 다시 고를 수 있게 묶음 버튼을 펼치거나 접는다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "세부계정 고르기 펼침/접힘"
+
 # ── 백엔드/외부 연동 (현재 목업, SRS 승격 후보) ──
 apis:
   - name: ERP 가용예산
@@ -531,3 +577,4 @@ requirements:
   - { id: FR-EXP-37, text: "[2026.11.12] Agent 화면 경비 상세의 선택 비우기는 바로 반영하지 않고 '비우기 예정'으로 표시해야 하며(되돌리기 가능), 표 위 [저장]을 눌렀을 때 추가 · 수정과 함께 한 번에 반영되어야 한다" }
   - { id: FR-EXP-38, text: "[2026.11.12] Agent 화면 경비 상세는 지금 고른 상세계정의 예산내역 표(저장된 내역)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
   - { id: FR-EXP-39, text: "[2026.11.12] Agent 화면 경비 상세는 연도 탭(2026 · 2027)의 입력 행을 한 번에 저장해야 하며, 입력 행은 만든 연도 탭에서만 보이고 다른 연도 탭에는 저장 대기 건수가 표시되어야 한다" }
+  - { id: FR-EXP-40, text: "[2026.11.20] 경비 편성의 세부계정은 중분류별 묶음 버튼(이름 · 계정코드 · 통제 여부)으로 고르고 이름 · 계정코드로 찾을 수 있어야 하며, 경비 도구줄의 [⋯ 더보기] · [＋ 경비 편성] · [저장]은 다른 계정처럼 오른쪽에 있어야 한다" }
