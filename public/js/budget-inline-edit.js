@@ -529,6 +529,8 @@ function bieCellRow(root, pop, form, target, acts, key) {
   const left = Array.prototype.slice.call(pop.querySelectorAll('input[data-oid], select[data-oid]'));
   if (left.length) bieFillCell(tr.cells[off], left);
 
+  biePanelize(tr, table);
+
   if (target) target.parentNode.replaceChild(tr, target);
   else {
     const body = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
@@ -538,6 +540,80 @@ function bieCellRow(root, pop, form, target, acts, key) {
     body.insertBefore(tr, body.firstChild);     // 새 행은 맨 위(가장 최근 행이 제일 위)
   }
   return tr;
+}
+
+// [2026.11.20] 입력 행 → 줄 아래 편집 칸(디자인시안_15) — 좁은 표 칸마다 입력칸을 욱여넣던 것을, 표 폭 전체를 쓰는 칸 하나로 모아
+//   칸마다 이름표 + 넉넉한 입력칸. 머리 = 「새 항목 · 추가 중」 / 「○○ 수정 · 수정 중」 + [취소].
+//   입력칸은 같은 행(tr.bie-row) 안에서 자리만 옮기므로 값 읽기(bieCapture) · 저장 · 검증 · Enter/Esc 는 그대로.
+//   외주비 구매계획(분기 카드, budget-os-cards.js)은 카드가 따로 모양을 잡으므로 건너뜀.
+function biePanelize(tr, table) {
+  if (!tr || !table || table.classList.contains('agos-lines')) return;
+  const heads = (table.tHead && table.tHead.rows[0]) ? Array.prototype.map.call(table.tHead.rows[0].cells, function (c) { return c.textContent.replace(/\s+/g, ' ').trim(); }) : [];
+  const n = tr.cells.length;
+  const isNew = tr.classList.contains('new');
+  const grid = document.createElement('div');
+  grid.className = 'bie-pg';
+  let acts = null, first = null;
+  Array.prototype.slice.call(tr.cells).forEach(function (td, i) {
+    if (td.classList.contains('bie-ckc')) return;
+    if (td.classList.contains('bie-act')) { acts = td.querySelector('.bie-acts'); return; }
+    const h = heads[i] || '';
+    const subs = Array.prototype.slice.call(td.querySelectorAll(':scope > label.bie-f'));
+    if (subs.length) {                                   // 이름표가 따로 붙은 입력칸들(대분류 · 중분류, 납품 시작일 · 종료일 …)
+      subs.forEach(function (f) { f.classList.add('bie-pf'); grid.appendChild(f); });
+      if (!first) first = subs[0].querySelector('input:not([type="hidden"]), select');
+      const last = subs[subs.length - 1];
+      Array.prototype.slice.call(td.childNodes).forEach(function (c) { if (c.nodeType === 1) last.appendChild(c); });   // 단위처럼 이름표 없이 따라오는 입력칸은 앞 칸에 붙임
+      return;
+    }
+    const inp = td.querySelector('input:not([type="hidden"]), select, textarea');
+    if (inp) {
+      const w = bieFieldBox(h);
+      if (td.classList.contains('num')) w.classList.add('num');
+      if (td.querySelectorAll('input:not([type="hidden"]), select, textarea').length > 1) w.classList.add('w2');   // 입력칸이 여럿인 칸(인력 + 소속 등)은 두 칸 폭
+      while (td.firstChild) w.appendChild(td.firstChild);
+      grid.appendChild(w);
+      if (!first) { first = inp; if (inp.tagName === 'INPUT' && inp.type === 'text') w.classList.add('w2'); }
+      return;
+    }
+    const txt = td.textContent.replace(/\s+/g, ' ').trim();
+    if (!txt || /^[–—-]$/.test(txt) || !h) return;      // 읽기 전용 칸 중 값이 있는 것만(예: 견적번호 · 상태)
+    const w = bieFieldBox(h);
+    w.classList.add('ro');
+    const v = document.createElement('div');
+    v.className = 'bie-pv';
+    while (td.firstChild) v.appendChild(td.firstChild);
+    w.appendChild(v);
+    grid.appendChild(w);
+  });
+  // 남은 숨은 입력칸(hidden)도 같은 행 안에 둠 — 저장이 값을 읽음
+  const hidden = Array.prototype.slice.call(tr.querySelectorAll('input[type="hidden"]')).filter(function (x) { return !grid.contains(x); });
+  const name = first && first.tagName === 'INPUT' && first.value ? first.value : '';
+  const td = document.createElement('td');
+  td.colSpan = n;
+  td.className = 'bie-ptd';
+  const box = document.createElement('div');
+  box.className = 'bie-p';
+  const head = document.createElement('div');
+  head.className = 'bie-ph';
+  head.innerHTML = '<b>' + escHtml(isNew ? '새 항목' : (name ? name + ' 수정' : '수정')) + '</b><em class="' + (isNew ? 'new' : '') + '">' + (isNew ? '추가 중' : '수정 중') + '</em>';
+  if (acts) head.appendChild(acts);
+  box.appendChild(head);
+  box.appendChild(grid);
+  hidden.forEach(function (x) { box.appendChild(x); });
+  td.appendChild(box);
+  while (tr.firstChild) tr.removeChild(tr.firstChild);
+  tr.appendChild(td);
+  tr.classList.add('bie-panel');
+}
+function bieFieldBox(h) {
+  const w = document.createElement('div');
+  w.className = 'bie-pf';
+  const cap = document.createElement('span');
+  cap.className = 'bie-cap';
+  cap.textContent = h;
+  w.appendChild(cap);
+  return w;
 }
 
 // 경비 — 월 입력칸이 12개라 한 행 전체 폭으로 펼칩니다(수정: 그 세부계정 행 바로 아래, 편성: 표 맨 위)
@@ -809,6 +885,31 @@ function bieInjectStyle() {
   .bie-exp-head strong { font-size:13.5px; font-weight:900; color:#0b1220; }
   .bie-exp-head span { font-size:12px; color:#64748b; }
   .bie-exp .bie-exp-acts { justify-content:flex-end; margin-top:12px; }
+  /* [2026.11.20] 줄 아래 편집 칸 */
+  tr.bie-row.bie-panel > td.bie-ptd { padding:0 !important; background:#f7f9fc !important; box-shadow:none !important; white-space:normal !important; text-align:left !important; }
+  .bie-p { padding:14px 18px 16px; border-left:3px solid var(--acc, #2563eb); background:#fbfcfe; }
+  tr.bie-row.bie-err .bie-p { border-left-color:#c40025; background:#fff7f8; }
+  .bie-ph { display:flex; align-items:center; gap:10px; margin:0 0 12px; }
+  .bie-ph b { font-size:14.5px; font-weight:800; color:#1c2432; }
+  .bie-ph em { font-style:normal; font-size:11.5px; font-weight:800; border-radius:5px; padding:1px 7px; background:#eaf1ff; color:#2449c7; }
+  .bie-ph em.new { background:#e7f6ef; color:#0f7a4f; }
+  .bie-ph .bie-acts { margin-left:auto; }
+  .bie-ph .bie-acts button { height:32px; padding:0 14px; font-size:13px; }
+  .bie-pg { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:12px 14px; align-items:start; }
+  .bie-pf { display:flex; flex-direction:column; gap:5px; min-width:0; margin:0 !important; }
+  .bie-pf.w2 { grid-column:span 2; }
+  .bie-pf > .bie-cap, .bie-pf > span:first-child { font-size:12.5px !important; font-weight:800; color:#475569; text-align:left; }
+  tr.bie-panel .bie-pf input:not([type="checkbox"]):not([type="radio"]), tr.bie-panel .bie-pf select {
+    width:100%; min-width:0; box-sizing:border-box; height:36px; border:1px solid #cbd5e1; border-radius:8px; padding:0 10px;
+    background:#fff; font:inherit; font-size:14px; color:#0b1220; }
+  tr.bie-panel .bie-pf input:focus, tr.bie-panel .bie-pf select:focus { outline:none; border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.15); }
+  tr.bie-panel .bie-pf input[readonly], tr.bie-panel .bie-pf input[disabled] { background:#f1f5f9; color:#475569; }
+  tr.bie-panel .bie-pf.num input { text-align:right; }
+  tr.bie-panel .bie-pf input + input, tr.bie-panel .bie-pf select + input { margin-top:6px; }
+  tr.bie-panel .bie-pf label:not(.bie-f) { display:flex; flex-direction:column; gap:4px; margin:0; }
+  tr.bie-panel .bie-pf label:not(.bie-f) > span { font-size:12px; font-weight:700; color:#64748b; }
+  tr.bie-panel .bie-pf .aglb-hint { min-width:0; font-size:12px; }
+  .bie-pf.ro .bie-pv { min-height:36px; display:flex; align-items:center; font-size:14px; color:#475569; }
   `;
   document.head.appendChild(st);
 }
