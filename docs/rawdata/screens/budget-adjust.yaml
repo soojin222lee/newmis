@@ -476,6 +476,59 @@ elements:
     backend: null
     result: "팝업 안 내용이 그 달 실적 상세로 바뀜"
 
+  # ── [2026.11.19] 디자인 E안(feature/nj-e) — Agent와 대화를 오른쪽 AI 패널로(budget-design-e.js) ──
+  - id: btn-dde-ai-toggle
+    label: "✦ AI에게 물어보기"
+    type: button
+    crud: N
+    area: "상단 오른쪽(Admin 버튼 왼쪽) — 모든 화면"
+    event: onclick
+    front:
+      handler: "ddeAiToggle()"
+      file: "budget-design-e.js:ddeAiToggle"
+      logic: "AI 패널을 켜고 끈다. 켜면 늘 오른쪽 사이드바로 시작(화면이 패널 폭만큼 좁아짐). 창 폭 1360px 미만이면 화면을 줄이지 않고 오른쪽에 덮어서 뜸. 켠 상태는 계정 탭 · 다른 메뉴 화면 · 새로고침에도 유지(localStorage dde-ai)"
+      validation: null
+    result: "AI 패널 열림/닫힘"
+
+  - id: btn-dde-ai-pop
+    label: "⧉ 새 창으로 띄우기 / 사이드바로 붙이기 (아이콘)"
+    type: button
+    crud: N
+    area: "AI 패널 머리 오른쪽(✕ 왼쪽)"
+    event: onclick
+    front:
+      handler: "ddeAiPop()"
+      file: "budget-design-e.js:ddeAiPop"
+      logic: "사이드바 → 옮길 수 있는 창으로 띄운다(뒤 화면 폭은 원래대로). 띄운 창에서 누르면 다시 사이드바로. 창 위치 · 크기는 기억"
+      validation: null
+    result: "AI 패널이 띄운 창 ↔ 사이드바로 바뀜"
+
+  - id: btn-dde-ai-close
+    label: "✕ (창 닫기 / 패널 끄기)"
+    type: button
+    crud: N
+    area: "AI 패널 머리 오른쪽 끝"
+    event: onclick
+    front:
+      handler: "ddeAiClose()"
+      file: "budget-design-e.js:ddeAiClose"
+      logic: "띄운 창이면 창만 닫고 오른쪽 사이드바로 돌아간다. 사이드바면 패널을 끈다"
+      validation: null
+    result: "사이드바로 복귀 또는 패널 닫힘"
+
+  - id: drag-dde-ai-window
+    label: "AI 창 옮기기(머리 끌기) · 크기 조절(오른쪽 아래 모서리) · 사이드바 폭 조절(왼쪽 경계, 더블클릭=기본 폭)"
+    type: drag
+    crud: N
+    area: "AI 패널"
+    event: onpointerdown
+    front:
+      handler: "ddeAiDragStart(event) · ddeAiGripStart(event) · ddeAiSplitStart(event) · ddeAiSplitReset()"
+      file: "budget-design-e.js:ddeAiDragStart · ddeAiGripStart · ddeAiSplitStart"
+      logic: "띄운 창은 화면 밖으로 나가지 않게 위치를 맞춘다. 최소 크기 340×360. 사이드바 폭 340 ~ 680px(화면 절반까지)"
+      validation: null
+    result: "AI 창 위치 · 크기 · 사이드바 폭 변경(기억)"
+
   - id: btn-agent-monthly-drill-back
     label: "← 월별 표로"
     type: button
@@ -810,4 +863,5 @@ requirements:
   - { id: FR-BAD-36, text: "[2026.11.17] 월별 계획/실적 팝업은 시작 월 ~ 끝 월(일 제외)을 골라 그 기간의 월별 계획/실적과 기간 합계를 조회할 수 있어야 한다" }
   - { id: FR-BAD-37, text: "[2026.11.19] 월별 계획/실적 팝업에서 지난 달 실적 금액을 누르면 새 팝업을 띄우지 않고 같은 팝업 안에서 그 달 실적 상세를 볼 수 있어야 하며, [← 월별 표로]로 보던 표(보기 · 단위 · 스크롤 그대로)로 돌아갈 수 있어야 한다" }
   - { id: FR-BAD-38, text: "[2026.11.19] 수행원가 화면의 팝업은 오른쪽 위 ✕ 하나로 닫을 수 있어야 하며, ✕ 와 같은 일을 하는 [닫음] · [닫기] 버튼은 함께 두지 않아야 한다(✕ 가 없는 팝업은 닫기 버튼 유지 — budget-design-d.js:ddHidePopClose)" }
+  - { id: FR-BAD-40, text: "[2026.11.19][E안] Agent와 대화는 상단 [✦ AI에게 물어보기]로 오른쪽 사이드바에서 볼 수 있어야 하며(창이 좁으면 화면 위에 덮어서), 아이콘으로 옮길 수 있는 창으로 띄웠다가 ✕로 다시 사이드바로 돌아올 수 있어야 하고, 계정 탭이나 다른 메뉴 화면으로 옮겨도 꺼지지 않아야 한다" }
   - { id: FR-BAD-31, text: "[2026.11.12] 계정 상세의 입력 행(등록 · 수정)은 만든 탭(계정 + 상세계정 탭, 경비는 연도)에서만 보여야 하며, 다른 탭으로 옮기면 숨었다가 돌아오면 다시 보여야 한다. 저장 단위는 상세계정 탭마다(경비만 연도 탭을 한 번에 저장 — 다른 계정의 저장 단위는 논의 중)" }
