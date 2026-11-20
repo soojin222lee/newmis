@@ -754,6 +754,128 @@ elements:
     backend: null
     result: 입력 행 닫힘
 
+  # ── [2026.11.20] 업체 표 간결하게 + 구매계획 분기 카드 (budget-os-cards.js, 디자인시안_14 v6) ──
+  #   체크박스 · [선택삭제] · 줄마다 [수정] · [+ 구매계획]을 숨기고 줄 끝 [⋯] 하나로. 미계획 칸 → 막대 말풍선. 저장 방식(표 위 [저장])은 그대로
+  - id: btn-osc-vendor-more
+    label: "⋯ (업체 줄 더보기)"
+    type: button
+    crud: N
+    area: "실투입대상 외주비 업체 표 — 각 업체 줄 끝"
+    event: onclick
+    front:
+      handler: "ddMoreOpen(this,'osv-{업체 id}')"
+      file: "budget-os-cards.js:oscApply · budget-design-d.js:ddMoreOpen"
+      logic: "메뉴 [＋ 구매계획 추가] · [업체 수정] · [업체 삭제]. 항목은 원래 버튼([+ 구매계획] · [수정] · 체크박스의 삭제 호출)을 대신 누름 — 동작은 원래 표 안 편집 그대로"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "업체 메뉴 열림"
+
+  - id: menu-osc-vendor-add-po
+    label: "＋ 구매계획 추가 (업체 메뉴)"
+    type: menuitem
+    crud: C
+    area: "업체 줄 [⋯] 메뉴"
+    event: onclick
+    front:
+      handler: "agentOsPoOpenFinal('{업체 id}',-1)"
+      file: "budget-os-cards.js:oscProxy · budget-agent-console.js:agentOsPoOpenFinal"
+      logic: "그 업체를 펼친 안에 빈 입력 카드가 생김(원래 입력 행을 카드 모양으로). [저장]을 눌러야 등록"
+      validation: "원래 구매계획 저장 검증 그대로(잔여예산 상한 · 업체 기간 안)"
+      state_writes: [BIE_DRAFTS]
+    backend: null
+    result: "입력 카드(추가 중)"
+
+  - id: menu-osc-vendor-edit
+    label: "업체 수정 (업체 메뉴)"
+    type: menuitem
+    crud: U
+    area: "업체 줄 [⋯] 메뉴"
+    event: onclick
+    front:
+      handler: "agentOsEdOpenFinal(0,'{업체 id}')"
+      file: "budget-os-cards.js:oscProxy · budget-agent-console.js:agentOsEdOpenFinal"
+      logic: "그 업체 줄이 입력칸으로 바뀜(원래 표 안 편집 그대로). [저장]을 눌러야 반영"
+      validation: "원래 업체 저장 검증 그대로"
+      state_writes: [BIE_DRAFTS]
+    backend: null
+    result: "업체 입력 행"
+
+  - id: menu-osc-vendor-delete
+    label: "업체 삭제 (업체 메뉴)"
+    type: menuitem
+    crud: D
+    area: "업체 줄 [⋯] 메뉴"
+    event: onclick
+    front:
+      handler: "oscDelMark(call)"
+      file: "budget-os-cards.js:oscDelMark"
+      logic: "바로 지우지 않고 '삭제 예정'(취소선 · 줄 끝 「삭제 예정 ↺」)으로 표시 — 원래 [선택삭제]와 같은 목록(BIE_DELS). [저장]을 눌러야 원래 삭제 함수(agentOsVendorDelFinal) 실행. PO가 발행된 업체는 원래 규칙대로 지울 수 없다는 안내"
+      validation: "VAL-OS-vendor-delete"
+      state_writes: [BIE_DELS]
+    backend: null
+    result: "삭제 예정 표시"
+
+  - id: btn-osc-undo
+    label: "↺ / ↺ 되돌리기 (삭제 예정 취소)"
+    type: button
+    crud: N
+    area: "삭제 예정인 업체 줄 끝 · 구매계획 카드 아래"
+    event: onclick
+    front:
+      handler: "bieUndoDel('{삭제 예정 id}')"
+      file: "budget-inline-edit.js:bieUndoDel"
+      logic: "삭제 예정 표시를 거둠"
+      validation: null
+      state_writes: [BIE_DELS]
+    backend: null
+    result: "원래대로"
+
+  - id: card-osc-po
+    label: "구매계획 분기 카드 (분기 · 기간 · 금액 · 상태 · PO번호 · 실적)"
+    type: card
+    crud: R
+    area: "업체를 펼친 안"
+    event: null
+    front:
+      handler: null
+      file: "budget-os-cards.js:oscPanel"
+      logic: "구매계획 표를 분기 카드로 바꿔 시간 순서대로 가로 배치. 상태 = PO 있고 집행예정 0 → 검수 완료 / PO 있음 → PO 발행 · 검수 중 / PO 없음 → 계약 대기(점선 카드). PO 발행 카드는 🔒(구매시스템 값, 고칠 수 없음)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "구매계획 카드 표시"
+
+  - id: btn-osc-card-more
+    label: "⋯ (구매계획 카드 — 수정 · 삭제)"
+    type: button
+    crud: N
+    area: "계약 대기 카드 오른쪽 위"
+    event: onclick
+    front:
+      handler: "ddMoreOpen(this,'osl-{업체 id}-{순번}')"
+      file: "budget-os-cards.js:oscPanel"
+      logic: "메뉴 [수정] = agentOsPoOpenFinal(업체 id, 순번) → 그 카드가 입력 카드(수정 중)로. [삭제] = oscDelMark → 카드 취소선 + 「삭제 예정 ↺ 되돌리기」. 모두 [저장]을 눌러야 반영"
+      validation: null
+      state_writes: [BIE_DRAFTS, BIE_DELS]
+    backend: null
+    result: "카드 메뉴 열림"
+
+  - id: btn-osc-add-po
+    label: "＋ 구매계획 추가 (카드 목록 마지막 칸)"
+    type: button
+    crud: C
+    area: "업체를 펼친 안 — 카드 목록 맨 끝"
+    event: onclick
+    front:
+      handler: "agentOsPoOpenFinal('{업체 id}',-1)"
+      file: "budget-os-cards.js:oscPanel"
+      logic: "업체 메뉴의 [＋ 구매계획 추가]와 같음 — 빈 입력 카드(추가 중)"
+      validation: "원래 구매계획 저장 검증 그대로"
+      state_writes: [BIE_DRAFTS]
+    backend: null
+    result: "입력 카드(추가 중)"
+
 # ── 비즈니스 로직 & 규칙 ──
 business:
   - id: BL-OS-3tier
@@ -930,3 +1052,6 @@ requirements:
   - { id: RQ-OS-34, text: "[2026.11.12] 외주비 업체 구매계획 등록은 기간 단위를 분기 또는 월별로 고를 수 있어야 하며, 기간은 하나만 고르고 고른 기간이 계획 시작 · 종료일 기본값으로 채워져 수정할 수 있어야 한다" }
   - { id: RQ-OS-35, text: "[2026.11.12] 이미 구매계획이 있는 기간은 표시(✓)만 하고 선택을 막지 않아야 한다" }
   - { id: RQ-OS-36, text: "[2026.11.16] 구매계획 등록은 기본으로 기간 하나를 고르되, [여러 기간 한 번에]를 켜면 분기 · 달을 여러 개 골라 기간마다 같은 금액으로 한 번에 등록할 수 있어야 하며, 기간마다 시작 · 종료일을 고칠 수 있어야 한다" }
+  - { id: RQ-OS-37, text: "[2026.11.20] 실투입대상 외주비 업체 표는 전체기간 예산 · 구매계획 · 실적(검수) · 집행예정(미검수)만 칸으로 보여 주고, 계산값인 미계획은 구매계획 막대(예산 중 계획 비율 하나)의 말풍선으로 보여야 한다" }
+  - { id: RQ-OS-38, text: "[2026.11.20] 업체 · 구매계획의 추가 · 수정 · 삭제는 줄(카드)마다 [⋯] 메뉴 하나로 할 수 있어야 하며, 체크박스 · [선택삭제] 없이도 삭제 예정 표시 → [저장] 반영 흐름은 그대로여야 한다" }
+  - { id: RQ-OS-39, text: "[2026.11.20] 업체를 펼치면 구매계획을 분기 카드(금액 · 상태 · PO번호 · 실적)로 시간 순서대로 보여 주어야 하며, PO 발행 카드는 고칠 수 없게(🔒) 표시하고 계약 대기 카드만 수정 · 삭제할 수 있어야 한다" }
