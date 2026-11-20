@@ -348,19 +348,9 @@ function ddSimplify() {
     var tt = detail.querySelector('.agga-col-head > strong');
     if (sub && tt && tt.title !== sub.textContent.trim()) { tt.title = sub.textContent.trim(); tt.style.cursor = 'help'; }
   }
-  // ② 예산 조정안 [전부 해제] → [⋯]
-  ga.querySelectorAll('.agga-col.todo > .agga-col-head').forEach(function (head) {
-    var un = Array.prototype.find.call(head.querySelectorAll('.agga-all'), function (b) { return /해제/.test(b.textContent); });
-    if (!un) return;
-    ddHideEl(un, 'todo');
-    if (!head.querySelector('.dd-more[data-for="todo"]')) {
-      var m = document.createElement('button');
-      m.type = 'button'; m.className = 'dd-more'; m.setAttribute('data-for', 'todo');
-      m.setAttribute('onclick', "ddMoreOpen(this,'todo')"); m.title = '더보기(전부 해제)'; m.setAttribute('aria-label', '더보기');
-      m.textContent = '⋯';
-      un.parentNode.insertBefore(m, un.nextSibling);
-    }
-  });
+  // ② 예산 조정안 [전부 해제]는 [⋯]에 숨기지 않고 그대로 둠(2026.11.20 — [전부 반영] 옆에 바로 보이는 게 낫다)
+  // ⑤ 예산 조정안 카드 — 간결하게 + 근거 한 줄(디자인시안_13)
+  ga.querySelectorAll('.agga-col.todo .agga-card').forEach(ddCardTidy);
   // ② 계정 상세 [전체 펼치기] · [엑셀 다운로드] · 맨 위 [이력] → [⋯ 더보기]
   if (detail) {
     var body = detail.querySelector('.agga-col-body.detail') || detail;
@@ -421,6 +411,75 @@ function ddSimplify() {
   ga.querySelectorAll('.bap-empty').forEach(function (e) {
     if (/\[검토 대기\]에서/.test(e.textContent)) e.textContent = '반영한 조정안이 없습니다. 체크를 풀고 조정안의 [반영]을 눌러 주세요.';
   });
+}
+// ── [2026.11.20] 예산 조정안 카드 정리 — 정진 매니저(정보량) · 석완 매니저(근거는 간소하게, 궁금할 때만 펼치기) 의견 ──
+//   근거를 3단계로: ① 카드에 늘 보이는 「근거 한 줄」(출처 꼬리표 + 핵심 숫자) ② [자세히 ▾] 펼치기(판단 이유 · 영향) ③ 원본 화면(다음 단계)
+//   카드에서 덜어 낸 것: 「🤖 Agent 제안」 표시(거의 다 Agent라 — 직접 입력 표시는 그대로) · 날짜(제목에 마우스를 올리면) · [삭제](→ [⋯])
+//   원래 버튼은 숨긴 채 두고 [⋯]가 대신 누름(삭제 확인 팝업 등 동작은 원래 그대로)
+//   목업 데이터의 근거 한 줄 — Agent가 근거(evidence)에서 뽑아 줄 한 줄을 미리 적어 둠. 없는 제안은 판단 이유(why) 첫 문장으로
+var DD_WHY_SHORT = {
+  'ap-01': '확정 인력 2명 · 11.0MM 수신 (김도윤 P4 · 박서연 P3)',
+  'ap-02': '설계 2명 투입 종료 10월 → 9월로 변경',
+  'ap-03': '확정 견적 30,000,000원 · 가용 20,000,000원 → 10,000,000원 부족',
+  'ap-04': '가용 10,300,000원 · 11~12월 필요 10,900,000원 → 600,000원 부족',
+  'ap-05': '재료비 집행률 22% · 남은 기간 대비 10,000,000원 과다',
+  'ap-06': '7~10월 미사용 13,000,000원 · 재수립 때 감액될 수 있음'
+};
+function ddWhySource(p) {                       // 근거 출처 꼬리표 — 어디서 온 신호인지
+  if (p.manual) return '직접';
+  var t = String(p.trigger || '');
+  if (/SCM/.test(t)) return 'SCM';
+  if (/구매|견적|PO/.test(t)) return '구매';
+  if (/ERP/.test(t)) return 'ERP';
+  if (/마감/.test(t)) return '마감';
+  if (/실적|추세/.test(t)) return '실적';
+  if (/대화|지시/.test(t)) return '대화';
+  return 'Agent';
+}
+function ddWhyLine(p) {
+  if (DD_WHY_SHORT[p.id]) return DD_WHY_SHORT[p.id];
+  if (p.short) return p.short;
+  var s = String(p.why || '').split(/(?<=[.다])\s/)[0] || '';
+  return s.length > 64 ? s.slice(0, 62) + '…' : s;
+}
+function ddCardId(card) {
+  var b = card.querySelector('.agga-why, .agai-yes, .agai-seg, .agga-del');
+  var m = b && (b.getAttribute('onclick') || '').match(/'([^']+)'/);
+  return m ? m[1] : '';
+}
+function ddCardTidy(card) {
+  var id = ddCardId(card);
+  if (!id) return;
+  var p = (typeof AGENT_PROPOSALS_FINAL !== 'undefined') ? AGENT_PROPOSALS_FINAL.find(function (x) { return x.id === id; }) : null;
+  card.classList.add('dd-c');
+  // 날짜 → 제목 툴팁
+  var at = card.querySelector('.agga-at'), title = card.querySelector('.agga-title');
+  if (at && title && !title.title) title.title = at.textContent.trim();
+  // 근거 한 줄
+  if (p && title && !card.querySelector('.dd-why')) {
+    var line = ddWhyLine(p);
+    if (line) {
+      var d = document.createElement('div');
+      d.className = 'dd-why';
+      d.innerHTML = '<i>' + escHtml(ddWhySource(p)) + '</i><span>' + escHtml(line) + '</span>';
+      title.parentNode.insertBefore(d, title.nextSibling);
+    }
+  }
+  // [근거 ▾] → [자세히 ▾]
+  var why = card.querySelector('.agga-why');
+  if (why && why.firstChild && why.firstChild.nodeType === 3 && why.firstChild.nodeValue.trim() === '근거') why.firstChild.nodeValue = '자세히';
+  // [삭제] → [⋯]
+  var del = card.querySelector('.agga-del');
+  if (del) {
+    ddHideEl(del, 'card-' + id);
+    if (!del.parentNode.querySelector(':scope > .dd-more[data-for="card-' + id + '"]')) {
+      var m = document.createElement('button');
+      m.type = 'button'; m.className = 'dd-more dd-card-more'; m.setAttribute('data-for', 'card-' + id);
+      m.setAttribute('onclick', "ddMoreOpen(this,'card-" + id + "')"); m.title = '더보기(삭제)'; m.setAttribute('aria-label', '더보기');
+      m.textContent = '⋯';
+      del.parentNode.insertBefore(m, del.nextSibling);
+    }
+  }
 }
 function ddOnlyOn(on) {                       // crud R — 예산 조정안을 반영한 것만 / 전체 보기
   if (typeof bapTodoFilterSet === 'function') bapTodoFilterSet(on ? 'on' : 'all');
@@ -491,7 +550,13 @@ function ddMoreRun(k) {                       // crud N — 메뉴 항목 실행
     '#s-budget .dd-gantt-tog span{font-weight:600;color:#64748b;font-size:13px}',
     '#s-budget .dd-onlyon{display:flex;align-items:center;gap:8px;padding:4px 2px 10px;font-size:14px;font-weight:700;color:#334155;cursor:pointer;user-select:none}',
     '#s-budget .dd-onlyon input{width:16px;height:16px;margin:0;cursor:pointer;accent-color:#2f5bea}',
-    '#s-budget .dd-onlyon em{font-style:normal;margin-left:auto;font-weight:600;color:#64748b;font-size:13px}'
+    '#s-budget .dd-onlyon em{font-style:normal;margin-left:auto;font-weight:600;color:#64748b;font-size:13px}',
+    // 예산 조정안 카드 정리(⑤)
+    '#s-budget#s-budget#s-budget .agga-card.dd-c .agai-tag.agent, #s-budget#s-budget#s-budget .agga-card.dd-c .agga-at{display:none !important}',
+    '#s-budget .agga-card.dd-c .agga-title{line-height:1.45 !important;margin-top:4px !important}',
+    '#s-budget .agga-card.dd-c .dd-why{display:flex;align-items:flex-start;gap:7px;margin-top:6px;font-size:13px;line-height:1.5;color:#444b59;font-weight:600}',
+    '#s-budget .agga-card.dd-c .dd-why i{flex:0 0 auto;font-style:normal;font-size:11.5px;font-weight:800;color:#5f6675;background:#f1f3f5;border:1px solid #e4e7eb;border-radius:5px;padding:0 6px;line-height:18px;margin-top:1px}',
+    '#s-budget .agga-card.dd-c .dd-card-more{height:30px;min-width:30px;padding:0 6px;font-size:13px}'
   ].join('\n');
   (document.head || document.documentElement).appendChild(st);
 })();

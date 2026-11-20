@@ -547,20 +547,35 @@ elements:
   # ── [2026.11.19] 화면 정리(디자인시안_7) — 겹치는 숫자 · 가끔 쓰는 버튼 덜어 내기(budget-design-d.js:ddSimplify) ──
   #    원래 버튼 · 탭은 지우지 않고 숨긴 채 두고, 아래 새 버튼이 그것을 대신 누름(원래 동작 그대로)
   #    계정 상세 제목 옆 「실적(확정) · CP 승인액」 문구는 숨기고 제목에 마우스를 올리면 보임
-  - id: btn-dd-more-todo
-    label: "⋯ (예산 조정안 더보기)"
+  - id: btn-dd-more-card
+    label: "⋯ (예산 조정안 카드 더보기 — 삭제)"
     type: button
     crud: N
-    area: "예산 조정안 머리 — [전부 반영] 오른쪽"
+    area: "예산 조정안 카드 동작 줄 — [반영] · [자세히 ▾] 오른쪽"
     event: onclick
     front:
-      handler: "ddMoreOpen(this,'todo')"
-      file: "budget-design-d.js:ddMoreOpen · ddSimplify"
-      logic: "가끔 쓰는 [전부 해제]를 메뉴로 옮김. 메뉴 항목은 숨겨 둔 원래 버튼 글자 그대로, 누르면 원래 버튼을 대신 누름(ddMoreRun). 원래 버튼이 비활성이면 메뉴 항목도 비활성"
+      handler: "ddMoreOpen(this,'card-{조정안 id}')"
+      file: "budget-design-d.js:ddCardTidy · ddMoreOpen"
+      logic: "[2026.11.20] 카드의 [삭제]를 메뉴로 옮김(실수로 누르기 쉽고 자주 쓰지 않음). 메뉴 [삭제]를 누르면 숨겨 둔 원래 [삭제]를 대신 눌러 카드 안 삭제 확인 띠가 열린다(btn-agent-proposal-delete와 같은 동작). [전부 해제]는 [⋯]에 숨기지 않고 [전부 반영] 옆에 그대로 둔다"
       validation: null
       state_writes: []
     backend: null
     result: "더보기 메뉴 열림"
+
+  - id: text-dd-card-why
+    label: "근거 한 줄 (출처 꼬리표 + 핵심 숫자)"
+    type: text
+    crud: R
+    area: "예산 조정안 카드 제목 바로 아래"
+    event: null
+    front:
+      handler: null
+      file: "budget-design-d.js:ddCardTidy · ddWhyLine · ddWhySource"
+      logic: "[2026.11.20] 근거 3단계 중 ① — 카드에 늘 보이는 한 줄. 꼬리표는 신호 출처(trigger: SCM · 구매 · ERP · 마감 · 실적 · 대화 · 직접 입력은 '직접'), 문장은 목업 한 줄(DD_WHY_SHORT) → 제안의 short → 판단 이유(why) 첫 문장 순. ② [자세히 ▾] 펼치면 판단 이유 · 영향, ③ 원본 화면 이동은 다음 단계. 카드에서 「🤖 Agent 제안」 표시 · 날짜(제목에 마우스를 올리면 보임)는 숨김"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "근거 한 줄 표시"
 
   - id: btn-dd-more-detail
     label: "⋯ 더보기 (계정 상세)"
@@ -942,5 +957,6 @@ requirements:
   - { id: FR-BAD-37, text: "[2026.11.19] 월별 계획/실적 팝업에서 지난 달 실적 금액을 누르면 새 팝업을 띄우지 않고 같은 팝업 안에서 그 달 실적 상세를 볼 수 있어야 하며, [← 월별 표로]로 보던 표(보기 · 단위 · 스크롤 그대로)로 돌아갈 수 있어야 한다" }
   - { id: FR-BAD-38, text: "[2026.11.19] 수행원가 화면의 팝업은 오른쪽 위 ✕ 하나로 닫을 수 있어야 하며, ✕ 와 같은 일을 하는 [닫음] · [닫기] 버튼은 함께 두지 않아야 한다(✕ 가 없는 팝업은 닫기 버튼 유지 — budget-design-d.js:ddHidePopClose)" }
   - { id: FR-BAD-39, text: "[2026.11.19] 원가조정 화면은 핵심(계정 탭 · 예산 조정안 카드 · 상세 표)만 늘 보여 주고, 가끔 쓰는 기능(전부 해제 · 전체 펼치기 · 엑셀 다운로드 · 이력)은 [⋯] 더보기 메뉴로, 인력 투입 일정은 접어 두었다가 펼쳐 볼 수 있어야 하며, 예산 조정안은 '반영한 것만 보기' 체크 하나로 거를 수 있어야 한다" }
+  - { id: FR-BAD-41, text: "[2026.11.20] 예산 조정안 카드는 계정 · 제목 · 금액 · [반영]과 함께 근거 한 줄(출처 + 핵심 숫자)을 늘 보여 주어야 하며, 판단 이유 · 영향은 [자세히 ▾]를 눌렀을 때만 보여야 한다. 자주 쓰지 않는 [삭제]는 [⋯] 안에 두어야 한다" }
   - { id: FR-BAD-40, text: "[2026.11.19][E안] Agent와 대화는 상단 [✦ AI에게 물어보기]로 오른쪽 사이드바에서 볼 수 있어야 하며(창이 좁으면 화면 위에 덮어서), 아이콘으로 옮길 수 있는 창으로 띄웠다가 ✕로 다시 사이드바로 돌아올 수 있어야 하고, 계정 탭이나 다른 메뉴 화면으로 옮겨도 꺼지지 않아야 한다" }
   - { id: FR-BAD-31, text: "[2026.11.12] 계정 상세의 입력 행(등록 · 수정)은 만든 탭(계정 + 상세계정 탭, 경비는 연도)에서만 보여야 하며, 다른 탭으로 옮기면 숨었다가 돌아오면 다시 보여야 한다. 저장 단위는 상세계정 탭마다(경비만 연도 탭을 한 번에 저장 — 다른 계정의 저장 단위는 논의 중)" }
