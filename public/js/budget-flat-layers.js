@@ -8,6 +8,17 @@
 //   ⑤ 인력표 · 인력 투입 일정을 감싸던 둥근 상자 제거
 // - 대부분 CSS만 바꾸고 마크업·동작은 손대지 않는다(⑩ 요약 계정 칸 금액만 렌더 결과를 고침). budget-agent-console.js 등 원가조정 파일들 뒤에 로드.
 
+// [2026.11.19 남주] 5대 계정 색 — 새 팔레트 기준. 다섯 색의 밝기 · 채도를 같게(OKLCH L 0.68 · C 0.12) 맞추고
+//   색상만 색상환에 고르게 벌림: 인건비 라벤더 → 외주비 로즈 → 재료비 앰버 → 경비 올리브 → A/S 청록.
+//   이미 다른 뜻으로 쓰는 파랑(메인 · 감액) · 빨강(증액 · 경고) · 초록(반영됨)은 피함.
+//   쓰는 곳: 계정 이름 앞 색 점 · 고른 계정 탭 윗선(--acc) · 아주 옅은 바탕(--acc 6%)
+var BFL_ACCT_COLOR = { '인건비': '#9E88DA', '외주비': '#D2779C', '재료비': '#C78A3B', '경비': '#8FA347', 'A/S Cost': '#00AEB5' };
+if (typeof AGENT_ACCT_TONE_FINAL !== 'undefined') {
+  Object.keys(BFL_ACCT_COLOR).forEach(function (a) {
+    AGENT_ACCT_TONE_FINAL[a] = { c: BFL_ACCT_COLOR[a], bg: 'color-mix(in srgb, ' + BFL_ACCT_COLOR[a] + ' 6%, #fff)' };
+  });
+}
+
 (function injectBudgetFlatLayers() {
   if (typeof document === 'undefined' || document.getElementById('bfl-style')) return;
   var S = '#s-budget .agent-ga';
@@ -81,11 +92,12 @@
     //   계정 색은 「계정이 섞여 보이는 곳」에만 작은 점으로 — 예산 조정안 목록 · 상단 요약의 계정 이름 앞. 칸 · 탭 · 제목 · 선택선은 무채색
     S + ' .agai-acct em{display:inline-flex !important;align-items:center;gap:6px}',
     S + ' .agai-acct em::before{content:"";width:8px;height:8px;border-radius:50%;background:#94a3b8;flex:0 0 auto}',
-    S + ' .agga-card .agp-acct.a-blue::before, ' + S + ' .agai-acct em.a-blue::before{background:#2f6bed !important}',
-    S + ' .agga-card .agp-acct.a-red::before, ' + S + ' .agai-acct em.a-red::before{background:#d6334f !important}',
-    S + ' .agga-card .agp-acct.a-yellow::before, ' + S + ' .agai-acct em.a-yellow::before{background:#e09a1a !important}',
-    S + ' .agga-card .agp-acct.a-green::before, ' + S + ' .agai-acct em.a-green::before{background:#1f9d6b !important}',
-    S + ' .agga-card .agp-acct.a-sky::before, ' + S + ' .agai-acct em.a-sky::before{background:#1f9fd6 !important}',
+    //   [2026.11.19] 5대 계정 색 새 팔레트(BFL_ACCT_COLOR) — 클래스 이름(a-blue 등)은 공유 코드가 붙이는 그대로 두고 색만 바꿈
+    S + ' .agga-card .agp-acct.a-blue::before, ' + S + ' .agai-acct em.a-blue::before{background:' + BFL_ACCT_COLOR['인건비'] + ' !important}',
+    S + ' .agga-card .agp-acct.a-red::before, ' + S + ' .agai-acct em.a-red::before{background:' + BFL_ACCT_COLOR['외주비'] + ' !important}',
+    S + ' .agga-card .agp-acct.a-yellow::before, ' + S + ' .agai-acct em.a-yellow::before{background:' + BFL_ACCT_COLOR['재료비'] + ' !important}',
+    S + ' .agga-card .agp-acct.a-green::before, ' + S + ' .agai-acct em.a-green::before{background:' + BFL_ACCT_COLOR['경비'] + ' !important}',
+    S + ' .agga-card .agp-acct.a-sky::before, ' + S + ' .agai-acct em.a-sky::before{background:' + BFL_ACCT_COLOR['A/S Cost'] + ' !important}',
     //   증감 = 한국식으로 통일: 증액(+) 빨강 · 감액(−) 파랑 (원래는 요약은 + 빨강, 예산 조정안은 + 파랑으로 서로 반대였음)
     S + ' .agai-top em.up, ' + S + ' .agai-acct.up span, ' + S + ' .agga-amt.up{color:#d1242f !important}',
     S + ' .agai-top em.down, ' + S + ' .agai-acct.down span, ' + S + ' .agga-amt.down{color:#1d5bd8 !important}',
