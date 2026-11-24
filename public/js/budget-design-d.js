@@ -71,7 +71,9 @@ function ddFigK() {
 function ddFigScale(g, w) {
   var gap = g ? (parseFloat(getComputedStyle(g).columnGap) || 0) : 14;
   var base = ddFigNeed() / ddFigK();                   // 줄이기 전(배율 1) 기준 필요한 폭
-  if (!base) return 1;
+  // [2026.11.24] 위 요약이 작은 줄(compact — 아래로 스크롤한 상태)이면 숫자를 잴 수 없음(0) → 배율을 1로 되돌리지 말고 지금 값 유지.
+  //   (아래로 내려 표에 입력 → 저장하면 이때 다시 그려져 배율이 1이 되고, 위로 올라오면 커진 숫자가 오른쪽 계정 탭 밑으로 깔리던 문제)
+  if (!base) return ddFigK();
   return Math.max(0.55, Math.min(1, Math.floor((w + gap) / base * 100) / 100));
 }
 
@@ -92,6 +94,9 @@ function ddSyncSide() {
   var start = function () { mo.observe(document.body, { childList: true, subtree: true }); };
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
   if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', function () { try { ddSyncSide(); } catch (e) { /* 무시 */ } });
+  // [2026.11.24] 위 요약이 작은 줄 ↔ 큰 줄로 바뀌는 건 class만 바뀌어 위 감시자가 못 봄 → 스크롤할 때도 (프레임당 한 번) 다시 맞춤
+  var qs = false;
+  window.addEventListener('scroll', function () { if (qs) return; qs = true; requestAnimationFrame(function () { qs = false; try { ddSyncSide(); } catch (e) { /* 무시 */ } }); }, { passive: true });
 })();
 if (typeof b2cPaint === 'function') {
   var ddPaintBefore = b2cPaint;
@@ -356,6 +361,7 @@ function ddSimplify() {
   // ② 예산 조정안 [전부 해제]는 [⋯]에 숨기지 않고 그대로 둠(2026.11.20 — [전부 반영] 옆에 바로 보이는 게 낫다)
   // ⑤ 예산 조정안 카드 — 간결하게 + 근거 한 줄(디자인시안_13)
   ga.querySelectorAll('.agga-col.todo .agga-card').forEach(ddCardTidy);
+  ddManualFirst(ga);
   // ② 계정 상세 [전체 펼치기] · [엑셀 다운로드] · 맨 위 [이력] → [⋯ 더보기]
   if (detail) {
     var body = detail.querySelector('.agga-col-body.detail') || detail;
@@ -431,7 +437,7 @@ var DD_WHY_SHORT = {
   'ap-06': '7~10월 미사용 13,000,000원 · 재수립 때 감액될 수 있음'
 };
 function ddWhySource(p) {                       // 근거 출처 꼬리표 — 어디서 온 신호인지
-  if (p.manual) return '직접';
+  if (p.manual || p.hand) return '직접';   // hand = 계정 상세에서 직접 등록 · 수정 · 삭제
   var t = String(p.trigger || '');
   if (/SCM/.test(t)) return 'SCM';
   if (/구매|견적|PO/.test(t)) return '구매';
@@ -446,6 +452,50 @@ function ddWhyLine(p) {
   if (p.short) return p.short;
   var s = String(p.why || '').split(/(?<=[.다])\s/)[0] || '';
   return s.length > 64 ? s.slice(0, 62) + '…' : s;
+}
+// [2026.11.24] 직접 입력(PM 수동 조정) 카드 — 공유 코드는 목록 끝에 붙여서, 카드가 많으면 스크롤해야 보였다.
+//   → 직접 입력 카드는 늘 예산 조정안 목록 맨 위. 새로 생긴 순간엔 노란 바탕으로 몇 초 표시 + 목록을 맨 위로 + 안내 한 줄(40~50대 사용자가 놓치지 않게)
+var DD_MANUAL_SEEN = null;   // 이미 본 직접 입력 카드 id (처음 그릴 때 있던 것은 새것으로 치지 않음)
+var DD_MANUAL_NEW = {};      // id → 새로 생긴 시각(ms). 다시 그려져도 몇 초간 노란 표시 유지
+function ddManualFirst(ga) {
+  if (typeof AGENT_PROPOSALS_FINAL === 'undefined') return;
+  var cards = Array.prototype.slice.call(ga.querySelectorAll('.agga-col.todo .agga-card'));
+  var manual = cards.filter(function (c) {
+    var id = ddCardId(c);
+    var p = id && AGENT_PROPOSALS_FINAL.find(function (x) { return x.id === id; });
+    return !!(p && (p.hand || p.manual));   // hand = 계정 상세에서 등록 · 수정 · 삭제 후 저장(✎ 수기 입력), manual = 수동 개입
+  });
+  // 맨 위로 — 같은 목록(부모) 안에서, 이미 맨 위에 순서대로 있으면 건드리지 않음(감시자가 다시 부르는 무한 반복 방지)
+  var byParent = new Map();
+  manual.forEach(function (c) { if (!byParent.has(c.parentNode)) byParent.set(c.parentNode, []); byParent.get(c.parentNode).push(c); });
+  byParent.forEach(function (list, par) {
+    var all = Array.prototype.filter.call(par.children, function (e) { return e.classList.contains('agga-card'); });
+    var ok = list.every(function (c, i) { return all[i] === c; });
+    if (ok) return;
+    var anchor = all.find(function (e) { return list.indexOf(e) < 0; });   // 첫 번째 일반(Agent) 카드 앞에 직접 입력 카드를 순서대로
+    if (anchor) list.forEach(function (c) { par.insertBefore(c, anchor); });
+  });
+  // 새로 생긴 카드 표시
+  var first = DD_MANUAL_SEEN === null;
+  if (first) DD_MANUAL_SEEN = new Set();
+  var now = Date.now(), fresh = null, present = new Set();
+  manual.forEach(function (c) {
+    var id = ddCardId(c); present.add(id);
+    if (!DD_MANUAL_SEEN.has(id)) { DD_MANUAL_SEEN.add(id); if (!first) { DD_MANUAL_NEW[id] = now; fresh = c; } }
+    var isNew = DD_MANUAL_NEW[id] && now - DD_MANUAL_NEW[id] < 6000;
+    if (isNew && !c.classList.contains('dd-new')) c.classList.add('dd-new');
+  });
+  DD_MANUAL_SEEN.forEach(function (id) { if (!present.has(id)) DD_MANUAL_SEEN.delete(id); });   // 지웠다가 다시 생기면 또 새것
+  if (fresh) {
+    try { fresh.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+    if (typeof showToast === 'function') showToast('직접 고친 내용이 예산 조정안 맨 위에 추가됐습니다.');
+  }
+  if (!document.getElementById('dd-new-style')) {
+    var st = document.createElement('style'); st.id = 'dd-new-style';
+    st.textContent = '#s-budget .agent-ga .agga-col.todo .agga-card.dd-new{background:#fff6d6 !important;box-shadow:inset 4px 0 0 #e0a800 !important;animation:ddNewFade 6s ease forwards}'
+      + '@keyframes ddNewFade{0%,60%{background:#fff6d6}100%{background:transparent}}';
+    document.head.appendChild(st);
+  }
 }
 function ddCardId(card) {
   var b = card.querySelector('.agga-why, .agai-yes, .agai-seg, .agga-del');
