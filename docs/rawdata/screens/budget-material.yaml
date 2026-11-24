@@ -306,8 +306,132 @@ elements:
     result: 이관 리스트 갱신, 계정 월예산 '이관재료비' 행 반영
 
   # ── [2026.10.12] 예산관리 Agent ON · 재료비 상세 — 외주비와 같은 기조(소계정별 등록/수정/삭제 · 간트 제거 · 이관 받을/보낼) ──
+  - id: txt-agent-mat-buy-rule
+    label: "구매 기준 안내 — 상품구매는 수립 · 결재된 재료비 예산과 품목 · 금액이 일치할 때만 가능, 임의 산정 원가로는 구매 불가"
+    type: notice
+    crud: N
+    area: "Agent 콘솔 재료비 상세 · 상품재료비 탭 표 위(버튼 줄 위)"
+    event: null
+    front:
+      handler: "renderAgentMaterialDetailFinal() .agos-hint"
+      file: "budget-agent-console.js:renderAgentMaterialDetailFinal"
+      logic: "[2026.11.24] 구매바이어의 '상품계획 검토'를 없애는 대신, 통제가 구매요청 단계(예산과 품목 · 금액 일치)에 있음을 PM에게 알린다. 문구: '상품구매는 여기서 수립 · 결재된 재료비 예산과 품목 · 금액이 일치할 때만 요청할 수 있습니다. 견적 근거 없이 임의로 산정한 원가로는 구매가 진행되지 않으니, 공급사 견적을 받은 금액으로 수립해 주세요. 구매견적이 확정되면 Agent가 그 금액으로 예산 조정안을 제안합니다.' 등록 팝업(renderAgentMatEdPopFinal) 머리 안내도 같은 취지로 바꿨으나, 표 안 입력 행(budget-inline-edit.js)으로 열릴 때는 머리 안내가 보이지 않으므로 이 표 위 안내가 기준이다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 안내 문구 표시
+
+  - id: btn-agent-mat-goods-add
+    label: "＋ 구매계획 등록"
+    type: button
+    crud: N
+    area: "Agent 콘솔 재료비 상세 · 상품재료비 탭 표 상단 우측"
+    event: onclick
+    front:
+      handler: "agentMatGoodsOpenFinal('')"
+      file: "budget-agent-console.js:agentMatGoodsOpenFinal · renderAgentMatGoodsPopFinal"
+      logic: "[2026.11.24] 상품재료비 구매계획(품목 1건 = PO 1건) 등록 팝업을 연다. 표 안 입력 행(budget-inline-edit.js)이 아니라 팝업이다. 직책자 · 과거 확정 버전 조회 중에는 숨김"
+      validation: null
+      state_writes: [agentMatGoodsEdFinal]
+    backend: null
+    result: 구매계획 등록 팝업 열림
+
+  - id: grid-agent-mat-goods
+    label: "상품재료비 구매계획 목록 — 품목(분류 · 모델) · 업체 · 수량 · 납품기간 · 검수 주기 · 계획 금액 · PO번호(견적번호) · 구매 금액 · 실적(검수) · 집행예정(미검수) · 상태 · 관리"
+    type: grid
+    crud: R
+    area: "상품재료비 탭 본문"
+    event: null
+    front:
+      handler: "renderAgentMaterialDetailFinal() kind=goods"
+      file: "budget-agent-console.js:renderAgentMaterialDetailFinal · agentMatGoodsActFinal · agentMatCycleGapFinal"
+      logic: >
+        [2026.11.24] 실투입대상 외주비와 같은 칸 구성. PO가 있으면 구매 금액 · 실적(검수 합계) · 집행예정(구매 금액 − 실적)을 구매시스템 값으로 보여 주고 조회 전용.
+        상태 = 검수 완료 / PO 발행 / 계약 대기 / 수기 입력(결재전). 검수 주기 칸에 계획 주기(월별 · 분기별 · 일괄)를 보여 주고,
+        실제 검수 월이 계획 주기의 검수 월(분기별 = 분기 마지막 달 + 납품 종료월, 일괄 = 납품 종료월)과 다르면 '⚠ 실제 검수 N건 주기 다름'을 표시한다.
+        합계 줄 = 건수(PO 발행 건수) · 계획 · 구매 · 실적 · 집행예정 합계.
+      validation: null
+      state_writes: []
+    backend: { note: "PO번호 · 구매 금액 · 검수 실적(inspections)은 구매시스템 I/F(목업 AGENT_MAT_PO_SEED_FINAL)" }
+    result: 상품재료비 구매계획 목록
+
+  - id: btn-agent-mat-goods-edit
+    label: 수정
+    type: button
+    crud: N
+    area: "상품재료비 표 관리 열(PO 발행 전 건만)"
+    event: onclick
+    front:
+      handler: "agentMatGoodsOpenFinal(id)"
+      file: "budget-agent-console.js:agentMatGoodsOpenFinal"
+      logic: "값을 채운 수정 팝업을 연다"
+      validation: "PO 발행 건은 '구매시스템 기준이라 수정할 수 없습니다' 토스트"
+      state_writes: [agentMatGoodsEdFinal]
+    backend: null
+    result: 수정 팝업 열림
+
+  - id: sel-agent-mat-goods-cycle
+    label: "검수 주기 (월별 / 분기별 / 일괄)"
+    type: select
+    crud: C
+    area: "상품재료비 구매계획 팝업"
+    event: change
+    front:
+      handler: "#agmg-cycle"
+      file: "budget-agent-console.js:renderAgentMatGoodsPopFinal · agentMatGoodsSpreadFinal"
+      logic: "실제로 검수할 단위로 고른다(1년치를 일괄 구매해도 매달 검수하면 월별). 월별 계획 금액이 이 주기로 나뉜다: 월별 = 납품 기간 매달 균등, 분기별 = 분기 마지막 달(+ 납품 종료월), 일괄 = 납품 종료월. 신규 기본값 = 분기별"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 선택값
+
+  - id: inp-agent-mat-goods-fields
+    label: "품목명 · 대분류 · 중분류 · 업체[조회] · 모델 · 수량/단위 · 납품 시작일 · 납품 종료일 · 계획 금액"
+    type: input
+    crud: C
+    area: "상품재료비 구매계획 팝업"
+    event: input
+    front:
+      handler: "#agmg-name · #agmg-large · #agmg-middle · #agmg-vendor(agentVendorPickOpenFinal) · #agmg-model · #agmg-qty · #agmg-unit · #agmg-start · #agmg-end · #agmg-amount"
+      file: "budget-agent-console.js:renderAgentMatGoodsPopFinal"
+      logic: "업체는 [조회]로 거래처 목록에서 고른다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 입력값
+
+  - id: btn-agent-mat-goods-save
+    label: "저장 / 수정 저장"
+    type: button
+    crud: U
+    area: "상품재료비 구매계획 팝업 하단"
+    event: onclick
+    front:
+      handler: agentMatGoodsSaveFinal()
+      file: "budget-agent-console.js:agentMatGoodsSaveFinal"
+      logic: "신규 = 목록 맨 위에 추가(PO 없음 → 계약 대기), 수정 = 덮어씀. 월별 변동(검수 주기 배분 기준)을 상품재료비 변동분에 더하고 [예산 조정안] 수기 입력으로 기록"
+      validation: "품목명 · 업체 · 납품 기간 · 금액 누락, 종료<시작이면 거부 + 토스트 · PO 발행 건은 수정 불가"
+      state_writes: [getMaterialRows 목록, AGENT_MAT_DELTA_FINAL, AGENT_PROPOSALS_FINAL, agentMatGoodsEdFinal]
+    backend: null
+    result: 구매계획 등록 · 수정 + 토스트
+
+  - id: btn-agent-mat-goods-close
+    label: "닫음 / ✕"
+    type: button
+    crud: N
+    area: "상품재료비 구매계획 팝업"
+    event: onclick
+    front:
+      handler: agentMatGoodsCloseFinal()
+      file: "budget-agent-console.js:agentMatGoodsCloseFinal"
+      logic: "팝업 닫기(입력값 버림)"
+      validation: null
+      state_writes: [agentMatGoodsEdFinal]
+    backend: null
+    result: 팝업 닫힘
+
   - id: btn-agent-mat-add
-    label: "＋ 품목 등록 / ＋ 자산 등록 / ＋ 이관재료비 등록"
+    label: "＋ 자산 등록 / ＋ 이관재료비 등록 (상품재료비는 아래 ＋ 구매계획 등록)"
     type: button
     crud: N
     area: "Agent 콘솔 재료비 상세 · 각 소계정 탭 표 상단 우측"
@@ -350,6 +474,21 @@ elements:
       state_writes: [BIE_DRAFTS, BIE_DELS]
     backend: null
     result: "추가 · 수정 · 삭제 일괄 반영 + [예산 조정안] 수기 입력 반영 + 토스트"
+
+  - id: inp-agent-mat-vendor
+    label: "업체 · [조회] (상품재료비 등록/수정)"
+    type: [input, button]
+    crud: R
+    area: "상품재료비 등록 · 수정 팝업 (품목명 아래)"
+    event: onclick
+    front:
+      handler: "agentVendorPickOpenFinal('agmt-vendor', '상품재료비 업체')"
+      file: "budget-agent-console.js:agentVendorFieldFinal · agentVendorPickOpenFinal"
+      logic: "[2026.11.12] 업체는 직접 입력하지 않고 거래처 조회 창(외주비와 같은 공통 조회)에서 이름 · 사업자번호로 검색해 고른다. 입력칸은 읽기 전용. 저장 시 vendor · manufacturer에 같은 값을 넣는다. 업체 미선택이면 저장 거부. 표에는 '업체' 열로 보이며, 목업 원본에 업체가 없는 품목은 AGENT_MAT_VENDOR_SEED_FINAL로 채운다"
+      validation: "업체 미선택 시 '업체를 [조회]로 선택해 주세요.' 토스트"
+      state_writes: []
+    backend: null
+    result: "업체 입력"
 
   - id: btn-agent-mat-edit
     label: "수정"
@@ -554,6 +693,7 @@ requirements:
   - { id: FR-MAT-15, text: "Agent 화면 재료비 상세의 각 소계정(상품재료비·감가상각비·이관재료비)에서 신규 등록·수정·삭제할 수 있어야 하며, 실적이 생긴 건은 조회 전용이어야 한다" }
   - { id: FR-MAT-16, text: "소계정 등록·수정·삭제 결과는 해당 소계정 계획·재료비 합계·월별 금액에 즉시 반영되어야 한다(변경하지 않은 금액은 그대로)" }
   - { id: FR-MAT-17, text: "Agent 화면의 이관재료비 계획은 '받을 재료비(+)'와 '보낼 재료비(−)' 두 구분으로 수립하고, 실적은 계획과 따로 표시해야 한다" }
+  - { id: FR-MAT-19, text: "상품재료비 품목은 업체를 필수로 가져야 하며, 업체는 직접 입력하지 않고 POP 거래처 목록에서 조회해 선택해야 한다. 상품재료비 표에 업체를 표시해야 한다" }
   - { id: FR-MAT-18, text: "Agent 화면 재료비 상세에는 간트(납품·검수 일정, 상각 기간)를 표시하지 않아야 한다" }
   - { id: FR-MAT-19, text: "[2026.11.11] Agent 화면 재료비 상세의 등록은 팝업이 아니라 표 맨 위에 입력 행을 추가하는 방식이어야 하며, 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서가 있어야 한다" }
   - { id: FR-MAT-20, text: "Agent 화면 재료비 상세의 수정은 팝업 없이 그 행의 칸에서 바로 할 수 있어야 한다(Enter 저장 · Esc 취소)" }
@@ -563,3 +703,7 @@ requirements:
   - { id: FR-MAT-24, text: "[2026.11.12] Agent 화면 재료비 상세의 등록 · 수정은 표 위 [저장]을 눌렀을 때만 한 번에 반영되어야 하며, 입력 행마다 따로 저장(등록 API 호출)하지 않아야 한다" }
   - { id: FR-MAT-25, text: "[2026.11.12] Agent 화면 재료비 상세의 선택삭제는 바로 반영하지 않고 '삭제 예정'으로 표시해야 하며(되돌리기 가능), 표 위 [저장]을 눌렀을 때 추가 · 수정과 함께 한 번에 반영되어야 한다" }
   - { id: FR-MAT-26, text: "[2026.11.12] Agent 화면 재료비 상세는 지금 고른 상세계정의 예산내역 표(저장된 내역)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
+  - { id: FR-MAT-27, text: "[2026.11.24] Agent 화면 상품재료비 탭은 상품구매가 수립 · 결재된 재료비 예산과 품목 · 금액이 일치할 때만 가능하고, 견적 근거 없이 임의로 산정한 원가로는 구매할 수 없다는 안내를 표 위에 보여 주어야 한다" }
+  - { id: FR-MAT-28, text: "[2026.11.24] 상품재료비는 실투입대상 외주비처럼 PO 단위 구매계획(품목 1건 = PO 1건)으로 수립하고, 목록에 계획 금액 · PO번호 · 구매 금액 · 실적(검수) · 집행예정(미검수) · 상태를 보여 주어야 하며, PO가 발행된 계획은 조회 전용이어야 한다" }
+  - { id: FR-MAT-29, text: "[2026.11.24] 상품재료비 구매계획은 검수 주기(월별 · 분기별 · 일괄)를 입력받고, 월별 계획 금액을 그 주기대로 배분해야 한다" }
+  - { id: FR-MAT-30, text: "[2026.11.24] 실제 검수가 계획한 검수 주기와 다른 달에 들어오면 목록에서 표시해, PM이 계획을 실제 검수 주기에 맞게 고치도록 해야 한다" }
