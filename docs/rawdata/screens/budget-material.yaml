@@ -12,7 +12,6 @@ screen:
   source_files:
     - public/js/budget-area-material.js   # ★재료비 진입점: 편집기 데코레이터 + 서브탭 분기(renderMaterialPlanPanel)
     - public/js/budget-area-routes.js     # 라우트 등록(#/budget-adjust/material), slug 매핑, openCostArea
-    - public/js/budget-bulk-add.js        # [2026.11.24] 상품재료비 엑셀 업로드(양식 다운로드 · 행별 확인 · 일괄 등록)
     - public/js/budget-status-5.js        # ★활성 상세 패널/저장 로직(상품·감가상각·이관 Final)
     - public/js/budget-status-4.js        # 활성 탭 렌더, getAccountDetailRows/getMonthlyBudgetRows, 견적선택기, 이관 월반영
     - public/js/budget-status.js          # 견적 그룹 데이터(materialPurchaseQuoteGroupsFinal), 배분/월범위 유틸, 목업주입, CATS(:742)
@@ -307,8 +306,132 @@ elements:
     result: 이관 리스트 갱신, 계정 월예산 '이관재료비' 행 반영
 
   # ── [2026.10.12] 예산관리 Agent ON · 재료비 상세 — 외주비와 같은 기조(소계정별 등록/수정/삭제 · 간트 제거 · 이관 받을/보낼) ──
+  - id: txt-agent-mat-buy-rule
+    label: "구매 기준 안내 — 상품구매는 수립 · 결재된 재료비 예산과 품목 · 금액이 일치할 때만 가능, 임의 산정 원가로는 구매 불가"
+    type: notice
+    crud: N
+    area: "Agent 콘솔 재료비 상세 · 상품재료비 탭 표 위(버튼 줄 위)"
+    event: null
+    front:
+      handler: "renderAgentMaterialDetailFinal() .agos-hint"
+      file: "budget-agent-console.js:renderAgentMaterialDetailFinal"
+      logic: "[2026.11.24] 구매바이어의 '상품계획 검토'를 없애는 대신, 통제가 구매요청 단계(예산과 품목 · 금액 일치)에 있음을 PM에게 알린다. 문구: '상품구매는 여기서 수립 · 결재된 재료비 예산과 품목 · 금액이 일치할 때만 요청할 수 있습니다. 견적 근거 없이 임의로 산정한 원가로는 구매가 진행되지 않으니, 공급사 견적을 받은 금액으로 수립해 주세요. 구매견적이 확정되면 Agent가 그 금액으로 예산 조정안을 제안합니다.' 등록 팝업(renderAgentMatEdPopFinal) 머리 안내도 같은 취지로 바꿨으나, 표 안 입력 행(budget-inline-edit.js)으로 열릴 때는 머리 안내가 보이지 않으므로 이 표 위 안내가 기준이다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 안내 문구 표시
+
+  - id: btn-agent-mat-goods-add
+    label: "＋ 구매계획 등록"
+    type: button
+    crud: N
+    area: "Agent 콘솔 재료비 상세 · 상품재료비 탭 표 상단 우측"
+    event: onclick
+    front:
+      handler: "agentMatGoodsOpenFinal('')"
+      file: "budget-agent-console.js:agentMatGoodsOpenFinal · renderAgentMatGoodsPopFinal"
+      logic: "[2026.11.24] 상품재료비 구매계획(품목 1건 = PO 1건) 등록 팝업을 연다. 표 안 입력 행(budget-inline-edit.js)이 아니라 팝업이다. 직책자 · 과거 확정 버전 조회 중에는 숨김"
+      validation: null
+      state_writes: [agentMatGoodsEdFinal]
+    backend: null
+    result: 구매계획 등록 팝업 열림
+
+  - id: grid-agent-mat-goods
+    label: "상품재료비 구매계획 목록 — 품목(분류 · 모델) · 업체 · 수량 · 납품기간 · 검수 주기 · 계획 금액 · PO번호(견적번호) · 구매 금액 · 실적(검수) · 집행예정(미검수) · 상태 · 관리"
+    type: grid
+    crud: R
+    area: "상품재료비 탭 본문"
+    event: null
+    front:
+      handler: "renderAgentMaterialDetailFinal() kind=goods"
+      file: "budget-agent-console.js:renderAgentMaterialDetailFinal · agentMatGoodsActFinal · agentMatCycleGapFinal"
+      logic: >
+        [2026.11.24] 실투입대상 외주비와 같은 칸 구성. PO가 있으면 구매 금액 · 실적(검수 합계) · 집행예정(구매 금액 − 실적)을 구매시스템 값으로 보여 주고 조회 전용.
+        상태 = 검수 완료 / PO 발행 / 계약 대기 / 수기 입력(결재전). 검수 주기 칸에 계획 주기(월별 · 분기별 · 일괄)를 보여 주고,
+        실제 검수 월이 계획 주기의 검수 월(분기별 = 분기 마지막 달 + 납품 종료월, 일괄 = 납품 종료월)과 다르면 '⚠ 실제 검수 N건 주기 다름'을 표시한다.
+        합계 줄 = 건수(PO 발행 건수) · 계획 · 구매 · 실적 · 집행예정 합계.
+      validation: null
+      state_writes: []
+    backend: { note: "PO번호 · 구매 금액 · 검수 실적(inspections)은 구매시스템 I/F(목업 AGENT_MAT_PO_SEED_FINAL)" }
+    result: 상품재료비 구매계획 목록
+
+  - id: btn-agent-mat-goods-edit
+    label: 수정
+    type: button
+    crud: N
+    area: "상품재료비 표 관리 열(PO 발행 전 건만)"
+    event: onclick
+    front:
+      handler: "agentMatGoodsOpenFinal(id)"
+      file: "budget-agent-console.js:agentMatGoodsOpenFinal"
+      logic: "값을 채운 수정 팝업을 연다"
+      validation: "PO 발행 건은 '구매시스템 기준이라 수정할 수 없습니다' 토스트"
+      state_writes: [agentMatGoodsEdFinal]
+    backend: null
+    result: 수정 팝업 열림
+
+  - id: sel-agent-mat-goods-cycle
+    label: "검수 주기 (월별 / 분기별 / 일괄)"
+    type: select
+    crud: C
+    area: "상품재료비 구매계획 팝업"
+    event: change
+    front:
+      handler: "#agmg-cycle"
+      file: "budget-agent-console.js:renderAgentMatGoodsPopFinal · agentMatGoodsSpreadFinal"
+      logic: "실제로 검수할 단위로 고른다(1년치를 일괄 구매해도 매달 검수하면 월별). 월별 계획 금액이 이 주기로 나뉜다: 월별 = 납품 기간 매달 균등, 분기별 = 분기 마지막 달(+ 납품 종료월), 일괄 = 납품 종료월. 신규 기본값 = 분기별"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 선택값
+
+  - id: inp-agent-mat-goods-fields
+    label: "품목명 · 대분류 · 중분류 · 업체[조회] · 모델 · 수량/단위 · 납품 시작일 · 납품 종료일 · 계획 금액"
+    type: input
+    crud: C
+    area: "상품재료비 구매계획 팝업"
+    event: input
+    front:
+      handler: "#agmg-name · #agmg-large · #agmg-middle · #agmg-vendor(agentVendorPickOpenFinal) · #agmg-model · #agmg-qty · #agmg-unit · #agmg-start · #agmg-end · #agmg-amount"
+      file: "budget-agent-console.js:renderAgentMatGoodsPopFinal"
+      logic: "업체는 [조회]로 거래처 목록에서 고른다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 입력값
+
+  - id: btn-agent-mat-goods-save
+    label: "저장 / 수정 저장"
+    type: button
+    crud: U
+    area: "상품재료비 구매계획 팝업 하단"
+    event: onclick
+    front:
+      handler: agentMatGoodsSaveFinal()
+      file: "budget-agent-console.js:agentMatGoodsSaveFinal"
+      logic: "신규 = 목록 맨 위에 추가(PO 없음 → 계약 대기), 수정 = 덮어씀. 월별 변동(검수 주기 배분 기준)을 상품재료비 변동분에 더하고 [예산 조정안] 수기 입력으로 기록"
+      validation: "품목명 · 업체 · 납품 기간 · 금액 누락, 종료<시작이면 거부 + 토스트 · PO 발행 건은 수정 불가"
+      state_writes: [getMaterialRows 목록, AGENT_MAT_DELTA_FINAL, AGENT_PROPOSALS_FINAL, agentMatGoodsEdFinal]
+    backend: null
+    result: 구매계획 등록 · 수정 + 토스트
+
+  - id: btn-agent-mat-goods-close
+    label: "닫음 / ✕"
+    type: button
+    crud: N
+    area: "상품재료비 구매계획 팝업"
+    event: onclick
+    front:
+      handler: agentMatGoodsCloseFinal()
+      file: "budget-agent-console.js:agentMatGoodsCloseFinal"
+      logic: "팝업 닫기(입력값 버림)"
+      validation: null
+      state_writes: [agentMatGoodsEdFinal]
+    backend: null
+    result: 팝업 닫힘
+
   - id: btn-agent-mat-add
-    label: "＋ 품목 등록 / ＋ 자산 등록 / ＋ 이관재료비 등록"
+    label: "＋ 자산 등록 / ＋ 이관재료비 등록 (상품재료비는 아래 ＋ 구매계획 등록)"
     type: button
     crud: N
     area: "Agent 콘솔 재료비 상세 · 각 소계정 탭 표 상단 우측"
@@ -321,112 +444,6 @@ elements:
       state_writes: [agentMatEdFinal]
     backend: null
     result: "표 맨 위에 입력 행 추가(누를 때마다 한 행씩 더 쌓이고 입력값 유지) — 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서"
-
-  # [2026.11.24] 상품재료비 엑셀 업로드 — AS-IS 재료비 엑셀 양식 업로드(uploadExcel) 대응 (budget-bulk-add.js)
-  - id: btn-agent-mat-upload
-    label: "⬆ 엑셀 업로드"
-    type: button
-    crud: N
-    area: "상품재료비 탭 표 위 버튼 줄, [＋ 품목 등록] 바로 왼쪽 (상품재료비 탭에서만 보임)"
-    event: onclick
-    front:
-      handler: "bbaMatOpen()"
-      file: "budget-bulk-add.js:bbaDecorate · bbaMatOpen · bbaMatRender"
-      logic: "상품재료비 엑셀 업로드 팝업을 연다. 버튼은 렌더 후 [＋ 품목 등록](agentMatEdOpenFinal(상품재료비,''))이 있을 때만 붙는다(직책자 · 과거 확정 버전 조회 중에는 품목 등록이 없어 같이 숨김)"
-      validation: null
-      state_writes: [BBA_MAT]
-    backend: null
-    result: "팝업: 1 양식 받기 · 2 품목 적기 · 3 파일 올리기 + 확인 표"
-
-  - id: btn-bba-mat-template
-    label: "⬇ 양식 다운로드"
-    type: button
-    crud: R
-    area: "엑셀 업로드 팝업 1단계"
-    event: onclick
-    front:
-      handler: "bbaMatTemplate()"
-      file: "budget-bulk-add.js:bbaMatTemplate (budget-excel-export.js:bxeSave 재사용)"
-      logic: "상품재료비_업로드양식.xlsx 를 내려받는다. 1행 제목, 2행 안내(* 필수 · 날짜 형식 · 금액 비면 단가×수량), 3행 머리: 품목명* · 대분류 · 중분류 · 모델 · 수량* · 단위 · 단가(원) · 금액(원)* · 납품 시작일* · 납품 종료일* (화면 [＋ 품목 등록] 입력칸과 같은 순서)"
-      validation: null
-      state_writes: []
-    backend: { note: "목업은 브라우저에서 생성. 실서비스는 양식 파일 다운로드 API로 대체 가능" }
-    result: "상품재료비_업로드양식.xlsx 다운로드"
-
-  - id: input-bba-mat-file
-    label: "파일 선택(.xlsx)"
-    type: file
-    crud: R
-    area: "엑셀 업로드 팝업 3단계"
-    event: onchange
-    front:
-      handler: "bbaMatFile(this)"
-      file: "budget-bulk-add.js:bbaMatFile · bbaReadXlsx · bbaMatParse · bbaDate"
-      logic: "고른 .xlsx 첫 시트를 브라우저에서 읽어(ZIP + DecompressionStream, 외부 라이브러리 없음) 머리 줄(품목명이 있는 행, 15행 안)을 찾고, 그 아래 행을 한 줄에 품목 하나로 확인한다. 빈 줄은 건너뜀. 날짜는 엑셀 날짜 · 2026.9.1 · 2026/09/01 을 2026-09-01 로 맞춤. 금액이 비면 단가×수량"
-      validation: ".xlsx 아니면 '.xlsx 파일만 올릴 수 있습니다.' / 머리 줄 없음 → '양식의 머리 줄을 찾지 못했습니다' / 품목 0건 → '적힌 품목이 없습니다.' / 읽기 실패 → '파일을 읽지 못했습니다'"
-      state_writes: [BBA_MAT]
-    backend: { note: "실서비스는 서버 업로드 · 파싱 API(AS-IS uploadExcel) — 코드 변환 · 환율 적용 포함 여부 정책 확정 필요" }
-    result: "확인 표에 행마다 '등록 가능' 또는 '확인 필요(이유)' 표시"
-
-  - id: btn-bba-mat-sample
-    label: "예시 데이터로 보기"
-    type: button
-    crud: N
-    area: "엑셀 업로드 팝업 3단계 [파일 선택] 아래"
-    event: onclick
-    front:
-      handler: "bbaMatSample()"
-      file: "budget-bulk-add.js:bbaMatSample"
-      logic: "목업 시연용 — 정상 4건 + 확인 필요 2건(납품 종료일 없음 · 품목명 없음) 예시를 확인 표에 채운다"
-      validation: null
-      state_writes: [BBA_MAT]
-    backend: null
-    result: "확인 표에 예시 6행 표시"
-
-  - id: grid-bba-mat-preview
-    label: "업로드 확인 표 (엑셀 행 · 품목명 · 분류 · 모델 · 수량 · 납품기간 · 금액 · 확인)"
-    type: grid
-    crud: R
-    area: "엑셀 업로드 팝업 가운데"
-    event: null
-    front:
-      handler: null
-      file: "budget-bulk-add.js:bbaMatRender"
-      logic: "위에 '등록 가능 N건 · 합계 금액 / 확인 필요 M건 — 이 행은 등록되지 않습니다' 요약. 확인 필요 행은 붉은 바탕 + 이유(품목명 · 수량 · 금액 · 납품 시작일 · 납품 종료일 없음 / 종료일이 시작일보다 앞섬). AS-IS는 필수값 빠진 행을 말없이 건너뛰었으나 목업은 이유를 보여 준다"
-      validation: null
-      state_writes: []
-    backend: null
-    result: "등록 전에 행마다 결과 확인"
-
-  - id: btn-bba-mat-register
-    label: "등록 (N건)"
-    type: button
-    crud: C
-    area: "엑셀 업로드 팝업 아래 오른쪽"
-    event: onclick
-    front:
-      handler: "bbaMatRegister()"
-      file: "budget-bulk-add.js:bbaMatRegister (budget-agent-console.js:agentMatListFinal · agentMatDeltaAddFinal · agentMatMonthsFinal · agentHandRecordFinal 재사용)"
-      logic: "확인 필요 행은 빼고 등록 가능 행만 상품재료비 목록 맨 앞에 넣는다(상태 '계획', 견적번호 없음). 금액은 납품 기간에 균등 배분돼 월별 계획 · 재료비 합계에 바로 반영되고, [예산 조정안]에 ✎ 수기 입력 1건('엑셀 일괄 등록 · 상품재료비 N건 금액')으로 올라간다. 등록 가능 0건이면 버튼 비활성"
-      validation: "등록 가능 행 0건 → 비활성 / '등록할 행이 없습니다.'"
-      state_writes: [getMaterialRows(), AGENT_MAT_DELTA_FINAL, AGENT_PROPOSALS_FINAL, AGENT_HAND_EDITS_FINAL]
-    backend: { note: "실서비스는 상품재료비 일괄 등록 API" }
-    result: "상품재료비 N건 등록 · 팝업 닫힘 · 토스트"
-
-  - id: btn-bba-mat-close
-    label: "닫기 / ✕"
-    type: button
-    crud: N
-    area: "엑셀 업로드 팝업 아래 · 오른쪽 위"
-    event: onclick
-    front:
-      handler: "bbaClose()"
-      file: "budget-bulk-add.js:bbaClose"
-      logic: "등록하지 않고 팝업을 닫는다(바깥 클릭 · Esc 동일)"
-      validation: null
-      state_writes: []
-    backend: null
-    result: "팝업 닫힘"
 
   - id: btn-agent-mat-excel
     label: "⬇ 엑셀"
@@ -457,6 +474,21 @@ elements:
       state_writes: [BIE_DRAFTS, BIE_DELS]
     backend: null
     result: "추가 · 수정 · 삭제 일괄 반영 + [예산 조정안] 수기 입력 반영 + 토스트"
+
+  - id: inp-agent-mat-vendor
+    label: "업체 · [조회] (상품재료비 등록/수정)"
+    type: [input, button]
+    crud: R
+    area: "상품재료비 등록 · 수정 팝업 (품목명 아래)"
+    event: onclick
+    front:
+      handler: "agentVendorPickOpenFinal('agmt-vendor', '상품재료비 업체')"
+      file: "budget-agent-console.js:agentVendorFieldFinal · agentVendorPickOpenFinal"
+      logic: "[2026.11.12] 업체는 직접 입력하지 않고 거래처 조회 창(외주비와 같은 공통 조회)에서 이름 · 사업자번호로 검색해 고른다. 입력칸은 읽기 전용. 저장 시 vendor · manufacturer에 같은 값을 넣는다. 업체 미선택이면 저장 거부. 표에는 '업체' 열로 보이며, 목업 원본에 업체가 없는 품목은 AGENT_MAT_VENDOR_SEED_FINAL로 채운다"
+      validation: "업체 미선택 시 '업체를 [조회]로 선택해 주세요.' 토스트"
+      state_writes: []
+    backend: null
+    result: "업체 입력"
 
   - id: btn-agent-mat-edit
     label: "수정"
@@ -630,11 +662,6 @@ flows:
   - name: 상품재료비(직접입력 N)
     steps:
       - "신규 등록 → N → 품목정보 + 예산 시작월~종료월 + 금액 → 월별 배분 미리보기 → 등록(buildMaterialAllocations 균등배분)"
-  - name: "[2026.11.24] 상품재료비 엑셀 업로드"
-    steps:
-      - "상품재료비 탭 → [⬆ 엑셀 업로드](bbaMatOpen) → [⬇ 양식 다운로드](bbaMatTemplate)"
-      - "양식에 한 줄에 품목 하나씩 적기(* 필수) → [파일 선택](bbaMatFile) → 확인 표에서 등록 가능 / 확인 필요(이유) 확인"
-      - "[등록 (N건)](bbaMatRegister) → 등록 가능 행만 상품재료비 목록에 추가 · [예산 조정안] ✎ 수기 입력 1건"
   - name: 감가상각비
     steps:
       - "감가상각비 탭 → 신규등록 → 감가상각 계정 선택 + 시작월/개월수/상각총액 → 미리보기 → (선택)월별 보정 → 저장(saveDepreciationPlan)"
@@ -666,6 +693,7 @@ requirements:
   - { id: FR-MAT-15, text: "Agent 화면 재료비 상세의 각 소계정(상품재료비·감가상각비·이관재료비)에서 신규 등록·수정·삭제할 수 있어야 하며, 실적이 생긴 건은 조회 전용이어야 한다" }
   - { id: FR-MAT-16, text: "소계정 등록·수정·삭제 결과는 해당 소계정 계획·재료비 합계·월별 금액에 즉시 반영되어야 한다(변경하지 않은 금액은 그대로)" }
   - { id: FR-MAT-17, text: "Agent 화면의 이관재료비 계획은 '받을 재료비(+)'와 '보낼 재료비(−)' 두 구분으로 수립하고, 실적은 계획과 따로 표시해야 한다" }
+  - { id: FR-MAT-19, text: "상품재료비 품목은 업체를 필수로 가져야 하며, 업체는 직접 입력하지 않고 POP 거래처 목록에서 조회해 선택해야 한다. 상품재료비 표에 업체를 표시해야 한다" }
   - { id: FR-MAT-18, text: "Agent 화면 재료비 상세에는 간트(납품·검수 일정, 상각 기간)를 표시하지 않아야 한다" }
   - { id: FR-MAT-19, text: "[2026.11.11] Agent 화면 재료비 상세의 등록은 팝업이 아니라 표 맨 위에 입력 행을 추가하는 방식이어야 하며, 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서가 있어야 한다" }
   - { id: FR-MAT-20, text: "Agent 화면 재료비 상세의 수정은 팝업 없이 그 행의 칸에서 바로 할 수 있어야 한다(Enter 저장 · Esc 취소)" }
@@ -675,8 +703,7 @@ requirements:
   - { id: FR-MAT-24, text: "[2026.11.12] Agent 화면 재료비 상세의 등록 · 수정은 표 위 [저장]을 눌렀을 때만 한 번에 반영되어야 하며, 입력 행마다 따로 저장(등록 API 호출)하지 않아야 한다" }
   - { id: FR-MAT-25, text: "[2026.11.12] Agent 화면 재료비 상세의 선택삭제는 바로 반영하지 않고 '삭제 예정'으로 표시해야 하며(되돌리기 가능), 표 위 [저장]을 눌렀을 때 추가 · 수정과 함께 한 번에 반영되어야 한다" }
   - { id: FR-MAT-26, text: "[2026.11.12] Agent 화면 재료비 상세는 지금 고른 상세계정의 예산내역 표(저장된 내역)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
-  - { id: FR-MAT-27, text: "[2026.11.24] 상품재료비는 엑셀 양식으로 여러 품목을 한 번에 등록할 수 있어야 하며, 양식(품목명 · 대분류 · 중분류 · 모델 · 수량 · 단위 · 단가 · 금액 · 납품 시작일 · 납품 종료일)을 내려받을 수 있어야 한다" }
-  - { id: FR-MAT-28, text: "엑셀 업로드 시 등록 전에 행마다 결과(등록 가능 / 확인 필요와 그 이유)를 보여 주어야 하며, 필수값(품목명 · 수량 · 금액 · 납품 시작일 · 납품 종료일)이 빠졌거나 종료일이 시작일보다 앞선 행은 등록하지 않아야 한다" }
-  - { id: FR-MAT-29, text: "엑셀 업로드에서 금액이 비어 있으면 단가 × 수량으로 계산하고, 날짜는 엑셀 날짜 · 2026.9.1 · 2026/09/01 형식도 받아야 한다" }
-  - { id: FR-MAT-30, text: "엑셀로 등록한 품목은 상품재료비 목록 · 월별 계획(납품 기간 균등 배분) · 재료비 합계에 바로 반영되고, [예산 조정안]에 수기 입력 1건으로 올라가야 한다" }
-  - { id: FR-MAT-31, text: "엑셀 업로드 버튼은 상품재료비 탭에서만, 편집 권한이 있을 때만 보여야 한다" }
+  - { id: FR-MAT-27, text: "[2026.11.24] Agent 화면 상품재료비 탭은 상품구매가 수립 · 결재된 재료비 예산과 품목 · 금액이 일치할 때만 가능하고, 견적 근거 없이 임의로 산정한 원가로는 구매할 수 없다는 안내를 표 위에 보여 주어야 한다" }
+  - { id: FR-MAT-28, text: "[2026.11.24] 상품재료비는 실투입대상 외주비처럼 PO 단위 구매계획(품목 1건 = PO 1건)으로 수립하고, 목록에 계획 금액 · PO번호 · 구매 금액 · 실적(검수) · 집행예정(미검수) · 상태를 보여 주어야 하며, PO가 발행된 계획은 조회 전용이어야 한다" }
+  - { id: FR-MAT-29, text: "[2026.11.24] 상품재료비 구매계획은 검수 주기(월별 · 분기별 · 일괄)를 입력받고, 월별 계획 금액을 그 주기대로 배분해야 한다" }
+  - { id: FR-MAT-30, text: "[2026.11.24] 실제 검수가 계획한 검수 주기와 다른 달에 들어오면 목록에서 표시해, PM이 계획을 실제 검수 주기에 맞게 고치도록 해야 한다" }
