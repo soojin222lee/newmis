@@ -12,6 +12,7 @@ screen:
   source_files:
     - public/js/budget-area-expense.js    # ★경비 계정 전용 정본: 데이터/그리드/검증/패널/모달/스타일(override 체인)
     - public/js/budget-area-routes.js     # budget-adjust/expense 라우트 등록, slug 매핑(경비→expense), openCostArea
+    - public/js/budget-bulk-add.js        # [2026.11.24] 경비 계정 추가 팝업(검색 · ★즐겨찾기 · 일괄 추가) · 리스회계처리 대상 안내
     - public/js/budget-status.js          # CATS(:742), EXPENSE_PLAN_MONTHS(:2119, 인건비 OT와 공유)
     - public/js/budget-status-4.js        # 구 경비 로직(월별 입력·소계정별 검증) — override 대상
     - public/index.html                   # 스크립트 로드 순서(활성 override 결정)
@@ -209,12 +210,179 @@ elements:
     event: onclick
     front:
       handler: "agentExpEdOpenFinal('')"
-      file: "budget-agent-console.js:agentExpEdOpenFinal → 입력 행 변환 budget-inline-edit.js:bieDraftRow · bieFullRow · bieFocusRow"
-      logic: "팝업 대신 중분류 표 맨 위에 편성 행(전체 폭)을 연다. 세부계정을 고르면 그 계정의 연도별 월 입력칸이 나온다. 화면이 아래로 내려가 있어도 그 행으로 올라가 첫 칸에 커서. 직책자 화면 · 과거 확정 버전 조회 중에는 숨김"
+      file: "budget-bulk-add.js:agentExpEdOpenFinal(id 없음 → bbaExpOpen) · 입력 행 budget-inline-edit.js:bieFullRow · bieFocusRow"
+      logic: "[2026.11.24] 드롭다운 대신 '경비 계정 추가' 팝업을 연다(경비 계정이 많아 검색 · 즐겨찾기 · 체크로 고름). 팝업에서 고른 계정마다 중분류 표 맨 위에 월 입력 행(전체 폭)이 생기고 표 위 [저장]으로 반영. 직책자 화면 · 과거 확정 버전 조회 중에는 숨김"
       validation: null
       state_writes: [agentExpEdFinal]
     backend: null
-    result: "표 맨 위에 편성 행 추가(여러 개 쌓임 · 입력값 유지)"
+    result: "경비 계정 추가 팝업 열림"
+
+  # [2026.11.24] 경비 계정 추가 팝업 — AS-IS 경비계정 추가(Account.vue) 대응 (budget-bulk-add.js)
+  - id: input-bba-exp-search
+    label: "계정명 또는 계정번호로 검색"
+    type: input
+    crud: R
+    area: "경비 계정 추가 팝업 위"
+    event: oninput
+    front:
+      handler: "bbaExpSearch(this.value)"
+      file: "budget-bulk-add.js:bbaExpSearch · bbaExpRender"
+      logic: "계정명 · 계정번호 · 중분류에 입력값이 들어간 계정만 목록에 남긴다(입력할 때마다 바로 거름)"
+      validation: null
+      state_writes: [BBA_EXP.q]
+    backend: null
+    result: "목록 필터"
+
+  - id: seg-bba-exp-view
+    label: "전체 N / ★ 즐겨찾기 N"
+    type: toggle
+    crud: N
+    area: "검색칸 오른쪽"
+    event: onclick
+    front:
+      handler: "bbaExpView('all'|'fav')"
+      file: "budget-bulk-add.js:bbaExpView"
+      logic: "목록을 전체 계정 또는 즐겨찾기한 계정만으로 바꿔 본다(보기 전환 이벤트)"
+      validation: null
+      state_writes: [BBA_EXP.view]
+    backend: null
+    result: "목록 보기 전환"
+
+  - id: grid-bba-exp-accounts
+    label: "경비 계정 목록 (선택 · 즐겨찾기 · 계정번호 · 계정명 · 중분류(통제/비통제) · 상태)"
+    type: grid
+    crud: R
+    area: "경비 계정 추가 팝업 가운데"
+    event: null
+    front:
+      handler: null
+      file: "budget-bulk-add.js:bbaExpMaster · bbaExpRender"
+      logic: "계정 목록 = 지금 프로젝트의 세부계정(EXPENSE_ACCOUNT_ROWS_FINAL) + 추가 계정(BBA_EXP_MORE, 계정번호 · 이름은 AS-IS 기준 · 중분류 배정은 목업). 즐겨찾기 먼저, 그다음 계정번호 순. 상태: 편성됨(월 계획 또는 실적 있음) · 입력 중(표에 입력 행이 열려 있음)은 회색 · 체크 불가(AS-IS 이미 추가된 계정 비활성). 리스 확인 대상 7개 계정은 계정명 옆 '리스 확인' 표시"
+      validation: null
+      state_writes: []
+    backend: { api: "GET publicCostAccounts?useYn=true&prjNo= (AS-IS)", note: "실서비스는 경비 계정 마스터 · 프로젝트 유형별 제외 계정(IV 접대비 등) 규칙 적용" }
+    result: "고를 수 있는 계정 표시"
+
+  - id: chk-bba-exp-row
+    label: "계정 선택 체크박스(행 클릭 동일)"
+    type: checkbox
+    crud: N
+    area: "계정 목록 맨 앞"
+    event: onclick
+    front:
+      handler: "bbaExpToggle(code)"
+      file: "budget-bulk-add.js:bbaExpToggle"
+      logic: "추가할 계정을 고르거나 해제한다. 편성됨 · 입력 중 계정은 체크 불가. 아래 'N개 선택' · [선택 계정 추가 (N)] 숫자 갱신"
+      validation: null
+      state_writes: [BBA_EXP.sel]
+    backend: null
+    result: "선택 표시(파란 바탕)"
+
+  - id: btn-bba-exp-fav
+    label: "☆ / ★ 즐겨찾기"
+    type: button
+    crud: U
+    area: "계정 목록 두 번째 칸"
+    event: onclick
+    front:
+      handler: "bbaExpFav(code)"
+      file: "budget-bulk-add.js:bbaExpFav · bbaFavSet"
+      logic: "자주 쓰는 계정을 즐겨찾기에 넣거나 뺀다(즐겨찾기 설정 수정). 즐겨찾기 계정은 목록 위로 올라간다. 목업은 이 브라우저(localStorage 'bba-exp-fav')에만 기억, 처음 즐겨찾기는 의욕관리비 · 회의비 · 석식대 · 시내교통비 · 세미나개최비"
+      validation: null
+      state_writes: [BBA_FAV_MEM, "localStorage bba-exp-fav"]
+    backend: { api: "POST /publicCostAccounts (AS-IS bmJsn 즐겨찾기 저장)", note: "실서비스는 사용자 · 프로젝트별 즐겨찾기 저장 API" }
+    result: "★ 표시 · 목록 순서 갱신"
+
+  - id: btn-bba-exp-add-fav
+    label: "★ 즐겨찾기 계정 일괄 추가 (N)"
+    type: button
+    crud: C
+    area: "경비 계정 추가 팝업 아래"
+    event: onclick
+    front:
+      handler: "bbaExpAddFav()"
+      file: "budget-bulk-add.js:bbaExpAddFav → bbaExpAdd"
+      logic: "즐겨찾기 중 아직 편성하지 않은(편성됨 · 입력 중 제외) 계정을 한 번에 추가한다. 괄호 숫자 = 실제로 추가될 계정 수, 0이면 비활성"
+      validation: "추가할 계정 0개 → 비활성 / '추가할 즐겨찾기 계정이 없습니다(모두 편성됐거나 입력 중).'"
+      state_writes: [EXPENSE_ACCOUNT_ROWS_FINAL, BIE_DRAFTS]
+    backend: null
+    result: "계정마다 표 맨 위에 월 입력 행 추가 · 팝업 닫힘 · (리스 확인 대상 포함 시) 리스회계처리 대상 확인 팝업"
+
+  - id: btn-bba-exp-add-sel
+    label: "선택 계정 추가 (N)"
+    type: button
+    crud: C
+    area: "경비 계정 추가 팝업 아래 오른쪽"
+    event: onclick
+    front:
+      handler: "bbaExpAddSel()"
+      file: "budget-bulk-add.js:bbaExpAddSel → bbaExpAdd"
+      logic: "체크한 계정을 추가한다. 프로젝트에 없던 계정은 월 계획 0원 세부계정으로 만들고(중분류 · 통제 여부 포함), 계정마다 표 맨 위에 월 입력 행(budget-inline-edit 임시 행)을 연다. 월 금액을 넣고 표 위 [저장](bieSaveAll → agentExpEdSaveFinal)을 눌러야 반영 — 저장 전 [취소]하면 반영된 것 없음"
+      validation: "선택 0개 → 비활성 / '추가할 계정을 골라 주세요.'"
+      state_writes: [EXPENSE_ACCOUNT_ROWS_FINAL, BIE_DRAFTS]
+    backend: null
+    result: "계정마다 표 맨 위에 월 입력 행 추가 · 'N개 계정을 표 맨 위에 추가했습니다' 토스트 · (리스 확인 대상 포함 시) 리스회계처리 대상 확인 팝업"
+
+  - id: btn-bba-exp-close
+    label: "닫기 / ✕"
+    type: button
+    crud: N
+    area: "경비 계정 추가 팝업 아래 · 오른쪽 위"
+    event: onclick
+    front:
+      handler: "bbaClose()"
+      file: "budget-bulk-add.js:bbaClose"
+      logic: "추가하지 않고 팝업을 닫는다(바깥 클릭 · Esc 동일)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "팝업 닫힘"
+
+  # [2026.11.24] 리스회계처리 대상 확인 — AS-IS LeaseAccountingInfo.vue 대응 (안내만, 저장 · 결재 영향 없음)
+  - id: pop-bba-lease
+    label: "리스회계처리 대상 확인 팝업"
+    type: popup
+    crud: N
+    area: "경비 계정 추가 직후"
+    event: "계정 추가(bbaExpAdd) 시 자동"
+    front:
+      handler: "bbaLeaseOpen(codes)"
+      file: "budget-bulk-add.js:bbaLeaseOpen · BBA_LEASE_CODES · BBA_LEASE_ROWS"
+      logic: "추가한 계정 중 706901 승용차량비 · 711101 사무실임차료 · 706904 현지숙소임차관리비 · 711150 기타임차료 · 625105 HW 사용료(임차료) · 720150 기타광고선전비 · 726301 지급수수료가 있으면 띄운다(AS-IS BodyContent.vue:closeAccountPopup 와 같은 7개). 위에 '추가한 계정 중 OOO은 확인 필요', 안내(재무담당에 계약서 등 송부 · 현업은 기존처럼 AP 처리 · 500만 원 이하 · 1년 이하 제외 가능), 계정별 '리스회계처리 대상 / 대상 아님' 기준 표(앞 3개 계정 기준 칸 병합). 추가한 계정 행은 노란 바탕 + '추가한 계정'. 결과를 저장하지 않고 저장 · 결재를 막지 않는다(AS-IS와 같음)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "안내 표시"
+
+  - id: grid-bba-lease
+    label: "리스 기준 표 (계정번호 · 계정명 · 리스회계처리 대상 · 리스회계 대상 아님)"
+    type: grid
+    crud: R
+    area: "리스회계처리 대상 확인 팝업 가운데"
+    event: null
+    front:
+      handler: null
+      file: "budget-bulk-add.js:bbaLeaseOpen"
+      logic: "AS-IS 문구 그대로 7개 계정의 기준을 보여 준다(조회 전용)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "기준 확인"
+
+  - id: btn-bba-lease-ok
+    label: "확인 / ✕"
+    type: button
+    crud: N
+    area: "리스회계처리 대상 확인 팝업 아래 오른쪽"
+    event: onclick
+    front:
+      handler: "bbaClose()"
+      file: "budget-bulk-add.js:bbaClose"
+      logic: "안내를 닫는다(아무것도 저장하지 않음)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "팝업 닫힘 — 표 맨 위 월 입력 행으로 돌아감"
 
   - id: btn-agent-exp-excel
     label: "⬇ 엑셀"
@@ -531,3 +699,9 @@ requirements:
   - { id: FR-EXP-37, text: "[2026.11.12] Agent 화면 경비 상세의 선택 비우기는 바로 반영하지 않고 '비우기 예정'으로 표시해야 하며(되돌리기 가능), 표 위 [저장]을 눌렀을 때 추가 · 수정과 함께 한 번에 반영되어야 한다" }
   - { id: FR-EXP-38, text: "[2026.11.12] Agent 화면 경비 상세는 지금 고른 상세계정의 예산내역 표(저장된 내역)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
   - { id: FR-EXP-39, text: "[2026.11.12] Agent 화면 경비 상세는 연도 탭(2026 · 2027)의 입력 행을 한 번에 저장해야 하며, 입력 행은 만든 연도 탭에서만 보이고 다른 연도 탭에는 저장 대기 건수가 표시되어야 한다" }
+  - { id: FR-EXP-39, text: "[2026.11.24] 경비 [＋ 경비 편성]은 드롭다운이 아니라 '경비 계정 추가' 팝업에서 계정명 · 계정번호 검색과 체크로 여러 계정을 한 번에 고를 수 있어야 한다" }
+  - { id: FR-EXP-40, text: "경비 계정 추가 팝업은 계정마다 즐겨찾기를 설정 · 해제할 수 있어야 하며, 즐겨찾기 계정을 목록 위에 보여 주고 즐겨찾기만 따로 볼 수 있어야 한다" }
+  - { id: FR-EXP-41, text: "[즐겨찾기 계정 일괄 추가]로 아직 편성하지 않은 즐겨찾기 계정을 한 번에 추가할 수 있어야 하며, 버튼에 실제로 추가될 계정 수를 보여 주어야 한다" }
+  - { id: FR-EXP-42, text: "이미 편성된 계정과 입력 중인 계정은 계정 추가 팝업에서 고를 수 없어야 한다" }
+  - { id: FR-EXP-43, text: "추가한 계정은 계정마다 표 맨 위에 월 입력 행으로 열리고, 표 위 [저장]을 눌렀을 때만 반영되어야 한다" }
+  - { id: FR-EXP-44, text: "추가한 계정에 리스회계처리 확인 대상 계정(706901 · 711101 · 706904 · 711150 · 625105 · 720150 · 726301)이 있으면 리스회계처리 대상 기준과 재무담당 송부 안내를 보여 주어야 하며, 이 안내는 저장 · 결재를 막지 않아야 한다" }
