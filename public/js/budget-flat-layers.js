@@ -188,6 +188,17 @@ if (typeof renderAgentAiTopFinal === 'function') {
     '#s-budget .agent-ga .agga-col .aglb-tabs > button{flex:none !important;min-width:auto !important}',
     '#s-budget .agent-ga .agga-col .aglb-tabs > button .aglb-tabname, #s-budget .agent-ga .agga-col .aglb-tabs > button i{white-space:nowrap}',
     '@media (max-width:1500px){#s-budget .agent-ga .agga-col .aglb-tabs{gap:22px !important;--bfl-tab-gap:22px}}',
+    // ⑰ [2026.11.24] 계정 상세 색 줄이기 — 눈을 끌던 세 가지를 차분하게
+    //   · Agent 안내(외주비 「POP에서 받은…」 · 재료비 「구매 기준」): 파란 상자 → 바탕 · 테두리 없는 회색 안내 한 줄. 강조 낱말은 파랑 대신 굵은 검정
+    '#s-budget .agent-ga .agos-hint{background:transparent !important;border:0 !important;box-shadow:none !important;padding:2px 2px !important;margin:0 0 12px !important;color:#4b5563 !important;font-size:14px !important;line-height:1.6}',
+    '#s-budget .agent-ga .agos-hint > b{background:#eef0f3 !important;color:#4b5563 !important;font-size:12px !important;font-weight:700 !important}',
+    '#s-budget .agent-ga .agos-hint em{color:#1c2432 !important;font-weight:700 !important}',
+    //   · [선택삭제]: 평소엔 다른 버튼과 같은 회색 테두리 · 검정 글씨. 마우스를 올렸을 때만 빨강(지우는 버튼이라는 표시는 그때)
+    '#s-budget .agent-ga .bie-delsel{background:#fff !important;color:#1c2432 !important;border-color:#cbd5e1 !important}',
+    '#s-budget .agent-ga .bie-delsel:hover:not(:disabled){background:#fff5f6 !important;color:#c40025 !important;border-color:#f3c2cc !important}',
+    //   · [＋ SCM확정인력등록]: 쨍한 파랑 꽉 찬 버튼 → 외주비 [＋ 구매계획 등록]과 같은 흰 바탕 · 회색 테두리 버튼 (계정마다 「추가」 버튼 모양을 통일)
+    '#s-budget .agent-ga .aglb-scm-btn{background:#fff !important;color:#1c2432 !important;border-color:#cbd5e1 !important;box-shadow:none !important}',
+    '#s-budget .agent-ga .aglb-scm-btn:hover{background:#f8fafc !important;border-color:#94a3b8 !important}',
     // ⑭ 아무것도 고르지 않았을 때 회색 「고른 것 없음 1,614,256,000」(왼쪽 「지금 수립」과 같은 숫자)과 화살표를 숨김 — 반영하면 나타남
     //   자리는 그대로 두고 안 보이게만(visibility) — 반영할 때 나타나도 옆 계정 칸들이 밀리지 않게
     '#s-budget .agent-ga .agai-figs .agai-fig.idle, #s-budget .agent-ga .agai-figs .agai-arrow:not(.on){visibility:hidden !important}',
