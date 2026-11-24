@@ -231,7 +231,12 @@ if (typeof b2cSplitReset === 'function') {
     T + ' .agai-accts .agai-acct > span{display:block !important;min-height:18px;font-size:13px !important;font-weight:700}',
     T + ' .agai-accts .agai-acct .agai-viewing{display:none !important}',
     //   고른 계정 탭 = 흰 종이 + 계정 색 윗선, 아래 카드 테두리를 1px 덮어 하나로 이어짐
-    T + ' .agai-accts .agai-acct.on{background:#fff !important;top:1px;padding-bottom:11px !important;z-index:2;box-shadow:inset 0 3px 0 var(--acc,#475569) !important}',
+    T + ' .agai-accts .agai-acct.on{background:#fff !important;top:1px;padding-bottom:11px !important;z-index:2;box-shadow:none !important;border-color:#c9ced6 !important;padding-top:14px !important;margin-top:-6px !important}',
+    //   [2026.11.24] 고른 계정 = 흰 폴더가 살짝 올라와 아래 패널과 이어짐(색 윗선 없음 — 아래 세부 탭 밑줄과 선이 두 겹 되지 않게).
+    //   안 고른 계정 = 한 단계 어두운 회색 칸 + 진한 회색 이름 · 금액(대비 6.2 — 읽기는 편하고 고른 칸의 검정만 튀게). 계정색은 이름 앞 점에만
+    T + ' .agai-accts .agai-acct:not(.on){background:#e6e9ee !important}',
+    T + ' .agai-accts .agai-acct:not(.on) em{color:#4b5563 !important;font-weight:600 !important}',
+    T + ' .agai-accts .agai-acct:not(.on) b{color:#4b5563 !important;font-weight:700 !important}',
     T + ' .agai-accts .agai-acct.on em, ' + T + ' .agai-accts .agai-acct.on b{color:#1c2432 !important}',
     //   프로젝트 메인(아직 계정을 안 고름): 아래가 열린 탭이 떠 보이지 않게 테두리 다 있는 흰 카드로. 누르면 탭으로 열림
     '#s-budget .agent-ga.agent-ga:not(.dd-detail) .agai-top.agai-top .agai-accts{gap:10px !important}',

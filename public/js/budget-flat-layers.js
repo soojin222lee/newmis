@@ -54,23 +54,23 @@ if (typeof AGENT_ACCT_TONE_FINAL !== 'undefined') {
     S + ' .agga-col.detail.acc{border:1px solid #dde2e9 !important;box-shadow:none !important}',
     S + ' .agga-col.detail.acc > .agga-col-head{background:#fff !important;border-bottom-color:#e5e8ed !important}',
 
-    // ── ④ 인건비 01~03 · 외주비 01~06 큰 카드 → 폴더 탭 ──
-    //   제목 줄(인건비 예산내역) 바로 아래 패널 폭 전체에 붙인 회색 띠. 고른 탭만 흰색이 되어 아래 표와 한 장으로 이어지고 계정색 윗선
-    //   탭은 연한 세로선으로 나누고, 많아도(외주비 6개) 가로 스크롤 없이 칸을 나눠 한 줄에 맞춘다 (budget-ui-unify.js 의 5개 이상 가로 스크롤을 덮음)
-    S + ' .agga-col .aglb-tabs{display:flex !important;gap:0 !important;background:#fff !important;border-bottom:1px solid #e5e8ed;margin:0 0 14px !important;grid-template-columns:none !important;overflow:visible !important;padding-bottom:0 !important}',
-    S + ' .agga-col.detail .agga-col-body > .aglb-tabs{margin:-14px -15px 14px !important}',
-    S + ' .agga-col .aglb-tabs > button{flex:1 1 0 !important;min-width:0 !important;border:0 !important;border-bottom:1px solid #e5e8ed !important;border-radius:0 !important;background:transparent !important;box-shadow:none !important;padding:11px 14px 9px !important;margin-bottom:-1px;color:#475569 !important;display:flex !important;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;height:auto !important;text-align:left}',
-    S + ' .agga-col .aglb-tabs > button:first-child{padding-left:16px !important}',
-    S + ' .agga-col .aglb-tabs > button + button{border-left:1px solid #e5e8ed !important}',
+    // ── ④ 인건비 01~03 · 외주비 01~06 큰 카드 → 글자 + 밑줄 탭 ──
+    //   [2026.11.24] 위 계정 폴더 탭과 같은 모양(칸 + 색 윗선)이라 탭 안에 탭이 겹쳐 보이던 문제 → 칸 · 바탕 · 세로선을 모두 빼고 글자만.
+    //   위 = 면(흰 폴더), 아래 = 선(밑줄)으로 구분. 고른 탭 = 굵은 검정 글자 + 계정색 밑줄(위 계정 점과 같은 색으로 이어짐). 넉넉한 간격으로 한 줄
+    S + ' .agga-col .aglb-tabs, ' + S + ' .agga-col.detail .agga-col-body > .aglb-tabs{display:flex !important;flex-wrap:nowrap;gap:30px !important;background:transparent !important;border:0 !important;border-bottom:1px solid #d5dae1 !important;border-radius:0 !important;padding:0 4px !important;margin:6px 0 20px !important;grid-template-columns:none !important;overflow:visible !important}',
+    S + ' .agga-col .aglb-tabs > button{flex:none !important;min-width:0 !important;display:flex !important;flex-direction:column !important;align-items:flex-start !important;justify-content:center;gap:3px !important;height:auto !important;text-align:left;border:0 !important;border-bottom:4px solid transparent !important;border-radius:0 !important;background:transparent !important;box-shadow:none !important;padding:10px 2px 11px !important;margin:0 0 -1px !important}',
     S + ' .agga-col .aglb-tabs > button em{display:none !important}',
-    S + ' .agga-col .aglb-tabs > button .aglb-tabname{font-size:14px;font-weight:700;line-height:1.3;word-break:keep-all}',
-    S + ' .agga-col .aglb-tabs > button i{color:#64748b !important;font-style:normal;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}',
-    S + ' .agga-col .aglb-tabs > button:hover{color:#1c2432 !important;background:#f8fafc !important}',
-    S + ' .agga-col .aglb-tabs > button:not(.on) .aglb-tabname, ' + S + ' .agga-col .aglb-tabs > button:not(.on) i{color:#8590a2 !important}',
-    S + ' .agga-col .aglb-tabs > button.on{background:var(--acc-bg,#fff) !important;color:#0f172a !important;border-bottom-color:transparent !important;box-shadow:inset 0 3px 0 var(--acc,#1d4ed8) !important}',
-    S + ' .agga-col .aglb-tabs > button.on + button, ' + S + ' .agga-col .aglb-tabs > button + button.on{border-left-color:#dfe3e9 !important}',
-    S + ' .agga-col .aglb-tabs > button.on .aglb-tabname{font-weight:900}',
-    S + ' .agga-col .aglb-tabs > button.on i{color:#1c2432 !important;font-weight:900}',
+    //   항목 사이 짧고 연한 세로선(글자 높이의 반쯤) — 칸처럼 보이지 않게 위아래는 띄우고, 간격(gap)의 한가운데에
+    S + ' .agga-col .aglb-tabs{--bfl-tab-gap:30px}',
+    S + ' .agga-col .aglb-tabs > button{position:relative}',
+    S + ' .agga-col .aglb-tabs > button + button::before{content:"";position:absolute;left:calc(var(--bfl-tab-gap) / -2);top:32%;height:36%;width:1px;background:#a3abb7}',
+    S + ' .agga-col .aglb-tabs > button .aglb-tabname{font-size:15px !important;font-weight:500 !important;line-height:1.3;word-break:keep-all;color:#4b5563 !important}',
+    S + ' .agga-col .aglb-tabs > button i{font-style:normal;font-size:13.5px !important;font-weight:400 !important;font-variant-numeric:tabular-nums;color:#5b6576 !important}',
+    S + ' .agga-col .aglb-tabs > button:hover{background:transparent !important}',
+    S + ' .agga-col .aglb-tabs > button:hover .aglb-tabname{color:#1c2432 !important}',
+    S + ' .agga-col .aglb-tabs > button.on{border-bottom-color:var(--acc,#1c2432) !important}',
+    S + ' .agga-col .aglb-tabs > button.on .aglb-tabname{color:#111827 !important;font-weight:800 !important}',
+    S + ' .agga-col .aglb-tabs > button.on i{color:#111827 !important;font-weight:700 !important}',
 
     // ── ⑤ 인력표 · 투입 일정 상자 제거 ──
     S + ' .aglb-wrap{border:0 !important;border-radius:0 !important;background:transparent !important;box-shadow:none !important;border-top:1px solid #e5e8ed !important}',
@@ -184,10 +184,10 @@ if (typeof renderAgentAiTopFinal === 'function') {
     '#s-budget .agent-ga .agga-col.detail table.aglb td > .agos-caret{position:absolute;left:8px;top:15px}',
     //   글자 칸 낱말 = 끊기지 않는 덩어리(아래 bflWrapTokens) → 날짜 · 품번의 하이픈(-)이나 단어 중간에서 줄이 끊기지 않음
     '#s-budget .agent-ga .agga-col.detail table.aglb .bfl-tok{white-space:nowrap}',
-    //   탭: 똑같은 폭으로 나누면 긴 이름(전문직수수료/제안/기타)이 옆 탭으로 넘쳐 겹침 → 이름 길이만큼 폭을 갖고 남는 폭을 나눔. 좁은 화면은 여백 · 글씨 조금 줄임
-    '#s-budget .agent-ga .agga-col .aglb-tabs > button{flex:1 1 auto !important;min-width:auto !important}',
+    //   탭: [2026.11.24] 글자 + 밑줄 탭 — 이름 길이만큼만 폭을 갖고(늘이지 않음) 넉넉한 간격으로 나열. 좁은 화면은 간격만 줄임(글씨는 40~50대 사용자 기준으로 줄이지 않음)
+    '#s-budget .agent-ga .agga-col .aglb-tabs > button{flex:none !important;min-width:auto !important}',
     '#s-budget .agent-ga .agga-col .aglb-tabs > button .aglb-tabname, #s-budget .agent-ga .agga-col .aglb-tabs > button i{white-space:nowrap}',
-    '@media (max-width:1500px){#s-budget .agent-ga .agga-col .aglb-tabs > button{padding:10px 10px 9px !important}#s-budget .agent-ga .agga-col .aglb-tabs > button:first-child{padding-left:14px !important}#s-budget .agent-ga .agga-col .aglb-tabs > button .aglb-tabname, #s-budget .agent-ga .agga-col .aglb-tabs > button i{font-size:13px !important}}',
+    '@media (max-width:1500px){#s-budget .agent-ga .agga-col .aglb-tabs{gap:22px !important;--bfl-tab-gap:22px}}',
     // ⑭ 아무것도 고르지 않았을 때 회색 「고른 것 없음 1,614,256,000」(왼쪽 「지금 수립」과 같은 숫자)과 화살표를 숨김 — 반영하면 나타남
     //   자리는 그대로 두고 안 보이게만(visibility) — 반영할 때 나타나도 옆 계정 칸들이 밀리지 않게
     '#s-budget .agent-ga .agai-figs .agai-fig.idle, #s-budget .agent-ga .agai-figs .agai-arrow:not(.on){visibility:hidden !important}',
