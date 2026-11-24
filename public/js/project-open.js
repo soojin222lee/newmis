@@ -15,6 +15,10 @@
 //   남주 버전(feature/nj, 현행 W/G관리 기준)에만 있던 기능을 붙였습니다.
 //     · 목록: 체크박스 · 엑셀 업로드(오류 행 표시 · 오류 팝업) · ⬇ 엑셀 · 템플릿 · 선택삭제 · 선택등록(등록 후 올린 행 정리) · 확인창
 //     · 정보관리 / 비용승인 탭: 저장 · 삭제 · 비용변경(새 버전) · 승인요청(메모 필수) · 기안취소 를 실제로 동작(이전엔 안내 토스트만)
+// - [2026.11.24 · 남주] W/G 담당 부서 개선의견 회신(구현 예정 항목) 반영
+//     · 5번 검색 조건에 Account 담당자 추가 (popenF.acc · popenAccMgr)
+//     · 6번 목록에 프로젝트 상태(수행/종료) 표시 — 등록 완료된 프로젝트만, 종료일 기준 (popenPrjSts)
+//     · 9번 목록에 최종승인일자 추가 — 개설 승인·비용변경 승인 중 가장 최근 승인일 (popenLastApproval)
 
 let popenView = 'list';    // 'list' | 'detail' | 'new'
 let popenChecked = {};     // 목록 체크 (엑셀 업로드 행은 'U0', 'U1' …)
@@ -23,7 +27,7 @@ let popenErrPopup = null;  // 업로드 오류 팝업 대상 행 index
 let popenConfirm = null;   // 확인 창 { msg, ok }
 let popenSelectedId = null;
 let popenSearch = '';
-let popenF = { no:'', nm:'', pm:'', date:'', type:'', sts:'' };   // 검색 패널 — [조회] 시 적용된 조건
+let popenF = { no:'', nm:'', pm:'', acc:'', date:'', type:'', sts:'' };   // 검색 패널 — [조회] 시 적용된 조건
 let popenStatusFilter = '';
 let popenTypeFilter = '';
 let popenNewType = 'W/G';  // 신규 신청 유형
@@ -57,7 +61,7 @@ const POPEN_APPS = {
     type:'W/G', name:'2026년_차세대 ERP 고도화 W/G', reqDept:'AX ERP사업부 1팀',
     requester:'류준서(21043)', requestDate:'2026-10-02 10:14',
     period:'2026-11-01 ~ 2027-10-31', overview:'차세대 ERP 전환 대비 W/G 선행 과제 수행을 위한 개설 신청.',
-    approvalStatus:'개설 승인 대기', regStatus:'미등록', projectNo:'(승인 완료 후 부여)',
+    approvalStatus:'개설 승인 대기', regStatus:'미등록', projectNo:'(승인 완료 후 부여)', accMgr:'장재호(15025)',
     steps:[
       { role:'기안', part:'PM',               name:'류준서(21043)', date:'2026-10-02 10:14', status:'기안' },
       { role:'협조', part:'Account WG담당자', name:'장재호(15025)', date:'2026-10-02 11:20', status:'승인' },
@@ -82,10 +86,10 @@ const POPEN_APPS = {
     type:'W/G', name:'2026년_보안관제 자동화 W/G', reqDept:'보안사업부',
     requester:'한지민(21088)', requestDate:'2026-09-20 09:05',
     period:'2026-10-15 ~ 2027-09-30', overview:'보안관제 업무 자동화 W/G 수행을 위한 개설 신청.',
-    approvalStatus:'개설 승인 완료', regStatus:'미등록', projectNo:'(등록 처리 중)',
+    approvalStatus:'개설 승인 완료', regStatus:'미등록', projectNo:'(등록 처리 중)', accMgr:'이강혁(09753)',
     steps:[
       { role:'기안', part:'PM',               name:'한지민(21088)', date:'2026-09-20 09:05', status:'기안' },
-      { role:'협조', part:'Account WG담당자', name:'장재호(15025)', date:'2026-09-20 10:40', status:'승인' },
+      { role:'협조', part:'Account WG담당자', name:'이강혁(09753)', date:'2026-09-20 10:40', status:'승인' },
       { role:'검토', part:'팀장',              name:'신성호(13016)', date:'2026-09-21 09:12', status:'승인' },
       { role:'승인', part:'담당임원',          name:'권재준(60521)', date:'2026-09-22 15:30', status:'승인' },
     ],
@@ -107,7 +111,7 @@ const POPEN_APPS = {
     type:'W/G', name:'2026년_데이터레이크 구축 W/G', reqDept:'데이터사업부',
     requester:'이수연(21055)', requestDate:'2026-08-28 11:02',
     period:'2026-09-10 ~ 2027-08-31', overview:'전사 데이터레이크 구축 선행 W/G 수행을 위한 개설 신청.',
-    approvalStatus:'개설 승인 완료', regStatus:'등록완료', projectNo:'70007588-D031',
+    approvalStatus:'개설 승인 완료', regStatus:'등록완료', projectNo:'70007588-D031', accMgr:'장재호(15025)',
     steps:[
       { role:'기안', part:'PM',               name:'이수연(21055)', date:'2026-08-28 11:02', status:'기안' },
       { role:'협조', part:'Account WG담당자', name:'장재호(15025)', date:'2026-08-28 13:15', status:'승인' },
@@ -116,7 +120,59 @@ const POPEN_APPS = {
     ],
     rejectReason:'',
   },
+  // [2026.11.24] 프로젝트 상태 '종료' 예시 — 기간이 끝난 등록 완료 W/G
+  'OPN-006': {
+    type:'W/G', name:'2025년_통합 모니터링 체계 구축 W/G', reqDept:'Cloud사업부',
+    requester:'류준서(21043)', requestDate:'2025-02-10 09:30',
+    period:'2025-03-01 ~ 2026-06-30', overview:'통합 모니터링 체계 구축 선행 W/G 수행을 위한 개설 신청.',
+    approvalStatus:'개설 승인 완료', regStatus:'등록완료', projectNo:'70007560-D081', accMgr:'이강혁(09753)',
+    steps:[
+      { role:'기안', part:'PM',               name:'류준서(21043)', date:'2025-02-10 09:30', status:'기안' },
+      { role:'협조', part:'Account WG담당자', name:'이강혁(09753)', date:'2025-02-10 14:05', status:'승인' },
+      { role:'검토', part:'팀장',              name:'신성호(13016)', date:'2025-02-11 10:20', status:'승인' },
+      { role:'승인', part:'담당임원',          name:'권재준(60521)', date:'2025-02-12 16:40', status:'승인' },
+    ],
+    rejectReason:'',
+  },
 };
+
+// ── [2026.11.24] 목록 표시값 — Account 담당자 · 프로젝트 상태 · 최종승인일자 ──
+// 결재선 행 펼치기 — 상세 결재선은 [{rows:[…]}] 묶음과 행 배열 두 모양이 섞여 있음
+function popenWho(v) {
+  const m = /^(.*?)\((.+)\)$/.exec(String(v || ''));
+  return m ? m[1] + '<span class="popen-l2">' + m[2] + '</span>' : String(v || '');
+}
+function popenWhen(v) {
+  const p = String(v || '').split(' ');
+  return p[0] + (p[1] ? '<span class="popen-l2">' + p[1] + '</span>' : '');
+}
+function popenLineRows(id) {
+  const w = (typeof POPEN_WGX !== 'undefined' && POPEN_WGX[id]) || null;
+  if (!w || !w.lines) return [];
+  return w.lines.reduce(function (acc, l) { return acc.concat(l.rows || [l]); }, []);
+}
+// Account 담당자 — 신청 데이터 → 개설 결재선 → 상세 결재선 순으로 찾음. 사내 프로젝트는 없음('')
+function popenAccMgr(a, id) {
+  if (a.accMgr) return a.accMgr;
+  const s = (a.steps || []).find(function (x) { return /Account/.test(x.part || ''); });
+  if (s) return s.name;
+  const r = popenLineRows(id).find(function (x) { return /Account WG/.test(x.unit || ''); });
+  return r ? r.approver : '';
+}
+// 프로젝트 상태(TC) — 등록 완료된 프로젝트만. 종료일이 지났으면 '종료', 아니면 '수행'. 등록 전이면 ''
+function popenPrjSts(a, id) {
+  if (a.regStatus !== '등록완료') return '';
+  const w = (typeof POPEN_WGX !== 'undefined' && POPEN_WGX[id]) || {};
+  const end = String(w.end || String(a.period || '').split('~')[1] || '').trim();
+  const today = new Date().toISOString().slice(0, 10);
+  return (end && end < today) ? '종료' : '수행';
+}
+// 최종승인일자 — 개설 승인 · 비용변경 승인 중 '승인' 단계가 승인된 가장 최근 날짜. 없으면 ''
+function popenLastApproval(a, id) {
+  const ds = (a.steps || []).filter(function (x) { return x.role === '승인' && x.status === '승인' && x.date; }).map(function (x) { return x.date; })
+    .concat(popenLineRows(id).filter(function (x) { return x.role === '승인' && x.status === '승인' && x.date; }).map(function (x) { return x.date; }));
+  return ds.length ? ds.sort().pop().slice(0, 10) : '';
+}
 
 function popenInjectStyle() {
   if (document.getElementById('popen-style')) return;
@@ -129,14 +185,22 @@ function popenInjectStyle() {
    .popen-flow{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 4px}
    .popen-fstep{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#64748b;background:#f8fafc;border:1px solid #e5e7eb;border-radius:99px;padding:4px 11px}
    .popen-fstep i{font-style:normal;color:#cbd5e1}
-   .popen-search{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin:12px 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:10px 14px;align-items:end}
+   .popen-search{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin:12px 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px 14px;align-items:end}
    .popen-sf label{display:block;font-size:11.5px;font-weight:800;color:#475569;margin-bottom:4px}
    .popen-sf input,.popen-sf select{width:100%;height:34px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:0 10px;font-size:12.5px;font-family:inherit;color:#0f172a;background:#fff}
    .popen-sf input[readonly]{cursor:pointer}
    .popen-sfin{display:flex;gap:6px}
    .popen-sfic{flex:0 0 34px;height:34px;border:1px solid #d1d5db;border-radius:8px;background:#f8fafc;color:#475569;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
    .popen-sfic:hover{background:#eef2f7}
-   .popen-sbtns{display:flex;flex-direction:column;gap:6px;grid-column:4;grid-row:1 / span 2;align-self:center}
+   .popen-psts{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:800;white-space:nowrap}
+   .popen-psts.run{background:#e0f2fe;color:#0369a1}
+   .popen-psts.end{background:#f1f5f9;color:#475569}
+   .popen-dash{color:#cbd5e1}
+   #s-project-open .popen-table td{padding:10px 9px;white-space:nowrap;vertical-align:middle}
+   #s-project-open .popen-table th{padding:11px 9px}
+   #s-project-open .popen-table td.popen-tdname{white-space:normal;min-width:190px}
+   .popen-l2{display:block;font-size:12px;color:#94a3b8;margin-top:2px;font-weight:500}
+   .popen-sbtns{display:flex;flex-direction:column;gap:6px;grid-column:5;grid-row:1 / span 2;align-self:center}
    .popen-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin:12px 0}
    .popen-toolbar input,.popen-toolbar select{border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;color:#0f172a;background:#fff}
    .popen-toolbar input{flex:1;min-width:180px}
@@ -217,6 +281,7 @@ function popenFilter() {
     if (f.no && !low((wg.code || '') + ' ' + a.projectNo).includes(low(f.no.trim()))) return false;
     if (f.nm && !low(a.name).includes(low(f.nm.trim()))) return false;
     if (f.pm && !low((wg.pm || '') + ' ' + a.requester).includes(low(f.pm.trim()))) return false;
+    if (f.acc && !low(popenAccMgr(a, a.id)).includes(low(f.acc.trim()))) return false;
     if (f.date && String(a.requestDate || '').slice(0, 10) !== f.date) return false;
     if (f.type && a.type !== f.type) return false;
     if (f.sts && popenDisplayStatus(a) !== f.sts) return false;
@@ -247,31 +312,36 @@ function renderProjectOpen() {
     const ss = POPEN_STATUS_STYLE[disp] || POPEN_STATUS_STYLE['개설 신청'];
     const tc = POPEN_TYPE_COLOR[a.type] || '#64748b';
     const reg = a.regStatus === '등록완료'
-      ? '<span class="popen-regbadge done">등록완료 · ' + a.projectNo + '</span>'
+      ? '<span class="popen-regbadge done">등록완료</span><span class="popen-l2">' + a.projectNo + '</span>'
       : '<span class="popen-regbadge">미등록</span>';
+    const dash = '<span class="popen-dash">-</span>';
+    const acc = popenAccMgr(a, a.id), lastAp = popenLastApproval(a, a.id), psts = popenPrjSts(a, a.id);
     const reApply = a.approvalStatus === '반려'
       ? '<button class="popen-btn warn" style="padding:5px 10px;font-size:11.5px" onclick="popenReapply(\'' + a.id + '\')">재신청</button>' : '';
     return '<tr>'
       + '<td><input type="checkbox"' + (popenChecked[a.id] ? ' checked' : '') + ' onclick="popenCheck(\'' + a.id + '\',this.checked)"></td>'
-      + '<td><div class="popen-pname">' + a.name + '</div><div style="font-size:11px;color:#94a3b8">' + a.reqDept + '</div></td>'
+      + '<td class="popen-tdname"><div class="popen-pname">' + a.name + '</div><div style="font-size:11px;color:#94a3b8">' + a.reqDept + '</div></td>'
       + '<td><span class="popen-tbadge" style="background:' + tc + '22;color:' + tc + '">' + a.type + '</span></td>'
-      + '<td>' + a.requester + '</td>'
-      + '<td style="color:#64748b">' + a.requestDate + '</td>'
+      + '<td>' + popenWho(a.requester) + '</td>'
+      + '<td>' + (acc ? popenWho(acc) : dash) + '</td>'
+      + '<td style="color:#64748b">' + popenWhen(a.requestDate) + '</td>'
       + '<td><span class="popen-sbadge" style="background:' + ss.bg + ';color:' + ss.color + '">' + disp + '</span></td>'
+      + '<td style="color:#64748b;white-space:nowrap">' + (lastAp || dash) + '</td>'
       + '<td>' + reg + '</td>'
+      + '<td>' + (psts ? '<span class="popen-psts ' + (psts === '종료' ? 'end' : 'run') + '">' + psts + '</span>' : dash) + '</td>'
       + '<td style="white-space:nowrap"><button class="popen-link" onclick="popenOpenDetail(\'' + a.id + '\')">상세</button> ' + reApply + '</td>'
       + '</tr>';
-  }).join('') : (popenUploaded.length ? '' : '<tr><td colspan="8" class="popen-empty">조건에 맞는 개설 신청이 없습니다.</td></tr>');
+  }).join('') : (popenUploaded.length ? '' : '<tr><td colspan="11" class="popen-empty">조건에 맞는 개설 신청이 없습니다.</td></tr>');
   // [합침] 엑셀로 올린 행 — 목록 맨 위. 오류 행도 체크해 [선택삭제]할 수 있고, [선택등록]은 오류 행을 건너뜀
   const up = popenUploaded.map(function (r, i) {
     const err = r.errors.length > 0;
     return '<tr class="' + (err ? 'err' : 'new') + '">'
       + '<td><input type="checkbox"' + (popenChecked['U' + i] ? ' checked' : '') + ' onclick="popenCheck(\'U' + i + '\',this.checked)"></td>'
-      + '<td><div class="popen-pname">' + popenEsc(r.name) + '</div><div style="font-size:11px;color:#94a3b8">엑셀 업로드 · ' + popenEsc(r.no) + '</div></td>'
+      + '<td class="popen-tdname"><div class="popen-pname">' + popenEsc(r.name) + '</div><div style="font-size:11px;color:#94a3b8">엑셀 업로드 · ' + popenEsc(r.no) + '</div></td>'
       + '<td><span class="popen-tbadge" style="background:#b4530922;color:#b45309">W/G</span></td>'
-      + '<td>' + popenEsc(r.pm) + (r.pmNo ? '(' + popenEsc(r.pmNo) + ')' : '') + '</td><td style="color:#64748b">-</td>'
+      + '<td>' + popenEsc(r.pm) + (r.pmNo ? '(' + popenEsc(r.pmNo) + ')' : '') + '</td><td style="color:#64748b">-</td><td style="color:#64748b">-</td>'
       + '<td>' + (err ? '<button class="popen-errbtn" onclick="popenShowErr(' + i + ')">오류</button>' : '<span class="popen-regbadge">등록 전</span>') + '</td>'
-      + '<td></td><td></td></tr>';
+      + '<td></td><td></td><td></td><td></td></tr>';
   }).join('');
   const total = rows.length + popenUploaded.length;
 
@@ -286,6 +356,8 @@ function renderProjectOpen() {
     + '<div class="popen-sf"><label>프로젝트명</label><input id="popen-f-nm" value="' + popenEsc(popenF.nm) + '" onkeydown="if(event.key===\'Enter\')popenDoSearch()"></div>'
     + '<div class="popen-sf"><label>PM</label><div class="popen-sfin"><input id="popen-f-pm" readonly placeholder="사원 검색" value="' + popenEsc(popenF.pm) + '" onclick="popenOpenMemberSearch(\'popen-f-pm\')">'
     + '<button class="popen-sfic" title="사원 검색" onclick="popenOpenMemberSearch(\'popen-f-pm\')">' + POPEN_WGX_SEARCH + '</button></div></div>'
+    + '<div class="popen-sf"><label>Account 담당자</label><div class="popen-sfin"><input id="popen-f-acc" placeholder="이름 입력 또는 검색" value="' + popenEsc(popenF.acc) + '" onkeydown="if(event.key===\'Enter\')popenDoSearch()">'
+    + '<button class="popen-sfic" title="사원 검색" onclick="popenOpenMemberSearch(\'popen-f-acc\')">' + POPEN_WGX_SEARCH + '</button></div></div>'
     + '<div class="popen-sbtns"><button class="popen-btn pri" onclick="popenDoSearch()">조회</button><button class="popen-btn" onclick="popenResetFilter()">초기화</button></div>'
     + '<div class="popen-sf"><label>등록일</label><input id="popen-f-date" type="date" value="' + popenEsc(popenF.date) + '"></div>'
     + '<div class="popen-sf"><label>유형</label><select id="popen-f-type">' + typeOpts + '</select></div>'
@@ -300,7 +372,7 @@ function renderProjectOpen() {
     + '<button class="popen-btn pri" onclick="popenRegChecked()">선택등록</button></div>'
     + '<div class="popen-guide">※ 여러 건은 템플릿을 내려받아 작성한 뒤 엑셀 업로드 → 선택등록. 한 건은 "+ 신규 개설 신청"</div>'
     + '<table class="popen-table"><thead><tr>'
-    + '<th style="width:34px"></th><th>프로젝트</th><th>유형</th><th>신청자</th><th>신청일시</th><th>승인 상태</th><th>등록 상태</th><th></th>'
+    + '<th style="width:34px"></th><th>프로젝트</th><th>유형</th><th>신청자</th><th>Account 담당자</th><th>신청일시</th><th>승인 상태</th><th title="개설 승인 · 비용변경 승인 중 가장 최근 승인일">최종승인일자</th><th>등록 상태</th><th title="등록 완료된 프로젝트의 수행 상태 — 종료일이 지나면 종료">프로젝트 상태</th><th></th>'
     + '</tr></thead><tbody>' + up + body + '</tbody></table>'
     + '<div class="popen-note">※ <b>개설</b>은 승인을 요청하는 업무 절차, <b>등록</b>은 MIS에 정식 생성되는 결과입니다. 두 상태는 별개로 관리됩니다.<br>'
     + '※ 승인 권한·결재 단계·프로젝트 번호 생성 시점은 정책 확정 전 임시 구성이며 추후 변경될 수 있습니다.</div>'
@@ -948,11 +1020,11 @@ function popenRenderOrg() {
 function popenOnSearch(v) { popenSearch = v; renderProjectOpen(); }
 function popenOnStatus(v) { popenStatusFilter = v; renderProjectOpen(); }
 function popenOnType(v)   { popenTypeFilter = v; renderProjectOpen(); }
-function popenResetFilter() { popenF = { no:'', nm:'', pm:'', date:'', type:'', sts:'' }; renderProjectOpen(); }
+function popenResetFilter() { popenF = { no:'', nm:'', pm:'', acc:'', date:'', type:'', sts:'' }; renderProjectOpen(); }
 // [조회] — 입력칸 값을 읽어 조건 적용 (PM 칸은 사원 검색 팝업이 이름을 넣음)
 function popenDoSearch() {
   const v = function (id) { const el = document.getElementById(id); return el ? el.value : ''; };
-  popenF = { no: v('popen-f-no'), nm: v('popen-f-nm'), pm: v('popen-f-pm'), date: v('popen-f-date'), type: v('popen-f-type'), sts: v('popen-f-sts') };
+  popenF = { no: v('popen-f-no'), nm: v('popen-f-nm'), pm: v('popen-f-pm'), acc: v('popen-f-acc'), date: v('popen-f-date'), type: v('popen-f-type'), sts: v('popen-f-sts') };
   renderProjectOpen();
 }
 function popenOpenDetail(id) {

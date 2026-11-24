@@ -1,0 +1,299 @@
+# rawdata: 프로젝트 개설 관리 — 목록 화면 (W/G · 사내 개설 신청)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# 범위: 목록 화면(검색 패널 · 도구줄 · 목록 표). 상세(정보관리 · 비용승인 탭)와 신규 등록 폼은 이 파일 범위 밖입니다.
+# [2026.11.24 · 남주] W/G 담당 부서 개선의견 회신 '구현 예정' 5 · 6 · 9번 반영하며 작성.
+
+screen:
+  id: s-project-open
+  name: 프로젝트 개설 관리 (W/G · 사내 개설 신청 목록)
+  menu_path: 프로젝트 > 프로젝트 개설 관리
+  route: "탭 화면 s-project-open (app-tabs.js 'showProjectOpen')"
+  entry: "showProjectOpen() → renderProjectOpen()"
+  source_files:
+    - public/js/project-open.js      # 렌더 · 핸들러 · 목업 데이터 · 전용 스타일(popen-*)
+    - public/js/project-status.js    # 사원 검색 모달(PSV_MEMBERS · psvShowModal) 재사용
+  purpose: >
+    W/G · 사내 프로젝트의 개설 신청을 조회하고, 엑셀(여러 건) 또는 화면 입력(한 건)으로 새로 등록하는 목록 화면.
+    수주형 · 제안 · 투자 · 선투입은 선행 시스템에서 자동 등록되어 이 화면 대상이 아니다.
+
+# ── 화면 상태 ──
+states:
+  - id: list
+    when: "popenView == 'list'"
+    shows: [검색 패널, 도구줄, 목록 표]
+  - id: list-uploaded
+    when: "popenUploaded.length > 0"
+    shows: ["엑셀로 올린 행이 목록 맨 위에 표시(정상 행 '등록 전' · 오류 행 노란 바탕 + [오류])"]
+  - id: filtered
+    when: "popenF 조건 중 하나라도 값이 있음"
+    shows: ["조건에 맞는 신청만 표시 · 없으면 '조건에 맞는 개설 신청이 없습니다.'"]
+
+# ── 요소 인벤토리 ──
+elements:
+  # 검색 패널
+  - id: input-popen-no
+    label: 프로젝트번호
+    type: input(text)
+    crud: R
+    area: 검색 패널
+    event: "onkeydown(Enter)"
+    front: { handler: "popenDoSearch()", file: "project-open.js:popenDoSearch", logic: "상세 프로젝트번호(code) + 신청 프로젝트번호 부분 일치", state_writes: [popenF.no] }
+    backend: null
+  - id: input-popen-nm
+    label: 프로젝트명
+    type: input(text)
+    crud: R
+    area: 검색 패널
+    event: "onkeydown(Enter)"
+    front: { handler: "popenDoSearch()", file: "project-open.js:popenDoSearch", logic: "신청 프로젝트명 부분 일치", state_writes: [popenF.nm] }
+    backend: null
+  - id: input-popen-pm
+    label: PM (사원 검색)
+    type: input(readonly)
+    crud: R
+    area: 검색 패널
+    event: onclick
+    front: { handler: "popenOpenMemberSearch('popen-f-pm')", file: "project-open.js:popenOpenMemberSearch", logic: "사원 검색 모달에서 고른 이름을 넣고, [조회] 때 상세 PM + 신청자 부분 일치", state_writes: [popenF.pm] }
+    backend: null
+  - id: btn-popen-pm-search
+    label: PM 사원 검색(돋보기)
+    type: button(icon)
+    crud: N
+    area: 검색 패널
+    event: onclick
+    front: { handler: "popenOpenMemberSearch('popen-f-pm')", file: "project-open.js:popenOpenMemberSearch", logic: "구성원 검색 모달 열기(이름 · 사번 검색)" }
+    backend: null
+  - id: input-popen-acc
+    label: Account 담당자
+    type: input(text)
+    crud: R
+    area: 검색 패널
+    event: "onkeydown(Enter)"
+    front:
+      handler: "popenDoSearch()"
+      file: "project-open.js:popenFilter · popenAccMgr"
+      logic: "이름을 직접 입력하거나 사원 검색으로 넣고, popenAccMgr(신청 accMgr → 개설 결재선 Account WG담당자 → 상세 결재선) 값과 부분 일치"
+      state_writes: [popenF.acc]
+    backend: null
+    note: "[2026.11.24] W/G 개선의견 5번(구현 예정) 반영"
+  - id: btn-popen-acc-search
+    label: Account 담당자 사원 검색(돋보기)
+    type: button(icon)
+    crud: N
+    area: 검색 패널
+    event: onclick
+    front: { handler: "popenOpenMemberSearch('popen-f-acc')", file: "project-open.js:popenOpenMemberSearch", logic: "구성원 검색 모달 열기 → 고른 이름을 Account 담당자 칸에 넣음" }
+    backend: null
+  - id: input-popen-date
+    label: 등록일
+    type: input(date)
+    crud: R
+    area: 검색 패널
+    event: "[조회] 때 적용"
+    front: { handler: "popenDoSearch()", file: "project-open.js:popenFilter", logic: "신청일시 날짜와 같은 날만", state_writes: [popenF.date] }
+    backend: null
+  - id: select-popen-type
+    label: 유형 (전체 · W/G · 사내)
+    type: select
+    crud: R
+    area: 검색 패널
+    event: "[조회] 때 적용"
+    front: { handler: "popenDoSearch()", file: "project-open.js:popenFilter", state_writes: [popenF.type] }
+    backend: null
+  - id: select-popen-sts
+    label: 상태 (전체 · 개설 신청 · 개설 승인 대기 · 개설 승인 완료 · 반려 · 프로젝트 등록 완료)
+    type: select
+    crud: R
+    area: 검색 패널
+    event: "[조회] 때 적용"
+    front: { handler: "popenDoSearch()", file: "project-open.js:popenFilter · popenDisplayStatus", state_writes: [popenF.sts] }
+    backend: null
+  - id: btn-popen-search
+    label: 조회
+    type: button
+    crud: R
+    area: 검색 패널
+    event: onclick
+    front: { handler: "popenDoSearch()", file: "project-open.js:popenDoSearch", logic: "입력칸 값을 읽어 popenF에 넣고 renderProjectOpen()", state_writes: [popenF] }
+    backend: null
+  - id: btn-popen-reset
+    label: 초기화
+    type: button
+    crud: N
+    area: 검색 패널
+    event: onclick
+    front: { handler: "popenResetFilter()", file: "project-open.js:popenResetFilter", logic: "검색 조건(번호 · 명 · PM · Account 담당자 · 등록일 · 유형 · 상태) 모두 비우고 다시 그림", state_writes: [popenF] }
+    backend: null
+
+  # 도구줄
+  - id: btn-popen-new
+    label: "+ 신규 개설 신청"
+    type: button
+    crud: N
+    area: 도구줄
+    event: onclick
+    front: { handler: "popenNewApply()", file: "project-open.js:popenNewApply", logic: "신규 등록 폼으로 이동(한 건 직접 입력) — 등록은 폼의 [등록]에서", state_writes: [popenView] }
+    backend: null
+  - id: btn-popen-upload
+    label: "⬆ 엑셀 업로드"
+    type: button
+    crud: N
+    area: 도구줄
+    event: onclick
+    front: { handler: "popenUpload()", file: "project-open.js:popenUpload", logic: "목업 스텁 — 정상 1행 + 오류 1행을 읽은 것으로 목록 맨 위에 표시. 실제 등록은 [선택등록]", state_writes: [popenUploaded, popenChecked] }
+    backend: null
+  - id: btn-popen-download
+    label: "⬇ 엑셀 다운로드"
+    type: button
+    crud: R
+    area: 도구줄
+    event: onclick
+    front: { handler: "popenToast('WG.xlsx 파일을 내려받았습니다. (목업)')", file: "project-open.js:renderProjectOpen", logic: "목업 스텁, 동작 없음(안내 토스트만)" }
+    backend: null
+  - id: btn-popen-template
+    label: 템플릿
+    type: button
+    crud: R
+    area: 도구줄
+    event: onclick
+    front: { handler: "popenToast('WorkingGroup템플릿.xlsx 파일을 내려받았습니다. (목업)')", file: "project-open.js:renderProjectOpen", logic: "목업 스텁, 동작 없음(안내 토스트만)" }
+    backend: null
+  - id: btn-popen-del-checked
+    label: 선택삭제
+    type: button
+    crud: D
+    area: 도구줄
+    event: onclick
+    front: { handler: "popenDelChecked()", file: "project-open.js:popenDelChecked", logic: "체크한 행 중 새로 엑셀 업로드된(등록 전) 행만 삭제. 등록된 신청이 섞이면 '새로 엑셀 업로드된 프로젝트만 선택삭제 가능합니다' 안내", state_writes: [popenUploaded, popenChecked] }
+    backend: null
+  - id: btn-popen-reg-checked
+    label: 선택등록
+    type: button
+    crud: C
+    area: 도구줄
+    event: onclick
+    front: { handler: "popenRegChecked()", file: "project-open.js:popenRegChecked", logic: "체크한 업로드 행 중 오류 없는 행만 확인창 후 개설 신청(상태 '개설 신청') + W/G 상세로 등록. 프로젝트번호 중복이면 중단. 이번에 올린 행은 모두 목록에서 정리", validation: "오류 행 등록 불가 · 프로젝트번호 중복 불가", state_writes: [POPEN_APPS, POPEN_WGX, popenUploaded, popenChecked] }
+    backend: null
+
+  # 목록 표
+  - id: chk-popen-row
+    label: 행 선택 체크박스
+    type: checkbox
+    crud: N
+    area: 목록 표
+    event: onclick
+    front: { handler: "popenCheck('{id}', this.checked)", file: "project-open.js:popenCheck", state_writes: [popenChecked] }
+    backend: null
+  - id: col-popen-project
+    label: "프로젝트 (신청부서 둘째 줄)"
+    type: grid-column
+    crud: R
+    area: 목록 표
+    front: { file: "project-open.js:renderProjectOpen", logic: "a.name / a.reqDept" }
+  - id: col-popen-type
+    label: 유형 (W/G · 사내 배지)
+    type: grid-column
+    crud: R
+    area: 목록 표
+    front: { file: "project-open.js:renderProjectOpen", logic: "a.type, 색 POPEN_TYPE_COLOR" }
+  - id: col-popen-requester
+    label: "신청자 (이름 · 사번 두 줄)"
+    type: grid-column
+    crud: R
+    area: 목록 표
+    front: { file: "project-open.js:popenWho", logic: "'이름(사번)'을 이름 / 사번 두 줄로" }
+  - id: col-popen-acc
+    label: Account 담당자
+    type: grid-column
+    crud: R
+    area: 목록 표
+    front: { file: "project-open.js:popenAccMgr · popenWho", logic: "신청 accMgr → 개설 결재선 → 상세 결재선 순. 사내 등 없으면 '-'" }
+    note: "[2026.11.24] W/G 개선의견 5번 — 검색 조건과 함께 목록에도 표시"
+  - id: col-popen-request-date
+    label: "신청일시 (날짜 · 시간 두 줄)"
+    type: grid-column
+    crud: R
+    area: 목록 표
+    front: { file: "project-open.js:popenWhen" }
+  - id: col-popen-approval
+    label: 승인 상태
+    type: grid-column
+    crud: R
+    area: 목록 표
+    front: { file: "project-open.js:popenDisplayStatus", logic: "등록 완료면 '프로젝트 등록 완료', 아니면 승인 상태(개설 신청 · 개설 승인 대기 · 개설 승인 완료 · 반려)" }
+  - id: col-popen-last-approval
+    label: 최종승인일자
+    type: grid-column
+    crud: R
+    area: 목록 표
+    front: { file: "project-open.js:popenLastApproval", logic: "개설 결재선 · 비용변경 결재선에서 '승인' 단계가 승인된 날짜 중 가장 최근(YYYY-MM-DD). 없으면 '-'" }
+    note: "[2026.11.24] W/G 개선의견 9번(리포트 대신 목록 필드) 반영"
+  - id: col-popen-reg
+    label: "등록 상태 (등록완료 · 프로젝트번호 두 줄 / 미등록)"
+    type: grid-column
+    crud: R
+    area: 목록 표
+    front: { file: "project-open.js:renderProjectOpen", logic: "a.regStatus, a.projectNo" }
+  - id: col-popen-prj-sts
+    label: 프로젝트 상태 (수행 · 종료)
+    type: grid-column
+    crud: R
+    area: 목록 표
+    front: { file: "project-open.js:popenPrjSts", logic: "등록 완료된 프로젝트만. 종료일(상세 end 또는 신청 기간 끝)이 오늘보다 앞이면 '종료', 아니면 '수행'. 등록 전 '-'" }
+    note: "[2026.11.24] W/G 개선의견 6번 반영 — 비용 승인 상태와 별개로 TC 프로젝트 수행 여부 표시"
+  - id: btn-popen-detail
+    label: 상세
+    type: button
+    crud: N
+    area: 목록 표 (행 끝)
+    event: onclick
+    front: { handler: "popenOpenDetail('{id}')", file: "project-open.js:popenOpenDetail", logic: "프로젝트 탭으로 상세 열기(W/G는 정보관리 · 비용승인 2탭)", state_writes: [popenSelectedId, popenView, popenTab] }
+    backend: null
+  - id: btn-popen-reapply
+    label: 재신청 (반려 건만)
+    type: button
+    crud: N
+    area: 목록 표 (행 끝)
+    event: onclick
+    front: { handler: "popenReapply('{id}')", file: "project-open.js:popenReapply", logic: "목업 스텁 — 안내 토스트 후 같은 유형의 신규 등록 폼으로 이동", state_writes: [popenNewType, popenView] }
+    backend: null
+  - id: btn-popen-upload-err
+    label: 오류 (엑셀 업로드 오류 행)
+    type: button
+    crud: N
+    area: 목록 표 (업로드 행)
+    event: onclick
+    front: { handler: "popenShowErr({index})", file: "project-open.js:popenShowErr", logic: "업로드 오류 메시지 팝업 열기", state_writes: [popenErrPopup] }
+    backend: null
+
+# ── 상태 변수 ──
+state_vars:
+  - { name: popenF, shape: "{no,nm,pm,acc,date,type,sts}", file: "project-open.js:30", purpose: "[조회] 때 적용된 검색 조건 (acc = Account 담당자, 2026.11.24 추가)" }
+  - { name: popenUploaded, shape: "array", file: "project-open.js:25", purpose: 엑셀로 올렸지만 아직 등록 안 한 행 }
+  - { name: popenChecked, shape: "object", file: "project-open.js:24", purpose: "목록 체크(업로드 행은 'U0', 'U1' …)" }
+  - { name: POPEN_APPS, shape: "object(id → 신청)", file: "project-open.js", purpose: "개설 신청 목업 데이터. accMgr(Account 담당자) 필드 추가, 종료 예시 OPN-006 추가(2026.11.24)" }
+
+# ── 사용자 흐름 ──
+flows:
+  - name: Account 담당자로 찾기
+    steps:
+      - "Account 담당자 칸에 이름 입력(또는 돋보기 → 사원 선택)"
+      - "[조회] 또는 Enter → 그 담당자의 W/G 신청만 표시"
+      - "[초기화] → 전체 목록"
+  - name: 당월 W/G 총액이 바뀐 건 찾기
+    steps:
+      - "목록의 최종승인일자 칸에서 이번 달 날짜인 행 확인(개설 승인 · 비용변경 승인 모두 반영)"
+  - name: 수행 중 / 종료된 W/G 구분
+    steps:
+      - "프로젝트 상태 칸에서 수행 · 종료 확인(등록 완료된 프로젝트만)"
+
+# ── 요구사항 후보(FR) ──
+requirements:
+  - { id: FR-POP-01, text: "사용자는 W/G · 사내 개설 신청을 프로젝트번호 · 프로젝트명 · PM · Account 담당자 · 등록일 · 유형 · 상태로 검색할 수 있어야 한다" }
+  - { id: FR-POP-02, text: "사용자는 Account 담당자를 이름 직접 입력 또는 사원 검색으로 지정해 그 담당자의 W/G 신청만 조회할 수 있어야 한다(W/G 개선의견 5번)" }
+  - { id: FR-POP-03, text: "목록은 등록 완료된 프로젝트의 프로젝트 상태(수행 / 종료)를 비용 승인 상태와 별도 칸으로 보여 주어야 한다(W/G 개선의견 6번)" }
+  - { id: FR-POP-04, text: "목록은 개설 승인 · 비용변경 승인 중 가장 최근 승인일을 최종승인일자로 보여 주어, 당월 W/G 총액이 바뀐 건을 찾을 수 있어야 한다(W/G 개선의견 9번)" }
+  - { id: FR-POP-05, text: "사용자는 여러 건을 템플릿 엑셀로 작성해 업로드한 뒤 [선택등록]으로 한 번에 등록할 수 있어야 하며, 오류 행과 프로젝트번호 중복 행은 등록되지 않아야 한다(W/G 개선의견 1번)" }
+  - { id: FR-POP-06, text: "사용자는 한 건은 엑셀 없이 [+ 신규 개설 신청]으로 화면에서 직접 입력해 등록할 수 있어야 한다(W/G 개선의견 2번)" }
+  - { id: FR-POP-07, text: "[선택삭제]는 새로 엑셀 업로드된(등록 전) 행만 삭제할 수 있어야 하며, 등록된 신청은 상세에서 삭제해야 한다" }
+  - { id: FR-POP-08, text: "목록 칸이 많아도 이름 · 사번, 날짜 · 시간, 등록완료 · 프로젝트번호를 두 줄로 나눠 칸이 꺾이지 않고 읽혀야 한다" }
