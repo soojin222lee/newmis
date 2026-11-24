@@ -166,7 +166,9 @@ function uisScrollTop() {
   st.id = 'uis-back-style';
   st.textContent = `
   .screen { position: relative; }
-  .screen .back-btn, .screen .mc-back-btn { position: absolute !important; top: 0 !important; right: 0 !important; left: auto !important; z-index: 5 !important; }`;
+  .screen .back-btn, .screen .mc-back-btn { position: absolute !important; top: 0 !important; right: 0 !important; left: auto !important; z-index: 5 !important; }
+  /* [2026.11.24] W/G·사내·투자·선투입·SI 상세는 제목 줄(.wg-detail-topbar) 안에 버튼이 있어 오른쪽 위로 빼면 상태 배지를 덮음 → 제목 줄 왼쪽 제자리 */
+  .screen .wg-detail-topbar .mc-back-btn { position: static !important; }`;
   document.head.appendChild(st);
 })();
 
