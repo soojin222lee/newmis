@@ -458,13 +458,13 @@ const POPEN_WGX = {
         {role:'승인',unit:'담당임원',approver:'권재준(60521)',status:'대기',date:'',opinion:''},
       ]},
       {rule:'W/G 비용 30억 미만',service:'N',reject:{by:'박지훈(14022)',text:'사업 범위/예산 규모 재검토 필요. 재료비 산정 근거 보완 후 다시 올려 주세요.'},rows:[
-        {role:'기안',unit:'수행PM',approver:'한민석(20011)',status:'기안',date:'2026-09-12 16:20',opinion:'사내 그룹웨어 UX 개편. 고객사: 사내 / 서비스: 그룹웨어',fixed:true},
+        {role:'기안',unit:'수행PM',approver:'한민석(20011)',status:'기안',date:'2026-09-12 16:20',opinion:'차세대 ERP 전환 대비 W/G 선행 과제(1차 상신). 고객사: 공통 / 서비스: ERP 고도화',fixed:true},
         {role:'협조',unit:'부문기획 담당자',approver:'박지훈(14022)',status:'반려',date:'2026-09-13 09:40',opinion:'사업 범위/예산 규모 재검토 필요. 재료비 산정 근거 보완 후 다시 올려 주세요.'},
         {role:'검토',unit:'팀장',approver:'신성호(13016)',status:'대기',date:'',opinion:''},
         {role:'승인',unit:'담당임원',approver:'권재준(60521)',status:'대기',date:'',opinion:''},
       ]},
     ],
-    memo:'사내 그룹웨어 UX 개편. 고객사: 사내 / 서비스: 그룹웨어',
+    memo:'차세대 ERP 전환 대비 W/G 선행 과제. 고객사: 공통 / 서비스: ERP 고도화',
   },
 };
 
@@ -555,7 +555,7 @@ function popenWgInfoTab(id, p) {
   // [합침] 버튼 실제 동작 — 저장(작성 중) · 삭제(최신 버전) · 비용변경(새 버전) · 결재선생성
   const btns = p.submitted
     ? '<button class="pwx-btn" onclick="popenBackToList()">목록</button><button class="pwx-btn" onclick="popenWgCostChange(\'' + id + '\')">비용변경</button><button class="pwx-btn pri" onclick="popenWgTab(\'approval\')">결재선생성</button>'
-    : '<button class="pwx-btn" onclick="popenBackToList()">목록</button><button class="pwx-btn" onclick="popenWgDelete(\'' + id + '\')">삭제</button><button class="pwx-btn pri" onclick="popenWgSave(\'' + id + '\')">저장</button><button class="pwx-btn pri" onclick="popenWgTab(\'approval\')">결재생성</button>';
+    : '<button class="pwx-btn" onclick="popenBackToList()">목록</button><button class="pwx-btn" onclick="popenWgDelete(\'' + id + '\')">삭제</button><button class="pwx-btn pri" onclick="popenWgSave(\'' + id + '\')">저장</button><button class="pwx-btn pri" onclick="popenWgTab(\'approval\')">결재선생성</button>';
 
   const fld = function (k, v, req, search) {
     return '<div class="pwx-cell"><div class="pwx-k">' + k + (req?'<span class="req">*</span>':'') + '</div>'
@@ -656,7 +656,7 @@ function popenWgApprovalTab(id, p) {
     + '<div class="pwx-name-wrap"><div class="pwx-name" style="border:none;padding-left:0">' + p.name + '</div><span class="pwx-badge">W/G</span></div>'
     + '<div class="pwx-hbtns">' + btns + '</div></div>'
     + mini + '<div class="pwx-vers">' + vers + '</div>' + blocks
-    + '<div class="pwx-memo"><div class="pwx-sec">메모</div><textarea placeholder="비용출예 신규등록 및 변경 사유 (해당 고객사 및 서비스 명시)"' + (p.submitted ? ' readonly' : '') + ' oninput="POPEN_WGX[\'' + id + '\'].memo=this.value">' + (p.memo||'') + '</textarea></div>';
+    + '<div class="pwx-memo"><div class="pwx-sec">메모</div><textarea placeholder="비용총액 신규등록 및 변경 사유 (해당 고객사 및 서비스 명시)"' + (p.submitted ? ' readonly' : '') + ' oninput="POPEN_WGX[\'' + id + '\'].memo=this.value">' + (p.memo||'') + '</textarea></div>';
 }
 
 function popenWgApvLine(line) {
