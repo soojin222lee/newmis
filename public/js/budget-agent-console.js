@@ -2725,6 +2725,199 @@ function agentOsNextDayFinal(ymd) {
   return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
 }
 
+/* [2026.11.24] 실투입대상 외주비 — 업체별 "전체기간 예산" 단계를 없앱니다.
+   구매계획(분기 · 월 단위, PO 1건 = 계획 1줄)이 바로 실행예산이고 결재 대상입니다. 표는 업체로 묶지 않고 구매계획을 한 줄씩 보여 주며,
+   줄마다 업체명(업체코드)을 붙입니다.
+   · 데이터는 기존 osv3VendorsV3(업체 → pos[])를 그대로 씁니다(다른 화면 · Agent가 참조). 업체는 "업체 정보(이름 · 코드 · 업무명)"로만 남고,
+     업체 budget 은 늘 구매계획 합계로 맞춥니다 → 미계획 금액 = 0, 외주비 계획 금액 = Σ 구매계획.
+   · 등록 · 수정 · 삭제는 새 함수(agentOsPlan*)를 씁니다. 업체 행 아래에 붙던 예전 구매계획 입력(agentOsPoOpenFinal · 남주님 오버레이)은
+     업체 행이 없으므로 이 표에서는 부르지 않습니다. */
+function agentVendorCodeFinal(name) {
+  const m = (typeof AGENT_VENDOR_MASTER_FINAL !== 'undefined' ? AGENT_VENDOR_MASTER_FINAL : []).find(v => v.name === name);
+  if (!m) return '';
+  return m.code || (m.biz ? 'V' + String(m.biz).replace(/\D/g, '').slice(-6) : '');
+}
+function agentOsSyncVendorFinal(v) {
+  if (!v) return;
+  const pos = v.pos || [];
+  v.budget = pos.reduce((t, x) => t + (x.amount || 0), 0);
+  const ss = pos.map(x => x.start).filter(Boolean).sort(), es = pos.map(x => x.end).filter(Boolean).sort();
+  if (ss.length) v.start = ss[0];
+  if (es.length) v.end = es[es.length - 1];
+  if (!v.code) v.code = agentVendorCodeFinal(v.vendor);
+}
+function agentOsSyncAllFinal() {
+  ((typeof osv3VendorsV3 !== 'undefined') ? osv3VendorsV3 : []).forEach(agentOsSyncVendorFinal);
+}
+agentOsSyncAllFinal();
+// 외주비 전체 월별 금액 — 업체를 옮기는 수정도 한 번에 비교하려고 전체 합으로 계산합니다
+function agentOsAllMonthsFinal() {
+  const out = {};
+  ((typeof osv3VendorsV3 !== 'undefined') ? osv3VendorsV3 : []).forEach(v => {
+    const vm = agentOsVendorMonthsFinal(v);
+    Object.keys(vm).forEach(m => { out[m] = (out[m] || 0) + vm[m]; });
+  });
+  return out;
+}
+function agentOsPeriodLabelFinal(x) {
+  const a = String(x.start || '').slice(0, 7), b = String(x.end || '').slice(0, 7);
+  return a && a === b ? a : agentOsQuarterFinal(x.start);
+}
+
+var agentOsPlanEdFinal = null;    // { vid, i } — vid '' = 신규
+function agentOsPlanOpenFinal(vid, i) {                 // crud C/U — 구매계획 등록 · 수정 팝업 열기
+  if (vid) {
+    const v = agentOsFindVendorFinal(vid);
+    const x = v && v.pos ? v.pos[i] : null;
+    if (!x) return;
+    if (x.poNo) { showToast('PO가 발행된 구매계획은 구매시스템 기준이라 수정할 수 없습니다.'); return; }
+  }
+  agentOsPlanEdFinal = { vid: vid || '', i: vid ? i : -1 };
+  renderBudgetPage();
+}
+function agentOsPlanCloseFinal() { agentOsPlanEdFinal = null; renderBudgetPage(); }
+// 분기 · 월 버튼 — 고르면 시작일 · 종료일만 채웁니다(다시 그리지 않음)
+function agentOsPlanPickFinal(btn) {
+  const box = btn.closest('.agv-pop'); if (!box) return;
+  box.querySelectorAll('.agos-q[data-from]').forEach(b => b.classList.toggle('on', b === btn));
+  const s = box.querySelector('#agos-pl-start'), e = box.querySelector('#agos-pl-end');
+  if (s) s.value = btn.dataset.from;
+  if (e) e.value = btn.dataset.to;
+}
+function agentOsPlanUnitFinal(btn) {
+  const box = btn.closest('.agv-pop'); if (!box) return;
+  box.querySelectorAll('.agos-q[data-unit]').forEach(b => b.classList.toggle('on', b === btn));
+  box.querySelectorAll('.agos-pl-periods').forEach(el => { el.style.display = el.dataset.unit === btn.dataset.unit ? '' : 'none'; });
+}
+function agentOsPlanPeriodsFinal(year) {
+  const z = n => ('0' + n).slice(-2);
+  const last = (y, m) => new Date(y, m, 0).getDate();
+  const q = [1, 2, 3, 4].map(n => ({ label: n + '분기', from: `${year}-${z(n * 3 - 2)}-01`, to: `${year}-${z(n * 3)}-${z(last(year, n * 3))}` }));
+  const m = Array.from({ length: 12 }, (_, k) => ({ label: (k + 1) + '월', from: `${year}-${z(k + 1)}-01`, to: `${year}-${z(k + 1)}-${z(last(year, k + 1))}` }));
+  return { q, m };
+}
+function agentOsPlanSaveFinal() {                       // crud C/U — 구매계획 저장
+  const e = agentOsPlanEdFinal;
+  if (!e) return;
+  const val = id => ((document.getElementById(id) || {}).value || '').trim();
+  const vendor = val('agos-pl-vendor'), contract = val('agos-pl-contract');
+  const start = val('agos-pl-start'), end = val('agos-pl-end');
+  const amount = Math.abs(parseBudgetAmount(val('agos-pl-amount') || 0));
+  if (!vendor) { showToast('업체를 [조회]로 선택해 주세요.'); return; }
+  if (!start || !end) { showToast('계획 기간을 입력하거나 분기 · 월을 골라 주세요.'); return; }
+  if (end < start) { showToast('계획 종료일이 시작일보다 앞설 수 없습니다.'); return; }
+  if (!amount) { showToast('계획 금액을 입력해 주세요.'); return; }
+  const vs = osv3VendorsV3;
+  const before = agentOsAllMonthsFinal();
+  const old = e.vid ? agentOsFindVendorFinal(e.vid) : null;
+  const line = old ? old.pos[e.i] : null;
+  if (old && !line) return;
+  // 업체 찾기(없으면 업체 정보만 새로 만듦)
+  let v = vs.find(x => x.vendor === vendor);
+  if (!v) {
+    v = { id: 'v-' + Date.now().toString(36), vendor, code: agentVendorCodeFinal(vendor), contract: contract || '-',
+      budget: 0, start, end, pos: [] };
+    vs.push(v);
+  }
+  let row;
+  if (line) {
+    Object.assign(line, { start, end, amount, contract, plan: {} });
+    row = line;
+    if (old !== v) { old.pos.splice(e.i, 1); v.pos.push(line); }
+  } else {
+    row = { poNo: '', start, end, amount, contract, mm: 0, actual: 0, planned: 0, plan: {} };
+    v.pos.push(row);
+  }
+  v.pos.sort((a, b) => String(a.start || '').localeCompare(String(b.start || '')));
+  [old, v].forEach(agentOsSyncVendorFinal);
+  if (old && old !== v && !(old.pos || []).length) vs.splice(vs.indexOf(old), 1);
+  const lb = `${vendor} ${agentOsPeriodLabelFinal(row)} ${fmt(amount)}원`;
+  agentHandRecordFinal('외주비', '실투입대상 외주비', `구매계획 ${line ? '수정' : '등록'} · ${lb}`,
+    agentMonthsDiffFinal(agentOsAllMonthsFinal(), before), [row]);
+  agentOsPlanEdFinal = null;
+  agentHandToastFinal(`구매계획을 ${line ? '수정' : '등록'}했습니다 (${lb})`);
+  renderBudgetPage();
+}
+function agentOsPlanDelFinal(vid, i) {                  // crud D — 구매계획 삭제
+  const v = agentOsFindVendorFinal(vid);
+  const x = v && v.pos ? v.pos[i] : null;
+  if (!x) return;
+  if (x.poNo) { showToast('PO가 발행된 구매계획은 삭제할 수 없습니다.'); return; }
+  const lb = `${v.vendor} ${agentOsPeriodLabelFinal(x)} ${fmt(x.amount || 0)}원`;
+  if (!confirm(`${lb} 구매계획을 삭제할까요?`)) return;
+  const before = agentOsAllMonthsFinal();
+  v.pos.splice(i, 1);
+  agentOsSyncVendorFinal(v);
+  if (!v.pos.length) osv3VendorsV3.splice(osv3VendorsV3.indexOf(v), 1);
+  agentHandRecordFinal('외주비', '실투입대상 외주비', `구매계획 삭제 · ${lb}`,
+    agentMonthsDiffFinal(agentOsAllMonthsFinal(), before), []);
+  agentHandToastFinal(`구매계획을 삭제했습니다 (${lb})`);
+  renderBudgetPage();
+}
+function renderAgentOsPlanPopFinal() {
+  const e = agentOsPlanEdFinal;
+  if (!e || agentAiSheetFinal !== '외주비') return '';
+  const v = e.vid ? agentOsFindVendorFinal(e.vid) : null;
+  const x = v ? v.pos[e.i] : null;
+  if (e.vid && !x) return '';
+  const year = Number(String((x && x.start) || (typeof osv3TodayMonthV3 === 'function' ? osv3TodayMonthV3() : '2026-08')).slice(0, 4));
+  const ps = agentOsPlanPeriodsFinal(year);
+  const btns = (list, unit, show) => `<div class="agos-pl-periods" data-unit="${unit}" ${show ? '' : 'style="display:none"'}>${list.map(p =>
+    `<button type="button" class="agos-q" data-from="${p.from}" data-to="${p.to}" onclick="agentOsPlanPickFinal(this)">${p.label}</button>`).join('')}</div>`;
+  return `
+    <div class="agv-pop-dim" onclick="if(event.target===this)agentOsPlanCloseFinal()">
+      <div class="agv-pop" role="dialog" aria-modal="true" aria-label="구매계획 ${x ? '수정' : '등록'}">
+        <div class="agv-pop-head">
+          <div>
+            <strong>구매계획 ${x ? '수정' : '등록'}</strong>
+            <span>분기 또는 월 단위로 세운 구매계획 1건이 PO 1건이 됩니다. 저장하면 결재 대상에 올라갑니다.</span>
+          </div>
+          <button class="agv-pop-x" onclick="agentOsPlanCloseFinal()">✕</button>
+        </div>
+        <div class="agv-pop-body">
+          ${x ? '' : `<p class="agos-pl-tip"><b>Agent</b> 전자견적을 확정한 업체라면 직접 입력하지 않아도 됩니다. [예산 조정안]에 올라온 Agent 제안을 반영하면 견적 금액 그대로 등록됩니다.</p>`}
+          <div class="aglb-form">
+            <label><span>업체명</span>${agentVendorFieldFinal('agos-pl-vendor', v ? v.vendor : '', '외주비 업체')}</label>
+            <label><span>업무명</span><input id="agos-pl-contract" value="${escHtml(x ? (x.contract || v.contract || '') : '')}" placeholder="예: UI/UX 디자인"></label>
+          </div>
+          <div class="agos-qs">
+            <span>계약 단위를 고르고 기간을 누르면 날짜가 채워집니다 (${year}년)</span>
+            <div>
+              <button type="button" class="agos-q on" data-unit="q" onclick="agentOsPlanUnitFinal(this)">분기</button>
+              <button type="button" class="agos-q" data-unit="m" onclick="agentOsPlanUnitFinal(this)">월</button>
+            </div>
+            ${btns(ps.q, 'q', true)}${btns(ps.m, 'm', false)}
+          </div>
+          <div class="aglb-form">
+            <label><span>계획 시작일</span><input id="agos-pl-start" type="date" value="${escHtml(x ? x.start : '')}"></label>
+            <label><span>계획 종료일</span><input id="agos-pl-end" type="date" value="${escHtml(x ? x.end : '')}"></label>
+            <label class="wide"><span>계획 금액(원)</span><input id="agos-pl-amount" inputmode="numeric" value="${x ? (x.amount || 0) : ''}" placeholder="예: 12000000"></label>
+          </div>
+        </div>
+        <div class="agv-pop-foot">
+          <button class="agv-ok" onclick="agentOsPlanSaveFinal()">${x ? '수정 저장' : '저장'}</button>
+          <button class="agv-cancel" onclick="agentOsPlanCloseFinal()">닫음</button>
+        </div>
+      </div>
+    </div>`;
+}
+(function agentOsPlanStyleFinal() {
+  if (document.getElementById('agos-plan-style')) return;
+  const st = document.createElement('style');
+  st.id = 'agos-plan-style';
+  st.textContent = `
+  .agos-hint { display:flex; align-items:flex-start; gap:10px; margin:0 0 10px; padding:10px 14px; border-radius:10px;
+    background:#eef4ff; border:1px solid #cddcfb; color:#1c2432; font-size:12.5px; line-height:1.55; }
+  .agos-hint > b, .agos-pl-tip > b { flex:none; padding:1px 8px; border-radius:999px; background:#2f6bed; color:#fff; font-size:11px; font-weight:800; }
+  .agos-hint em { font-style:normal; color:#1746a0; font-weight:700; }
+  .agos-pl-tip { display:flex; align-items:flex-start; gap:8px; margin:0 0 12px; padding:8px 12px; border-radius:8px;
+    background:#eef4ff; color:#1c2432; font-size:12px; line-height:1.5; }
+  .agos-code { margin-left:4px; color:#8a94a6; font-size:11.5px; font-weight:600; }
+  .agos-pl-periods { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+  table.agos-flat td.agos-vcell b { white-space:nowrap; }`;
+  document.head.appendChild(st);
+})();
+
 function renderAgentOutsourceDetailFinal(viewData, roll) {
   const rowsPlan = (typeof getMonthlyBudgetRows === 'function' ? getMonthlyBudgetRows(viewData, '외주비') : []) || [];
   const names = rowsPlan.map(r => r.name);
@@ -2742,120 +2935,60 @@ function renderAgentOutsourceDetailFinal(viewData, roll) {
   }] : [];
   const list = vend.concat(extra);
 
-  const calc = v => {
-    const pos = v.pos || [];
-    const planned = pos.reduce((t, x) => t + (x.amount || 0), 0);
-    return {
-      budget: v.budget || 0, planned,
-      unplanned: (v.budget || 0) - planned,
-      act: pos.reduce((t, x) => t + (x.actual || 0), 0),
-      todo: pos.reduce((t, x) => t + (x.planned || 0), 0),
-      over: planned - (v.budget || 0) >= 1,
-    };
-  };
-  const tot = list.reduce((a, v) => {
-    const c = calc(v);
-    return { b: a.b + c.budget, pl: a.pl + c.planned, un: a.un + c.unplanned,
-             ac: a.ac + c.act, td: a.td + c.todo };
-  }, { b: 0, pl: 0, un: 0, ac: 0, td: 0 });
+  // [2026.11.24] 업체로 묶지 않고 구매계획을 한 줄씩 — 줄마다 업체명(업체코드)
+  const lines = [];
+  list.forEach(v => (v.pos || []).forEach((x, i) => lines.push({ v, x, i })));
+  extra.forEach(v => lines.push({ v, x: { poNo: '', start: v.start, end: v.end, amount: v.budget || 0, actual: 0, planned: 0 }, i: -1, sim: true }));
+  lines.sort((a, b) => String(a.x.start || '').localeCompare(String(b.x.start || '')) || String(a.v.vendor).localeCompare(String(b.v.vendor)));
+  const tot = lines.reduce((a, r) => ({ pl: a.pl + (r.x.amount || 0), ac: a.ac + (r.x.actual || 0), td: a.td + (r.x.planned || 0) }),
+    { pl: 0, ac: 0, td: 0 });
+  const nPo = lines.filter(r => r.x.poNo).length;
 
   const osCan = agentCanEditFinal();
-  const lineRows = v => {
-    const pos = v.pos || [];
-    const c = calc(v);
-    const nPo = pos.filter(x => x.poNo).length;
-    return `
-      <tr class="agos-sub"><td colspan="7">
-        <div class="agos-panel">
-          <div class="agos-panel-head">
-            <span>구매계획 ${pos.length}건 (PO 발행 ${nPo}건) · 계획 합계 ${fmt(c.planned)}원 · 미계획 ${fmt(Math.max(c.unplanned, 0))}원</span>
-          </div>
-          ${pos.length ? `
-            <table class="agos-lines">
-              <colgroup><col class="c-q"><col class="c-per"><col class="c-amt"><col class="c-po">
-                <col class="c-amt"><col class="c-amt"><col class="c-st"><col class="c-act"></colgroup>
-              <thead><tr>
-                <th>분기</th><th>계획 기간</th><th class="num">계획 금액</th><th>PO번호</th>
-                <th class="num">실적(검수)</th><th class="num">집행예정(미검수)</th><th>상태</th><th class="ctr">관리</th>
-              </tr></thead>
-              <tbody>${pos.map((x, i) => `
-                <tr>
-                  <td><b>${escHtml(agentOsQuarterFinal(x.start))}</b></td>
-                  <td>${escHtml(x.start || '')} ~ ${escHtml(x.end || '')}</td>
-                  <td class="num"><b>${fmt(x.amount || 0)}원</b></td>
-                  <td>${x.poNo ? `${escHtml(x.poNo)}${x.fx ? `<span class="agos-fx">${escHtml(x.fx)}</span>` : ''}` : '<span class="agos-none">–</span>'}</td>
-                  <td class="num">${x.poNo ? fmt(x.actual || 0) + '원' : '<span class="agos-none">–</span>'}</td>
-                  <td class="num">${x.poNo ? fmt(x.planned || 0) + '원' : '<span class="agos-none">–</span>'}</td>
-                  <td>${x.poNo ? '<em class="agos-st po">PO 발행</em>' : (agentHandBadgeFinal(x) || '<em class="agos-st wait">계약 대기</em>')}</td>
-                  <td class="ctr">${x.poNo
-                    ? '<span class="agos-lock">조회 전용</span>'
-                    : osCan ? `<button class="agos-ed" onclick="event.stopPropagation();agentOsPoOpenFinal('${v.id}',${i})">수정</button>
-                       <button class="agos-ed del" onclick="event.stopPropagation();agentOsDelLineFinal('${v.id}',${i})">삭제</button>` : ''}</td>
-                </tr>`).join('')}</tbody>
-            </table>`
-            : `<div class="agos-empty">등록된 구매계획이 없습니다.${osCan ? ' [+ 구매계획]으로 분기별 계획을 등록해 주세요.' : ''}</div>`}
-          ${c.over ? `
-            <p class="agos-warn">구매계획 합계가 전체기간 예산을 ${fmt(c.planned - c.budget)}원 넘었습니다.
-              업체 예산을 먼저 늘려야 합니다 — 전체기간 예산 ≥ 구매계획 합계.</p>` : ''}
-        </div>
-      </td></tr>`;
-  };
-
   const table = (cur === 0) ? `
+    <div class="agos-hint"><b>Agent</b><span>POP에서 받은 <em>전자견적을 확정하면 Agent가 그 업체 · 기간 · 금액 그대로 구매계획을 제안</em>합니다.
+      직접 입력하는 것보다 빠르고, 구매요청 때 견적과 금액이 어긋나지 않습니다.</span></div>
     ${osCan ? `
       <div class="aglb-bar">
-        <button class="aglb-add" onclick="agentOsEdOpenFinal(0,'')">＋ 업체 등록</button>
+        <button class="aglb-add" onclick="agentOsPlanOpenFinal('',-1)">＋ 구매계획 등록</button>
       </div>` : ''}
-    ${renderAgentOsEdPopFinal(viewData)}
-    ${renderAgentOsPoPopFinal()}
+    ${renderAgentOsPlanPopFinal()}
     <div class="aglb-wrap">
-      <table class="aglb agos">
+      <table class="aglb agos agos-flat">
         <thead><tr>
-          <th>업체명</th><th class="num">전체기간 예산</th><th class="num">구매계획 금액</th>
-          <th class="num">미계획 금액</th><th class="num">실적(검수)</th>
-          <th class="num">집행예정(미검수)</th><th class="ctr">관리</th>
+          <th>업체명(업체코드)</th><th>분기 · 월</th><th>계획 기간</th><th class="num">계획 금액</th><th>PO번호</th>
+          <th class="num">실적(검수)</th><th class="num">집행예정(미검수)</th><th>상태</th><th class="ctr">관리</th>
         </tr></thead>
-        <tbody>${list.length ? '' : `<tr><td colspan="7" class="aglb-empty">등록된 업체가 없습니다.${osCan ? ' [＋ 업체 등록]으로 추가해 주세요.' : ''}</td></tr>`}${list.map(v => {
-          const c = calc(v);
-          const open = !!agentOsOpenFinal[v.id];
-          const pct = c.budget > 0 ? Math.min((c.planned / c.budget) * 100, 100) : 0;
+        <tbody>${lines.length ? '' : `<tr><td colspan="9" class="aglb-empty">등록된 구매계획이 없습니다.${osCan ? ' [＋ 구매계획 등록]으로 추가해 주세요.' : ''}</td></tr>`}${lines.map(r => {
+          const v = r.v, x = r.x;
+          const code = v.code || agentVendorCodeFinal(v.vendor);
           return `
-            <tr class="agos-row ${open ? 'open' : ''} ${v.sim ? 'new' : ''}"
-              onclick="agentOsToggleFinal('${v.id}')" title="${open ? '접기' : '구매계획 보기'}">
-              <td>
-                <span class="agos-caret">${open ? '∧' : '∨'}</span>
-                <b>${escHtml(v.vendor)}</b>
-                ${agentHandBadgeFinal(v)}
-                ${(osCan && !v.sim) ? `<span class="agos-eds">
-                  <button class="agos-ed" onclick="event.stopPropagation();agentOsEdOpenFinal(0,'${v.id}')">수정</button>
-                  <button class="agos-ed del" onclick="event.stopPropagation();agentOsVendorDelFinal('${v.id}')">삭제</button></span>` : ''}
-                <span class="aglb-sub">${escHtml(v.contract || '')}
-                  · 구매계획 ${(v.pos || []).length}건(PO ${(v.pos || []).filter(x => x.poNo).length}건)
-                  · ${escHtml(v.start || '')} ~ ${escHtml(v.end || '')}</span>
+            <tr class="${r.sim ? 'new' : ''}">
+              <td class="agos-vcell">
+                <b>${escHtml(v.vendor)}</b>${code ? `<span class="agos-code">(${escHtml(code)})</span>` : ''}
+                <span class="aglb-sub">${escHtml(x.contract || v.contract || '')}</span>
               </td>
-              <td class="num">${fmt(c.budget)}원</td>
-              <td class="num agos-plan">
-                <b>${fmt(c.planned)}원</b>
-                <i class="agos-bar"><u style="width:${pct}%" class="${c.over ? 'bad' : ''}"></u></i>
-              </td>
-              <td class="num ${c.unplanned < 0 ? 'bad' : ''}">${fmt(c.unplanned)}원</td>
-              <td class="num">${fmt(c.act)}원</td>
-              <td class="num">${fmt(c.todo)}원</td>
-              <td class="ctr">${v.sim ? '<em class="aglb-st">신규</em>' : osCan ? `
-                <button class="agos-add sm" onclick="event.stopPropagation();agentOsPoOpenFinal('${v.id}',-1)">+ 구매계획</button>` : ''}</td>
-            </tr>
-            ${open ? lineRows(v) : ''}`;
+              <td><b>${escHtml(agentOsPeriodLabelFinal(x))}</b></td>
+              <td>${escHtml(x.start || '')} ~ ${escHtml(x.end || '')}</td>
+              <td class="num"><b>${fmt(x.amount || 0)}원</b></td>
+              <td>${x.poNo ? `${escHtml(x.poNo)}${x.fx ? `<span class="agos-fx">${escHtml(x.fx)}</span>` : ''}` : '<span class="agos-none">–</span>'}</td>
+              <td class="num">${x.poNo ? fmt(x.actual || 0) + '원' : '<span class="agos-none">–</span>'}</td>
+              <td class="num">${x.poNo ? fmt(x.planned || 0) + '원' : '<span class="agos-none">–</span>'}</td>
+              <td>${r.sim ? '<em class="aglb-st">신규</em>' : x.poNo ? '<em class="agos-st po">PO 발행</em>' : (agentHandBadgeFinal(x) || '<em class="agos-st wait">계약 대기</em>')}</td>
+              <td class="ctr">${r.sim ? '' : x.poNo
+                ? '<span class="agos-lock">조회 전용</span>'
+                : osCan ? `<button class="agos-ed" onclick="event.stopPropagation();agentOsPlanOpenFinal('${v.id}',${r.i})">수정</button>
+                   <button class="agos-ed del" onclick="event.stopPropagation();agentOsPlanDelFinal('${v.id}',${r.i})">삭제</button>` : ''}</td>
+            </tr>`;
         }).join('')}</tbody>
         <tfoot>
           <tr>
-            <td>합계 ${list.length}개 업체</td>
-            <td class="num"><b>${fmt(tot.b)}원</b></td>
-            <td class="num"><b>${fmt(tot.pl)}원</b></td>
-            <td class="num">${fmt(tot.un)}원</td>
+            <td colspan="3">합계 ${lines.length}건 (PO 발행 ${nPo}건)</td>
+            <td class="num"><b>${fmt(tot.pl)}원</b></td><td></td>
             <td class="num">${fmt(tot.ac)}원</td>
-            <td class="num">${fmt(tot.td)}원</td><td></td>
+            <td class="num">${fmt(tot.td)}원</td><td></td><td></td>
           </tr>
-          ${renderAgentPickedRowFinal('외주비', 7)}
+          ${renderAgentPickedRowFinal('외주비', 9)}
         </tfoot>
       </table>
     </div>`
@@ -2880,6 +3013,30 @@ function agentCanEditFinal() {
 Object.keys(AGENT_OS_SUB_FINAL).forEach(k => AGENT_OS_SUB_FINAL[k].forEach((x, i) => {
   if (!x.id) x.id = 'os-seed-' + Object.keys(AGENT_OS_SUB_FINAL).indexOf(k) + '-' + i;
 }));
+/* [2026.11.12] 외주비 모든 탭에 PO번호 — POP에서 발행되는 4500으로 시작하는 10자리 유일값.
+   계약 · 집행완료 목업 항목에는 PO번호를 채워 둡니다(계획 단계 항목은 아직 PO 없음). */
+(function agentOsSeedPoFinal() {
+  const seed = {
+    '제안 컨설팅 (수행 전략 수립)': '4500210011', '전문직 기술자문 (아키텍처 검증)': '4500210027',
+    '고객사 상주 출장 (1차)': '4500220034', '고객사 상주 출장 (2차)': '4500220058',
+    '전산실 증설 공사': '4500230041', '네트워크 배선 공사': '4500230065',
+    '번역·현지화 용역': '4500240072', '기타 단기 용역': '4500240089',
+  };
+  Object.keys(AGENT_OS_SUB_FINAL).forEach(k => AGENT_OS_SUB_FINAL[k].forEach(x => {
+    if (x.poNo === undefined) x.poNo = seed[x.name] || '';
+  }));
+})();
+var AGENT_OS_PO_RE_FINAL = /^4500\d{6}$/;
+// PO번호는 유일값 — 실투입대상 외주비 구매계획 · 모든 소계정 항목을 통틀어 중복을 막습니다
+function agentOsPoTakenFinal(po, selfId) {
+  if (!po) return '';
+  const vs = (typeof osv3VendorsV3 !== 'undefined') ? osv3VendorsV3 : [];
+  for (const v of vs) for (const x of (v.pos || [])) if (x.poNo === po) return `실투입대상 외주비 · ${v.vendor}`;
+  for (const k of Object.keys(AGENT_OS_SUB_FINAL)) for (const x of AGENT_OS_SUB_FINAL[k]) {
+    if (x.id !== selfId && x.poNo === po) return `${k} · ${x.name}`;
+  }
+  return '';
+}
 var AGENT_OS_SUB_SEED_FINAL = JSON.parse(JSON.stringify(AGENT_OS_SUB_FINAL));   // 처음 금액 기준선
 var agentOsEdFinal = null;            // { sub: 소계정 index, id: 수정할 건 | ''(신규) }
 var AGENT_OS_TR_KIND_FINAL = {
@@ -2985,6 +3142,10 @@ function agentOsEdSaveFinal() {
   if (hit && agentOsItemLockedFinal(name, hit)) { showToast('집행완료(실적이 생긴) 건은 수정할 수 없습니다.'); return; }
   const amount = num('agos-ed-amount');
   if (!amount) { showToast('금액을 입력해 주세요.'); return; }
+  const poNo = val('agos-ed-po');
+  if (poNo && !AGENT_OS_PO_RE_FINAL.test(poNo)) { showToast('PO번호는 4500으로 시작하는 10자리 숫자입니다. (예: 4500123456)'); return; }
+  const poDup = agentOsPoTakenFinal(poNo, hit ? hit.id : '');
+  if (poDup) { showToast(`PO번호 ${poNo}는 이미 [${poDup}]에 쓰이고 있습니다. PO번호는 중복될 수 없습니다.`); return; }
 
   if (agentOsIsTrFinal(name)) {
     const month = val('agos-ed-month'), desc = val('agos-ed-desc');
@@ -2993,7 +3154,7 @@ function agentOsEdSaveFinal() {
     if (!desc) { showToast('이관 내용을 입력해 주세요.'); return; }
     const last = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate();
     const payload = { name: desc, party, month, start: month + '-01', end: month + '-' + ('0' + last).slice(-2),
-      amount: amount * AGENT_OS_TR_KIND_FINAL[party].sign, actual: 0, planned: 0, status: hit ? hit.status : '계획' };
+      amount: amount * AGENT_OS_TR_KIND_FINAL[party].sign, actual: 0, planned: 0, status: hit ? hit.status : '계획', poNo };
     const before = agentCloneFinal(hit);
     let row = hit;
     if (hit) Object.assign(hit, payload);
@@ -3009,7 +3170,7 @@ function agentOsEdSaveFinal() {
     if (!start || !end) { showToast('기간을 입력해 주세요.'); return; }
     if (end < start) { showToast('종료일이 시작일보다 앞설 수 없습니다.'); return; }
     if (hit && amount < Number(hit.actual || 0)) { showToast(`이미 검수된 실적(${fmt(hit.actual)}원)보다 작게 줄일 수 없습니다.`); return; }
-    const payload = { name: item, party, start, end, amount };
+    const payload = { name: item, party, start, end, amount, poNo };
     const before = agentCloneFinal(hit);
     let row = hit;
     if (hit) Object.assign(hit, payload);
@@ -3078,7 +3239,7 @@ function renderAgentOsEdPopFinal(viewData) {
   const pjStart = String(vd.start || '').slice(0, 10), pjEnd = String(vd.end || '').slice(0, 10);
 
   const fields = e.sub === 0 ? `
-      <label><span>업체명</span><input id="agos-ed-vendor" value="${vv('vendor')}" placeholder="예: 아크로디자인랩"></label>
+      <label><span>업체명</span>${agentVendorFieldFinal('agos-ed-vendor', x ? x.vendor : '', '외주비 업체')}</label>
       <label><span>업무명</span><input id="agos-ed-contract" value="${vv('contract')}" placeholder="예: UI/UX 디자인"></label>
       <label><span>전체기간 시작</span><input id="agos-ed-start" type="date" value="${vv('start') || pjStart}"></label>
       <label><span>전체기간 종료</span><input id="agos-ed-end" type="date" value="${vv('end') || pjEnd}"></label>
@@ -3091,11 +3252,13 @@ function renderAgentOsEdPopFinal(viewData) {
       <label><span>발생 예정월</span>
         <select id="agos-ed-month">${months.map(m => `<option value="${m}" ${m === curM ? 'selected' : ''}>${m}</option>`).join('')}</select></label>
       <label><span>금액(원)</span><input id="agos-ed-amount" inputmode="numeric" value="${amt}" placeholder="예: 24000000"></label>
+      <label><span>PO번호</span><input id="agos-ed-po" inputmode="numeric" maxlength="10" value="${vv('poNo')}" placeholder="4500으로 시작하는 10자리 (없으면 비움)"></label>
       <label class="wide"><span>내용</span><input id="agos-ed-desc" value="${vv('name')}" placeholder="예: 공통 플랫폼 외주비 이관"></label>`
     : `
       <label class="wide"><span>항목명</span><input id="agos-ed-name" value="${vv('name')}" placeholder="예: 보안 취약점 진단 수수료"></label>
-      <label><span>거래처</span><input id="agos-ed-party" value="${vv('party')}" placeholder="예: 시큐어아이"></label>
+      <label><span>거래처</span>${agentVendorFieldFinal('agos-ed-party', x ? x.party : '', name + ' 거래처')}</label>
       <label><span>금액(원)</span><input id="agos-ed-amount" inputmode="numeric" value="${amt}" placeholder="예: 30000000"></label>
+      <label><span>PO번호</span><input id="agos-ed-po" inputmode="numeric" maxlength="10" value="${vv('poNo')}" placeholder="4500으로 시작하는 10자리 (없으면 비움)"></label>
       <label><span>시작일</span><input id="agos-ed-start" type="date" value="${vv('start')}"></label>
       <label><span>종료일</span><input id="agos-ed-end" type="date" value="${vv('end')}"></label>`;
   const note = e.sub === 0
@@ -3143,7 +3306,7 @@ function renderAgentOsSubFinal(subName, idx, viewData) {
     const sumA = arr => arr.reduce((t, x) => t + agentOsItemActFinal(subName, x), 0);
     const recv = of('Receiver Project'), send = of('Sender Project');
     const pR = sumP(recv), pS = sumP(send), aR = sumA(recv), aS = sumA(send);
-    const cols = can ? 7 : 6;
+    const cols = can ? 8 : 7;
     const tile = (cls, label, v, sub) => `
       <div class="agtr-tile ${cls}"><span>${label}</span><b>${money(v)}</b>${sub ? `<em>${sub}</em>` : ''}</div>`;
     return `
@@ -3169,7 +3332,7 @@ function renderAgentOsSubFinal(subName, idx, viewData) {
       <div class="aglb-wrap">
         <table class="aglb">
           <thead><tr>
-            <th>이관 구분</th><th>발생 예정월</th><th>내용</th>
+            <th>이관 구분</th><th>발생 예정월</th><th>PO번호</th><th>내용</th>
             <th class="num">계획</th><th class="num">실적</th><th>상태</th>${can ? '<th class="aglb-act">관리</th>' : ''}
           </tr></thead>
           <tbody>${src.map(x => {
@@ -3180,6 +3343,7 @@ function renderAgentOsSubFinal(subName, idx, viewData) {
             <tr>
               <td><em class="agtr-kind ${k.cls}">${k.label}</em></td>
               <td>${escHtml(agentOsMonthOfFinal(x))}</td>
+              <td class="agos-po">${x.poNo ? escHtml(x.poNo) : '<span class="agos-none">–</span>'}</td>
               <td>${escHtml(x.name || '')}</td>
               <td class="num ${(x.amount || 0) < 0 ? 'down' : ''}">${money(Number(x.amount || 0))}</td>
               <td class="num agtr-act">${(locked || a) ? `<b class="${a < 0 ? 'down' : ''}">${money(a)}</b>` : '<span>–</span>'}</td>
@@ -3187,10 +3351,10 @@ function renderAgentOsSubFinal(subName, idx, viewData) {
               ${acts(x)}
             </tr>`;
           }).join('')}
-            ${renderAgentDirRowFinal(dir, 5)}
+            ${renderAgentDirRowFinal(dir, 6)}
             ${(!src.length && !dir) ? `<tr><td colspan="${cols}" class="aglb-empty">등록된 내역이 없습니다.${can ? ' [＋ 이관외주비 등록]으로 추가해 주세요.' : ''}</td></tr>` : ''}</tbody>
           ${(src.length || dir) ? `<tfoot><tr>
-            <td>합계 ${src.length + (dir ? 1 : 0)}건</td><td></td><td></td>
+            <td>합계 ${src.length + (dir ? 1 : 0)}건</td><td></td><td></td><td></td>
             <td class="num">${money(pR + pS + (dir ? dir.amount : 0))}</td>
             <td class="num">${money(aR + aS)}</td><td></td>${can ? '<td></td>' : ''}</tr></tfoot>` : ''}
         </table>
@@ -3201,7 +3365,7 @@ function renderAgentOsSubFinal(subName, idx, viewData) {
   const tot = src.reduce((a, x) => ({
     am: a.am + (x.amount || 0), ac: a.ac + (x.actual || 0), pl: a.pl + (x.planned || 0),
   }), { am: 0, ac: 0, pl: 0 });
-  const cols = can ? 8 : 7;
+  const cols = can ? 9 : 8;
   return `
     ${can ? `
       <div class="aglb-bar">
@@ -3211,13 +3375,14 @@ function renderAgentOsSubFinal(subName, idx, viewData) {
     <div class="aglb-wrap">
       <table class="aglb">
         <thead><tr>
-          <th>항목</th><th>거래처</th><th>기간</th><th class="num">금액</th>
+          <th>항목</th><th>거래처</th><th>PO번호</th><th>기간</th><th class="num">금액</th>
           <th class="num">실적(검수)</th><th class="num">집행예정(미검수)</th><th>상태</th>${can ? '<th class="aglb-act">관리</th>' : ''}
         </tr></thead>
         <tbody>${src.map(x => `
           <tr class="${x.status === '집행완료' ? 'done' : ''}">
             <td><b>${escHtml(x.name)}</b></td>
             <td>${escHtml(x.party || '')}</td>
+            <td class="agos-po">${x.poNo ? escHtml(x.poNo) : '<span class="agos-none">–</span>'}</td>
             <td>${escHtml(x.start || '')} ~ ${escHtml(x.end || '')}</td>
             <td class="num"><b>${fmt(x.amount)}원</b></td>
             <td class="num">${fmt(x.actual || 0)}원</td>
@@ -3225,10 +3390,10 @@ function renderAgentOsSubFinal(subName, idx, viewData) {
             <td>${agentHandBadgeFinal(x) || `<em class="aglb-st ${x.status === '집행완료' ? 'done' : ''}">${escHtml(x.status)}</em>`}</td>
             ${acts(x)}
           </tr>`).join('')}
-          ${renderAgentDirRowFinal(dir, 7)}
+          ${renderAgentDirRowFinal(dir, 8)}
           ${(!src.length && !dir) ? `<tr><td colspan="${cols}" class="aglb-empty">${escHtml(subName)}에 등록된 내역이 없습니다.${can ? ` [＋ ${escHtml(subName)} 등록]으로 추가해 주세요.` : ''}</td></tr>` : ''}</tbody>
         ${(src.length || dir) ? `<tfoot><tr>
-          <td>합계 ${src.length + (dir ? 1 : 0)}건</td><td></td><td></td>
+          <td>합계 ${src.length + (dir ? 1 : 0)}건</td><td></td><td></td><td></td>
           <td class="num"><b>${fmt(tot.am + (dir ? dir.amount : 0))}원</b></td>
           <td class="num">${fmt(tot.ac)}원</td>
           <td class="num">${fmt(tot.pl)}원</td><td></td>${can ? '<td></td>' : ''}
@@ -3361,8 +3526,69 @@ var AGENT_MAT_TR_KIND_FINAL = {
   'Receiver Project': { label: '받을 재료비', done: '받은 재료비', sign: 1, cls: 'recv' },
   'Sender Project':   { label: '보낼 재료비', done: '보낸 재료비', sign: -1, cls: 'send' },
 };
+// [2026.11.12] 상품재료비 업체 — 목업 원본(공유 파일)에 업체가 없는 품목은 여기서 채웁니다
+var AGENT_MAT_VENDOR_SEED_FINAL = {
+  'mi-actual-1000': '데이터웍스', 'mi-1001': '라이선스플러스', 'mi-seed-19300': '데이터웍스',
+};
+/* [2026.11.24] 상품재료비도 실투입대상 외주비처럼 PO 단위 구매계획으로 봅니다.
+   품목 1줄 = PO 1건. 견적과 100% 일치해야 PO가 생기고, PO가 생기면 PO번호 · 구매 금액 · 실적(검수) · 집행예정(미검수)이
+   구매시스템 값으로 채워지며 조회 전용이 됩니다. 재료비는 1년치를 일괄 구매하고 검수를 월별 · 분기별로 나눠 하는 경우가 많아
+   계획에 "검수 주기"(월별 / 분기별 / 일괄)를 두고, 실제 검수가 계획한 주기와 다르게 들어오면 표에서 표시합니다.
+   목업 원본(getMaterialRows, 공유 파일)은 고치지 않고 아래 값만 채웁니다. */
+var AGENT_MAT_PO_SEED_FINAL = {
+  'mi-actual-1000': { inspectCycle: '일괄', poNo: '4500241009', purchase: 9000000,
+    inspections: [{ m: '2026-06', amount: 9000000 }] },
+  'mi-1001': { inspectCycle: '분기별', poNo: '4500241031', purchase: 52000000,
+    inspections: [{ m: '2026-08', amount: 4333000 }, { m: '2026-09', amount: 4333000 }, { m: '2026-10', amount: 4334000 }] },
+  'mi-seed-19300': { inspectCycle: '분기별' },
+};
+var AGENT_MAT_CYCLES_FINAL = ['월별', '분기별', '일괄'];
 function agentMatGoodsFinal() {
-  return (typeof getMaterialRows === 'function' ? getMaterialRows() : null) || [];
+  const rows = (typeof getMaterialRows === 'function' ? getMaterialRows() : null) || [];
+  rows.forEach(r => {
+    if (!r.vendor && !r.manufacturer && AGENT_MAT_VENDOR_SEED_FINAL[r.id]) r.vendor = r.manufacturer = AGENT_MAT_VENDOR_SEED_FINAL[r.id];
+    if (!r.__poSeeded) {
+      r.__poSeeded = true;
+      const s = AGENT_MAT_PO_SEED_FINAL[r.id];
+      if (s) Object.keys(s).forEach(k => { if (r[k] === undefined) r[k] = JSON.parse(JSON.stringify(s[k])); });
+      if (!r.inspectCycle) r.inspectCycle = '월별';
+    }
+  });
+  return rows;
+}
+// 실적(검수) · 집행예정(미검수) — PO가 있을 때만
+function agentMatGoodsActFinal(x) {
+  const act = (x.inspections || []).reduce((t, i) => t + (i.amount || 0), 0);
+  return { act, todo: x.poNo ? Math.max((x.purchase || x.amount || 0) - act, 0) : 0 };
+}
+// 계획한 검수 주기에 맞는 검수 월 — 분기별 = 분기 마지막 달, 일괄 = 납품 종료월, 월별 = 납품 기간의 모든 달
+function agentMatInspectMonthsFinal(x) {
+  const ms = (typeof monthRangeByDate === 'function') ? monthRangeByDate(x.deliveryStart || '', x.deliveryEnd || '') : [];
+  if (!ms.length) return [];
+  if (x.inspectCycle === '일괄') return [ms[ms.length - 1]];
+  if (x.inspectCycle === '분기별') {
+    const out = ms.filter(m => Number(m.slice(5, 7)) % 3 === 0);
+    if (!out.length || out[out.length - 1] !== ms[ms.length - 1]) out.push(ms[ms.length - 1]);
+    return out;
+  }
+  return ms;
+}
+// 실제 검수가 계획한 주기와 다른 달에 들어왔는지
+function agentMatCycleGapFinal(x) {
+  const ok = agentMatInspectMonthsFinal(x);
+  const off = (x.inspections || []).map(i => i.m).filter(m => ok.indexOf(m) < 0);
+  return off.length ? off : null;
+}
+// 상품재료비 월별 계획 — 검수 주기대로 나눕니다(월별 = 매달 균등, 분기별 = 분기 마지막 달, 일괄 = 납품 종료월)
+function agentMatGoodsSpreadFinal(x) {
+  if (!x.inspectCycle || x.inspectCycle === '월별') return agentSpreadFinal(x.amount, x.deliveryStart, x.deliveryEnd);
+  const ms = agentMatInspectMonthsFinal(x);
+  const out = {};
+  const amt = Number(x.amount || 0);
+  if (!amt || !ms.length) return out;
+  const unit = Math.round(amt / ms.length);
+  ms.forEach((m, i) => { out[m] = i === ms.length - 1 ? amt - unit * (ms.length - 1) : unit; });
+  return out;
 }
 // 저장 · 삭제 때 바뀐 월별 금액(새 값 − 옛 값)을 소계정 변동분에 더해 둡니다.
 function agentMatDeltaAddFinal(kind, name, before, after) {
@@ -3394,7 +3620,7 @@ function agentMatListFinal(kind, name) {
   return AGENT_MAT_SUB_FINAL[name];
 }
 function agentMatLockedFinal(kind, x) {
-  if (kind === 'goods') return !!x.actualized;
+  if (kind === 'goods') return !!x.actualized || !!x.poNo;   // PO가 생기면 구매시스템 값이라 조회 전용
   if (kind === 'tr') return x.status === '집행완료' || !!x.actual;
   return false;
 }
@@ -3422,7 +3648,7 @@ function agentMatMonthsFinal(kind, list) {
   (list || []).forEach(x => {
     const mm = kind === 'tr'
       ? (() => { const o = {}; const m = String(x.month || x.start || '').slice(0, 7); if (m) o[m] = Number(x.amount || 0); return o; })()
-      : kind === 'goods' ? agentSpreadFinal(x.amount, x.deliveryStart, x.deliveryEnd)
+      : kind === 'goods' ? agentMatGoodsSpreadFinal(x)
       : agentSpreadFinal(x.amount, x.start, x.end);
     Object.keys(mm).forEach(m => { out[m] = (out[m] || 0) + mm[m]; });
   });
@@ -3458,11 +3684,13 @@ function agentMatEdSaveFinal() {
     const item = val('agmt-name'), large = val('agmt-large'), middle = val('agmt-middle');
     const start = val('agmt-start'), end = val('agmt-end'), amount = num('agmt-amount');
     const qty = Math.max(Number(val('agmt-qty')) || 0, 0);
+    const vendor = val('agmt-vendor');
     if (!item) { showToast('품목명을 입력해 주세요.'); return; }
+    if (!vendor) { showToast('업체를 [조회]로 선택해 주세요.'); return; }
     if (!start || !end) { showToast('납품 기간을 입력해 주세요.'); return; }
     if (end < start) { showToast('납품 종료일이 시작일보다 앞설 수 없습니다.'); return; }
     if (!amount) { showToast('금액을 입력해 주세요.'); return; }
-    payload = { productDetail: item, small: item, large, middle, model: val('agmt-model'),
+    payload = { productDetail: item, small: item, large, middle, model: val('agmt-model'), vendor, manufacturer: vendor,
       quantity: qty || 1, unit: val('agmt-unit') || '식', deliveryStart: start, deliveryEnd: end, amount };
     label = `상품재료비 '${item}' ${fmt(amount)}원`;
     if (!hit) Object.assign(payload, { id: 'mi-' + Date.now(), quoteNo: '', revenueBasis: '월', status: '계획', actualized: false });
@@ -3520,6 +3748,100 @@ function agentMatDelFinal(sub, id) {
   renderBudgetPage();
 }
 
+/* [2026.11.24] 상품재료비 구매계획 등록 · 수정 — 검수 주기를 함께 받습니다(상품재료비 전용 팝업).
+   다른 소계정은 기존 agentMatEdOpenFinal 그대로입니다. */
+var agentMatGoodsEdFinal = null;    // { id | '' }
+function agentMatGoodsOpenFinal(id) {                   // crud C/U — 상품재료비 구매계획 팝업 열기
+  const x = id ? agentMatGoodsFinal().find(r => r.id === id) : null;
+  if (id && !x) return;
+  if (x && agentMatLockedFinal('goods', x)) { showToast('PO가 발행된 구매계획은 구매시스템 기준이라 수정할 수 없습니다.'); return; }
+  agentMatGoodsEdFinal = { id: id || '' };
+  renderBudgetPage();
+}
+function agentMatGoodsCloseFinal() { agentMatGoodsEdFinal = null; renderBudgetPage(); }
+function agentMatGoodsSaveFinal() {                     // crud C/U — 상품재료비 구매계획 저장
+  const e = agentMatGoodsEdFinal;
+  if (!e) return;
+  const list = agentMatGoodsFinal();
+  const hit = e.id ? list.find(r => r.id === e.id) : null;
+  if (hit && agentMatLockedFinal('goods', hit)) { showToast('PO가 발행된 구매계획은 수정할 수 없습니다.'); return; }
+  const val = id => ((document.getElementById(id) || {}).value || '').trim();
+  const item = val('agmg-name'), vendor = val('agmg-vendor');
+  const start = val('agmg-start'), end = val('agmg-end');
+  const amount = Math.abs(parseBudgetAmount(val('agmg-amount') || 0));
+  const cycle = AGENT_MAT_CYCLES_FINAL.indexOf(val('agmg-cycle')) >= 0 ? val('agmg-cycle') : '월별';
+  const qty = Math.max(Number(val('agmg-qty')) || 0, 0);
+  if (!item) { showToast('품목명을 입력해 주세요.'); return; }
+  if (!vendor) { showToast('업체를 [조회]로 선택해 주세요.'); return; }
+  if (!start || !end) { showToast('납품 기간을 입력해 주세요.'); return; }
+  if (end < start) { showToast('납품 종료일이 시작일보다 앞설 수 없습니다.'); return; }
+  if (!amount) { showToast('계획 금액을 입력해 주세요.'); return; }
+  const payload = { productDetail: item, small: item, large: val('agmg-large'), middle: val('agmg-middle'), model: val('agmg-model'),
+    vendor, manufacturer: vendor, quantity: qty || 1, unit: val('agmg-unit') || '식',
+    deliveryStart: start, deliveryEnd: end, amount, inspectCycle: cycle };
+  if (!hit) Object.assign(payload, { id: 'mi-' + Date.now(), quoteNo: '', revenueBasis: '월', status: '계획', actualized: false,
+    poNo: '', inspections: [], __poSeeded: true });
+  const before = hit ? JSON.parse(JSON.stringify(hit)) : null;
+  if (hit) Object.assign(hit, payload); else list.unshift(payload);
+  const row = hit || payload;
+  const label = `상품재료비 '${item}' ${fmt(amount)}원(검수 ${cycle})`;
+  agentMatDeltaAddFinal('goods', '상품재료비', before, row);
+  agentHandRecordFinal('재료비', '상품재료비', `${hit ? '수정' : '등록'} · ${label}`,
+    agentMonthsDiffFinal(agentMatMonthsFinal('goods', [row]), agentMatMonthsFinal('goods', before ? [before] : [])), [row]);
+  agentMatGoodsEdFinal = null;
+  agentHandToastFinal(`${label}을 ${hit ? '수정' : '등록'}했습니다`);
+  renderBudgetPage();
+}
+function renderAgentMatGoodsPopFinal() {
+  const e = agentMatGoodsEdFinal;
+  if (!e || agentAiSheetFinal !== '재료비') return '';
+  const x = e.id ? agentMatGoodsFinal().find(r => r.id === e.id) : null;
+  if (e.id && !x) return '';
+  const vv = k => escHtml(x ? String(x[k] == null ? '' : x[k]) : '');
+  const cyc = x ? (x.inspectCycle || '월별') : '분기별';
+  return `
+    <div class="agv-pop-dim" onclick="if(event.target===this)agentMatGoodsCloseFinal()">
+      <div class="agv-pop" role="dialog" aria-modal="true" aria-label="상품재료비 구매계획 ${x ? '수정' : '등록'}">
+        <div class="agv-pop-head">
+          <div><strong>상품재료비 구매계획 ${x ? '수정' : '등록'}</strong>
+            <span>품목 1건이 PO 1건이 됩니다. 구매요청은 이 계획과 품목 · 금액이 일치해야 하며, 견적 근거 없이 산정한 원가로는 구매할 수 없습니다.</span></div>
+          <button class="agv-pop-x" onclick="agentMatGoodsCloseFinal()">✕</button>
+        </div>
+        <div class="agv-pop-body"><div class="aglb-form">
+          <label class="wide"><span>품목명</span><input id="agmg-name" value="${vv('productDetail')}" placeholder="예: DBMS 라이선스"></label>
+          <label><span>대분류</span><input id="agmg-large" value="${vv('large')}" placeholder="예: 솔루션"></label>
+          <label><span>중분류</span><input id="agmg-middle" value="${vv('middle')}" placeholder="예: 라이선스"></label>
+          <label><span>업체</span>${agentVendorFieldFinal('agmg-vendor', x ? (x.vendor || x.manufacturer || '') : '', '상품재료비 업체')}</label>
+          <label><span>모델</span><input id="agmg-model" value="${vv('model')}" placeholder="예: DB-ENT-2026"></label>
+          <label><span>수량 / 단위</span><span class="aglb-pair">
+            <input id="agmg-qty" inputmode="numeric" value="${x ? (x.quantity || 1) : 1}">
+            <input id="agmg-unit" value="${x ? escHtml(x.unit || '식') : '식'}"></span></label>
+          <label><span>검수 주기</span><select id="agmg-cycle">${AGENT_MAT_CYCLES_FINAL.map(c =>
+            `<option value="${c}" ${c === cyc ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+          <label><span>납품 시작일</span><input id="agmg-start" type="date" value="${vv('deliveryStart')}"></label>
+          <label><span>납품 종료일</span><input id="agmg-end" type="date" value="${vv('deliveryEnd')}"></label>
+          <label class="wide"><span>계획 금액(원)</span><input id="agmg-amount" inputmode="numeric" value="${x ? (x.amount || 0) : ''}" placeholder="예: 30000000"></label>
+        </div>
+        <p class="agmg-tip">검수 주기는 실제로 검수할 단위로 고르세요. 1년치를 한 번에 사더라도 매달 검수하면 <b>월별</b>입니다.
+          월별 계획 금액이 이 주기대로 나뉘고(분기별 = 분기 마지막 달, 일괄 = 납품 종료월), 실제 검수가 다른 달에 들어오면 표에 표시됩니다.</p></div>
+        <div class="agv-pop-foot">
+          <button class="agv-ok" onclick="agentMatGoodsSaveFinal()">${x ? '수정 저장' : '저장'}</button>
+          <button class="agv-cancel" onclick="agentMatGoodsCloseFinal()">닫음</button>
+        </div>
+      </div>
+    </div>`;
+}
+(function agentMatGoodsStyleFinal() {
+  if (document.getElementById('agmg-style')) return;
+  const st = document.createElement('style');
+  st.id = 'agmg-style';
+  st.textContent = `
+  .agmg-tip { margin:10px 0 0; padding:8px 12px; border-radius:8px; background:#f6f8fb; color:#4b5563; font-size:12px; line-height:1.55; }
+  .agmg-cyc { display:inline-block; padding:1px 8px; border-radius:999px; background:#eef2f7; color:#1c2432; font-size:11.5px; font-weight:700; white-space:nowrap; }
+  .agmg-gap { display:block; margin-top:3px; color:#c2410c; font-size:11px; font-weight:700; white-space:nowrap; }`;
+  document.head.appendChild(st);
+})();
+
 function renderAgentMatEdPopFinal(viewData) {
   const e = agentMatEdFinal;
   if (!e || agentAiSheetFinal !== '재료비') return '';
@@ -3537,6 +3859,7 @@ function renderAgentMatEdPopFinal(viewData) {
       <label class="wide"><span>품목명</span><input id="agmt-name" value="${vv('productDetail')}" placeholder="예: DBMS 라이선스"></label>
       <label><span>대분류</span><input id="agmt-large" value="${vv('large')}" placeholder="예: 솔루션"></label>
       <label><span>중분류</span><input id="agmt-middle" value="${vv('middle')}" placeholder="예: 라이선스"></label>
+      <label><span>업체</span>${agentVendorFieldFinal('agmt-vendor', x ? (x.vendor || x.manufacturer || '') : '', '상품재료비 업체')}</label>
       <label><span>모델</span><input id="agmt-model" value="${vv('model')}" placeholder="예: DB-ENT-2026"></label>
       <label><span>수량 / 단위</span><span class="aglb-pair">
         <input id="agmt-qty" inputmode="numeric" value="${x ? (x.quantity || 1) : 1}">
@@ -3544,7 +3867,7 @@ function renderAgentMatEdPopFinal(viewData) {
       <label><span>납품 시작일</span><input id="agmt-start" type="date" value="${vv('deliveryStart')}"></label>
       <label><span>납품 종료일</span><input id="agmt-end" type="date" value="${vv('deliveryEnd')}"></label>
       <label class="wide"><span>금액(원)</span><input id="agmt-amount" inputmode="numeric" value="${x ? (x.amount || 0) : ''}" placeholder="예: 30000000"></label>`;
-    note = '금액은 납품 기간에 균등 배분되어 상품재료비 계획에 반영됩니다. 구매시스템 견적이 확정되면 Agent가 예산 조정안으로 제안합니다.';
+    note = '여기서 등록한 품목 · 금액이 상품구매의 기준이 됩니다. 구매요청은 이 예산과 일치해야 하며, 견적 근거 없이 산정한 원가로는 구매할 수 없습니다. 금액은 납품 기간에 균등 배분됩니다.';
   } else if (kind === 'dep') {
     fields = `
       <label class="wide"><span>자산명</span><input id="agmt-name" value="${vv('name')}" placeholder="예: 개발 서버 2식"></label>
@@ -3605,41 +3928,71 @@ function renderAgentMaterialDetailFinal(viewData, roll) {
   const pop = renderAgentMatEdPopFinal(viewData);
   const cp = renderAgentAcctCpFinal('재료비', (roll.rows.find(r => r.acct === '재료비') || {}).plan + agentAcctPickedDeltaFinal('재료비'));
 
-  // ① 상품재료비 — 품목 단위
+  // ① 상품재료비 — [2026.11.24] PO 단위 구매계획(실투입대상 외주비와 같은 칸 구성) + 검수 주기
   if (kind === 'goods') {
     const rows = list.slice().sort((a, b) => String(a.deliveryStart || '').localeCompare(String(b.deliveryStart || '')));
-    const tot = rows.reduce((t, r) => t + (r.amount || 0), 0);
-    const act = rows.filter(r => r.actualized).reduce((t, r) => t + (r.amount || 0), 0);
-    const cols = can ? 9 : 8;
+    const sum = (f) => rows.reduce((t, r) => t + f(r), 0);
+    const tot = sum(r => r.amount || 0);
+    const buy = sum(r => r.poNo ? (r.purchase || r.amount || 0) : 0);
+    const act = sum(r => agentMatGoodsActFinal(r).act);
+    const todo = sum(r => agentMatGoodsActFinal(r).todo);
+    const nPo = rows.filter(r => r.poNo).length;
+    const cols = can ? 12 : 11;
+    const none = '<span class="agos-none">–</span>';
+    const gAct = r => !can ? '' : `<td class="aglb-act">${agentMatLockedFinal('goods', r)
+      ? '<span class="aglb-lock">조회 전용</span>'
+      : `<button onclick="agentMatGoodsOpenFinal('${r.id}')">수정</button>
+         <button class="del" onclick="agentMatDelFinal(${cur},'${r.id}')">삭제</button>`}</td>`;
     return `${tabs}
-      ${bar('품목 단위로 등록합니다. 실적이 생긴 품목은 조회 전용입니다. 구매견적이 확정되면 Agent가 예산 조정안으로 제안합니다.', '품목')}
-      ${pop}
+      <div class="agos-hint"><b>구매 기준</b><span>상품구매는 <em>여기서 수립 · 결재된 재료비 예산과 품목 · 금액이 일치할 때만</em> 요청할 수 있습니다.
+        견적 근거 없이 임의로 산정한 원가로는 구매가 진행되지 않으니, 공급사 견적을 받은 금액으로 수립해 주세요. 구매견적이 확정되면 Agent가 그 금액으로 예산 조정안을 제안합니다.</span></div>
+      ${can ? `
+        <div class="aglb-bar">
+          <button class="aglb-add" onclick="agentMatGoodsOpenFinal('')">＋ 구매계획 등록</button>
+        </div>` : ''}
+      ${renderAgentMatGoodsPopFinal()}
       <div class="aglb-wrap">
-        <table class="aglb">
+        <table class="aglb agmg">
           <thead><tr>
-            <th>품목</th><th>분류</th><th>모델</th><th class="num">수량</th>
-            <th>납품기간</th><th>견적번호</th><th class="num">금액</th><th>상태</th>${can ? '<th class="aglb-act">관리</th>' : ''}
+            <th>품목</th><th>업체</th><th class="num">수량</th><th>납품기간</th><th>검수 주기</th>
+            <th class="num">계획 금액</th><th>PO번호</th><th class="num">구매 금액</th>
+            <th class="num">실적(검수)</th><th class="num">집행예정(미검수)</th><th>상태</th>${can ? '<th class="aglb-act">관리</th>' : ''}
           </tr></thead>
-          <tbody>${rows.length ? rows.map(r => `
-            <tr class="${r.actualized ? 'done' : ''}">
-              <td><b>${escHtml(r.productDetail || r.small || '')}</b></td>
-              <td>${escHtml([r.large, r.middle].filter(Boolean).join(' · '))}</td>
-              <td>${escHtml(r.model || '')}</td>
+          <tbody>${rows.length ? rows.map(r => {
+            const a = agentMatGoodsActFinal(r);
+            const gap = agentMatCycleGapFinal(r);
+            const done = r.poNo && a.act >= (r.purchase || r.amount || 0);
+            const st = agentHandBadgeFinal(r) || (r.poNo
+              ? `<em class="agos-st po">${done ? '검수 완료' : 'PO 발행'}</em>`
+              : '<em class="agos-st wait">계약 대기</em>');
+            return `
+            <tr class="${done ? 'done' : ''}">
+              <td><b>${escHtml(r.productDetail || r.small || '')}</b>
+                <span class="aglb-sub">${escHtml([r.large, r.middle, r.model].filter(Boolean).join(' · '))}</span></td>
+              <td>${(r.vendor || r.manufacturer) ? escHtml(r.vendor || r.manufacturer) : none}</td>
               <td class="num">${r.quantity || 0}${escHtml(r.unit || '')}</td>
               <td>${escHtml(r.deliveryStart || '')} ~ ${escHtml(r.deliveryEnd || '')}</td>
-              <td>${escHtml(r.quoteNo || '–')}</td>
+              <td><span class="agmg-cyc">${escHtml(r.inspectCycle || '월별')}</span>${gap
+                ? `<span class="agmg-gap" title="계획은 ${escHtml(r.inspectCycle)} 검수인데 ${escHtml(gap.join(', '))}에 검수가 들어왔습니다. 실제 검수 주기에 맞게 계획을 고쳐야 월별 예산과 실적이 맞습니다.">⚠ 실제 검수 ${gap.length}건 주기 다름</span>` : ''}</td>
               <td class="num"><b>${fmt(r.amount || 0)}원</b></td>
-              <td>${agentHandBadgeFinal(r) || `<em class="aglb-st ${r.actualized ? 'done' : ''}">${escHtml(r.status || '계획')}</em>`}</td>
-              ${acts(r)}
-            </tr>`).join('') : `<tr><td colspan="${cols}" class="aglb-empty">등록된 품목이 없습니다.${can ? ' [＋ 품목 등록]으로 추가해 주세요.' : ''}</td></tr>`}
-            ${renderAgentDirRowFinal(dir, 8)}</tbody>
+              <td>${r.poNo ? escHtml(r.poNo) : none}${r.quoteNo ? `<span class="aglb-sub">견적 ${escHtml(r.quoteNo)}</span>` : ''}</td>
+              <td class="num">${r.poNo ? `<b>${fmt(r.purchase || r.amount || 0)}원</b>` : none}</td>
+              <td class="num">${r.poNo ? fmt(a.act) + '원' : none}</td>
+              <td class="num">${r.poNo ? fmt(a.todo) + '원' : none}</td>
+              <td>${st}</td>
+              ${gAct(r)}
+            </tr>`;
+          }).join('') : `<tr><td colspan="${cols}" class="aglb-empty">등록된 구매계획이 없습니다.${can ? ' [＋ 구매계획 등록]으로 추가해 주세요.' : ''}</td></tr>`}
+            ${renderAgentDirRowFinal(dir, cols - (can ? 1 : 0))}</tbody>
           <tfoot>
             <tr>
-              <td>합계 ${rows.length}건</td><td></td><td></td><td></td><td></td>
-              <td>실적 ${fmt(act)}원</td>
-              <td class="num"><b>${fmt(tot + (dir ? dir.amount : 0))}원</b></td><td></td>${can ? '<td></td>' : ''}
+              <td colspan="5">합계 ${rows.length}건 (PO 발행 ${nPo}건)</td>
+              <td class="num"><b>${fmt(tot + (dir ? dir.amount : 0))}원</b></td><td></td>
+              <td class="num"><b>${fmt(buy)}원</b></td>
+              <td class="num">${fmt(act)}원</td>
+              <td class="num">${fmt(todo)}원</td><td></td>${can ? '<td></td>' : ''}
             </tr>
-            ${renderAgentPickedRowFinal('재료비', 8)}
+            ${renderAgentPickedRowFinal('재료비', cols - (can ? 1 : 0))}
           </tfoot>
         </table>
       </div>
@@ -7755,6 +8108,134 @@ function renderAgentRiskFocusFinal(roll) {
 })();
 
 /* ==========================================================================
+   [2026.11.12] 거래처 조회 — 거래처명은 직접 타이핑하지 않고 거래처 목록에서 조회해 고릅니다.
+     · 거래처 목록은 POP(구매시스템) 거래처 마스터를 받는다고 보고, 목업에서는 아래 목록 + 화면에 이미 쓰인 업체를 합칩니다.
+     · 입력칸은 읽기 전용 + [조회] 버튼. 조회 창에서 이름 · 사업자번호로 검색해 행을 누르면 입력칸에 들어갑니다.
+     · 열려 있는 등록 팝업의 다른 입력값이 지워지지 않도록 다시 그리지 않고 DOM만 바꿉니다.
+   ========================================================================== */
+var AGENT_VENDOR_MASTER_FINAL = [
+  { name: '아크로디자인랩', biz: '214-81-30217', kind: '디자인 · 개발', code: 'V100231' },
+  { name: '펜타시스템테크놀러지(주)', biz: '120-86-11873', kind: 'SI · 개발', code: 'V100187' },
+  { name: '(주)인젠트', biz: '107-81-62054', kind: '솔루션 · 개발', code: 'V100054' },
+  { name: '미래정보기술', biz: '211-87-45390', kind: '컨설팅' },
+  { name: '테크노아이티', biz: '220-81-77612', kind: '기술자문' },
+  { name: '시큐어아이', biz: '119-86-20981', kind: '보안' },
+  { name: '대한설비', biz: '134-81-55270', kind: '공사 · 설비' },
+  { name: '한빛네트웍스', biz: '128-86-30415', kind: '네트워크 공사' },
+  { name: '글로벌링크', biz: '106-81-90233', kind: '번역 · 현지화' },
+  { name: '러닝브릿지', biz: '215-87-14602', kind: '교육' },
+  { name: 'BP Korea', biz: '104-81-28851', kind: 'SI · 개발' },
+  { name: 'NOVA Partners', biz: '113-86-47720', kind: '전문 용역' },
+  { name: '기타거래처', biz: '000-00-00000', kind: '기타' },
+  { name: '데이터웍스', biz: '144-81-26038', kind: '솔루션 · 라이선스' },
+  { name: '서버원테크', biz: '206-86-51197', kind: 'H/W · 장비' },
+  { name: '라이선스플러스', biz: '129-81-73350', kind: 'S/W 라이선스' },
+  { name: '네트온시스템', biz: '133-86-08821', kind: '네트워크 장비' },
+];
+function agentVendorListFinal() {
+  const seen = {}, out = [];
+  const add = (name, extra) => { const n = String(name || '').trim(); if (!n || seen[n]) return; seen[n] = 1; out.push(Object.assign({ name: n, biz: '', kind: '' }, extra || {})); };
+  AGENT_VENDOR_MASTER_FINAL.forEach(v => add(v.name, v));
+  ((typeof osv3VendorsV3 !== 'undefined') ? osv3VendorsV3 : []).forEach(v => add(v.vendor, { kind: '외주 업체' }));
+  Object.keys(typeof AGENT_OS_SUB_FINAL !== 'undefined' ? AGENT_OS_SUB_FINAL : {}).forEach(k => AGENT_OS_SUB_FINAL[k].forEach(x => {
+    if (x.party && !/Project$/.test(x.party)) add(x.party, { kind: '외주 거래처' });
+  }));
+  ((typeof getMaterialRows === 'function') ? (getMaterialRows() || []) : []).forEach(r => add(r.vendor || r.manufacturer, { kind: '재료비 업체' }));
+  return out;
+}
+// 입력칸 + [조회] 버튼 (등록 팝업 안에서 쓰는 조각)
+function agentVendorFieldFinal(id, value, label) {
+  return `<span class="agvp-field">
+      <input id="${id}" value="${escHtml(value || '')}" readonly placeholder="[조회]로 거래처를 선택하세요"
+        onclick="agentVendorPickOpenFinal('${id}','${escHtml(label || '거래처')}')" title="눌러서 거래처를 조회합니다">
+      <button type="button" class="agvp-btn" onclick="agentVendorPickOpenFinal('${id}','${escHtml(label || '거래처')}')">조회</button>
+    </span>`;
+}
+function agentVendorPickOpenFinal(targetId, label) {   // crud R — 거래처 조회 창 열기
+  agentVendorPickCloseFinal();
+  const dim = document.createElement('div');
+  dim.className = 'agvp-dim';
+  dim.id = 'agvp-dim';
+  dim.dataset.target = targetId;
+  dim.innerHTML = `
+    <div class="agvp-pop" role="dialog" aria-modal="true" aria-label="거래처 조회">
+      <div class="agvp-head"><b>거래처 조회</b><span>${escHtml(label || '')} · POP 거래처 목록</span>
+        <button type="button" class="agvp-x" onclick="agentVendorPickCloseFinal()" aria-label="닫기">✕</button></div>
+      <div class="agvp-search">
+        <input id="agvp-q" placeholder="거래처명 또는 사업자번호로 검색" oninput="agentVendorPickFilterFinal(this.value)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();agentVendorPickFirstFinal();} if(event.key==='Escape')agentVendorPickCloseFinal();">
+        <button type="button" onclick="agentVendorPickFilterFinal(document.getElementById('agvp-q').value)">검색</button>
+      </div>
+      <div class="agvp-list" id="agvp-list"></div>
+    </div>`;
+  dim.addEventListener('click', e => { if (e.target === dim) agentVendorPickCloseFinal(); });
+  document.body.appendChild(dim);
+  agentVendorPickFilterFinal('');
+  setTimeout(() => { const q = document.getElementById('agvp-q'); if (q) q.focus(); }, 0);
+}
+function agentVendorPickFilterFinal(q) {                // crud R — 거래처 검색
+  const box = document.getElementById('agvp-list');
+  const dim = document.getElementById('agvp-dim');
+  if (!box || !dim) return;
+  const cur = ((document.getElementById(dim.dataset.target) || {}).value || '').trim();
+  const t = String(q || '').replace(/[\s-]/g, '').toLowerCase();
+  const list = agentVendorListFinal().filter(v => !t
+    || v.name.replace(/\s/g, '').toLowerCase().indexOf(t) >= 0 || String(v.biz).replace(/-/g, '').indexOf(t) >= 0);
+  box.innerHTML = list.length ? list.map(v => `
+      <button type="button" class="agvp-row ${v.name === cur ? 'on' : ''}" data-name="${escHtml(v.name)}"
+        onclick="agentVendorPickSetFinal(this.dataset.name)">
+        <b>${escHtml(v.name)}</b><span>${escHtml(v.kind || '')}</span><em>${escHtml(v.biz || '')}</em>
+      </button>`).join('')
+    : `<div class="agvp-empty">"${escHtml(q)}"에 맞는 거래처가 없습니다. 거래처는 POP에 먼저 등록되어야 합니다.</div>`;
+}
+function agentVendorPickFirstFinal() {
+  const b = document.querySelector('#agvp-list .agvp-row');
+  if (b) agentVendorPickSetFinal(b.dataset.name);
+}
+function agentVendorPickSetFinal(name) {               // crud N — 고른 거래처를 입력칸에 넣기
+  const dim = document.getElementById('agvp-dim');
+  const el = dim ? document.getElementById(dim.dataset.target) : null;
+  if (el) { el.value = name; el.dispatchEvent(new Event('input', { bubbles: true })); }
+  agentVendorPickCloseFinal();
+}
+function agentVendorPickCloseFinal() {                 // crud N — 거래처 조회 창 닫기
+  const d = document.getElementById('agvp-dim');
+  if (d) d.remove();
+}
+(function injectAgentVendorPickStyleFinal() {
+  if (document.getElementById('agent-vendor-pick-style')) return;
+  const style = document.createElement('style');
+  style.id = 'agent-vendor-pick-style';
+  style.textContent = `
+  .agvp-field { display:flex; gap:6px; align-items:stretch; }
+  .agvp-field input { flex:1 1 auto; min-width:0; cursor:pointer; background:#f8fafc; }
+  .agvp-btn { flex:0 0 auto; border:1px solid #1c2432; background:#1c2432; color:#fff; border-radius:8px; padding:0 14px;
+    font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .agvp-btn:hover { background:#0b1220; }
+  .agvp-dim { position:fixed; inset:0; z-index:120; background:rgba(15,23,42,.35); display:flex; align-items:center; justify-content:center; padding:16px; }
+  .agvp-pop { width:min(460px, 100%); max-height:min(560px, 90vh); background:#fff; border-radius:14px; display:flex; flex-direction:column;
+    box-shadow:0 24px 60px -24px rgba(15,23,42,.5); overflow:hidden; }
+  .agvp-head { display:flex; align-items:baseline; gap:8px; padding:14px 16px 10px; border-bottom:1px solid #eef1f6; }
+  .agvp-head b { font-size:15px; font-weight:900; color:#0b1220; }
+  .agvp-head span { font-size:11.5px; color:#64748b; }
+  .agvp-x { margin-left:auto; border:0; background:none; font-size:16px; color:#64748b; cursor:pointer; }
+  .agvp-search { display:flex; gap:6px; padding:10px 16px; }
+  .agvp-search input { flex:1 1 auto; min-width:0; border:1px solid #cbd5e1; border-radius:8px; padding:8px 10px; font:inherit; font-size:13px; }
+  .agvp-search input:focus { outline:none; border-color:#4f46e5; }
+  .agvp-search button { border:1px solid #cbd5e1; background:#fff; border-radius:8px; padding:0 14px; font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; }
+  .agvp-list { overflow:auto; padding:0 8px 10px; display:flex; flex-direction:column; gap:2px; }
+  .agvp-row { display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"n b" "k b"; gap:0 10px; text-align:left;
+    border:1px solid transparent; background:none; border-radius:9px; padding:8px 10px; cursor:pointer; font:inherit; }
+  .agvp-row:hover, .agvp-row:focus-visible { background:#f1f5ff; border-color:#c7d2fe; outline:none; }
+  .agvp-row.on { background:#eef2ff; border-color:#a5b4fc; }
+  .agvp-row b { grid-area:n; font-size:13px; font-weight:800; color:#0b1220; }
+  .agvp-row span { grid-area:k; font-size:11px; color:#94a3b8; }
+  .agvp-row em { grid-area:b; align-self:center; font-style:normal; font-size:11.5px; color:#64748b; font-variant-numeric:tabular-nums; }
+  .agvp-empty { padding:20px 10px; text-align:center; font-size:12.5px; color:#94a3b8; }`;
+  document.head.appendChild(style);
+})();
+
+/* ==========================================================================
    8. 전용 스타일 주입 (공유 CSS 미변경 — CLAUDE.md 우회 기법 4)
    ========================================================================== */
 
@@ -8980,6 +9461,9 @@ function renderAgentRiskFocusFinal(roll) {
   .agtr-kind { font-style:normal; font-size:11px; font-weight:900; border-radius:5px; padding:2px 8px; white-space:nowrap; }
   .agtr-kind.recv { background:#eaf1ff; color:#2f6bed; }
   .agtr-kind.send { background:#fff1f3; color:#c40025; }
+  /* [2026.11.12] 외주비 PO번호 칸 */
+  .agos-po { font-family:ui-monospace, Consolas, monospace; font-size:12px; font-weight:700; color:#334155; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .agos-po .aglb-sub { display:inline; margin-left:4px; font-family:inherit; }
   /* [2026.11.11] 이관인건비 — 인력 · 상대 프로젝트 · 실투입 대비 */
   .agtr-who { display:flex; flex-direction:column; gap:1px; min-width:0; }
   .agtr-who b { font-size:12.5px; font-weight:900; color:#0b1220; }
