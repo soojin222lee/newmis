@@ -150,11 +150,11 @@ function rpgPlanRate(id) {
 // → 원가조정 화면과 같은 5대 계정 색 팔레트(계정색_팔레트: 바탕 50 · 글자 700)로. 태그 마크업에 계정 표시(data-acct)만 덧붙인다.
 //   이상징후 항목도 같은 계정 색(구분은 위 「이상징후」 제목이 함). 계정이 아닌 태그는 원래 모양 그대로.
 var RPG_ACCT_TAG = {
-  '인건비':   { bg: '#E7E2FA', fg: '#554087' },   // Lavender
+  '인건비':   { bg: '#D8EFED', fg: '#265A56' },   // Teal(톤다운) — 2026.11.24 A/S Cost와 맞바꿈
   '외주비':   { bg: '#F9DEE7', fg: '#7E3053' },   // Rose
   '재료비':   { bg: '#F5E3D0', fg: '#704500' },   // Amber
   '경비':     { bg: '#E3EAD2', fg: '#495701' },   // Olive
-  'A/S Cost': { bg: '#CFEDEF', fg: '#005C60' }    // Teal
+  'A/S Cost': { bg: '#E7E2FA', fg: '#554087' }    // Lavender — 2026.11.24 인건비와 맞바꿈
 };
 (function injectRpgAcctStyle() {
   if (document.getElementById('rpg-acct-style')) return;

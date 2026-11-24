@@ -12,7 +12,8 @@
 //   색상만 색상환에 고르게 벌림: 인건비 라벤더 → 외주비 로즈 → 재료비 앰버 → 경비 올리브 → A/S 청록.
 //   이미 다른 뜻으로 쓰는 파랑(메인 · 감액) · 빨강(증액 · 경고) · 초록(반영됨)은 피함.
 //   쓰는 곳: 계정 이름 앞 색 점 · 고른 계정 탭 윗선(--acc) · 아주 옅은 바탕(--acc 6%)
-var BFL_ACCT_COLOR = { '인건비': '#9E88DA', '외주비': '#D2779C', '재료비': '#C78A3B', '경비': '#8FA347', 'A/S Cost': '#00AEB5' };
+// [2026.11.24 남주] 인건비 ↔ A/S Cost 색 맞바꿈. 인건비로 간 청록은 채도를 낮춰 톤다운(OKLCH L 0.68 · C 0.075 · H 190 — 파랑 H 260과 떨어지게 초록 쪽으로).
+var BFL_ACCT_COLOR = { '인건비': '#5DA7A2', '외주비': '#D2779C', '재료비': '#C78A3B', '경비': '#8FA347', 'A/S Cost': '#9E88DA' };
 if (typeof AGENT_ACCT_TONE_FINAL !== 'undefined') {
   Object.keys(BFL_ACCT_COLOR).forEach(function (a) {
     AGENT_ACCT_TONE_FINAL[a] = { c: BFL_ACCT_COLOR[a], bg: 'color-mix(in srgb, ' + BFL_ACCT_COLOR[a] + ' 6%, #fff)' };
