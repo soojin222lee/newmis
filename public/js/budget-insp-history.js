@@ -350,6 +350,8 @@ function bihLinkify(html, sel, kind) {
   .bih-table td { padding:12px 14px; border-bottom:1px solid #eef0f3; white-space:nowrap; background:#fff; }
   .bih-table .num { text-align:right; }
   .bih-table .ctr { text-align:center; }
+  /* 공통 CSS의 tbody td 노란 줄(border-color:#ffedd5 !important)을 이 팝업 표에서만 회색으로 */
+  .bih-table td { border-color:#eef0f3 !important; }
   .bih-table tbody tr:last-child td { border-bottom:0; }
   .bih-table tfoot td { position:sticky; bottom:0; padding:12px 14px; background:#f6f7f9; border-top:1px solid #d5dae1; font-weight:800; color:#111827; }
   .bih-table tr.bih-sub td { background:#f6f7f9; font-weight:700; color:#111827; }
