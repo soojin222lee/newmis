@@ -108,6 +108,11 @@ if (typeof AGENT_ACCT_TONE_FINAL !== 'undefined') {
     S + ' .aglb-bar:has(> .bie-delsel) > .bxe-btn{order:2;margin-left:auto !important}',
     S + ' .aglb-bar:has(> .bie-delsel) > .aglb-add{order:3;margin-left:0 !important}',
     S + ' .aglb-bar:has(> .bie-delsel) > .bie-savebar{order:4}',
+    //   [2026.11.25] 외주비 [건별 | 업체별 소계] 보기 전환(budget-os-po.js)은 왼쪽 [더보기] 옆 — 보는 버튼(왼쪽) · 고치는 버튼(오른쪽)을 나눔
+    S + ' .aglb-bar > .bop-sum-seg{order:0;margin-left:12px !important}',
+    S + ' .aglb-bar:has(> .bop-sum-seg) > .bie-delsel{margin-left:auto !important}',
+    S + ' .bop-sum-seg{padding:3px !important;background:#eceef2 !important}',
+    S + ' .bop-sum-seg > button{height:30px !important;font-size:14px !important}',
 
     // ── ⑨ 「상세 보는 중」 뱃지 숨김 — 고른 칸(옅은 계정색 + 윗선)과 아래 패널 제목이 이미 알려 줌. 다시 누르면 돌아간다는 안내는 마우스 말풍선(title)에 남아 있음 ──
     S + ' .agai-acct .agai-viewing{display:none !important}',
