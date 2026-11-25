@@ -429,14 +429,13 @@ function bopOsSubtotal(html) {
       const names = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b, 'ko'));
       rows.forEach(tr => tr.remove());
       const money = n => (typeof fmt === 'function' ? fmt(n) : String(n)) + '원';
-      const esc = s => (typeof escHtml === 'function' ? escHtml(s) : s);
-      names.forEach(name => {
+            names.forEach(name => {
         const list = groups.get(name);
-        list.forEach((tr, k) => { if (k) tr.classList.add('bop-cont'); tbody.appendChild(tr); });
+        list.forEach(tr => tbody.appendChild(tr));
         const sum = i => list.reduce((t, tr) => t + bopOsNum(tr.cells[i]), 0);
         const nPo = iPo >= 0 ? list.filter(tr => /\d/.test((tr.cells[iPo] || {}).textContent || '')).length : 0;
         const cells = [];
-        cells.push(`<td colspan="${iPlan}"><span class="bop-sum-tag">소계</span><span class="bop-sum-name">${esc(name)}</span><span class="bop-sum-cnt">${list.length}건${nPo ? ` · PO 발행 ${nPo}건` : ''}</span></td>`);
+        cells.push(`<td colspan="${iPlan}"><span class="bop-sum-label">위 ${list.length}건 합계</span>${nPo ? `<span class="bop-sum-cnt">PO 발행 ${nPo}건</span>` : ''}</td>`);
         for (let i = iPlan; i < heads.length; i++) {
           if (i === iPlan) cells.push(`<td class="num">${money(sum(i))}</td>`);
           else if (i === iAct || i === iTodo) cells.push(`<td class="num">${nPo ? money(sum(i)) : '<span class="agos-none">–</span>'}</td>`);
@@ -468,14 +467,13 @@ function bopOsSubtotal(html) {
     color:#4b5563; font-size:14px; font-weight:600; cursor:pointer; }
   .bop-sum-seg > button:hover:not(.on) { color:#1c2432; }
   .bop-sum-seg > button.on { background:#fff; color:#111827; font-weight:800; box-shadow:0 1px 2px rgba(15,23,42,.14); }
-  /* 업체 묶음 — 같은 업체 둘째 줄부터 업체명을 흐리게, 묶음 끝에 소계 줄 + 묶음 사이 여백 */
-  table.agos-flat tr.bop-cont .agos-vcell b,
-  table.agos-flat tr.bop-cont .agos-vcell .agos-code { color:#9aa3af !important; font-weight:500 !important; }
-  table.agos-flat tr.bop-sum > td { background:#f6f7f9 !important; border-top:1px solid #d5dae1 !important;
-    border-bottom:10px solid #fff !important; color:#111827; font-weight:800; font-size:15px; height:46px; }
+  /* 업체 묶음 — 줄은 모두 같은 모양(흐리게 하면 '잠긴 줄'로 보임), 묶음 끝에 소계 줄 + 묶음 사이 여백.
+     소계 줄은 옅은 바탕 + "위 N건 합계"(업체명은 다시 쓰지 않음). 합계 표시용 굵은 선은 두지 않음 — 짧은 선 · 진한 선 모두 어색해서 뺌(2026.11.25).
+     선은 border 대신 inset box-shadow — border-collapse 표에서 칸 테두리가 그려지지 않는 경우가 있음 */
+  table.agos-flat tr.bop-sum > td { background:#f6f7f9 !important; border-top:0 !important; box-shadow:inset 0 1px 0 #e3e6eb !important;
+    border-bottom:12px solid #fff !important; color:#111827; font-weight:800; font-size:15px; height:46px; }
   table.agos-flat tr.bop-sum:last-child > td { border-bottom:0 !important; }
-  table.agos-flat tr.bop-sum .bop-sum-tag { display:inline-block; margin-right:8px; padding:2px 8px; border-radius:5px;
-    background:#e3e6eb; color:#4b5563; font-size:12.5px; font-weight:700; vertical-align:1px; }
+  table.agos-flat tr.bop-sum .bop-sum-label { color:#111827; font-weight:800; }
   table.agos-flat tr.bop-sum .bop-sum-cnt { margin-left:10px; color:#5b6576; font-weight:500; font-size:13.5px; }`;
   document.head.appendChild(st);
 })();
