@@ -610,6 +610,85 @@ elements:
     backend: null
     result: "입력 행 닫힘"
 
+  - id: lnk-mat-actual-history
+    label: "실적(검수) 금액 → 재료비 실적조회"
+    type: link
+    crud: R
+    area: "상품재료비 표 · 실적(검수) 칸 (PO 발행 · 실적 0원 초과 줄만 밑줄 링크)"
+    event: onclick
+    front:
+      handler: "bihOpen('mat', poNo)"
+      file: "budget-insp-history.js:bihLinkify · bihOpen"
+      logic: >
+        [2026.11.25] 회의(11.24) 결정 — 실적 금액을 누르면 언제 · 얼마가 검수됐는지 보는 팝업. PO번호로 데이터를 찾는다(ERP 실적 연동 키 = PO번호).
+        팝업 위쪽 요약 = 구매 금액 · 검수 완료 · 미검수. 기본 보기는 [월별].
+      validation: null
+      state_writes: [bihState]
+    backend: { note: "실적은 ERP에서 PO번호 키로 수신(AS-IS /erpPrjAcrses erpAccsCd 625101). 목업은 getMaterialRows()[].inspections로 생성" }
+    result: 재료비 실적조회 팝업 열림
+
+  - id: seg-mat-actual-history-view
+    label: "실적조회 보기 전환 [월별 | 건별]"
+    type: toggle
+    crud: N
+    area: "재료비 실적조회 팝업 · 표 위 왼쪽"
+    event: onclick
+    front:
+      handler: "bihSetView('month') · bihSetView('case')"
+      file: "budget-insp-history.js:bihSetView · bihMonthTable · bihMatCaseTable"
+      logic: >
+        [월별] = 월 · 계획 금액 · 검수 금액 · 계획 대비(계획대로 / 계획보다 많음 · 적음 N원 / 검수 전) · 누적 검수 · 건수. 계획에 없던 달 검수는 '계획에 없던 달' 표시.
+        [건별] = AS-IS(프로미스) 재료비 실적조회 팝업 칸 그대로 — 왼쪽 고정 번호 · 구분(실적 발생/차감) · 실적발생일 · 실적금액 | Account Payable(AP번호 · AP Date · AP 금액 · 예상지급일) | Goods Receipt(GR번호 · GR Date · 검수금액) | Purchase Order(PO번호 · PO명 · PO Date · Vendor · PO 금액 · 구매담당자) | Purchase Request(PR번호 · PR Date · PR 금액 · 요청자), 2단 머리 · 가로 스크롤 + 합계 (AS-IS its-front MaterialCostAcrsPopup.vue 재료비 탭)
+      validation: null
+      state_writes: [bihState]
+    backend: null
+    result: 월별 표 / 건별 표 전환
+
+  - id: grid-mat-actual-history
+    label: "재료비 실적조회 건별 그리드"
+    type: grid
+    crud: R
+    area: "재료비 실적조회 팝업 · [건별]"
+    event: null
+    front:
+      handler: "bihMatCaseTable(h)"
+      file: "budget-insp-history.js:bihMatCaseTable"
+      logic: "왼쪽 고정 번호 · 구분(실적 발생/차감) · 실적발생일 · 실적금액 | Account Payable(AP번호 · AP Date · AP 금액 · 예상지급일) | Goods Receipt(GR번호 · GR Date · 검수금액) | Purchase Order(PO번호 · PO명 · PO Date · Vendor · PO 금액 · 구매담당자) | Purchase Request(PR번호 · PR Date · PR 금액 · 요청자), 2단 머리 · 가로 스크롤 + 합계 (AS-IS its-front MaterialCostAcrsPopup.vue 재료비 탭)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 건별 검수 · 전표 목록
+
+  - id: btn-mat-actual-history-excel
+    label: "엑셀 다운로드"
+    type: button
+    crud: R
+    area: "재료비 실적조회 팝업 · 표 위 오른쪽"
+    event: onclick
+    front:
+      handler: "bihExcel()"
+      file: "budget-insp-history.js:bihExcel (budget-excel-export.js:bxeSave · bxeSheet · bxeTableRows)"
+      logic: "지금 보는 표(월별 또는 건별)를 .xlsx로 내려받는다. 파일명 = 재료비_실적조회_PO<번호>_<월별|건별>_<날짜>.xlsx (AS-IS 팝업 [엑셀]과 같은 역할)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 엑셀 파일 다운로드
+
+  - id: btn-mat-actual-history-close
+    label: "닫기"
+    type: button
+    crud: N
+    area: "재료비 실적조회 팝업 · 아래 오른쪽 / 오른쪽 위 ✕ / 바깥 클릭 / Esc"
+    event: onclick
+    front:
+      handler: "bihClose()"
+      file: "budget-insp-history.js:bihClose"
+      logic: "팝업 닫기"
+      validation: null
+      state_writes: [bihState]
+    backend: null
+    result: 팝업 닫힘
+
 # ── 백엔드/외부 연동 (현재 목업, SRS 승격 후보) ──
 apis:
   - name: 구매시스템 견적
@@ -707,3 +786,4 @@ requirements:
   - { id: FR-MAT-28, text: "[2026.11.24] 상품재료비는 실투입대상 외주비처럼 PO 단위 구매계획(품목 1건 = PO 1건)으로 수립하고, 목록에 계획 금액 · PO번호 · 구매 금액 · 실적(검수) · 집행예정(미검수) · 상태를 보여 주어야 하며, PO가 발행된 계획은 조회 전용이어야 한다" }
   - { id: FR-MAT-29, text: "[2026.11.24] 상품재료비 구매계획은 검수 주기(월별 · 분기별 · 일괄)를 입력받고, 월별 계획 금액을 그 주기대로 배분해야 한다" }
   - { id: FR-MAT-30, text: "[2026.11.24] 실제 검수가 계획한 검수 주기와 다른 달에 들어오면 목록에서 표시해, PM이 계획을 실제 검수 주기에 맞게 고치도록 해야 한다" }
+  - { id: FR-MAT-31, text: "[2026.11.25] 상품재료비 목록의 실적(검수) 금액을 누르면 그 PO의 재료비 실적조회 팝업이 열려, 구매 금액 · 검수 완료 · 미검수와 함께 월별(계획 대비 검수 · 누적) 또는 건별(AS-IS 재료비 실적조회 칸 그대로 — AP · GR · PO · PR 정보)로 검수 이력을 보고 엑셀로 내려받을 수 있어야 한다" }
