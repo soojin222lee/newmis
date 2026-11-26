@@ -91,7 +91,7 @@ function blfLaborTable(root) {
     td[5].insertAdjacentHTML('beforeend', blfSub(unit ? blfNum(unit) + '원' : '단가 없음')
       + (prev && prev !== unit ? blfSub('5월 전<br>' + blfNum(prev) + '원', 'blf-prev') : ''));
     // 투입기간은 시작일 / ~ 종료일 두 줄 + Assign Type
-    if (r.start || r.end) td[6].innerHTML = blfEsc(r.start || '') + '<br>~ ' + blfEsc(r.end || '');
+    if (r.start || r.end) td[6].innerHTML = `<span class="blf-date">${blfEsc(r.start || '')}</span><br><span class="blf-date">~ ${blfEsc(r.end || '')}</span>`;
     td[6].insertAdjacentHTML('beforeend', blfSub(blfEsc(info.assign || 'Full Time'), 'blf-assign' + (info.assign === 'Part Time' ? ' part' : '')));
     td[7].insertAdjacentHTML('beforeend', blfSub(blfMd(md) + 'MD · ' + blfNum(mh) + 'MH'));
   });
@@ -158,7 +158,7 @@ function blfApply(html) {
   .blf-table th, .blf-table td { padding-left:7px; padding-right:7px; vertical-align:top; }
   .blf-table th:first-child, .blf-table td:first-child { padding-left:10px; }
   .aglb-wrap:has(.blf-table) { overflow-x:auto; container:blf / inline-size; }   /* 더 좁은 화면에서도 금액 · 상태가 잘리지 않게 */
-  .blf-table td:nth-child(7) { white-space:nowrap; }
+  .blf-table .blf-date { white-space:nowrap !important; }   /* 날짜가 '2026-12- / 31'처럼 끊기지 않게 */
   .blf-table .blf-sub.blf-org { display:none; }
   /* 표 자리가 800px 보다 좁으면(예: 1366px 노트북 + 왼쪽 패널) 조직명 칸을 빼고 인력 칸 아래 줄로 옮김 · 칸 여백도 조금 줄임 */
   @container blf (max-width: 799px) {
