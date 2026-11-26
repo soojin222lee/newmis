@@ -18,6 +18,7 @@ screen:
     - public/js/budget-area-routes.js     # 슬러그/라우트, openCostArea
     - public/js/budget-area-outsource.js  # budgetAiExplainV1(AI 해설 공용, 먼저 로드)
     - ai-proxy.js                         # POST /api/ai/explain 핸들러
+    - public/js/budget-labor-fields.js    # [2026.11.26] AS-IS 인건비 칸 채우기(인력표 번호·단위업무·직급·Skill Set·Assign Type·단가·M/D·M/H, OT 머리 칸)
   purpose: >
     원가조정(costMode='adjust') 단계에서 PM이 인건비 계정의 예산내역과 상세계정(실투입/이관/OT) 계획을 편집한다.
     실투입인건비는 SCM I/F로 확정 수신된 인력만 등록·예산화하며, 계획 금액은 투입확정(q) 금액을 하한으로 검증한다.
@@ -620,6 +621,71 @@ elements:
     backend: null
     result: 인건비 계획 저장(투입확정 하한 준수 시)
 
+  # [2026.11.26] AS-IS 인건비 칸 채우기 — 회의(11.24) 원칙 "AS-IS 필드는 삭제 합의 전까지 유지" (budget-labor-fields.js)
+  #   근거: its-front performance/components/personnelExpenses/grid/_colsOption.ts resourcePlanDetailsGrid · otGrid
+  - id: grid-lab-direct-people
+    label: "실투입인건비 인력표 (Agent 화면)"
+    type: grid
+    crud: R
+    area: "인건비 상세 · 01 실투입인건비 탭"
+    event: null
+    front:
+      handler: "renderAgentLaborDetailFinal → blfApply"
+      file: "budget-labor-fields.js:blfLaborTable · blfInsert"
+      logic: >
+        원래 8칸(인력 · 조직명 · 역할 · P레벨 · 투입기간 · 총MM · 금액 · 상태)에 AS-IS 내부 인력자원계획 칸을 더해 10칸.
+        새 칸 = 번호 · 단위업무. 같이 보는 값은 한 칸 두 줄로 묶음(1366px 노트북에서도 금액 · 상태가 잘리지 않게):
+        인력 아래 직급 + PM/사업관리 표시 · 역할 아래 Skill Set(Level) · P레벨 아래 단가(M/M)(5월 단가 확정 전 단가가 다르면 '5월 전 N원') ·
+        투입기간(시작일 / ~ 종료일) 아래 Assign Type(Part Time은 주황) · 총MM 아래 M/D · M/H. 합계 줄에도 M/D · M/H 합계.
+        표 아래 범례: PM · 사업관리 = 프로젝트 권한자, M/D · M/H 환산 기준.
+      validation: null
+      state_writes: []
+    backend: { note: "직급 · 단위업무 · Skill Set · Assign Type · PM/사업관리는 목업 값(BLF_PEOPLE, 이름 기준). 실제는 인력자원계획(SCM) · 인사 마스터. M/D · M/H는 목업 환산(1MM=21일, 1일=8시간) — AS-IS는 M/D = M/H ÷ 8(ResourcePlanDetailsGridInput.vue)" }
+    result: "인력마다 AS-IS 인력자원계획과 같은 정보가 보임(엑셀 다운로드에도 같이 나감)"
+    columns:
+      - { key: no, label: 번호, crud: R, asis: "번호(prjPlanNo)" }
+      - { key: name, label: "인력 / 직급 · PM·사업관리", crud: R, asis: "성명(trgEmpRid) · 직급(intlPosRcid) · PM 여부(prjmYn) · 사업관리자여부(bizMngrYn)" }
+      - { key: org, label: 조직명, crud: R, asis: "팀명(orgRid)" }
+      - { key: work, label: 단위업무, crud: R, asis: "단위업무(pzmRsrcUntBzwkRid)" }
+      - { key: role, label: "역할 / Skill Set(Level)", crud: R, asis: "역할명(prjRoleDtlRcid) · Skill Set(Level)(skillViewTitle)" }
+      - { key: plevel, label: "P레벨 / 단가(M/M)", crud: R, asis: "단가(M/M)(otscUntp)" }
+      - { key: period, label: "투입기간 / Assign Type", crud: R, asis: "투입정보 시작일 · 종료일(thrwStrDt · thrwEndDt) · Assign Type(rsrcAsgmTpRcid)" }
+      - { key: mm, label: "총MM / M/D · M/H", crud: R, asis: "M/M(thrwMpm) · M/D(thrwMpd) · M/H(thrwMph)" }
+      - { key: amount, label: 금액, crud: R, asis: "금액(KRW)(otscAmt)" }
+      - { key: state, label: 상태, crud: R, asis: "(To-be) 예산 조정안 반영(결재전) 표시" }
+
+  - id: row-lab-direct-person
+    label: "실투입 인력 줄 → 월별 투입MM 펼치기/접기"
+    type: row
+    crud: N
+    area: "실투입인건비 인력표 · 각 줄"
+    event: onclick
+    front:
+      handler: "agentLaborToggleRowFinal(key)"
+      file: "budget-agent-console.js:agentLaborToggleRowFinal · agentLaborMonthlyRowFinal"
+      logic: "펼친 월별 표(투입 월 · 투입 MM · 단가 · 금액 · 실적 생성 여부)는 새 10칸 표 전체 폭으로 펼침(budget-labor-fields.js colSpan 10)"
+      validation: null
+      state_writes: [agentLaborOpenFinal]
+    backend: null
+    result: 그 인력의 월별 투입MM 표 펼침/접힘
+
+  - id: panel-lab-ot-head
+    label: "OT비 머리 칸 (귀속계정 · 계정과목 · 변경예산 · 실적 · 잔여예산)"
+    type: panel
+    crud: R
+    area: "인건비 상세 · 03 OT비 탭 · 표 위"
+    event: null
+    front:
+      handler: "renderAgentLaborDetailFinal → blfApply"
+      file: "budget-labor-fields.js:blfOtSummary"
+      logic: >
+        AS-IS OT 그리드(otGrid) 앞 칸 그대로 — 귀속계정(인건비) · 계정과목(종업원급여-OT 701301) · 변경예산(OT 등록 건 합계) ·
+        실적(getLaborOtActualTotalFinal) · 잔여예산(변경예산 − 실적, 마이너스면 빨강 — 계획 없이 OT 실적이 먼저 생긴 경우).
+      validation: null
+      state_writes: []
+    backend: { note: "AS-IS: 인력자원계획 마스터 ID로 OT 예산 조회(title · subTitle · totalPlanAmt · totalPerformanceAmt · totalRemainsAmt)" }
+    result: OT 계획 대비 실적 · 잔여가 한눈에 보임
+
 # ── 비즈니스 로직 & 규칙 ──
 business:
   - id: BL-LAB-derive
@@ -773,3 +839,6 @@ requirements:
   - { id: FR-LAB-30, text: "[2026.11.12] Agent 화면 인건비(이관인건비 · OT비) 상세의 등록 · 수정은 표 위 [저장]을 눌렀을 때만 한 번에 반영되어야 하며, 입력 행마다 따로 저장(등록 API 호출)하지 않아야 한다" }
   - { id: FR-LAB-31, text: "[2026.11.12] Agent 화면 인건비(이관인건비 · OT비) 상세의 선택삭제는 바로 반영하지 않고 '삭제 예정'으로 표시해야 하며(되돌리기 가능), 표 위 [저장]을 눌렀을 때 추가 · 수정과 함께 한 번에 반영되어야 한다" }
   - { id: FR-LAB-32, text: "[2026.11.12] Agent 화면 인건비 상세는 지금 고른 상세계정의 예산내역 표(저장된 내역)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
+  - { id: FR-LAB-33, text: "[2026.11.26] 실투입인건비 인력표는 AS-IS 인력자원계획 칸(번호 · 단위업무 · 직급 · Skill Set(Level) · Assign Type · 단가(M/M) · M/M · M/D · M/H)을 함께 보여 줄 수 있어야 한다" }
+  - { id: FR-LAB-34, text: "[2026.11.26] 실투입인건비 인력표는 프로젝트 권한자(PM · 사업관리)를 인력별로 구분해 표시할 수 있어야 한다" }
+  - { id: FR-LAB-35, text: "[2026.11.26] OT비 탭은 귀속계정 · 계정과목 · 변경예산 · 실적 · 잔여예산을 표 위에 보여 줘야 하며, 실적이 계획을 넘으면 잔여예산을 마이너스로 강조해야 한다" }
