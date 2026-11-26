@@ -79,7 +79,10 @@ if (typeof AGENT_ACCT_TONE_FINAL !== 'undefined') {
     //   표 칸 옆 여백을 조금 줄여 외주비 표(8칸)도 가로 스크롤 없이 들어가게
     S + ' .agga-col.detail table.aglb th, ' + S + ' .agga-col.detail table.aglb td{padding-left:8px !important;padding-right:8px !important}',
     //   [2026.11.26] 인건비 인력표(10칸, budget-labor-fields.js)는 표 자리가 800px 보다 좁으면(1366px 노트북 + 왼쪽 패널) 여백을 더 줄임
-    '@container blf (max-width: 799px){' + S + ' .agga-col.detail table.aglb.blf-table th, ' + S + ' .agga-col.detail table.aglb.blf-table td{padding-left:4px !important;padding-right:4px !important}}',
+    // [2026.11.26] 인력표 좁은 화면 기준 800 → 860(금액 칸 아래 실적 · 잔여가 들어감, budget-labor-fields.js 와 같게)
+    '@container blf (max-width: 859px){' + S + ' .agga-col.detail table.aglb.blf-table th, ' + S + ' .agga-col.detail table.aglb.blf-table td{padding-left:4px !important;padding-right:4px !important}}',
+    // [2026.11.26] 이관인건비 표 — 번호 · 잔여예산 칸이 늘어 칸 여백을 줄여 표 자리에 맞춤(위 8px 규칙보다 뒤에서 덮음)
+    S + ' .agga-col.detail table.aglb.blf-tr-table th, ' + S + ' .agga-col.detail table.aglb.blf-tr-table td{padding-left:5px !important;padding-right:5px !important}',
     S + ' .aglg-head{border-bottom:1px solid #e5e8ed !important;background:transparent !important;padding-left:2px !important;padding-right:2px !important}',
 
     // ── ⑦ 색 정리 — 계정마다 입히던 색(인건비 파랑 · 외주비 빨강 …)은 빼고, 증감 색은 화면 전체에서 한 규칙으로 ──
