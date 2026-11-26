@@ -406,15 +406,15 @@ function hagRailRow(onclick, title, sub, right, tip) {
     + (right ? '<time>' + hagEsc(right) + '</time>' : '') + '</button>';
 }
 function hagRailSecsHtml() {
-  const fav = hagFavList(), rec = hagRecentList().slice(0, 5);
+  const fav = hagFavList(), rec = HAG_RECENT_ON ? hagRecentList().slice(0, 5) : [];
   const star = (typeof V2_IC !== 'undefined' && V2_IC.star) || '';
   const clock = '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 6v4.2l2.6 1.6"/></svg>';
   return '<div class="v2-sec hag-railsec"><i>' + star + '</i>즐겨찾기<em>' + fav.length + '</em><button type="button" class="hag-sec-act" onclick="openFavorites()">편집</button></div>'
     + '<div class="v2-card hag-railcard">' + (fav.length ? fav.slice(0, 6).map((f, i) => { const v = hagDescView(f.label, f.openDesc); return hagRailRow('favOpen(' + i + ')', v.title, v.sub, ''); }).join('')
       : '<div class="v2-empty">자주 보는 화면을 [편집]에서 추가해 두세요.</div>') + '</div>'
-    + '<div class="v2-sec hag-railsec"><i>' + clock + '</i>최근 본 화면</div>'
+    + (!HAG_RECENT_ON ? '' : '<div class="v2-sec hag-railsec"><i>' + clock + '</i>최근 본 화면</div>'
     + '<div class="v2-card hag-railcard">' + (rec.length ? rec.map((r, i) => hagRailRow('hagRecentOpen(' + i + ')', r.title, r.sub, hagWhen(r.at))).join('')
-      : '<div class="v2-empty">아직 본 화면이 없습니다.</div>') + '</div>';
+      : '<div class="v2-empty">아직 본 화면이 없습니다.</div>') + '</div>');
 }
 
 // ── 담당 프로젝트 — 원래 카드 · 원래 행(dashboard.js:homeV2PjtRowHtml + rail-project-go.js) 그대로.
@@ -476,6 +476,8 @@ function hagPjtGo(id) {                                 // crud N — 목업 데
 
 // 왼쪽 레일 아래에서 잠깐 빼 둔 것(지운 것 아님 — false 로 바꾸면 다시 보임)
 var HAG_RAIL_HIDE = { process: true, purchase: true };   // 업무 프로세스 · 구매시스템 참고
+// [2026.11.26] 최근 본 화면 칸 뺌(사용자 요청, 지운 것 아님 — true 로 바꾸면 칸 · 기록 다시 켜짐)
+var HAG_RECENT_ON = false;
 function hagRecentOpen(i) {                             // crud N — 최근 본 화면 다시 열기
   const r = hagRecentList()[i];
   if (r && typeof window.tabReopen === 'function') window.tabReopen(r.desc);
@@ -503,6 +505,7 @@ function hagRemountRail() { try { if (typeof v2MountRail === 'function') v2Mount
 })();
 // 화면 이동을 지켜보며 최근 본 화면 기록
 function hagRecordRecent() {
+  if (!HAG_RECENT_ON) return;
   const s = document.querySelector('.screen.active');
   if (!s || s.id === 's-main') return;
   const cur = (typeof window.tabCurrentDesc === 'function') ? window.tabCurrentDesc() : null;

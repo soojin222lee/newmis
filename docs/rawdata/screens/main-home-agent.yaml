@@ -11,16 +11,16 @@ screen:
   entry: "showMain() → initDashboard() → renderHomeV2() = home-agent.js:hagHomeHtml()"
   container: "#s-main"
   source_files:
-    - public/js/home-agent.js       # 홈 대화 · 오른쪽 대화 기록 · 왼쪽 즐겨찾기/최근 본 화면 · 원가조정 대화 기록 드롭다운
+    - public/js/home-agent.js       # 홈 대화 · 오른쪽 대화 기록 · 왼쪽 즐겨찾기 · 원가조정 대화 기록 드롭다운
     - public/js/shell-v2.js         # 공유 셸(레일 · renderHomeV2 원본) — 고치지 않음
     - public/js/favorites.js        # 즐겨찾기 저장소(newmis.favorites) · openFavorites · favOpen
-    - public/js/app-tabs.js         # tabCurrentDesc · tabReopen (최근 본 화면 기록 · 다시 열기)
+    - public/js/app-tabs.js         # tabCurrentDesc · tabReopen (즐겨찾기 화면 열기)
     - public/js/budget-design-e.js  # 원가조정 [AI에게 물어보기] · AI 창(#dde-ai)
   purpose: >
     홈을 "Agent와 나누는 업무 대화" 한 화면으로 바꾼다. 매일 아침 Agent가 먼저 볼 일 3가지를 브리핑하고,
     PM은 버튼이나 글로 이어서 묻는다(조정안 확인 · 반영, 숫자 원인, 이상징후, 화면 찾기).
     주제마다 대화를 따로 두기 위해 오른쪽에 대화 기록(새 대화 · 검색 · 날짜 묶음)을 두고 접었다 펼 수 있게 한다.
-    왼쪽 레일은 즐겨찾기 → 최근 본 화면 → 담당 프로젝트. 원가조정 화면에서는 AI 창 머리의 문서 아이콘([⧉] 옆)으로
+    왼쪽 레일은 즐겨찾기 → 담당 프로젝트(최근 본 화면 칸은 2026.11.26 뺌). 원가조정 화면에서는 AI 창 머리의 문서 아이콘([⧉] 옆)으로
     같은 대화 기록을 드롭다운으로 보고, 고른 대화를 AI 창에서 펼쳐 그 자리에서 이어 묻는다.
   design_reference:
     audience: "40~50대 PM — 큰 글씨(본문 15~16.5px) · 버튼은 동사형 문장 · 색은 네이비 1색 + 회색"
@@ -239,21 +239,6 @@ elements:
     backend: { note: "즐겨찾기는 브라우저 저장(newmis.favorites)" }
     result: 화면 이동
 
-  - id: row-rail-recent
-    label: "최근 본 화면 항목(화면 · 프로젝트 · 시각)"
-    type: list
-    crud: R
-    area: "왼쪽 레일 · 최근 본 화면(최근 5개)"
-    event: onclick
-    front:
-      handler: "hagRecentOpen(index)"
-      file: "home-agent.js:hagRecordRecent · hagRecentOpen (app-tabs.js:tabReopen)"
-      logic: "화면을 옮길 때마다 기록(원가조정은 계정 이름 · 프로젝트). 시각은 오늘 = HH:MM, 어제 = '어제', 그 전 = M.DD. 누르면 그 화면으로 이동"
-      validation: null
-      state_writes: []
-    backend: { note: "브라우저 저장(hag-recent, 8개까지)" }
-    result: 화면 이동
-
   - id: row-rail-pjt
     label: "담당 프로젝트 항목(이름 ↗ = 프로젝트로 이동 · 할 일 수 배지)"
     type: list
@@ -395,7 +380,7 @@ requirements:
   - { id: FR-HAG-03, text: "Agent가 제안한 계정 간 조정안은 표(지금 예산 · 조정 · 조정 후 · 합계)와 이유로 보여 주고, [이대로 반영] · [금액 바꿔서 반영] · 원가조정 화면 이동을 할 수 있어야 하며, 반영한 내용은 원가조정 [예산 조정안]에 남아야 한다" }
   - { id: FR-HAG-04, text: "오른쪽 대화 기록에서 새 대화를 시작하고, 대화를 오늘 · 어제 · 지난주로 묶어 보고, 내용으로 검색하고, 골라서 다시 열 수 있어야 한다" }
   - { id: FR-HAG-05, text: "대화 기록 패널은 접었다 펼 수 있어야 하며, 접힌 상태를 기억해야 한다" }
-  - { id: FR-HAG-06, text: "왼쪽 레일은 원래 모양(회색 머리글 + 흰 카드)을 유지하면서 즐겨찾기 · 최근 본 화면 · 담당 프로젝트를 차례로 보여야 하며, 최근 본 화면은 화면을 옮길 때마다 자동으로 기록되고 눌러서 다시 열 수 있어야 한다" }
+  - { id: FR-HAG-06, text: "왼쪽 레일은 원래 모양(회색 머리글 + 흰 카드)을 유지하면서 즐겨찾기 · 담당 프로젝트를 차례로 보여야 한다" }
   - { id: FR-HAG-09, text: "담당 프로젝트가 많아도(예: 30개) 먼저 5개만 보이고 [나머지 N개 보기]로 전체와 이름 검색을 펼칠 수 있어야 하며, 펼치기 칸과 줄 높이는 작게 해 한눈에 더 많이 보여야 한다" }
   - { id: FR-HAG-07, text: "원가조정 등 다른 화면에서는 AI 창 머리의 문서 아이콘([⧉ 새 창] 옆)으로 대화 기록을 드롭다운으로 볼 수 있어야 하고, 고른 대화는 AI 창 안에서 펼쳐 보고 화면을 떠나지 않고 그 대화에 이어서 물을 수 있어야 하며, 지금 대화로 돌아갈 수 있어야 한다" }
   - { id: FR-HAG-08, text: "홈에서는 [AI에게 물어보기] · AI 창을 숨겨, 대화 화면이 두 개로 겹쳐 보이지 않아야 한다" }
