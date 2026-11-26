@@ -510,11 +510,13 @@ function blfActPaint() {
   // 월별 표의 지난 달 금액은 bmvDrillOpen 을 바로 부름(showActualDetailModal 을 거치지 않음) → 여기서 들어가기 전 높이를 기억
   const open = bmvDrillOpen;
   bmvDrillOpen = function (acct, m, name) {
-    if (acct === BLF_LAB && !(typeof bmvDrill !== 'undefined' && bmvDrill)) {
+    if (acct !== BLF_LAB) return open.apply(this, arguments);
+    if (!(typeof bmvDrill !== 'undefined' && bmvDrill)) {
       const pop = document.querySelector('.bmv-pop');
       blfActPopH = pop ? Math.round(pop.getBoundingClientRect().height) : 0;
     }
-    return open.apply(this, arguments);
+    // 제목(› 실적 상세 · 탭 이름)이 선택된 탭 이름과 같게 — '실투입인건비' → '사내인건비/사내간접비'
+    return open.call(this, acct, m, BLF_ACT_TABS[blfActTabIdx(name)]);
   };
 })();
 // 공유 실적조회(showActualDetailModal) — 인건비 + 달 하나면 위 방식으로, 그 밖은 원래대로
