@@ -391,9 +391,12 @@ function blfHasBmvDrill() { return typeof bmvDrillOpen === 'function' && typeof 
 var blfActState = null;   // 따로 팝업: { m, idx }
 var blfActInPop = null;   // 월별 팝업 안(이 파일 방식): { m, idx }
 var blfActScroll = 0;     // 들어가기 전 월별 표 가로 스크롤 위치
+var blfActPopH = 0;       // 들어가기 전 월별 팝업 높이 — 실적 상세에서도 같은 크기로(폭은 원래 팝업 폭 그대로)
 function blfActOpen(m, idx) {                           // crud R — 인건비 실적조회 열기(월별 팝업 안이면 그 안에서)
   idx = idx || 0;
   if (blfInMonthlyPop()) {
+    const pop = document.querySelector('.bmv-pop');
+    blfActPopH = pop ? Math.round(pop.getBoundingClientRect().height) : 0;
     if (blfHasBmvDrill()) { bmvDrillOpen(BLF_LAB, m, BLF_ACT_TABS[idx]); return; }
     const sc = document.querySelector('.bmv-pop .bmv-scroll');
     if (sc) blfActScroll = sc.scrollLeft;
@@ -413,6 +416,7 @@ function blfActTab(m, idx) {                            // crud R — 인건비 
 }
 function blfActBack() {                                 // crud N — 실적조회 → 월별 표로 돌아가기
   blfActInPop = null;
+  blfActPopH = 0;
   bmvRerender();
   const x = blfActScroll;
   requestAnimationFrame(() => { const sc = document.querySelector('.bmv-pop .bmv-scroll'); if (sc) sc.scrollLeft = x; });
@@ -472,7 +476,7 @@ function blfActPaint() {
   const before = renderAgentAcctMonthlyPopFinal;
   renderAgentAcctMonthlyPopFinal = function (viewData, acct) {
     const html = before.apply(this, arguments);
-    if (!html) { if (typeof agentAcctMonthlyFinal === 'undefined' || !agentAcctMonthlyFinal) blfActInPop = null; return html; }
+    if (!html) { if (typeof agentAcctMonthlyFinal === 'undefined' || !agentAcctMonthlyFinal) { blfActInPop = null; blfActPopH = 0; } return html; }
     if (acct !== BLF_LAB) { blfActInPop = null; return html; }
     const out = html;                                  // 실적 금액(showActualDetailModal)은 아래 감싸기에서 안에서 전환
     const s = blfActInPop;
@@ -484,11 +488,24 @@ function blfActPaint() {
     const body = pop && pop.querySelector('.agv-pop-body');
     if (!pop || !head || !body) return out;
     pop.classList.add('blf-pop-drill');
+    if (blfActPopH) pop.style.height = blfActPopH + 'px';   // 들어가기 전 팝업과 같은 크기
     head.innerHTML = `<div class="blf-pop-title"><button type="button" class="blf-back" onclick="blfActBack()">← 월별 표로</button>
         <strong>${blfEsc(acct)} 월별 계획 / 실적 <em class="blf-crumb">› ${s.m} 실적 상세 · ${BLF_ACT_TABS[s.idx]}</em></strong></div>
       <span>그 달에 확정된 실적 내역입니다. [← 월별 표로]를 누르면 보던 표로 돌아갑니다.</span>`;
     body.innerHTML = blfActBodyHtml(s.m, s.idx);
     return tpl.innerHTML;
+  };
+})();
+// (3) feature/nj — 팝업 안 전환(bmvDrill)으로 인건비 실적 상세를 볼 때도 들어가기 전 팝업 높이 그대로
+(function () {
+  if (typeof bmvDrillOpen !== 'function' || typeof renderAgentAcctMonthlyPopFinal !== 'function') return;
+  const before = renderAgentAcctMonthlyPopFinal;
+  renderAgentAcctMonthlyPopFinal = function (viewData, acct) {
+    const html = before.apply(this, arguments);
+    const drill = typeof bmvDrill !== 'undefined' && bmvDrill && bmvDrill.acct === BLF_LAB;
+    if (!html || acct !== BLF_LAB || !drill) { if (!drill) blfActPopH = 0; return html; }
+    if (!blfActPopH) return html;
+    return html.replace(/(<div class="agv-pop aglm-pop bmv-pop[^"]*")/, '$1 style="height:' + blfActPopH + 'px"');
   };
 })();
 // 공유 실적조회(showActualDetailModal) — 인건비 + 달 하나면 위 방식으로, 그 밖은 원래대로
@@ -554,9 +571,15 @@ function blfActPaint() {
   /* 인건비 실적조회 — 틀은 .bih-*(budget-insp-history.js), 칸이 14개라 표만 내용 폭 + 가로 스크롤 */
   .bih-table.blf-act-table { width:max-content; min-width:100%; }
   #blf-act-pop .bih-pop { width:min(1320px,100%); }
-  /* 월별 팝업 안에서 볼 때 — 14칸이 들어가게 팝업만 넓힘 */
-  .agv-pop.bmv-pop:has(.blf-act-table) { width:min(1320px, 96vw) !important; }
-  .bmv-pop .blf-act-body .bih-wrap { max-height:min(48vh, 440px); }
+
+  /* 월별 팝업 안에서 볼 때 — 팝업 크기는 월별 표일 때와 같게(폭 그대로 · 높이는 들어가기 전 높이), 14칸은 여백 · 글자를 줄여 그 폭에 맞춤 */
+  .bmv-pop .blf-act-body .bih-wrap { max-height:none; }
+  .bmv-pop .blf-act-body .bih-sum > div { padding:9px 16px; }
+  .bmv-pop .blf-act-body .bih-sum b { margin-top:2px; font-size:17px; }
+  .bmv-pop .blf-act-body .bih-bar { margin:12px 0 8px; }
+  .bmv-pop .bih-table.blf-act-table th, .bmv-pop .bih-table.blf-act-table td { padding-top:9px; padding-bottom:9px; }
+  .bmv-pop .bih-table.blf-act-table { font-size:13.5px; }
+  .bmv-pop .bih-table.blf-act-table th, .bmv-pop .bih-table.blf-act-table td { padding-left:6px; padding-right:6px; }
   .bmv-pop .blf-act-body .bih-note { margin-bottom:0; }
   .blf-pop-title { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .blf-back { height:32px; padding:0 12px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font:inherit; font-size:13.5px;
