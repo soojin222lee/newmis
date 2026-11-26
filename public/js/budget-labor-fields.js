@@ -82,9 +82,11 @@ function blfLaborTable(root) {
     ths[5].innerHTML = 'P레벨 <small class="blf-hsub">단가(M/M)</small>';
     ths[6].innerHTML = '투입기간 <small class="blf-hsub">Assign Type</small>';
     ths[7].innerHTML = '총MM <small class="blf-hsub">M/D · M/H</small>';
+    ths[8].innerHTML = '금액(계획) <small class="blf-hsub">실적 · 잔여예산</small>';
   }
 
-  let sumMm = 0;
+  let sumMm = 0, sumAct = 0, sumRemain = 0;
+  const pr = {};    // 이름 → { plan, act } (펼침 줄에서 다시 씀)
   [...table.querySelectorAll('tbody tr.aglb-prow')].forEach((tr, i) => {
     const r = rows[i] || {};
     const info = blfInfo(r.name);
@@ -107,6 +109,12 @@ function blfLaborTable(root) {
     if (r.start || r.end) td[6].innerHTML = `<span class="blf-date">${blfEsc(r.start || '')}</span><br><span class="blf-date">~ ${blfEsc(r.end || '')}</span>`;
     td[6].insertAdjacentHTML('beforeend', blfSub(blfEsc(info.assign || 'Full Time'), 'blf-assign' + (info.assign === 'Part Time' ? ' part' : '')));
     td[7].insertAdjacentHTML('beforeend', blfSub(blfMd(md) + 'MD · ' + blfNum(mh) + 'MH'));
+    // AS-IS 월별상세 실투입 탭의 실적 · 잔여예산 — 실적 = 실적 생성된 달(월마감)의 MM × 그 달 단가, 잔여 = 계획 − 실적
+    const pa = blfPersonPlanAct(r);
+    pr[r.key || r.name] = pa;
+    const remain = pa.plan - pa.act;
+    sumAct += pa.act; sumRemain += remain;
+    td[8].insertAdjacentHTML('beforeend', blfSub('실적 ' + blfNum(pa.act)) + blfSub('잔여 ' + blfSigned(remain), remain < 0 ? 'blf-bad' : ''));
   });
 
   // PM 지시 줄 · 합계 줄 — 칸 수만 맞춤
@@ -117,8 +125,15 @@ function blfLaborTable(root) {
     foot.children[0].colSpan = 2;    // '합계 N명'이 번호 칸까지
     const mmTd = foot.children[6];
     if (mmTd) mmTd.insertAdjacentHTML('beforeend', blfSub(blfMd(sumMm * BLF_MD_PER_MM) + 'MD · ' + blfNum(sumMm * BLF_MD_PER_MM * BLF_MH_PER_MD) + 'MH'));
+    const amtTd = foot.children[7];
+    if (amtTd) amtTd.insertAdjacentHTML('beforeend', blfSub('실적 ' + blfNum(sumAct)) + blfSub('잔여 ' + blfSigned(sumRemain), sumRemain < 0 ? 'blf-bad' : ''));
   }
-  // 펼친 월별 투입MM 줄은 표 전체 폭으로
+  // 펼친 월별 투입MM 줄은 표 전체 폭으로 + 달마다 실적 금액 칸(AS-IS 월별상세)
+  let cur = null;
+  [...table.querySelectorAll(':scope > tbody > tr')].forEach(tr => {
+    if (tr.classList.contains('aglb-prow')) { const i = [...table.querySelectorAll('tbody tr.aglb-prow')].indexOf(tr); cur = rows[i] || null; return; }
+    if (tr.classList.contains('aglb-detail') && cur) blfDetailActual(tr, cur, pr[cur.key || cur.name]);
+  });
   table.querySelectorAll('tr.aglb-detail > td[colspan]').forEach(td => { td.colSpan = 10; });
   const wrap = table.closest('.aglb-wrap');
   if (wrap && !root.querySelector('.blf-legend')) {
@@ -127,6 +142,101 @@ function blfLaborTable(root) {
       <span>M/D · M/H 는 1MM = ${BLF_MD_PER_MM}일 · 1일 = ${BLF_MH_PER_MD}시간으로 환산(목업)</span></div>`);
   }
 }
+function blfSigned(n) { return (n < 0 ? '−' : '') + blfNum(Math.abs(n)); }
+// 인력 1명의 계획 · 실적 — 펼침 줄(agentLaborMonthlyRowFinal)과 같은 계산: 달마다 MM × 그 달 단가, 실적은 실적 생성된 달만
+function blfPersonPlanAct(r) {
+  const ms = (typeof agentLaborMonthsFinal === 'function') ? agentLaborMonthsFinal(r) : [];
+  let plan = 0, act = 0;
+  ms.forEach(x => {
+    const unit = (typeof laborMonthUnitFinal === 'function') ? laborMonthUnitFinal(r, x.m) : Number(r.unitPrice || 0);
+    const amt = Math.round(x.mm * unit);
+    plan += amt;
+    if (typeof agentLaborActualDoneFinal === 'function' && agentLaborActualDoneFinal(x.m)) act += amt;
+  });
+  return { plan, act };
+}
+// 펼친 월별 표 — '금액' → '계획 금액', 그 뒤에 '실적 금액' 칸(실적 생성된 달만), 머리 줄에 실적 · 잔여
+function blfDetailActual(tr, r, pa) {
+  const tbl = tr.querySelector('table.aglbd-tbl');
+  if (!tbl || tbl.dataset.blf) return;
+  tbl.dataset.blf = '1';
+  const hr = tbl.querySelector('thead tr');
+  if (hr && hr.children.length >= 5) {
+    hr.children[3].textContent = '계획 금액';
+    hr.insertBefore(blfTh('실적 금액', 'num'), hr.children[4]);
+  }
+  const ms = (typeof agentLaborMonthsFinal === 'function') ? agentLaborMonthsFinal(r) : [];
+  [...tbl.querySelectorAll(':scope > tbody > tr')].forEach((row, i) => {    // :scope — 바깥 인력표 tbody 안이라 머리 줄까지 잡히지 않게
+    const x = ms[i];
+    if (!x || row.children.length < 5) return;
+    const unit = (typeof laborMonthUnitFinal === 'function') ? laborMonthUnitFinal(r, x.m) : 0;
+    const done = typeof agentLaborActualDoneFinal === 'function' && agentLaborActualDoneFinal(x.m);
+    row.insertBefore(blfTd(done ? '<b>' + blfNum(Math.round(x.mm * unit)) + '원</b>' : '<span class="blf-mute">–</span>', 'num'), row.children[4]);
+  });
+  const fr = tbl.querySelector('tfoot tr');
+  if (fr && fr.children.length >= 5 && pa) fr.insertBefore(blfTd('<b>' + blfNum(pa.act) + '원</b>', 'num'), fr.children[4]);
+  const t = tr.querySelector('.aglbd-t span');
+  if (t && pa) t.insertAdjacentHTML('beforeend', ` · 실적 ${blfNum(pa.act)}원 · 잔여 ${blfSigned(pa.plan - pa.act)}원`);
+}
+
+// 이관인건비 탭 — AS-IS 월별상세 '인건비 이관' 탭의 [번호] · [잔여예산] 칸
+function blfTransferTable(root) {
+  if (typeof agentLabKindFinal === 'undefined' || agentLabKindFinal !== 'transfer') return;
+  const table = [...root.querySelectorAll('table.aglb')].find(t => t.querySelector('.agtr-kind') || t.querySelector('.aglb-empty'));
+  if (!table || table.dataset.blfTr) return;
+  table.dataset.blfTr = '1';
+  table.classList.add('blf-tr-table');
+  const list = ((typeof agentLabRowsOfFinal === 'function') ? agentLabRowsOfFinal('transfer') : []).slice()
+    .sort((a, b) => String(a.expectedMonth || '').localeCompare(String(b.expectedMonth || '')));   // 원래 표와 같은 순서
+  const act = x => (typeof agentLabTrActualFinal === 'function') ? agentLabTrActualFinal(x) : 0;
+  const money = v => `${v > 0 ? '+' : v < 0 ? '−' : ''}${blfNum(Math.abs(v))}원`;
+  const hr = table.querySelector('thead tr');
+  if (!hr) return;
+  // 칸 위치는 이름으로 찾음(일괄 편집 파일이 맨 앞에 체크박스 칸을 끼우기도 해서 번호로 세면 어긋남)
+  const heads = [...hr.children].map(th => th.textContent.trim());
+  const iAct = heads.indexOf('실적');
+  if (iAct < 0) return;
+  // 칸이 2개 늘어 표가 잘리지 않게: 발생 예정월은 이관 구분 칸 아래 줄로(AS-IS 도 월은 월별 칸으로 따로 보는 값), 내용은 줄바꿈
+  const iKind = heads.indexOf('이관 구분'), iMonth = heads.indexOf('발생 예정월'), iDesc = heads.indexOf('내용');
+  const fold = iKind >= 0 && iMonth === iKind + 1;
+  hr.insertBefore(blfTh('잔여예산', 'num blf-tr-remain'), hr.children[iAct + 1]);
+  if (fold) { hr.children[iKind].innerHTML = '이관 구분 <small class="blf-hsub">발생 예정월</small>'; hr.children[iMonth].remove(); }
+  if (iDesc >= 0) hr.children[iDesc - (fold ? 1 : 0)].classList.add('blf-tr-desc');
+  if (iDesc > 0) hr.children[iDesc - 1 - (fold ? 1 : 0)].classList.add('blf-tr-desc');   // 상대 프로젝트도 줄바꿈
+  hr.insertBefore(blfTh('번호', 'blf-no'), hr.children[0]);
+  let i = 0, sumRemain = 0;
+  [...table.querySelectorAll(':scope > tbody > tr')].forEach(tr => {
+    if (tr.querySelector('.agtr-kind') && tr.children.length === heads.length) {
+      const x = list[i++] || {};
+      const remain = Number(x.amount || 0) - act(x);
+      sumRemain += remain;
+      tr.insertBefore(blfTd(remain ? money(remain) : '<span class="blf-mute">0원</span>', 'num blf-tr-remain'), tr.children[iAct + 1]);
+      if (fold) {
+        const mTd = tr.children[iMonth];
+        tr.children[iKind].insertAdjacentHTML('beforeend', blfSub(blfEsc(mTd.textContent.trim())));
+        mTd.remove();
+      }
+      if (iDesc >= 0) tr.children[iDesc - (fold ? 1 : 0)].classList.add('blf-tr-desc');
+      if (iDesc > 0) tr.children[iDesc - 1 - (fold ? 1 : 0)].classList.add('blf-tr-desc');
+      tr.insertBefore(blfTd(String(i), 'blf-no'), tr.children[0]);
+    } else if (tr.classList.contains('aglb-dir')) {
+      tr.insertBefore(blfTd(''), tr.children[0]);       // 번호 칸(+1) · 잔여(+1) · 발생 예정월(−1)
+    } else {
+      const td = tr.querySelector('td[colspan]');
+      if (td) td.colSpan = td.colSpan + (fold ? 1 : 2);
+    }
+  });
+  const foot = table.querySelector('tfoot tr');
+  if (foot) {
+    const off = heads.length - foot.children.length;    // 합계 줄에는 체크박스 칸이 없을 수 있음
+    const at = foot.children[iAct - off + 1];
+    if (at) foot.insertBefore(blfTd(money(sumRemain), 'num blf-tr-remain'), at);
+    const mTd = fold ? foot.children[iMonth - off] : null;
+    if (mTd && !mTd.textContent.trim()) mTd.remove();
+    foot.children[0].colSpan = (foot.children[0].colSpan || 1) + 1;    // '합계 N건'이 번호 칸까지
+  }
+}
+
 // OT비 탭 — AS-IS OT 그리드 머리 칸(귀속계정 · 계정과목 · 변경예산 · 실적 · 잔여예산)
 function blfOtSummary(root) {
   if (typeof agentLabKindFinal === 'undefined' || agentLabKindFinal !== 'ot') return;
@@ -154,6 +264,7 @@ function blfApply(html) {
     tpl.innerHTML = html;
     blfLaborTable(tpl.content);
     blfOtSummary(tpl.content);
+    blfTransferTable(tpl.content);
     return tpl.innerHTML;
   } catch (e) { return html; }
 }
@@ -400,13 +511,16 @@ function blfActPaint() {
   .aglb-wrap:has(.blf-table) { overflow-x:auto; container:blf / inline-size; }   /* 더 좁은 화면에서도 금액 · 상태가 잘리지 않게 */
   .blf-table .blf-date { white-space:nowrap !important; }   /* 날짜가 '2026-12- / 31'처럼 끊기지 않게 */
   .blf-table .blf-sub.blf-org { display:none; }
-  /* 표 자리가 800px 보다 좁으면(예: 1366px 노트북 + 왼쪽 패널) 조직명 칸을 빼고 인력 칸 아래 줄로 옮김 · 칸 여백도 조금 줄임 */
-  @container blf (max-width: 799px) {
-    .blf-table th:nth-child(3), .blf-table tbody tr.aglb-prow > td:nth-child(3),
-    .blf-table tbody tr.aglb-dir > td:nth-child(3), .blf-table tfoot td:nth-child(2) { display:none; }
+  /* 표 자리가 860px 보다 좁으면(예: 1366px 노트북) 조직명 칸을 빼고 인력 칸 아래 줄로 옮김 · 칸 여백도 조금 줄임
+     (금액 칸 아래 실적 · 잔여가 들어가 800 → 860. '> thead' — 펼친 월별 표의 3번째 칸(단가)까지 숨기지 않게) */
+  @container blf (max-width: 859px) {
+    .blf-table > thead > tr > th:nth-child(3), .blf-table > tbody > tr.aglb-prow > td:nth-child(3),
+    .blf-table > tbody > tr.aglb-dir > td:nth-child(3), .blf-table > tfoot > tr > td:nth-child(2) { display:none; }
     .blf-table .blf-sub.blf-org { display:block; }
     .blf-table th, .blf-table td { padding-left:4px; padding-right:4px; }
     .blf-table th:first-child, .blf-table td:first-child { padding-left:6px; }
+    .blf-table tr.aglb-detail > td { padding-left:6px !important; padding-right:6px !important; }
+    .blf-table .aglbd-tbl th, .blf-table .aglbd-tbl td { padding-left:6px !important; padding-right:6px !important; }
   }
   .blf-table .blf-no { width:30px; text-align:center; color:#6b7280; }
   .blf-table .blf-hsub { display:block; margin-top:2px; font-size:10.5px; font-weight:700; color:#9aa3af; }
@@ -418,6 +532,15 @@ function blfActPaint() {
   .blf-duty.biz { background:#e8f0fe; color:#1d4ed8; }
   .blf-duty.both { background:#f3e8ff; color:#7c3aed; }
   .blf-table .blf-sub.blf-assign.part { color:#b45309; font-weight:800; }
+  .blf-table .blf-sub.blf-bad { color:#c0392b; }
+  .blf-table tr.aglb-detail .aglbd-t { white-space:normal; }   /* 펼침 머리 줄(실적 · 잔여 붙음)이 표를 밀지 않게 */
+  .blf-mute { color:#9aa3af; }
+  .blf-tr-table .blf-no { width:30px; text-align:center; color:#6b7280; }
+  .aglb-wrap:has(.blf-tr-table) { overflow-x:auto; }
+  .blf-tr-table .blf-hsub { display:block; margin-top:2px; font-size:10.5px; font-weight:700; color:#9aa3af; }
+  .blf-tr-table .blf-sub { display:block; margin-top:4px; font-size:11.5px; font-weight:600; color:#6b7280; white-space:nowrap; }
+  .blf-tr-table .blf-tr-desc, .blf-tr-table .blf-tr-desc .agtr-cp { white-space:normal !important; min-width:100px; max-width:150px; }
+  .blf-tr-table th, .blf-tr-table td { padding-left:8px; padding-right:8px; }
   .blf-legend { display:flex; flex-wrap:wrap; gap:6px 18px; margin:8px 2px 0; font-size:12px; color:#6b7280; }
   .blf-legend .blf-duty { margin:0 4px 0 0; }
   .blf-ot { display:grid; grid-template-columns:1fr 1.4fr 1fr 1fr 1fr; margin:0 0 10px; border:1px solid #e5e7eb; border-radius:10px; background:#fff; }
