@@ -85,7 +85,8 @@ function blfLaborTable(root) {
     const td = tr.children;
     const duty = BLF_DUTY[info.duty];
     // 직급 줄에 PM · 사업관리 표시(이름 옆에 두면 칸이 넓어짐)
-    td[1].insertAdjacentHTML('beforeend', blfSub(blfEsc(info.pos || '직급 미등록') + (duty ? ` <em class="blf-duty ${duty.cls}">${duty.t}</em>` : '')));
+    td[1].insertAdjacentHTML('beforeend', blfSub(blfEsc(info.pos || '직급 미등록') + (duty ? ` <em class="blf-duty ${duty.cls}">${duty.t}</em>` : ''))
+      + blfSub(blfEsc(r.org || ''), 'blf-org'));   // 표 자리가 좁을 때만 보임(조직명 칸 대신)
     td[4].insertAdjacentHTML('beforeend', blfSub(blfEsc(info.skill || 'Skill Set 미등록')));
     td[5].insertAdjacentHTML('beforeend', blfSub(unit ? blfNum(unit) + '원' : '단가 없음')
       + (prev && prev !== unit ? blfSub('5월 전<br>' + blfNum(prev) + '원', 'blf-prev') : ''));
@@ -156,8 +157,17 @@ function blfApply(html) {
   st.textContent = `
   .blf-table th, .blf-table td { padding-left:7px; padding-right:7px; vertical-align:top; }
   .blf-table th:first-child, .blf-table td:first-child { padding-left:10px; }
-  .aglb-wrap:has(.blf-table) { overflow-x:auto; }   /* 더 좁은 화면에서도 금액 · 상태가 잘리지 않게 */
+  .aglb-wrap:has(.blf-table) { overflow-x:auto; container:blf / inline-size; }   /* 더 좁은 화면에서도 금액 · 상태가 잘리지 않게 */
   .blf-table td:nth-child(7) { white-space:nowrap; }
+  .blf-table .blf-sub.blf-org { display:none; }
+  /* 표 자리가 800px 보다 좁으면(예: 1366px 노트북 + 왼쪽 패널) 조직명 칸을 빼고 인력 칸 아래 줄로 옮김 · 칸 여백도 조금 줄임 */
+  @container blf (max-width: 799px) {
+    .blf-table th:nth-child(3), .blf-table tbody tr.aglb-prow > td:nth-child(3),
+    .blf-table tbody tr.aglb-dir > td:nth-child(3), .blf-table tfoot td:nth-child(2) { display:none; }
+    .blf-table .blf-sub.blf-org { display:block; }
+    .blf-table th, .blf-table td { padding-left:5px; padding-right:5px; }
+    .blf-table th:first-child, .blf-table td:first-child { padding-left:8px; }
+  }
   .blf-table .blf-no { width:30px; text-align:center; color:#6b7280; }
   .blf-table .blf-hsub { display:block; margin-top:2px; font-size:10.5px; font-weight:700; color:#9aa3af; }
   .blf-table .blf-sub.blf-prev { font-size:11px; color:#9aa3af; }

@@ -638,6 +638,7 @@ elements:
         인력 아래 직급 + PM/사업관리 표시 · 역할 아래 Skill Set(Level) · P레벨 아래 단가(M/M)(5월 단가 확정 전 단가가 다르면 '5월 전 N원') ·
         투입기간(시작일 / ~ 종료일) 아래 Assign Type(Part Time은 주황) · 총MM 아래 M/D · M/H. 합계 줄에도 M/D · M/H 합계.
         표 아래 범례: PM · 사업관리 = 프로젝트 권한자, M/D · M/H 환산 기준.
+        표 자리가 800px보다 좁으면(1366px 노트북 + 왼쪽 패널 등) 조직명 칸을 빼고 인력 칸 아래 줄에 조직명을 보여 줌(container query).
       validation: null
       state_writes: []
     backend: { note: "직급 · 단위업무 · Skill Set · Assign Type · PM/사업관리는 목업 값(BLF_PEOPLE, 이름 기준). 실제는 인력자원계획(SCM) · 인사 마스터. M/D · M/H는 목업 환산(1MM=21일, 1일=8시간) — AS-IS는 M/D = M/H ÷ 8(ResourcePlanDetailsGridInput.vue)" }
