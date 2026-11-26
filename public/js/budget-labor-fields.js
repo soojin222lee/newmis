@@ -165,8 +165,8 @@ function blfApply(html) {
     .blf-table th:nth-child(3), .blf-table tbody tr.aglb-prow > td:nth-child(3),
     .blf-table tbody tr.aglb-dir > td:nth-child(3), .blf-table tfoot td:nth-child(2) { display:none; }
     .blf-table .blf-sub.blf-org { display:block; }
-    .blf-table th, .blf-table td { padding-left:5px; padding-right:5px; }
-    .blf-table th:first-child, .blf-table td:first-child { padding-left:8px; }
+    .blf-table th, .blf-table td { padding-left:4px; padding-right:4px; }
+    .blf-table th:first-child, .blf-table td:first-child { padding-left:6px; }
   }
   .blf-table .blf-no { width:30px; text-align:center; color:#6b7280; }
   .blf-table .blf-hsub { display:block; margin-top:2px; font-size:10.5px; font-weight:700; color:#9aa3af; }
