@@ -474,8 +474,9 @@ function hagPjtGo(id) {                                 // crud N — 목업 데
   if (typeof railPjtGo === 'function') railPjtGo(id);
 }
 
-// 왼쪽 레일 아래에서 잠깐 빼 둔 것(지운 것 아님 — false 로 바꾸면 다시 보임)
-var HAG_RAIL_HIDE = { process: true, purchase: true };   // 업무 프로세스 · 구매시스템 참고
+// 왼쪽 레일 아래에서 잠깐 빼 둔 것(지운 것 아님 — true 로 바꾸면 다시 숨김)
+// [2026.11.26] 업무 프로세스 · 구매시스템 참고 다시 보이게(사용자 요청)
+var HAG_RAIL_HIDE = { process: false, purchase: false };   // 업무 프로세스 · 구매시스템 참고
 // [2026.11.26] 최근 본 화면 칸 뺌(사용자 요청, 지운 것 아님 — true 로 바꾸면 칸 · 기록 다시 켜짐)
 var HAG_RECENT_ON = false;
 function hagRecentOpen(i) {                             // crud N — 최근 본 화면 다시 열기
