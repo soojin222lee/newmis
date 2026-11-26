@@ -687,6 +687,74 @@ elements:
     backend: { note: "AS-IS: 인력자원계획 마스터 ID로 OT 예산 조회(title · subTitle · totalPlanAmt · totalPerformanceAmt · totalRemainsAmt)" }
     result: OT 계획 대비 실적 · 잔여가 한눈에 보임
 
+  - id: tab-lab-actual-lookup
+    label: "인건비 실적조회 탭 [사내인건비/사내간접비 | 종업원급여-OT | 이관인건비]"
+    type: tab
+    crud: R
+    area: "[월별 계획/실적 보기] 팝업 안 실적 상세 · 요약 3칸 아래 (지난 달 실적 금액을 누르면 표 자리가 실적 상세로 바뀜)"
+    event: onclick
+    front:
+      handler: "blfActTab(month, idx)"
+      file: "budget-labor-fields.js:showActualDetailModal(데코레이터) · blfActOpen · blfActTab · blfActBodyHtml · blfActRows · blfActTableHtml · renderAgentAcctMonthlyPopFinal(데코레이터) · bmvDrillHtml(데코레이터)"
+      logic: >
+        [2026.11.26] AS-IS its-front personnelExpenses/popup/AcrsPopup.vue 탭 · 칸 그대로. 예전 목업은 탭을 눌러도 표가 바뀌지 않고
+        세 탭 모두 같은 표(직위 뒤 '금액' 한 칸)였음 → 탭마다 다른 표로 바뀜. 누른 행이 실투입이면 첫 탭, OT비면 둘째, 이관이면 셋째 탭으로 열림.
+        팝업 모양은 외주비 · 재료비 실적조회(budget-insp-history.js .bih-*)와 같은 틀로 통일 — 제목(○년 ○월 실적 · 프로젝트명) ·
+        요약 3칸(사내인건비+간접비 · 종업원급여-OT · 이관인건비, 그 달 합계) · [탭] · 안내 문구 · [엑셀 다운로드] · 표(합계 줄 고정) · 안내 · [닫기].
+        월별 팝업에서 누르면 팝업 위 팝업 없이 그 팝업 안에서 표 자리가 실적 상세로 바뀜(제목 › ○월 실적 상세 · 탭 이름, [← 월별 표로]).
+        feature/nj 는 budget-monthly-view.js 팝업 안 전환(bmvDrill)에 인건비 내용만 끼우고, 그 기능이 없는 브랜치는 이 파일이 같은 방식으로 전환.
+        월별 팝업 밖(인건비 [실적조회] 버튼 등)에서 열면 같은 내용이 따로 팝업(#blf-act-pop)으로 뜸. 다른 계정은 원래 실적조회 모달 그대로.
+      validation: null
+      state_writes: []
+    backend: { note: "AS-IS: 사내인건비 = 실투입 인건비 실적(laborAcrsList), OT = 종업원급여 OT 지급(overTimeAcrsList), 이관 = ERP 이관 전표(transAcrsList). 목업 데이터는 인력표 · OT 실적 · 이관 집행완료 건으로 생성" }
+    result: 고른 탭의 실적 표로 바뀜(엑셀 다운로드도 그 탭 표)
+    columns:
+      - { key: tab-internal, label: "사내인건비/사내간접비", crud: R, asis: "NO · 실적발생월 · 부서 · 인건비전표번호 · 간접비전표번호 · 사번 · 성명 · 직위 · 소급여부 · 실제 투입월 · 실투입 MM · 실투입 인건비 · 실투입 간접비 · 발생일자 + 합계(MM · 인건비 · 간접비)" }
+      - { key: tab-ot, label: "종업원급여-OT", crud: R, asis: "NO · 급여지급월 · 사번 · 성명 · 근무년월 · 프로젝트번호 · 금액 + 합계" }
+      - { key: tab-transfer, label: "이관인건비", crud: R, asis: "NO · 실적발생월 · 계정 · SAP전표번호 · 입력자 · 전표일자 · 실적반영금액 · 내용 · 상호 + 합계" }
+
+  - id: btn-lab-actual-excel
+    label: "엑셀 다운로드 (인건비 실적조회)"
+    type: button
+    crud: R
+    area: "인건비 실적조회 팝업 · 탭 줄 오른쪽"
+    event: onclick
+    front:
+      handler: "blfActExcel()"
+      file: "budget-labor-fields.js:blfActExcel"
+      logic: "지금 보는 탭 표를 .xlsx로 내려받음(budget-excel-export.js bxeSave · bxeSheet · bxeTableRows). 파일 이름 인건비_실적조회_월_탭_날짜"
+      validation: null
+      state_writes: []
+    result: 지금 보이는 탭 표가 엑셀 파일로 저장됨
+
+  - id: btn-lab-actual-back
+    label: "← 월별 표로 (인건비 실적 상세)"
+    type: button
+    crud: N
+    area: "[월별 계획/실적 보기] 팝업 안 실적 상세 · 제목 왼쪽"
+    event: onclick
+    front:
+      handler: "blfActBack()"
+      file: "budget-labor-fields.js:blfActBack (feature/nj 는 budget-monthly-view.js:bmvDrillBack)"
+      logic: "실적 상세 → 보던 월별 표로 돌아감. 보기 · 연도 · 단위 · 실적 펼침 · 가로 스크롤 위치 그대로"
+      validation: null
+      state_writes: []
+    result: 월별 계획/실적 표로 돌아감
+
+  - id: btn-lab-actual-close
+    label: "닫기 / ✕ (인건비 실적조회)"
+    type: button
+    crud: N
+    area: "인건비 실적조회 따로 팝업(월별 팝업 밖에서 열었을 때) · 오른쪽 위 ✕ · 아래 [닫기] · 바깥 클릭 · Esc"
+    event: onclick
+    front:
+      handler: "blfActClose()"
+      file: "budget-labor-fields.js:blfActClose"
+      logic: "따로 뜬 실적조회 팝업을 닫음. 월별 팝업 안에서 볼 때는 [← 월별 표로] · 월별 팝업 [닫음]을 씀"
+      validation: null
+      state_writes: []
+    result: 실적조회 팝업이 닫힘
+
 # ── 비즈니스 로직 & 규칙 ──
 business:
   - id: BL-LAB-derive
@@ -842,4 +910,5 @@ requirements:
   - { id: FR-LAB-32, text: "[2026.11.12] Agent 화면 인건비 상세는 지금 고른 상세계정의 예산내역 표(저장된 내역)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
   - { id: FR-LAB-33, text: "[2026.11.26] 실투입인건비 인력표는 AS-IS 인력자원계획 칸(번호 · 단위업무 · 직급 · Skill Set(Level) · Assign Type · 단가(M/M) · M/M · M/D · M/H)을 함께 보여 줄 수 있어야 한다" }
   - { id: FR-LAB-34, text: "[2026.11.26] 실투입인건비 인력표는 프로젝트 권한자(PM · 사업관리)를 인력별로 구분해 표시할 수 있어야 한다" }
+  - { id: FR-LAB-36, text: "[2026.11.26] 인건비 실적조회 팝업은 사내인건비/사내간접비 · 종업원급여-OT · 이관인건비 탭마다 AS-IS와 같은 칸의 실적 표를 보여 줘야 하며, 탭을 누르면 그 탭 표로 바뀌어야 한다" }
   - { id: FR-LAB-35, text: "[2026.11.26] OT비 탭은 귀속계정 · 계정과목 · 변경예산 · 실적 · 잔여예산을 표 위에 보여 줘야 하며, 실적이 계획을 넘으면 잔여예산을 마이너스로 강조해야 한다" }
