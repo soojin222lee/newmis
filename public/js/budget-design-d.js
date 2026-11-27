@@ -376,6 +376,7 @@ function ddSimplify() {
   // ② 예산 조정안 [전부 해제]는 [⋯]에 숨기지 않고 그대로 둠(2026.11.20 — [전부 반영] 옆에 바로 보이는 게 낫다)
   // ⑤ 예산 조정안 카드 — 간결하게 + 근거 한 줄(디자인시안_13)
   ga.querySelectorAll('.agga-col.todo .agga-card').forEach(ddCardTidy);
+  ga.querySelectorAll('.agai-tag').forEach(ddTagLabel);   // 계정 상세 반영 목록 등 다른 곳의 태그도 같은 이름
   ddManualFirst(ga);
   // ② 계정 상세 [전체 펼치기] · [엑셀 다운로드] · 맨 위 [이력] → [⋯ 더보기]
   //   [2026.11.27] [⋯ 더보기]에 숨기지 않고 원래 버튼(전체 펼치기 · 엑셀 다운로드 · 이력)을 그대로 꺼내 둠(사용자 요청).
@@ -522,6 +523,12 @@ function ddCardId(card) {
   var m = b && (b.getAttribute('onclick') || '').match(/'([^']+)'/);
   return m ? m[1] : '';
 }
+var DD_TAG_LABEL = { agent: '🤖 Agent 제안', sim: '💬 Agent 대화', manual: '✎ 수기 입력' };
+function ddTagLabel(t) {
+  if (!t) return;
+  var k = ['sim', 'manual', 'agent'].find(function (c) { return t.classList.contains(c); });
+  if (k && t.textContent !== DD_TAG_LABEL[k]) t.textContent = DD_TAG_LABEL[k];
+}
 function ddCardTidy(card) {
   var id = ddCardId(card);
   if (!id) return;
@@ -540,6 +547,11 @@ function ddCardTidy(card) {
       title.parentNode.insertBefore(d, title.nextSibling);
     }
   }
+  // [2026.11.27] 출처 태그 이름 — Agent 제안(SCM · 구매 등 신호를 Agent가 분석해 제안) / Agent 대화(PM과 대화로 생김) / 수기 입력
+  //   자리: 첫 줄(계정 · 금액 · 버튼)은 좁은 칸에서 꽉 차므로 둘째 줄 제목 앞에 둠
+  var tg = card.querySelector('.agai-tag');
+  ddTagLabel(tg);
+  if (tg && title && tg.parentNode !== title) title.insertBefore(tg, title.firstChild);
   // [근거 ▾] → [자세히 ▾]
   var why = card.querySelector('.agga-why');
   if (why && why.firstChild && why.firstChild.nodeType === 3 && why.firstChild.nodeValue.trim() === '근거') why.firstChild.nodeValue = '자세히';
@@ -628,7 +640,12 @@ function ddMoreRun(k) {                       // crud N — 메뉴 항목 실행
     '#s-budget .dd-onlyon input{width:16px;height:16px;margin:0;cursor:pointer;accent-color:#2f5bea}',
     '#s-budget .dd-onlyon em{font-style:normal;margin-left:auto;font-weight:600;color:#64748b;font-size:13px}',
     // 예산 조정안 카드 정리(⑤)
-    '#s-budget#s-budget#s-budget .agga-card.dd-c .agai-tag.agent, #s-budget#s-budget#s-budget .agga-card.dd-c .agga-at{display:none !important}',
+    '#s-budget#s-budget#s-budget .agga-card.dd-c .agga-at{display:none !important}',
+    // [2026.11.27] 출처 태그 3가지를 다시 늘 보이게 — Agent 제안(남색) · Agent 대화(청록) · 수기 입력(주황). 같은 크기 · 모양
+    '#s-budget#s-budget#s-budget .agga-card.dd-c .agai-tag{display:inline-flex !important;align-items:center;flex:0 0 auto;white-space:nowrap;font-style:normal;font-size:11.5px !important;font-weight:700 !important;line-height:18px;padding:0 6px !important;border-radius:5px !important;border:1px solid transparent !important;margin:0 7px 0 0 !important;vertical-align:2px}',
+    '#s-budget#s-budget#s-budget .agga-card.dd-c .agai-tag.agent{color:#3730a3 !important;background:#eef2ff !important;border-color:#dfe4fb !important}',
+    '#s-budget#s-budget#s-budget .agga-card.dd-c .agai-tag.sim{color:#0f6b63 !important;background:#e7f6f3 !important;border-color:#cdebe5 !important}',
+    '#s-budget#s-budget#s-budget .agga-card.dd-c .agai-tag.manual{color:#a45b06 !important;background:#fff5e5 !important;border-color:#f7e3c2 !important}',
     '#s-budget .agga-card.dd-c .agga-title{line-height:1.45 !important;margin-top:4px !important}',
     '#s-budget .agga-card.dd-c .dd-why{display:flex;align-items:flex-start;gap:7px;margin-top:6px;font-size:13px;line-height:1.5;color:#444b59;font-weight:600}',
     '#s-budget .agga-card.dd-c .dd-why i{flex:0 0 auto;font-style:normal;font-size:11.5px;font-weight:800;color:#5f6675;background:#f1f3f5;border:1px solid #e4e7eb;border-radius:5px;padding:0 6px;line-height:18px;margin-top:1px}',
