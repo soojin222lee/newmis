@@ -254,6 +254,21 @@ elements:
     backend: { note: "담당 프로젝트 · 할 일 수는 프로젝트 목록 API(목업 homeCardPjts · HOME_PROJECTS · pjtTodosOf · pjtRisksOf)" }
     result: 프로젝트 원가조정 화면
 
+  - id: tip-rail-pjt-name
+    label: "담당 프로젝트 이름 마우스오버 — 프로젝트 코드 · 전체 이름 상자"
+    type: tooltip
+    crud: N
+    area: "왼쪽 레일 · 담당 프로젝트 이름(이름 ↗ 버튼) 오른쪽에 뜨는 작은 상자"
+    event: onmouseenter · onmouseleave · onfocus · onblur
+    front:
+      handler: "hagPjtTip(this) · hagPjtTipOff()"
+      file: "home-agent.js:hagPjtRowHtml · hagPjtTip · hagPjtTipOff"
+      logic: "[2026.11.27] 이름에 마우스를 올리거나 키보드로 고르면 첫 줄 프로젝트 코드(예: 30131234-D001), 둘째 줄 전체 이름을 보여 준다. 긴 이름은 줄에서 … 로 잘리므로 전체 이름 확인용. 원래 '프로젝트로 이동' 기본 말풍선은 겹치지 않게 뺌. 마우스를 떼거나 스크롤 · 이동하면 닫힘. 이름만 있는 시안 프로젝트는 목업 코드(hagPjtMockNo)"
+      validation: null
+      state_writes: []
+    backend: { note: "프로젝트 코드 · 이름은 프로젝트 목록 API(목업 HOME_PROJECTS.no · name)" }
+    result: 코드 · 전체 이름 확인
+
   - id: btn-rail-pjt-expand
     label: "담당 프로젝트 업무 펼치기 ▸ / 접기"
     type: toggle
@@ -278,22 +293,22 @@ elements:
     front:
       handler: "hagPjtToggle()"
       file: "home-agent.js:hagPjtToggle"
-      logic: "먼저 5개만 보이다가 누르면 전체(30개)와 이름 검색창을 펼친다. 접으면 검색어도 지움"
+      logic: "먼저 5개만 보이다가 누르면 전체(30개)와 이름 / 코드 검색창을 펼친다. 접으면 검색어도 지움"
       validation: null
       state_writes: [hagPjtAll, hagPjtQ]
     backend: null
     result: 전체 목록 펼침 / 접힘
 
   - id: inp-rail-pjt-search
-    label: "프로젝트 이름 검색"
+    label: "프로젝트 이름 / 코드 검색"
     type: input
     crud: R
     area: "왼쪽 레일 · 담당 프로젝트 전체 보기 위"
     event: oninput
     front:
       handler: "hagPjtSearch(value)"
-      file: "home-agent.js:hagPjtSearch"
-      logic: "이름에 검색어가 들어간 프로젝트만 남긴다"
+      file: "home-agent.js:hagPjtSearch · hagPjtHit"
+      logic: "[2026.11.27] 이름 또는 프로젝트 코드에 검색어가 들어간 프로젝트만 남긴다. 대소문자 · 띄어쓰기 · 코드의 '-'는 무시(예: 'skon', '30131234', '3013-0020', 'd005'). 안내 문구(placeholder) '프로젝트 이름 / 코드 검색'"
       validation: null
       state_writes: [hagPjtQ]
     backend: null
@@ -381,6 +396,7 @@ requirements:
   - { id: FR-HAG-04, text: "오른쪽 대화 기록에서 새 대화를 시작하고, 대화를 오늘 · 어제 · 지난주로 묶어 보고, 내용으로 검색하고, 골라서 다시 열 수 있어야 한다" }
   - { id: FR-HAG-05, text: "대화 기록 패널은 접었다 펼 수 있어야 하며, 접힌 상태를 기억해야 한다" }
   - { id: FR-HAG-06, text: "왼쪽 레일은 원래 모양(회색 머리글 + 흰 카드)을 유지하면서 즐겨찾기 · 담당 프로젝트를 차례로 보여야 하며, 아래에 업무 프로세스 · 구매시스템 참고 바로가기를 보여야 한다" }
-  - { id: FR-HAG-09, text: "담당 프로젝트가 많아도(예: 30개) 먼저 5개만 보이고 [나머지 N개 보기]로 전체와 이름 검색을 펼칠 수 있어야 하며, 펼치기 칸과 줄 높이는 작게 해 한눈에 더 많이 보여야 한다" }
+  - { id: FR-HAG-09, text: "담당 프로젝트가 많아도(예: 30개) 먼저 5개만 보이고 [나머지 N개 보기]로 전체와 이름 / 코드 검색을 펼칠 수 있어야 하며, 펼치기 칸과 줄 높이는 작게 해 한눈에 더 많이 보여야 한다" }
+  - { id: FR-HAG-10, text: "[2026.11.27] 담당 프로젝트 이름에 마우스를 올리면 프로젝트 코드와 전체 이름을 볼 수 있어야 하며, 검색창에서 프로젝트 이름 또는 코드로 검색할 수 있어야 한다" }
   - { id: FR-HAG-07, text: "원가조정 등 다른 화면에서는 AI 창 머리의 문서 아이콘([⧉ 새 창] 옆)으로 대화 기록을 드롭다운으로 볼 수 있어야 하고, 고른 대화는 AI 창 안에서 펼쳐 보고 화면을 떠나지 않고 그 대화에 이어서 물을 수 있어야 하며, 지금 대화로 돌아갈 수 있어야 한다" }
   - { id: FR-HAG-08, text: "홈에서는 [AI에게 물어보기] · AI 창을 숨겨, 대화 화면이 두 개로 겹쳐 보이지 않아야 한다" }
