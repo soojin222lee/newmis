@@ -410,6 +410,8 @@ function blfActOpen(m, idx) {                           // crud R — 인건비 
   blfActPaint();
 }
 function blfActTab(m, idx) {                            // crud R — 인건비 실적조회 탭 전환
+  // [2026.11.27] 원가현황 등에서 연 실적 상세 따로 팝업(budget-monthly-view.js bmvAp)이면 그 팝업에서 전환
+  if (typeof bmvAp !== 'undefined' && bmvAp && bmvAp.acct === BLF_LAB && typeof bmvApGo === 'function') { bmvApGo(m, BLF_ACT_TABS[idx]); return; }
   if (blfHasBmvDrill() && typeof bmvDrill !== 'undefined' && bmvDrill && bmvDrill.acct === BLF_LAB) {
     if (typeof bmvDrillGo === 'function') { bmvDrillGo(m, BLF_ACT_TABS[idx]); return; }   // 팝업 크기가 줄었다 늘었다 하지 않게(budget-monthly-view.js)
     bmvDrill = { acct: BLF_LAB, m: m, name: BLF_ACT_TABS[idx] };   // 스크롤 위치는 처음 들어올 때 값 그대로

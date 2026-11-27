@@ -37,6 +37,8 @@ renderProjectPlanSummary = function (data, actual, quasi) {
 };
 function bsvSummary(data, actual, quasi) {
   bmvInjectStyle(); bsvInjectStyle();
+  // [2026.11.27] 실적 금액을 누르면 뜨는 실적 상세(budget-monthly-view.js bmvApOpen)의 「해당 줄」 · 탭에 이 데이터를 씀
+  if (typeof bmvApView !== 'undefined' && data && data.months) bmvApView = data;
   const rows = getProjectSummaryGridRows(data, actual, quasi);
   const months = (data.months || []).map(function (x) { return x.m; });
   if (!rows.length || !months.length) throw new Error('no data');
