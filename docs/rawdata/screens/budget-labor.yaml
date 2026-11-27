@@ -849,6 +849,77 @@ elements:
       state_writes: [blpState]
     result: 인건비 상세 화면으로 돌아감
 
+  # ── [2026.11.27] 실행예산 권한 설정(PM · 사업관리자) — AS-IS 「권한설정」(budget-labor-auth.js) ──
+  - id: btn-lab-auth-open
+    label: "권한 설정"
+    type: button
+    crud: R
+    area: "실투입인건비 탭 · 인력표 위 버튼 줄([인력 투입 일정] 왼쪽)"
+    event: onclick
+    front:
+      handler: "blaOpen()"
+      file: "budget-labor-auth.js:blaOpen · blaApply"
+      logic: "실행예산 권한 설정 팝업을 열고 지금 권한(BLF_PEOPLE[].duty)을 보여 준다. AS-IS ResourcePlanDetailsGrid.vue [권한설정](PM · 사업관리자만, 수정 모드에서 보임)은 표에서 1명을 체크해야 열렸으나, 목업은 한 팝업에 내부 인력 전체를 놓고 체크(누가 권한자인지 한눈에)"
+      validation: null
+      state_writes: [blaDraft]
+    result: 권한 설정 팝업 열림
+
+  - id: chk-lab-auth-pm
+    label: "PM 체크(사람마다)"
+    type: checkbox
+    crud: U
+    area: "권한 설정 팝업 · PM 칸"
+    event: onchange
+    front:
+      handler: "blaToggle(name, 'pm', this)"
+      file: "budget-labor-auth.js:blaToggle"
+      logic: "PM은 1명만(AS-IS AuthoritySetupPopup.vue '※ PM은 한 명만 선택 가능합니다.'). 다른 사람이 이미 PM이면 체크를 되돌리고 빨간 안내 'PM은 한 명만 선택 가능합니다. 지금 PM은 ○○ 님입니다 — 바꾸려면 먼저 ○○ 님의 PM 체크를 풀어 주세요.' PM을 아무도 안 정해도 됨. TBD 인력은 체크 칸 없음(AS-IS 'TBD는 권한을 설정할 수 없습니다.')"
+      validation: null
+      state_writes: [blaDraft]
+    result: PM 지정 / 해제(저장 전)
+
+  - id: chk-lab-auth-biz
+    label: "사업관리자 체크(사람마다)"
+    type: checkbox
+    crud: U
+    area: "권한 설정 팝업 · 사업관리자 칸"
+    event: onchange
+    front:
+      handler: "blaToggle(name, 'biz', this)"
+      file: "budget-labor-auth.js:blaToggle"
+      logic: "사업관리자는 여러 명 가능(AS-IS 화면에 인원 제한 없음). 한 사람이 PM과 사업관리자를 함께 맡을 수 있음(AS-IS prjmYn · bizMngrYn 둘 다 true 가능). TBD 불가"
+      validation: null
+      state_writes: [blaDraft]
+    result: 사업관리자 지정 / 해제(저장 전)
+
+  - id: btn-lab-auth-save
+    label: "저장"
+    type: button
+    crud: U
+    area: "권한 설정 팝업 · 아래 오른쪽"
+    event: onclick
+    front:
+      handler: "blaSave()"
+      file: "budget-labor-auth.js:blaSave"
+      logic: "PM이 2명 이상이면 막음. 저장하면 사람마다 PM / 사업관리 / PM · 사업관리 꼬리표가 인력표 직급 옆에 바뀌어 보임(BLF_PEOPLE[].duty = pm · biz · both). AS-IS 버튼 이름은 [등록]"
+      validation: null
+      state_writes: [BLF_PEOPLE]
+    result: 권한 저장 · 인력표 꼬리표 갱신
+
+  - id: btn-lab-auth-close
+    label: "취소 / ✕ (권한 설정)"
+    type: button
+    crud: N
+    area: "권한 설정 팝업 · 아래 [취소] · 오른쪽 위 ✕ · 바깥 클릭 · Esc"
+    event: onclick
+    front:
+      handler: "blaClose()"
+      file: "budget-labor-auth.js:blaClose"
+      logic: "저장하지 않고 닫기"
+      validation: null
+      state_writes: [blaDraft]
+    result: 인건비 상세 화면으로 돌아감
+
   # ── [2026.11.27] 인력 투입 일정(간트) — 화면 아래 펼침 → 버튼 + 팝업(budget-labor-gantt.js) ──
   - id: btn-lab-gantt-open
     label: "인력 투입 일정"
@@ -1066,6 +1137,7 @@ requirements:
   - { id: FR-LAB-32, text: "[2026.11.12] Agent 화면 인건비 상세는 지금 고른 상세계정의 예산내역 표(저장된 내역)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
   - { id: FR-LAB-33, text: "[2026.11.26] 실투입인건비 인력표는 AS-IS 인력자원계획 칸(번호 · 단위업무 · 직급 · Skill Set(Level) · Assign Type · 단가(M/M) · M/M · M/D · M/H)을 함께 보여 줄 수 있어야 한다" }
   - { id: FR-LAB-34, text: "[2026.11.26] 실투입인건비 인력표는 프로젝트 권한자(PM · 사업관리)를 인력별로 구분해 표시할 수 있어야 한다" }
+  - { id: FR-LAB-41, text: "[2026.11.27] 인력표 위 [권한 설정]으로 실투입 인력에게 PM(1명만) · 사업관리자(여러 명) 권한을 지정 · 해제할 수 있어야 하며, PM을 두 명 지정하려 하면 막고 안내해야 하고, TBD 인력에는 권한을 줄 수 없어야 한다" }
   - { id: FR-LAB-40, text: "[2026.11.27] 인력표 위 [인력 투입 일정] 버튼으로 인력별 투입 기간을 팝업 간트로 한눈에 볼 수 있어야 하며, 실적이 발생한 달은 계획인 달과 다른 색으로 보여야 한다" }
   - { id: FR-LAB-38, text: "[2026.11.26] 내부 인력의 월별 투입계획(투입년월 · 성명 · Assign Type · 직위 · 팀명 · M/M · 단가 · 금액)을 투입년월 기간으로 조회하고 엑셀로 내려받을 수 있어야 한다" }
   - { id: FR-LAB-37, text: "[2026.11.26] 실투입 인력마다 계획 · 실적 · 잔여예산을, 인력 월별 펼침에서는 달마다 계획 금액과 실적 금액을 볼 수 있어야 하며, 이관인건비 표는 번호와 건별 잔여예산을 보여 줘야 한다" }
