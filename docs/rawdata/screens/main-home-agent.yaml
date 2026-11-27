@@ -1,0 +1,386 @@
+# rawdata: 메인 홈 — Agent와의 업무 대화 (시안 · feature/nj 전용) — 스토리보드/SRS/버튼로직 생성용 원천 데이터
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# ⚠ override 규칙: 공유 셸(shell-v2.js)의 renderHomeV2 · v2AppRailHtml 을 home-agent.js 가 다시 정의한다(뒤가 앞을 이김).
+#   이 문서가 feature/nj 시안의 실제 동작 기준. develop 의 메인 홈(main-home-v2.yaml)은 그대로다.
+
+screen:
+  id: s-main-home-agent
+  name: 메인 홈 — Agent와의 업무 대화 (시안)
+  menu_path: 홈
+  route: "#/dashboard (showMain)"
+  entry: "showMain() → initDashboard() → renderHomeV2() = home-agent.js:hagHomeHtml()"
+  container: "#s-main"
+  source_files:
+    - public/js/home-agent.js       # 홈 대화 · 오른쪽 대화 기록 · 왼쪽 즐겨찾기 · 원가조정 대화 기록 드롭다운
+    - public/js/shell-v2.js         # 공유 셸(레일 · renderHomeV2 원본) — 고치지 않음
+    - public/js/favorites.js        # 즐겨찾기 저장소(newmis.favorites) · openFavorites · favOpen
+    - public/js/app-tabs.js         # tabCurrentDesc · tabReopen (즐겨찾기 화면 열기)
+    - public/js/budget-design-e.js  # 원가조정 [AI에게 물어보기] · AI 창(#dde-ai)
+  purpose: >
+    홈을 "Agent와 나누는 업무 대화" 한 화면으로 바꾼다. 매일 아침 Agent가 먼저 볼 일 3가지를 브리핑하고,
+    PM은 버튼이나 글로 이어서 묻는다(조정안 확인 · 반영, 숫자 원인, 이상징후, 화면 찾기).
+    주제마다 대화를 따로 두기 위해 오른쪽에 대화 기록(새 대화 · 검색 · 날짜 묶음)을 두고 접었다 펼 수 있게 한다.
+    왼쪽 레일은 즐겨찾기 → 담당 프로젝트(최근 본 화면 칸은 2026.11.26 뺌), 아래 업무 프로세스 · 구매시스템 참고. 원가조정 화면에서는 AI 창 머리의 문서 아이콘([⧉] 옆)으로
+    같은 대화 기록을 드롭다운으로 보고, 고른 대화를 AI 창에서 펼쳐 그 자리에서 이어 묻는다.
+  design_reference:
+    audience: "40~50대 PM — 큰 글씨(본문 15~16.5px) · 버튼은 동사형 문장 · 색은 네이비 1색 + 회색"
+    drafts: "홈 시안 7(오른쪽 대화 기록) + 시안 9(오늘 브리핑)"
+
+states:
+  - id: today
+    when: "처음 들어왔을 때 — 대화 '오늘의 업무 대화'"
+    shows: ["08:30 Agent 브리핑(해야 할 일 12 · 이상징후 3 · 결재 진행 중 2, 먼저 볼 3가지)", "이렇게 말씀해 보세요 버튼 4개"]
+  - id: talking
+    when: "질문을 보낸 뒤"
+    shows: ["브리핑은 '▲ 오늘 08:30 Agent 브리핑 (3가지) 다시 보기' 한 줄로 접힘", "내 질문(오른쪽 네이비 말풍선) · Agent 답(카드)"]
+  - id: new
+    when: "[+ 새 대화]"
+    shows: ["반갑습니다 안내 + 이런 일을 도와드려요 4칸(할 일 정리 · 숫자 원인 분석 · 이상징후 확인 · 화면 찾기)"]
+  - id: side-off
+    when: "대화 기록 [»] 접기"
+    shows: ["대화가 넓어지고 대화 머리 오른쪽에 [◧ 대화 기록] 버튼"]
+  - id: budget-dropdown
+    when: "원가조정 등 다른 화면 — AI 창 머리의 문서 아이콘"
+    shows: ["대화 기록 드롭다운(오늘 · 어제 · 지난주)", "기록을 고르면 AI 창에 그 대화(← 지금 대화로) + 아래 입력창으로 이어 묻기"]
+
+elements:
+  - id: inp-hag-question
+    label: "질문 입력창"
+    type: input
+    crud: N
+    area: "홈 아래 입력 줄"
+    event: keydown(Enter)
+    front:
+      handler: "hagSendInput()"
+      file: "home-agent.js:hagSendInput"
+      logic: "입력한 글을 지금 대화에 보내고 Agent 답을 붙인다(목업 hagAnswer — 정해진 질문은 카드, 그 밖은 안내 + 예시 버튼)"
+      validation: "빈 글은 보내지 않음"
+      state_writes: [hagThreads]
+    backend: { note: "실서비스는 Agent(LLM) 질의 API — 목업은 키워드로 답 카드 선택" }
+    result: 질문 · 답이 대화에 추가
+
+  - id: btn-hag-send
+    label: "보내기"
+    type: button
+    crud: N
+    area: "홈 아래 입력 줄 오른쪽"
+    event: onclick
+    front:
+      handler: "hagSendInput()"
+      file: "home-agent.js:hagSendInput · hagSend"
+      logic: "입력창과 같음. 답이 오기 전 '…' 입력 중 표시"
+      validation: null
+      state_writes: [hagThreads]
+    backend: null
+    result: 질문 · 답이 대화에 추가
+
+  - id: chip-hag-suggest
+    label: "추천 질문 버튼(이렇게 말씀해 보세요 · 이어서)"
+    type: chip
+    crud: N
+    area: "브리핑 · 답 카드 아래"
+    event: onclick
+    front:
+      handler: "hagSend('질문 문장')"
+      file: "home-agent.js:hagChips · hagSend"
+      logic: "버튼 글자를 그대로 질문으로 보낸다(예: 1번 조정안 보여줘 · 목업용 외주비 왜 늘었어? · 이상징후 더 있어? · 결재는 어디서 올려? · 4,500,000원만 옮겨줘 · 재료비 남은 계획 보여줘 · 다음 할 일)"
+      validation: null
+      state_writes: [hagThreads]
+    backend: null
+    result: 질문 · 답이 대화에 추가
+
+  - id: btn-hag-brief-toggle
+    label: "오늘 08:30 Agent 브리핑 다시 보기 / 브리핑 접기"
+    type: toggle
+    crud: N
+    area: "오늘 대화 맨 위(질문을 보낸 뒤)"
+    event: onclick
+    front:
+      handler: "hagToggleBrief()"
+      file: "home-agent.js:hagToggleBrief · hagMsgsHtml"
+      logic: "질문을 보내면 브리핑은 한 줄로 접히고, 누르면 다시 펼친다"
+      validation: null
+      state_writes: [hagBriefOpen]
+    backend: null
+    result: 브리핑 펼침 / 접힘
+
+  - id: btn-hag-adj-apply
+    label: "이대로 반영"
+    type: button
+    crud: U
+    area: "조정안 카드(재료비 → 외주비 옮기기)"
+    event: onclick
+    front:
+      handler: "hagApply(index)"
+      file: "home-agent.js:hagApply · hagAdjHtml"
+      logic: "조정안을 반영 완료로 표시(✓ 반영 완료 · 외주비 + · 재료비 −)하고 '원가조정 [예산 조정안]에서 결재 상신' 안내 답을 붙인다. 목업 — 실제 예산은 바꾸지 않음"
+      validation: null
+      state_writes: [hagThreads]
+    backend: { note: "실서비스는 예산 조정안 등록 API(원가조정 [예산 조정안]에 남음)" }
+    result: 반영 완료 표시 + 안내
+
+  - id: btn-hag-adj-change
+    label: "금액 바꿔서 반영"
+    type: button
+    crud: N
+    area: "조정안 카드"
+    event: onclick
+    front:
+      handler: "hagSend('4,500,000원만 옮겨줘')"
+      file: "home-agent.js:hagAdjHtml"
+      logic: "모자란 금액(4,500,000원)만 옮기는 조정안을 다시 보여 준다"
+      validation: null
+      state_writes: [hagThreads]
+    backend: null
+    result: 바뀐 금액의 조정안 카드
+
+  - id: lnk-hag-go-adjust
+    label: "원가조정 화면에서 보기 / 조정안 보기 / 원가조정 화면 열기"
+    type: link
+    crud: N
+    area: "답 카드 오른쪽 아래 · 반영 완료 줄"
+    event: onclick
+    front:
+      handler: "hagGoAdjust()"
+      file: "home-agent.js:hagGoAdjust (budget-cost-adjust.js:openCostAdjust)"
+      logic: "예산관리시스템 목업용 원가조정 화면으로 이동"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 원가조정 화면
+
+  - id: btn-hag-new
+    label: "＋ 새 대화"
+    type: button
+    crud: C
+    area: "오른쪽 대화 기록 머리"
+    event: onclick
+    front:
+      handler: "hagNew()"
+      file: "home-agent.js:hagNew · hagWelcomeHtml"
+      logic: "오늘 묶음 맨 위에 '새 대화'를 만들고 이런 일을 도와드려요 4칸을 보여 준다. 첫 질문을 보내면 제목이 그 질문으로 바뀜"
+      validation: null
+      state_writes: [hagThreads, hagCur]
+    backend: { note: "실서비스는 대화(스레드) 생성 API" }
+    result: 새 대화 시작
+
+  - id: inp-hag-search
+    label: "대화 내용 검색"
+    type: input
+    crud: R
+    area: "오른쪽 대화 기록"
+    event: oninput
+    front:
+      handler: "hagSearch(value)"
+      file: "home-agent.js:hagSearch · hagHistHtml"
+      logic: "제목 · 요약 · 대화 글에 검색어가 있는 대화만 남긴다"
+      validation: null
+      state_writes: [hagQuery]
+    backend: null
+    result: 걸러진 대화 기록
+
+  - id: row-hag-thread
+    label: "대화 기록 항목(제목 · 요약)"
+    type: list
+    crud: R
+    area: "오른쪽 대화 기록 — 오늘 / 어제 · M월 D일 / 지난주"
+    event: onclick
+    front:
+      handler: "hagOpen(id)"
+      file: "home-agent.js:hagOpen"
+      logic: "고른 대화를 가운데에 보여 준다(고른 항목 네이비 왼쪽 줄 · 옅은 바탕)"
+      validation: null
+      state_writes: [hagCur]
+    backend: { note: "대화 기록은 브라우저에 저장(localStorage hag-threads-v1) — 실서비스는 사용자별 대화 저장소" }
+    result: 그 대화 열림
+
+  - id: btn-hag-side-toggle
+    label: "대화 기록 접기(◧ 아이콘) / 펴기 [◧ 대화 기록]"
+    type: toggle
+    crud: N
+    area: "오른쪽 대화 기록 머리 오른쪽 · 접힌 뒤에는 대화 머리 오른쪽 한 줄 버튼"
+    event: onclick
+    front:
+      handler: "hagToggleSide(false) · hagToggleSide(true)"
+      file: "home-agent.js:hagToggleSide"
+      logic: "아이콘은 왼쪽 레일 접기 버튼과 같은 모양(채운 칸이 오른쪽). 접으면 대화가 넓어지고 대화 머리 오른쪽에 [◧ 대화 기록] 버튼이 생겨 다시 편다. 접힘 상태는 브라우저에 기억(hag-side)"
+      validation: null
+      state_writes: [hagSideOpen]
+    backend: null
+    result: 대화 기록 접힘 / 펼침
+
+  - id: btn-rail-fav-edit
+    label: "즐겨찾기 [편집]"
+    type: button
+    crud: N
+    area: "왼쪽 레일 · 즐겨찾기 머리"
+    event: onclick
+    front:
+      handler: "openFavorites()"
+      file: "favorites.js:openFavorites"
+      logic: "즐겨찾기 패널(현재 화면 추가 · 삭제)을 연다. 고치면 레일 목록도 다시 그림(home-agent.js:favSave 감쌈)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 즐겨찾기 패널
+
+  - id: row-rail-fav
+    label: "즐겨찾기 항목(화면 · 프로젝트)"
+    type: list
+    crud: R
+    area: "왼쪽 레일 · 즐겨찾기"
+    event: onclick
+    front:
+      handler: "favOpen(index)"
+      file: "favorites.js:favOpen · home-agent.js:hagRailSecsHtml"
+      logic: "그 화면으로 이동. 처음에는 원가조정 · 원가현황 · 프로젝트 현황 · 프로젝트 개설 관리 4개로 시작(한 번만)"
+      validation: null
+      state_writes: []
+    backend: { note: "즐겨찾기는 브라우저 저장(newmis.favorites)" }
+    result: 화면 이동
+
+  - id: row-rail-pjt
+    label: "담당 프로젝트 항목(이름 ↗ = 프로젝트로 이동 · 할 일 수 배지)"
+    type: list
+    crud: R
+    area: "왼쪽 레일 · 담당 프로젝트 흰 카드(먼저 5개)"
+    event: onclick
+    front:
+      handler: "railPjtGo(id)"
+      file: "home-agent.js:homeV2PjtListHtml(재정의) · hagPjtRows (dashboard.js:homeV2PjtRowHtml · rail-project-go.js:railPjtGo 원래 행 그대로)"
+      logic: "원래 레일 카드 · 행 모양 그대로. 바꾼 것은 ① 먼저 5개 + 나머지 보기 ③ 펼치기 칸을 작게(26×30 → 20×22) ④ 줄 높이 약 36px → 28px. 시안은 목업 프로젝트에 이름만 있는 프로젝트를 더해 30개(목업 데이터가 없는 프로젝트는 펼치기 칸 없음, 누르면 안내 hagPjtGo)"
+      validation: null
+      state_writes: []
+    backend: { note: "담당 프로젝트 · 할 일 수는 프로젝트 목록 API(목업 homeCardPjts · HOME_PROJECTS · pjtTodosOf · pjtRisksOf)" }
+    result: 프로젝트 원가조정 화면
+
+  - id: btn-rail-pjt-expand
+    label: "담당 프로젝트 업무 펼치기 ▸ / 접기"
+    type: toggle
+    crud: N
+    area: "왼쪽 레일 · 담당 프로젝트 줄 왼쪽 작은 칸"
+    event: onclick
+    front:
+      handler: "toggleHomeV2Pjt(id)"
+      file: "dashboard.js:toggleHomeV2Pjt (원래 그대로)"
+      logic: "원래와 같은 펼침 내용(총 계획예산 · 진행률, 해야 할 일, 이상징후 — 항목을 누르면 그 계정 화면)을 줄 아래에 펼친다. 한 번에 1개"
+      validation: null
+      state_writes: [homeV2Open]
+    backend: null
+    result: 프로젝트 업무 펼침 / 접힘
+
+  - id: btn-rail-pjt-more
+    label: "나머지 N개 보기 ▾ / 접기 ▴"
+    type: toggle
+    crud: N
+    area: "왼쪽 레일 · 담당 프로젝트 아래"
+    event: onclick
+    front:
+      handler: "hagPjtToggle()"
+      file: "home-agent.js:hagPjtToggle"
+      logic: "먼저 5개만 보이다가 누르면 전체(30개)와 이름 검색창을 펼친다. 접으면 검색어도 지움"
+      validation: null
+      state_writes: [hagPjtAll, hagPjtQ]
+    backend: null
+    result: 전체 목록 펼침 / 접힘
+
+  - id: inp-rail-pjt-search
+    label: "프로젝트 이름 검색"
+    type: input
+    crud: R
+    area: "왼쪽 레일 · 담당 프로젝트 전체 보기 위"
+    event: oninput
+    front:
+      handler: "hagPjtSearch(value)"
+      file: "home-agent.js:hagPjtSearch"
+      logic: "이름에 검색어가 들어간 프로젝트만 남긴다"
+      validation: null
+      state_writes: [hagPjtQ]
+    backend: null
+    result: 걸러진 프로젝트 목록
+
+  - id: btn-budget-hist
+    label: "대화 기록(문서 아이콘)"
+    type: button
+    crud: N
+    area: "원가조정 등 다른 화면 · AI 창(AI Agent) 머리 — [⧉ 새 창으로 띄우기] 아이콘 왼쪽"
+    event: onclick
+    front:
+      handler: "hagHistToggle()"
+      file: "home-agent.js:hagHistBtnPaint · hagHistToggle (budget-design-e.js:ddePanel 머리에 끼워 넣음)"
+      logic: "AI 창 머리의 문서 아이콘으로 대화 기록 드롭다운을 연다 / 닫는다(바깥 클릭 · Esc 로도 닫힘). 아이콘을 눌러도 창 끌기는 되지 않음. 홈에서는 AI 창째 숨김"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 대화 기록 드롭다운
+
+  - id: row-budget-hist
+    label: "드롭다운 대화 기록 항목"
+    type: list
+    crud: R
+    area: "대화 기록 드롭다운"
+    event: onclick
+    front:
+      handler: "hagOpenInPanel(id)"
+      file: "home-agent.js:hagOpenInPanel (budget-design-e.js:ddeAiToggle)"
+      logic: "AI 창 안에 그 대화를 펼친다 — 버튼 · 이어서 질문은 빼고 내용만"
+      validation: null
+      state_writes: []
+    backend: null
+    result: AI 창에 지난 대화
+
+  - id: btn-budget-hist-home
+    label: "홈에서 전체 대화 보기 ›"
+    type: link
+    crud: N
+    area: "대화 기록 드롭다운 아래"
+    event: onclick
+    front:
+      handler: "hagGoHome()"
+      file: "home-agent.js:hagGoHome (showMain)"
+      logic: "홈으로 이동"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 홈
+
+  - id: btn-past-back
+    label: "← 지금 대화로"
+    type: button
+    crud: N
+    area: "AI 창 · 지난 대화 머리"
+    event: onclick
+    front:
+      handler: "hagPastClose()"
+      file: "home-agent.js:hagPastClose"
+      logic: "지난 대화를 닫고 원가조정 Agent 대화로 돌아간다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: 지금 대화
+
+  - id: inp-past-question
+    label: "이 대화에 이어서 물어보세요(AI 창 입력창) · 보내기"
+    type: input
+    crud: N
+    area: "AI 창 · 지난 대화 아래"
+    event: keydown(Enter) · onclick
+    front:
+      handler: "hagPastSendInput() → hagPastSend(text)"
+      file: "home-agent.js:hagPastSendInput · hagPastSend · hagSendTo"
+      logic: "화면을 떠나지 않고 AI 창 안에서 그 대화에 이어 묻는다. 답(목업)은 같은 대화 기록에 저장되어 홈에서 열어도 이어져 있다. 답 카드의 추천 버튼 · [이대로 반영](hagPastApply)도 AI 창 안 대화에 붙는다"
+      validation: "빈 글은 보내지 않음"
+      state_writes: [hagThreads]
+    backend: { note: "실서비스는 Agent(LLM) 질의 API — 원가조정 기본 대화(budget-agent-console.js)와는 별개 대화" }
+    result: 질문 · 답이 지난 대화에 이어 붙음
+
+requirements:
+  - { id: FR-HAG-01, text: "홈은 Agent와 나누는 업무 대화 화면이어야 하며, 처음 들어오면 Agent가 오늘 먼저 볼 일 3가지(해야 할 일 · 이상징후 · 결재 진행 건수 포함)를 브리핑해야 한다" }
+  - { id: FR-HAG-02, text: "PM은 추천 질문 버튼을 누르거나 글로 입력해 질문할 수 있어야 하며, 질문을 보내면 브리핑은 한 줄로 접히고 다시 펼쳐 볼 수 있어야 한다" }
+  - { id: FR-HAG-03, text: "Agent가 제안한 계정 간 조정안은 표(지금 예산 · 조정 · 조정 후 · 합계)와 이유로 보여 주고, [이대로 반영] · [금액 바꿔서 반영] · 원가조정 화면 이동을 할 수 있어야 하며, 반영한 내용은 원가조정 [예산 조정안]에 남아야 한다" }
+  - { id: FR-HAG-04, text: "오른쪽 대화 기록에서 새 대화를 시작하고, 대화를 오늘 · 어제 · 지난주로 묶어 보고, 내용으로 검색하고, 골라서 다시 열 수 있어야 한다" }
+  - { id: FR-HAG-05, text: "대화 기록 패널은 접었다 펼 수 있어야 하며, 접힌 상태를 기억해야 한다" }
+  - { id: FR-HAG-06, text: "왼쪽 레일은 원래 모양(회색 머리글 + 흰 카드)을 유지하면서 즐겨찾기 · 담당 프로젝트를 차례로 보여야 하며, 아래에 업무 프로세스 · 구매시스템 참고 바로가기를 보여야 한다" }
+  - { id: FR-HAG-09, text: "담당 프로젝트가 많아도(예: 30개) 먼저 5개만 보이고 [나머지 N개 보기]로 전체와 이름 검색을 펼칠 수 있어야 하며, 펼치기 칸과 줄 높이는 작게 해 한눈에 더 많이 보여야 한다" }
+  - { id: FR-HAG-07, text: "원가조정 등 다른 화면에서는 AI 창 머리의 문서 아이콘([⧉ 새 창] 옆)으로 대화 기록을 드롭다운으로 볼 수 있어야 하고, 고른 대화는 AI 창 안에서 펼쳐 보고 화면을 떠나지 않고 그 대화에 이어서 물을 수 있어야 하며, 지금 대화로 돌아갈 수 있어야 한다" }
+  - { id: FR-HAG-08, text: "홈에서는 [AI에게 물어보기] · AI 창을 숨겨, 대화 화면이 두 개로 겹쳐 보이지 않아야 한다" }

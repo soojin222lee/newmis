@@ -7,6 +7,7 @@
 //   - 이미 구매계획이 있는 기간은 ✓ 표시만 하고 고를 수 있습니다(같은 기간에 계획 추가 가능 — 이전엔 disabled).
 //   - 금액 기본값 = 등록 가능 금액. 금액을 직접 고치면(agos-po-touched=1) 기간을 바꿔도 금액은 그대로.
 //   - 팝업(.agv-pop)과 표 안 입력 행(budget-inline-edit.js · tr.bie-row) 어디서든 같은 함수로 동작합니다(id 대신 data-oid 도 찾음).
+//   - [2026.11.25] 실투입대상 외주비 표 위 [업체별 소계 보기] — 켜면 업체별로 모으고 업체마다 소계 줄(엑셀 부분합 모양).
 //   공유 파일(budget-agent-console.js)은 고치지 않습니다. budget-agent-console.js 뒤에 로드합니다.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -370,4 +371,109 @@ function bopInjectStyle() {
       .replace(/<b>\d{4} Q\d<\/b><\/td>(\s*)<td>(\d{4}-\d{2})-(\d{2}) ~ (\d{4}-\d{2})-(\d{2})<\/td>/g,
         function (m, sp, a, d1, b, d2) { return a === b ? '<b>' + a + '</b></td>' + sp + '<td>' + a + '-' + d1 + ' ~ ' + b + '-' + d2 + '</td>' : m; });
   };
+})();
+
+/* ── [2026.11.25] 실투입대상 외주비 — 업체별 소계 보기 ─────────────────────────────
+   회의(2026.11.24) 결정: 구매계획은 PO 1건 = 1줄(플랫)로 두고, 업체별 합계는 "부분합(소계) 조회"로 제공.
+   표 위 [업체별 소계 보기]를 켜면 같은 업체 줄끼리 모으고(업체명 가나다순, 업체 안은 시작일순),
+   업체가 끝날 때마다 소계 줄(건수 · 계획 금액 · 실적 · 미검수)을 끼워 넣습니다 — 엑셀 부분합과 같은 모양.
+   끄면 원래대로 시작일순 1줄 목록. 켜기/끄기는 이 브라우저에 기억합니다(localStorage, 없으면 꺼진 상태).
+   공유 렌더러(renderAgentOutsourceDetailFinal) 출력만 고칩니다 — 금액은 화면에 그려진 각 줄의 숫자를 더합니다. */
+var BOP_OS_SUM_KEY = 'bop-os-subtotal';
+var bopOsSumOn = (function () { try { return localStorage.getItem(BOP_OS_SUM_KEY) === '1'; } catch (e) { return false; } })();
+function bopToggleOsSubtotal(on) {                      // crud N — [건별 | 업체별 소계] 보기 전환
+  on = !!on;
+  if (on === bopOsSumOn) return;
+  bopOsSumOn = on;
+  try { localStorage.setItem(BOP_OS_SUM_KEY, bopOsSumOn ? '1' : '0'); } catch (e) {}
+  renderBudgetPage();
+}
+function bopOsNum(td) {
+  if (!td) return 0;
+  const t = (td.textContent || '').replace(/[^\d-]/g, '');
+  return t && t !== '-' ? Number(t) : 0;
+}
+function bopOsSubtotal(html) {
+  if (typeof html !== 'string' || html.indexOf('agos-flat') < 0 || typeof document === 'undefined') return html;
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html;
+  const table = tpl.content.querySelector('table.agos-flat');
+  if (!table) return html;
+  const wrap = table.closest('.aglb-wrap') || table;
+
+  // 켜기/끄기 버튼 — [＋ 구매계획 등록] 줄이 있으면 그 줄 오른쪽, 없으면(열람 전용) 표 바로 위에 새 줄
+  const seg = (on, label) => `<button type="button" class="${bopOsSumOn === on ? 'on' : ''}" aria-pressed="${bopOsSumOn === on}"
+    onclick="bopToggleOsSubtotal(${on})">${label}</button>`;
+  const btn = `<div class="bop-sum-seg" role="group" aria-label="목록 보기 방식">${seg(false, '건별')}${seg(true, '업체별 소계')}</div>`;
+  let bar = null;
+  for (let el = wrap.previousElementSibling; el; el = el.previousElementSibling) {
+    if (el.classList.contains('aglb-bar')) { bar = el; break; }
+  }
+  if (bar) bar.insertAdjacentHTML('beforeend', btn);
+  else wrap.insertAdjacentHTML('beforebegin', `<div class="aglb-bar bop-sum-bar">${btn}</div>`);
+
+  const tbody = table.tBodies[0];
+  if (bopOsSumOn && tbody) {
+    const heads = Array.prototype.map.call(table.querySelectorAll('thead th'), th => th.textContent.trim());
+    const iPlan = heads.indexOf('계획 금액'), iAct = heads.indexOf('실적(검수)'), iTodo = heads.indexOf('집행예정(미검수)');
+    const iPo = heads.indexOf('PO번호');
+    const rows = Array.prototype.filter.call(tbody.rows, tr => tr.querySelector('td.agos-vcell'));
+    if (iPlan > 0 && rows.length) {
+      const groups = new Map();
+      rows.forEach(tr => {
+        const b = tr.querySelector('td.agos-vcell b');
+        const name = b ? b.textContent.trim() : '';
+        if (!groups.has(name)) groups.set(name, []);
+        groups.get(name).push(tr);
+      });
+      const names = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b, 'ko'));
+      rows.forEach(tr => tr.remove());
+      const money = n => (typeof fmt === 'function' ? fmt(n) : String(n)) + '원';
+            names.forEach(name => {
+        const list = groups.get(name);
+        list.forEach(tr => tbody.appendChild(tr));
+        const sum = i => list.reduce((t, tr) => t + bopOsNum(tr.cells[i]), 0);
+        const nPo = iPo >= 0 ? list.filter(tr => /\d/.test((tr.cells[iPo] || {}).textContent || '')).length : 0;
+        const cells = [];
+        cells.push(`<td colspan="${iPlan}"><span class="bop-sum-label">위 ${list.length}건 합계</span>${nPo ? `<span class="bop-sum-cnt">PO 발행 ${nPo}건</span>` : ''}</td>`);
+        for (let i = iPlan; i < heads.length; i++) {
+          if (i === iPlan) cells.push(`<td class="num">${money(sum(i))}</td>`);
+          else if (i === iAct || i === iTodo) cells.push(`<td class="num">${nPo ? money(sum(i)) : '<span class="agos-none">–</span>'}</td>`);
+          else cells.push('<td></td>');
+        }
+        tbody.insertAdjacentHTML('beforeend', `<tr class="bop-sum">${cells.join('')}</tr>`);
+      });
+    }
+  }
+  return tpl.innerHTML;
+}
+(function () {
+  const before = window.renderAgentOutsourceDetailFinal;
+  if (typeof before !== 'function') return;
+  window.renderAgentOutsourceDetailFinal = function () {
+    return bopOsSubtotal(before.apply(this, arguments));
+  };
+})();
+(function bopOsSumStyle() {
+  if (typeof document === 'undefined' || document.getElementById('bop-sum-style')) return;
+  const st = document.createElement('style');
+  st.id = 'bop-sum-style';
+  st.textContent = `
+  .bop-sum-bar { display:flex; align-items:center; }
+  .aglb-bar .bop-sum-seg { margin-left:auto; }
+  /* 보기 전환 — 회색 바탕 안에서 고른 쪽만 흰 칸으로 떠 보임 */
+  .bop-sum-seg { display:inline-flex; gap:2px; padding:3px; border-radius:9px; background:#eceef2; }
+  .bop-sum-seg > button { height:30px; padding:0 14px; border:0; border-radius:7px; background:transparent;
+    color:#4b5563; font-size:14px; font-weight:600; cursor:pointer; }
+  .bop-sum-seg > button:hover:not(.on) { color:#1c2432; }
+  .bop-sum-seg > button.on { background:#fff; color:#111827; font-weight:800; box-shadow:0 1px 2px rgba(15,23,42,.14); }
+  /* 업체 묶음 — 줄은 모두 같은 모양(흐리게 하면 '잠긴 줄'로 보임), 묶음 끝에 소계 줄 + 묶음 사이 여백.
+     소계 줄은 옅은 바탕 + "위 N건 합계"(업체명은 다시 쓰지 않음). 합계 표시용 굵은 선은 두지 않음 — 짧은 선 · 진한 선 모두 어색해서 뺌(2026.11.25).
+     선은 border 대신 inset box-shadow — border-collapse 표에서 칸 테두리가 그려지지 않는 경우가 있음 */
+  table.agos-flat tr.bop-sum > td { background:#f6f7f9 !important; border-top:0 !important; box-shadow:inset 0 1px 0 #e3e6eb !important;
+    border-bottom:12px solid #fff !important; color:#111827; font-weight:800; font-size:15px; height:46px; }
+  table.agos-flat tr.bop-sum:last-child > td { border-bottom:0 !important; }
+  table.agos-flat tr.bop-sum .bop-sum-label { color:#111827; font-weight:800; }
+  table.agos-flat tr.bop-sum .bop-sum-cnt { margin-left:10px; color:#5b6576; font-weight:500; font-size:13.5px; }`;
+  document.head.appendChild(st);
 })();

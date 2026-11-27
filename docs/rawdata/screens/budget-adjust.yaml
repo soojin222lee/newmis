@@ -455,17 +455,193 @@ elements:
     front:
       handler: "bmvSet('act')"
       file: "budget-monthly-view.js:bmvSet · bmvTable (renderAgentAcctMonthlyPopFinal 재정의)"
-      logic: "지난 달(확정 실적)은 기본으로 실적 합계 한 칸(확정 실적 머리)으로 접고, 누르면 월별로 펼친다. 펼친 지난 달 금액을 누르면 기존처럼 실적 상세 팝업(actualCellHtml → showActualDetailModal)"
+      logic: "지난 달(확정 실적)은 기본으로 실적 합계 한 칸(확정 실적 머리)으로 접고, 누르면 월별로 펼친다. 펼친 지난 달 금액을 누르면 같은 팝업 안에서 실적 상세로 전환(link-agent-monthly-actual 참고)"
       validation: null
       state_writes: [bmvActOpen]
     backend: null
     result: "실적 열 접힘 / 펼침"
 
+  - id: link-agent-monthly-actual
+    label: "지난 달 실적 금액(밑줄 링크) — 실적 상세 조회"
+    type: link
+    crud: R
+    area: "월별 계획/실적 팝업 표 — 지난 달(확정 실적) 칸의 금액"
+    event: onclick
+    front:
+      handler: "bmvDrillOpen(계정, 월, 상세계정)"
+      file: "budget-monthly-view.js:bmvDrillOpen · bmvDrillHtml · renderAgentAcctMonthlyPopFinal"
+      logic: "[2026.11.19] 팝업 위에 팝업을 또 띄우지 않고, 같은 팝업 안의 표 자리에 그 달 실적 상세(조회 조건 · 탭 · 엑셀 · 표 · 합계)를 보여 준다. 제목은 '{계정} 월별 계획 / 실적 › {월} 실적 상세 · {상세계정}'. 내용은 공유 실적조회(showActualDetailModal)를 그대로 그려 안쪽만 가져옴(공유 팝업은 화면에 뜨지 않음). 원가 현황 등 다른 화면의 실적 상세 팝업은 그대로"
+      validation: null
+      state_writes: [bmvDrill, bmvDrillScroll]
+    backend: null
+    result: "팝업 안 내용이 그 달 실적 상세로 바뀜"
+
+  # ── [2026.11.19] 디자인 E안(feature/nj-e) — Agent와 대화를 오른쪽 AI 패널로(budget-design-e.js) ──
+  - id: btn-dde-ai-toggle
+    label: "✦ AI에게 물어보기"
+    type: button
+    crud: N
+    area: "상단 오른쪽(Admin 버튼 왼쪽) — 모든 화면"
+    event: onclick
+    front:
+      handler: "ddeAiToggle()"
+      file: "budget-design-e.js:ddeAiToggle"
+      logic: "AI 패널을 켜고 끈다. 켜면 늘 오른쪽 사이드바로 시작(화면이 패널 폭만큼 좁아짐). 창 폭 1360px 미만이면 화면을 줄이지 않고 오른쪽에 덮어서 뜸. 켠 상태는 계정 탭 · 다른 메뉴 화면 · 새로고침에도 유지(localStorage dde-ai)"
+      validation: null
+    result: "AI 패널 열림/닫힘"
+
+  - id: btn-dde-ai-pop
+    label: "⧉ 새 창으로 띄우기 / 사이드바로 붙이기 (아이콘)"
+    type: button
+    crud: N
+    area: "AI 패널 머리 오른쪽(✕ 왼쪽)"
+    event: onclick
+    front:
+      handler: "ddeAiPop()"
+      file: "budget-design-e.js:ddeAiPop"
+      logic: "사이드바 → 옮길 수 있는 창으로 띄운다(뒤 화면 폭은 원래대로). 띄운 창에서 누르면 다시 사이드바로. 창 위치 · 크기는 기억"
+      validation: null
+    result: "AI 패널이 띄운 창 ↔ 사이드바로 바뀜"
+
+  - id: btn-dde-ai-close
+    label: "✕ (창 닫기 / 패널 끄기)"
+    type: button
+    crud: N
+    area: "AI 패널 머리 오른쪽 끝"
+    event: onclick
+    front:
+      handler: "ddeAiClose()"
+      file: "budget-design-e.js:ddeAiClose"
+      logic: "띄운 창이면 창만 닫고 오른쪽 사이드바로 돌아간다. 사이드바면 패널을 끈다"
+      validation: null
+    result: "사이드바로 복귀 또는 패널 닫힘"
+
+  - id: drag-dde-ai-window
+    label: "AI 창 옮기기(머리 끌기) · 크기 조절(오른쪽 아래 모서리) · 사이드바 폭 조절(왼쪽 경계, 더블클릭=기본 폭)"
+    type: drag
+    crud: N
+    area: "AI 패널"
+    event: onpointerdown
+    front:
+      handler: "ddeAiDragStart(event) · ddeAiGripStart(event) · ddeAiSplitStart(event) · ddeAiSplitReset()"
+      file: "budget-design-e.js:ddeAiDragStart · ddeAiGripStart · ddeAiSplitStart"
+      logic: "띄운 창은 화면 밖으로 나가지 않게 위치를 맞춘다. 최소 크기 340×360. 사이드바 폭 340 ~ 680px(화면 절반까지)"
+      validation: null
+    result: "AI 창 위치 · 크기 · 사이드바 폭 변경(기억)"
+
+  - id: btn-agent-monthly-drill-back
+    label: "← 월별 표로"
+    type: button
+    crud: N
+    area: "월별 계획/실적 팝업 제목 왼쪽(실적 상세를 보고 있을 때만)"
+    event: onclick
+    front:
+      handler: "bmvDrillBack()"
+      file: "budget-monthly-view.js:bmvDrillBack"
+      logic: "[2026.11.19] 실적 상세 → 월별 표로 돌아간다. 보기(월별 · 분기별 · 연도별 · 기간) · 연도 · 단위 · 실적 펼침 · 가로 스크롤 위치는 들어가기 전 그대로. 팝업을 닫았다 다시 열면 월별 표부터"
+      validation: null
+      state_writes: [bmvDrill]
+    backend: null
+    result: "월별 표로 돌아감"
+
+  # ── [2026.11.19] 화면 정리(디자인시안_7) — 겹치는 숫자 · 가끔 쓰는 버튼 덜어 내기(budget-design-d.js:ddSimplify) ──
+  #    원래 버튼 · 탭은 지우지 않고 숨긴 채 두고, 아래 새 버튼이 그것을 대신 누름(원래 동작 그대로)
+  #    계정 상세 제목 옆 「실적(확정) · CP 승인액」 문구는 숨기고 제목에 마우스를 올리면 보임
+  - id: btn-dd-more-card
+    label: "⋯ (예산 조정안 카드 더보기 — 삭제)"
+    type: button
+    crud: N
+    area: "예산 조정안 카드 동작 줄 — [반영] · [자세히 ▾] 오른쪽"
+    event: onclick
+    front:
+      handler: "ddMoreOpen(this,'card-{조정안 id}')"
+      file: "budget-design-d.js:ddCardTidy · ddMoreOpen"
+      logic: "[2026.11.20] 카드의 [삭제]를 메뉴로 옮김(실수로 누르기 쉽고 자주 쓰지 않음). 메뉴 [삭제]를 누르면 숨겨 둔 원래 [삭제]를 대신 눌러 카드 안 삭제 확인 띠가 열린다(btn-agent-proposal-delete와 같은 동작). [전부 해제]는 [⋯]에 숨기지 않고 [전부 반영] 옆에 그대로 둔다"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "더보기 메뉴 열림"
+
+  - id: text-dd-card-why
+    label: "근거 한 줄 (출처 꼬리표 + 핵심 숫자)"
+    type: text
+    crud: R
+    area: "예산 조정안 카드 제목 바로 아래"
+    event: null
+    front:
+      handler: null
+      file: "budget-design-d.js:ddCardTidy · ddWhyLine · ddWhySource"
+      logic: "[2026.11.20] 근거 3단계 중 ① — 카드에 늘 보이는 한 줄. 꼬리표는 신호 출처(trigger: SCM · 구매 · ERP · 마감 · 실적 · 대화 · 직접 입력은 '직접'), 문장은 목업 한 줄(DD_WHY_SHORT) → 제안의 short → 판단 이유(why) 첫 문장 순. ② [자세히 ▾] 펼치면 판단 이유 · 영향, ③ 원본 화면 이동은 다음 단계. 카드에서 「🤖 Agent 제안」 표시 · 날짜(제목에 마우스를 올리면 보임)는 숨김 [2026.11.26] 카드 한 줄 줄이기 — [반영] · [자세히] · [⋯](외주비는 1안 · 2안 / 안 고르기)를 첫 줄 ● 계정 · 금액(부족액) 오른쪽으로 올리고, 제목은 둘째 줄 전체 폭(덜 잘림), 근거 한 줄은 셋째 줄(budget-design-d.js ddSimplifyStyle 격자 배치)"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "근거 한 줄 표시"
+
+  - id: btn-dd-more-detail
+    label: "⋯ 더보기 (계정 상세)"
+    type: button
+    crud: N
+    area: "계정 상세 표 위 도구줄 오른쪽"
+    event: onclick
+    front:
+      handler: "ddMoreOpen(this,'detail')"
+      file: "budget-design-d.js:ddMoreOpen · ddSimplify"
+      logic: "[전체 펼치기/접기] · [엑셀 다운로드] · 맨 위 [이력](계정 상세에서만, 프로젝트 메인에서는 그대로 보임)을 메뉴로 옮김. 순서: 표 기능 먼저, [이력]은 맨 끝"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "더보기 메뉴 열림"
+
+  - id: menu-dd-more-item
+    label: "더보기 메뉴 항목(전부 해제 · 전체 펼치기 · 엑셀 다운로드 · 이력)"
+    type: button
+    crud: N
+    area: "[⋯] 버튼 아래 떠 있는 메뉴"
+    event: onclick
+    front:
+      handler: "ddMoreRun(key)"
+      file: "budget-design-d.js:ddMoreRun"
+      logic: "숨겨 둔 원래 버튼을 대신 누름 — 전부 해제(agentGa 일괄 해제) · 전체 펼치기(agentLaborToggleAllFinal) · 엑셀(bxe 내려받기, crud R) · 이력(결재/변경 이력 팝업). 바깥 클릭 · Esc · 스크롤 시 메뉴 닫힘"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "원래 버튼 동작 실행"
+
+  - id: btn-dd-gantt-toggle
+    label: "▸ 인력 투입 일정 펼치기 / ▾ 접기"
+    type: button
+    crud: N
+    area: "인건비 계정 상세 — 인력 표 아래"
+    event: onclick
+    front:
+      handler: "ddGanttToggle()"
+      file: "budget-design-d.js:ddGanttToggle"
+      logic: "인력 투입 일정(막대그래프)은 기본 접힘, 누르면 펼침/접힘. 펼침 여부는 브라우저에 기억(localStorage dd-gantt)"
+      validation: null
+      state_writes: [ddGanttOpen]
+    backend: null
+    result: "막대그래프 펼침 / 접힘"
+
+  - id: chk-dd-only-applied
+    label: "☐ 반영한 것만 보기 (검토 대기 N · 반영 N)"
+    type: checkbox
+    crud: R
+    area: "예산 조정안 카드 목록 위"
+    event: onchange
+    front:
+      handler: "ddOnlyOn(this.checked)"
+      file: "budget-design-d.js:ddOnlyOn → budget-adjust-panel.js:bapTodoFilterSet"
+      logic: "상태 탭 [전체] [검토 대기] [반영]을 숨기고 체크 하나로 — 체크하면 반영한 조정안만(bapTodoFilter='on'), 풀면 전체('all'). 오른쪽에 검토 대기 · 반영 건수"
+      validation: null
+      state_writes: [bapTodoFilter]
+    backend: null
+    result: "예산 조정안 목록 필터"
+
   - id: btn-actual-detail-excel
     label: "⬇ 엑셀 다운로드"
     type: button
     crud: R
-    area: "실적조회 팝업(월별 표의 지난 달 실적 금액 클릭) 표 위"
+    area: "월별 계획/실적 팝업 안 실적 상세(지난 달 실적 금액 클릭) 표 위"
     event: onclick
     front:
       handler: "bxeActual(계정, 월)"
@@ -480,7 +656,7 @@ elements:
   #    계정 상세: 왼쪽 상세 예산내역 | 오른쪽 탭 [예산 조정안 · Agent와 대화] / 메인: 왼쪽 예산 조정안 | 오른쪽 [Agent와 대화]
   #    (예전 세 칸 · 양옆 접기/펼치기 · 세 칸 경계 손잡이 · 메인 [넓게 ›]를 대체. 위 btn-agent-detail-* 버튼은 계정 상세에선 숨기고 탭 동작으로 연결)
   - id: handle-agent-detail-split
-    label: "칸 경계선(끌어서 폭 조절 · 끝까지 밀면 접힘 · 더블클릭 기본 폭)"
+    label: "칸 경계선 — [2026.11.26] 폭 고정으로 끌기 · 더블클릭 없앰(손잡이 숨김)"
     type: splitter
     crud: N
     area: "메인 · 계정 상세 화면 — 왼쪽 본문과 오른쪽 칸 사이(늘 보이는 선 + 가운데 손잡이). 폭은 두 화면이 함께 씀"
@@ -488,11 +664,11 @@ elements:
     front:
       handler: "b2cSplitStart(event) · b2cSplitReset()"
       file: "budget-adjust-side.js:b2cSplitStart · b2cSplitReset · b2cPaint"
-      logic: "[2026.11.16] 경계선을 끌면 오른쪽 칸 폭이 바뀌고 상세 예산내역이 나머지를 쓴다. 최소 폭 오른쪽 280px · 상세 560px(넘으면 멈춤). 200px 아래로 밀면 오른쪽이 얇은 세로 띠로 접힌다. 더블클릭하면 기본 폭(화면의 약 27%, 280~380px)으로 펼친다. 폭 · 접힘은 다시 그려도 유지하고 브라우저(localStorage b2c-side)에 기억. 1100px 이하 화면은 위아래로 쌓여 경계선 숨김"
+      logic: "[2026.11.26] 폭 고정 — 손잡이를 숨기고 끌기 · 더블클릭은 동작하지 않음(budget-design-d.js DD_FIXED). 칸 폭은 표 자리의 37%(위 「지금 수립 → 반영 시」 숫자가 줄지 않는 폭 이상, 560px 이하, ddSideWidth), 접기 · 펴기는 [«] 버튼 · 접힌 세로 띠로. (예전 동작: 경계선을 끌면 오른쪽 칸 폭이 바뀌고 상세 예산내역이 나머지를 쓴다. 최소 폭 오른쪽 280px · 상세 560px(넘으면 멈춤). 200px 아래로 밀면 오른쪽이 얇은 세로 띠로 접힌다. 더블클릭하면 기본 폭(화면의 약 27%, 280~380px)으로 펼친다. 폭 · 접힘은 다시 그려도 유지하고 브라우저(localStorage b2c-side)에 기억. 1100px 이하 화면은 위아래로 쌓여 경계선 숨김)"
       validation: null
       state_writes: [b2cState]
     backend: null
-    result: "상세 예산내역 | 오른쪽 탭 폭 조절 · 접힘"
+    result: "폭은 고정 — 끌어도 바뀌지 않음"
 
   - id: tab-agent-detail-side
     label: "오른쪽 탭 [예산 조정안 N] · [Agent와 대화]"
@@ -503,7 +679,7 @@ elements:
     front:
       handler: "b2cTab('todo'|'chat')"
       file: "budget-adjust-side.js:b2cTab · b2cApply"
-      logic: "[2026.11.16] 예산 조정안(renderAgentGaTodoFinal)과 Agent와 대화하기 칸을 오른쪽 한 칸에 두고 탭으로 하나만 보인다. 예산 조정안 탭에는 검토 대기 건수(agentGaPendingCntFinal) 빨간 배지. Agent 탭으로 바꾸면 최신 대화로 스크롤하고 입력창에 커서. 고른 탭은 브라우저에 기억. 다른 곳에서 예전 함수(agentGaTodoOpenSetFinal(true) · agentGaChatFoldSetFinal(false))를 부르면 해당 탭이 열린다. 메인에서는 왼쪽에 예산 조정안이 있으므로 [Agent와 대화] 탭만 보이고, 메인에서 계정 상세로 들어오면 오른쪽은 메인과 같은 Agent 탭 그대로(왼쪽만 바뀜) — 상세끼리 옮길 때는 고른 탭 유지"
+      logic: "[2026.11.16] 예산 조정안(renderAgentGaTodoFinal)과 Agent와 대화하기 칸을 오른쪽 한 칸에 두고 탭으로 하나만 보인다. 예산 조정안 탭에는 검토 대기 건수(agentGaPendingCntFinal) 빨간 배지. Agent 탭으로 바꾸면 최신 대화로 스크롤하고 입력창에 커서. 고른 탭은 브라우저에 기억. 다른 곳에서 예전 함수(agentGaTodoOpenSetFinal(true) · agentGaChatFoldSetFinal(false))를 부르면 해당 탭이 열린다. 메인에서는 왼쪽에 예산 조정안이 있으므로 [Agent와 대화] 탭만 보이고, 메인에서 계정 상세로 들어오면 오른쪽은 메인과 같은 Agent 탭 그대로(왼쪽만 바뀜) — 상세끼리 옮길 때는 고른 탭 유지 [2026.11.26 feature/nj] 메인에서 계정 탭을 눌러 들어오면 왼쪽 예산 조정안 칸은 펼친 채로(전에 접어 둔 상태가 남아 있어도) 「예산 조정안」 탭부터(budget-design-d.js b2cApply 감싸기)"
       validation: null
       state_writes: [b2cState]
     backend: null
@@ -773,9 +949,15 @@ requirements:
   - { id: FR-BAD-28, text: "[2026.11.12] 계정 상세의 대화 칸은 마지막 대화 1쌍만 보이고 이전 대화는 접어 두며 펼쳐 볼 수 있어야 하고, 상세계정 탭이 많으면 가로 스크롤로 볼 수 있어야 한다" }
   - { id: FR-BAD-29, text: "[2026.11.12] 원가조정 · 원가현황의 버튼은 역할(주요 · 보조 · 위험 · 긍정 · 엑셀)별 같은 모양과 두 가지 크기(도구줄 30px · 행 안 26px)로 통일되어야 한다" }
   - { id: FR-BAD-30, text: "[2026.11.12 · 11.16 2칸 경계선으로 대체 → FR-BAD-32] 계정 상세의 세 칸은 경계를 끌어 가로 폭을 조절할 수 있어야 하며(최소 폭: 양옆 240px · 상세 480px), 정한 폭은 유지되고 더블클릭으로 기본 폭으로 되돌릴 수 있어야 한다" }
-  - { id: FR-BAD-32, text: "[2026.11.16] 계정 상세는 위쪽 요약을 그대로 두고 아래를 2칸(왼쪽 상세 예산내역 · 오른쪽 탭 [예산 조정안 · Agent와 대화])으로 보여야 하며, 칸 사이 경계선을 끌어 폭을 자유롭게 조절하고(최소: 오른쪽 280px · 상세 560px) 끝까지 밀어 접을 수 있어야 한다" }
+  - { id: FR-BAD-32, text: "[2026.11.16] 계정 상세는 위쪽 요약을 그대로 두고 아래를 2칸(왼쪽 상세 예산내역 · 오른쪽 탭 [예산 조정안 · Agent와 대화])으로 보여야 하며, 칸 폭은 보기 좋은 비율로 고정되어야 하며([2026.11.26] 표 자리 37% · 위 지금 수립 → 반영 시 숫자가 줄지 않는 폭 이상 · 560px 이하, 경계선 끌기 없음) 예산 조정안 칸은 접고 펼 수 있어야 한다" }
   - { id: FR-BAD-33, text: "[2026.11.16] 예산 조정안 카드는 첫 화면에서 계정 · 금액 · 한 줄 제목 · [반영]만 보여야 하며, 날짜 · Agent 제안 표시 · 근거 · 삭제 · 1안/2안 고르기는 [자세히]로 펼쳐 볼 수 있어야 한다" }
   - { id: FR-BAD-34, text: "[2026.11.16] 프로젝트 메인도 2칸(왼쪽 예산 조정안 · 오른쪽 Agent와 대화)으로 보여야 하며, 오른쪽 칸은 메인과 계정 상세에서 같은 자리 · 폭 · 높이를 유지해 계정을 오가도 왼쪽만 바뀌어야 한다" }
   - { id: FR-BAD-35, text: "[2026.11.16] 예산 조정안 카드는 반영했을 때의 영향(그 계정 CP 여유 · 한도 초과액 · 이관 방향)을 한 줄로 보여 줘야 한다" }
   - { id: FR-BAD-36, text: "[2026.11.17] 월별 계획/실적 팝업은 시작 월 ~ 끝 월(일 제외)을 골라 그 기간의 월별 계획/실적과 기간 합계를 조회할 수 있어야 한다" }
+  - { id: FR-BAD-37, text: "[2026.11.19] 월별 계획/실적 팝업에서 지난 달 실적 금액을 누르면 새 팝업을 띄우지 않고 같은 팝업 안에서 그 달 실적 상세를 볼 수 있어야 하며, [← 월별 표로]로 보던 표(보기 · 단위 · 스크롤 그대로)로 돌아갈 수 있어야 한다" }
+  - { id: FR-BAD-38, text: "[2026.11.19] 수행원가 화면의 팝업은 오른쪽 위 ✕ 하나로 닫을 수 있어야 하며, ✕ 와 같은 일을 하는 [닫음] · [닫기] 버튼은 함께 두지 않아야 한다(✕ 가 없는 팝업은 닫기 버튼 유지 — budget-design-d.js:ddHidePopClose)" }
+  - { id: FR-BAD-39, text: "[2026.11.19] 원가조정 화면은 핵심(계정 탭 · 예산 조정안 카드 · 상세 표)만 늘 보여 주고, 가끔 쓰는 기능(전부 해제 · 전체 펼치기 · 엑셀 다운로드 · 이력)은 [⋯] 더보기 메뉴로, 인력 투입 일정은 접어 두었다가 펼쳐 볼 수 있어야 하며, 예산 조정안은 '반영한 것만 보기' 체크 하나로 거를 수 있어야 한다" }
+  - { id: FR-BAD-42, text: "[2026.11.24] PM이 직접 고친 예산 조정안(수기 입력 카드)은 예산 조정안 목록 맨 위에 보여야 하며, 새로 생긴 순간에는 노란 바탕으로 몇 초간 표시하고 목록을 그 카드가 보이게 옮긴 뒤 「직접 고친 내용이 예산 조정안 맨 위에 추가됐습니다」 안내를 띄워야 한다 (budget-design-d.js:ddManualFirst)" }
+  - { id: FR-BAD-41, text: "[2026.11.20] 예산 조정안 카드는 계정 · 제목 · 금액 · [반영]과 함께 근거 한 줄(출처 + 핵심 숫자)을 늘 보여 주어야 하며, 판단 이유 · 영향은 [자세히 ▾]를 눌렀을 때만 보여야 한다. 자주 쓰지 않는 [삭제]는 [⋯] 안에 두어야 한다" }
+  - { id: FR-BAD-40, text: "[2026.11.19][E안] Agent와 대화는 상단 [✦ AI에게 물어보기]로 오른쪽 사이드바에서 볼 수 있어야 하며(창이 좁으면 화면 위에 덮어서), 아이콘으로 옮길 수 있는 창으로 띄웠다가 ✕로 다시 사이드바로 돌아올 수 있어야 하고, 계정 탭이나 다른 메뉴 화면으로 옮겨도 꺼지지 않아야 한다" }
   - { id: FR-BAD-31, text: "[2026.11.12] 계정 상세의 입력 행(등록 · 수정)은 만든 탭(계정 + 상세계정 탭, 경비는 연도)에서만 보여야 하며, 다른 탭으로 옮기면 숨었다가 돌아오면 다시 보여야 한다. 저장 단위는 상세계정 탭마다(경비만 연도 탭을 한 번에 저장 — 다른 계정의 저장 단위는 논의 중)" }

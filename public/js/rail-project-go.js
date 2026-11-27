@@ -144,3 +144,38 @@ function rpgPlanRate(id) {
     return h;
   };
 })();
+
+// ── 할 일 · 이상징후 계정 태그 = 5대 계정 색(연하게) (2026.11.20) ─────────────────────
+// 펼친 프로젝트 안 항목 앞 계정 태그(인건비 · 외주비 …)가 모두 파랑이라 계정 구분이 안 되고 주 색과 겹쳤다.
+// → 원가조정 화면과 같은 5대 계정 색 팔레트(계정색_팔레트: 바탕 50 · 글자 700)로. 태그 마크업에 계정 표시(data-acct)만 덧붙인다.
+//   이상징후 항목도 같은 계정 색(구분은 위 「이상징후」 제목이 함). 계정이 아닌 태그는 원래 모양 그대로.
+var RPG_ACCT_TAG = {
+  '인건비':   { bg: '#D8EFED', fg: '#265A56' },   // Teal(톤다운) — 2026.11.24 A/S Cost와 맞바꿈
+  '외주비':   { bg: '#F9DEE7', fg: '#7E3053' },   // Rose
+  '재료비':   { bg: '#F5E3D0', fg: '#704500' },   // Amber
+  '경비':     { bg: '#E3EAD2', fg: '#495701' },   // Olive
+  'A/S Cost': { bg: '#E7E2FA', fg: '#554087' }    // Lavender — 2026.11.24 인건비와 맞바꿈
+};
+(function injectRpgAcctStyle() {
+  if (document.getElementById('rpg-acct-style')) return;
+  const st = document.createElement('style');
+  st.id = 'rpg-acct-style';
+  st.textContent = Object.keys(RPG_ACCT_TAG).map(function (a) {
+    const c = RPG_ACCT_TAG[a];
+    return '.v2-item .v2-item-a[data-acct="' + a + '"], .v2-item.risk .v2-item-a[data-acct="' + a + '"]{background:' + c.bg + ';color:' + c.fg + '}';
+  }).join('\n');
+  document.head.appendChild(st);
+})();
+function rpgAcctTag(s) {
+  return String(s).replace(/<span class="v2-item-a">([^<]*)<\/span>/g, function (m, t) {
+    const k = String(t).replace(/&amp;/g, '&').trim();
+    return RPG_ACCT_TAG[k] ? '<span class="v2-item-a" data-acct="' + k + '">' + t + '</span>' : m;
+  });
+}
+(function wrapRailAcctTag() {
+  if (typeof homeV2PjtRowHtml !== 'function') return;
+  const before = homeV2PjtRowHtml;
+  homeV2PjtRowHtml = function () { return rpgAcctTag(before.apply(this, arguments)); };
+  const el = document.getElementById('v2-rail-body');
+  if (el && typeof homeV2PjtListHtml === 'function') el.innerHTML = homeV2PjtListHtml();
+})();

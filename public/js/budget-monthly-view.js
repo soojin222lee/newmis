@@ -47,20 +47,79 @@ function bmvNum(v) {
   return fmt(x);
 }
 
-renderAgentAcctMonthlyPopFinal = function (viewData, acct) {
-  if (!agentAcctMonthlyFinal || agentAcctMonthlyFinal !== acct) return '';
-  bmvInjectStyle();
-  let body = '';
-  try { body = bmvTable(viewData, acct); } catch (e) {
-    body = (typeof renderAccountMonthlyBudgetTable === 'function') ? renderAccountMonthlyBudgetTable(viewData, acct) : '';
+// [2026.11.19] 실적 상세를 팝업 위 팝업 대신 같은 팝업 안에서 — 지난 달 금액을 누르면 표 자리에 실적 상세가 들어오고
+//   [← 월별 표로]로 돌아감(보기 · 연도 · 단위 · 실적 펼침 · 가로 스크롤 위치는 그대로).
+//   원가 현황 등 다른 화면의 실적 상세(showActualDetailModal 팝업)는 그대로입니다 — 이 팝업 안 링크만 바꿈.
+var bmvDrill = null;        // null | { acct, m, name } — 팝업 안에서 보고 있는 실적 상세
+var bmvDrillScroll = 0;     // 들어가기 전 월별 표 가로 스크롤 위치
+function bmvDrillOpen(acct, m, name) {      // crud R — 월별 팝업 안에서 그 달 실적 상세 조회
+  const sc = document.querySelector('.bmv-pop .bmv-scroll');
+  bmvDrillScroll = sc ? sc.scrollLeft : 0;
+  bmvDrill = { acct: acct, m: m, name: name };
+  bmvRerender();
+}
+function bmvDrillBack() {                   // crud N — 실적 상세 → 월별 표로 돌아가기
+  bmvDrill = null;
+  bmvRerender();
+  const x = bmvDrillScroll;
+  requestAnimationFrame(function () { const sc = document.querySelector('.bmv-pop .bmv-scroll'); if (sc) sc.scrollLeft = x; });
+}
+// 실적 상세 내용 — 공유 실적조회(showActualDetailModal)를 그대로 그려 그 안쪽(조회 조건 · 탭 · 엑셀 · 표)만 가져옴
+//   (공유 팝업은 열자마자 닫아 화면에 뜨지 않음. [엑셀]은 엑셀 파일(budget-excel-export.js)이 그 숨은 팝업 표로 내려받음)
+function bmvDrillHtml(d) {
+  if (typeof showActualDetailModal !== 'function') return '<p class="bmv-note">실적 상세를 불러올 수 없습니다.</p>';
+  showActualDetailModal(d.acct, d.m, d.name);
+  const modal = document.getElementById('actual-detail-modal');
+  if (!modal) return '';
+  modal.classList.remove('open');
+  const box = modal.querySelector('.actual-detail-modal');
+  const parts = box ? Array.prototype.filter.call(box.children, function (el) {
+    return !el.classList.contains('actual-detail-head') && !el.classList.contains('actual-detail-foot');
+  }) : [];
+  // [2026.11.24] 공유 팝업은 첫 탭을 늘 선택(active)으로 그려, 누른 세부 항목이 둘째 탭 이후면 두 개가 선택돼 보임 → 누른 항목 하나만 선택
+  const tabs = box && box.querySelector('.actual-detail-tabs');
+  if (tabs && d.name) {
+    const btns = Array.prototype.slice.call(tabs.querySelectorAll('button'));
+    if (btns.some(function (b) { return b.textContent.trim() === d.name; })) {
+      btns.forEach(function (b) { b.classList.toggle('active', b.textContent.trim() === d.name); });
+    }
   }
+  // 선택 밑줄 = 계정색(원가조정 계정 상세 세부 탭과 같은 규칙)
+  const acc = (typeof BFL_ACCT_COLOR !== 'undefined' && BFL_ACCT_COLOR[d.acct]) ? ' style="--acc:' + BFL_ACCT_COLOR[d.acct] + '"' : '';
+  return '<div class="bmv-drill"' + acc + '>' + parts.map(function (el) { return el.outerHTML; }).join('') + '</div>';
+}
+
+renderAgentAcctMonthlyPopFinal = function (viewData, acct) {
+  if (!agentAcctMonthlyFinal || agentAcctMonthlyFinal !== acct) {
+    if (!agentAcctMonthlyFinal) bmvDrill = null;           // 팝업을 닫으면 다음엔 월별 표부터
+    return '';
+  }
+  bmvInjectStyle();
+  if (bmvDrill && bmvDrill.acct !== acct) bmvDrill = null;
+  const d = bmvDrill;
+  let body = '';
+  if (d) {
+    try { body = bmvDrillHtml(d); } catch (e) { body = ''; }
+  } else {
+    try { body = bmvTable(viewData, acct); } catch (e) {
+      body = (typeof renderAccountMonthlyBudgetTable === 'function') ? renderAccountMonthlyBudgetTable(viewData, acct) : '';
+    }
+    body = body.replace(/showActualDetailModal\(/g, 'bmvDrillOpen(');   // 이 팝업 안에서는 새 팝업 대신 안에서 전환
+  }
+  const title = d
+    ? `<button type="button" class="bmv-back" onclick="bmvDrillBack()">← 월별 표로</button>
+       <strong>${escHtml(acct)} 월별 계획 / 실적 <em class="bmv-crumb">› ${escHtml(d.m)} 실적 상세${d.name ? ' · ' + escHtml(d.name) : ''}</em></strong>`
+    : `<strong>${escHtml(acct)} 월별 계획 / 실적</strong>`;
+  const sub = d
+    ? '그 달에 확정된 실적 내역입니다. [← 월별 표로]를 누르면 보던 표로 돌아갑니다.'
+    : '지난 달은 실적(확정), 이후 달은 계획입니다. 지난 달 금액을 누르면 그 달 실적 상세를 볼 수 있습니다.';
   return `
     <div class="agv-pop-dim" onclick="if(event.target===this)agentAcctMonthlySetFinal('')">
-      <div class="agv-pop aglm-pop bmv-pop" role="dialog" aria-modal="true" aria-label="${escHtml(acct)} 월별 계획/실적">
+      <div class="agv-pop aglm-pop bmv-pop ${d ? 'bmv-pop-drill' : ''}" role="dialog" aria-modal="true" aria-label="${escHtml(acct)} 월별 계획/실적">
         <div class="agv-pop-head">
           <div>
-            <strong>${escHtml(acct)} 월별 계획 / 실적</strong>
-            <span>지난 달은 실적(확정), 이후 달은 계획입니다. 지난 달 금액을 누르면 그 달 실적 상세를 볼 수 있습니다.</span>
+            <div class="bmv-title">${title}</div>
+            <span>${sub}</span>
           </div>
           <button class="agv-pop-x" onclick="agentAcctMonthlySetFinal('')">✕</button>
         </div>
@@ -245,6 +304,51 @@ function bmvInjectStyle() {
   st.id = 'bmv-style';
   st.textContent = `
   .agv-pop.bmv-pop { width:min(1180px, 96vw) !important; }
+  /* 팝업 안 실적 상세 — 제목 줄: [← 월별 표로] 계정 월별 계획 / 실적 › 2026-10 실적 상세 */
+  .bmv-pop .bmv-title { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .bmv-pop .bmv-title strong { display:inline; }
+  .bmv-pop .bmv-crumb { font-style:normal; font-weight:700; color:#4b5563; margin-left:4px; }
+  .bmv-pop .bmv-back { height:32px; padding:0 12px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font:inherit;
+    font-size:13px; font-weight:800; color:#334155; cursor:pointer; white-space:nowrap; }
+  .bmv-pop .bmv-back:hover { border-color:#2f5bea; color:#2f5bea; background:#f5f8ff; }
+  /* [2026.11.24] 실적 상세 정리 — 원가조정 계정 상세와 같은 규칙으로 차분하게
+     ① 조회 조건: 회색 상자 → 한 줄(이름 · 값 나란히, 버튼은 오른쪽)  ② 세부 탭: 검정으로 꽉 찬 브라우저 탭 → 글자 + 계정색 밑줄(계정 상세 세부 탭과 같은 모양)
+     ③ [엑셀 다운로드]: 초록 → 흰 버튼, 탭 줄 오른쪽 끝으로  ④ 표: 머리 왼쪽 정렬 · 연한 회색, 금액만 오른쪽, 합계는 굵게(파란 바탕 없음) */
+  .bmv-pop .bmv-drill { display:grid; grid-template-columns:1fr auto; align-items:end; column-gap:16px; row-gap:14px; }
+  .bmv-pop .bmv-drill > .actual-detail-filter, .bmv-pop .bmv-drill > .actual-detail-table-wrap { grid-column:1 / -1; }
+  .bmv-pop .bmv-drill .actual-detail-filter { display:flex !important; align-items:center; gap:22px; margin:0 !important; padding:0 0 12px !important;
+    background:transparent !important; border:0 !important; border-bottom:1px solid #e5e8ed !important; border-radius:0 !important; box-shadow:none !important; }
+  .bmv-pop .bmv-drill .actual-detail-filter label { display:flex !important; flex-direction:row !important; align-items:center; gap:8px; flex:none !important; width:auto !important; margin:0 !important; }
+  .bmv-pop .bmv-drill .actual-detail-filter label span { font-size:13.5px !important; font-weight:600 !important; color:#4b5563 !important; white-space:nowrap; }
+  .bmv-pop .bmv-drill .actual-detail-filter input { width:110px !important; height:34px !important; box-sizing:border-box; border:1px solid #cbd5e1 !important; border-radius:6px !important;
+    background:#fff !important; padding:0 10px !important; font:inherit; font-size:14px !important; font-weight:600 !important; color:#111827 !important; box-shadow:none !important; }
+  .bmv-pop .bmv-drill .actual-detail-filter .labor-sub-btn { margin-left:auto !important; }
+  /* [검색]은 원가조정 화면 공통 주 버튼(파랑) 그대로 — 모양 · 크기만 맞춤. [초기화]는 흰 버튼 */
+  .bmv-pop .bmv-drill .actual-detail-filter button { height:34px !important; padding:0 14px !important; border-radius:6px !important; font-size:13.5px !important; font-weight:700 !important; box-shadow:none !important; }
+  .bmv-pop .bmv-drill .actual-detail-filter .labor-sub-btn { background:#fff !important; color:#1c2432 !important; border:1px solid #cbd5e1 !important; }
+  .bmv-pop .bmv-drill .actual-detail-tabs { display:flex !important; flex-wrap:wrap; gap:0 30px !important; padding:0 2px !important; margin:0 !important;
+    background:transparent !important; border:0 !important; border-bottom:1px solid #d5dae1 !important; }
+  .bmv-pop .bmv-drill .actual-detail-tabs button { position:relative; width:auto !important; min-width:0 !important; max-width:none !important; text-align:left !important; height:auto !important; flex:none !important; padding:8px 2px 10px !important; margin:0 0 -1px !important;
+    background:transparent !important; border:0 !important; border-bottom:4px solid transparent !important; border-radius:0 !important; box-shadow:none !important;
+    font:inherit; font-size:15px !important; font-weight:500 !important; color:#4b5563 !important; white-space:nowrap; cursor:pointer; }
+  .bmv-pop .bmv-drill .actual-detail-tabs button + button::before { content:""; position:absolute; left:-15px; top:30%; height:40%; width:1px; background:#a3abb7; }
+  .bmv-pop .bmv-drill .actual-detail-tabs button:hover { color:#111827 !important; }
+  .bmv-pop .bmv-drill .actual-detail-tabs button.active { color:#111827 !important; font-weight:800 !important; border-bottom-color:var(--acc,#1c2432) !important; }
+  .bmv-pop .bmv-drill .actual-detail-toolbar { margin:0 0 6px !important; padding:0 !important; border:0 !important; background:transparent !important; }
+  .bmv-pop .bmv-drill .actual-detail-toolbar .bxe-btn { background:#fff !important; color:#1c2432 !important; border:1px solid #cbd5e1 !important; box-shadow:none !important; }
+  .bmv-pop .bmv-drill .actual-detail-toolbar .bxe-btn:hover { background:#f8fafc !important; border-color:#94a3b8 !important; }
+  .bmv-pop .bmv-drill .actual-detail-toolbar .bxe-btn svg { color:#4b5563 !important; stroke:currentColor; }
+  .bmv-pop .bmv-drill .actual-detail-table-wrap { max-height:none; margin:0; padding:0; border:0 !important; }
+  .bmv-pop .bmv-drill .actual-detail-table { border-collapse:collapse; width:100%; }
+  .bmv-pop .bmv-drill .actual-detail-table th { background:#f6f7f9 !important; color:#4b5563 !important; font-size:13.5px !important; font-weight:700 !important;
+    text-align:left !important; padding:10px 14px !important; border:0 !important; border-bottom:1px solid #d5dae1 !important; }
+  .bmv-pop .bmv-drill .actual-detail-table td { text-align:left !important; padding:11px 14px !important; font-size:14.5px !important; color:#1c2432 !important;
+    border:0 !important; border-bottom:1px solid #eef0f3 !important; background:#fff !important; }
+  .bmv-pop .bmv-drill .actual-detail-table th:last-child, .bmv-pop .bmv-drill .actual-detail-table td.num { text-align:right !important; font-variant-numeric:tabular-nums; }
+  .bmv-pop .bmv-drill .actual-detail-table td.num { font-weight:700 !important; }
+  .bmv-pop .bmv-drill .actual-detail-table th:first-child, .bmv-pop .bmv-drill .actual-detail-table td:first-child { width:48px; color:#6b7280 !important; }
+  .bmv-pop .bmv-drill .actual-detail-table tr.total td { background:#fff !important; font-weight:800 !important; color:#111827 !important;
+    border-top:1.5px solid #475569 !important; border-bottom:0 !important; }
   .bmv-tools { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:0 0 10px; }
   .bmv-seg { display:inline-flex; gap:3px; padding:3px; background:#f1f5f9; border-radius:9px; }
   .bmv-seg button { border:0; background:transparent; border-radius:7px; padding:6px 12px; font:inherit; font-size:12.5px; font-weight:800; color:#64748b; cursor:pointer; }
