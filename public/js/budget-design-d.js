@@ -145,7 +145,12 @@ if (typeof b2cApply === 'function') {
   b2cApply = function () {
     var prev = b2cLastMode;
     var r = ddApplyBefore.apply(this, arguments);
-    if (prev === 'main' && b2cLastMode === 'detail' && b2cState.tab !== 'todo') { b2cState.tab = 'todo'; b2cPaint(); }
+    // [2026.11.26] 처음 계정 탭을 눌러 들어오면 예산 조정안 칸도 펼친 채로(전에 접어 둔 상태가 남아 있어도)
+    if (prev === 'main' && b2cLastMode === 'detail' && (b2cState.tab !== 'todo' || b2cState.fold)) {
+      b2cState.tab = 'todo'; b2cState.fold = false;
+      if (typeof b2cSave === 'function') b2cSave();
+      b2cPaint();
+    }
     return r;
   };
 }

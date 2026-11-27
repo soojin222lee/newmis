@@ -679,7 +679,7 @@ elements:
     front:
       handler: "b2cTab('todo'|'chat')"
       file: "budget-adjust-side.js:b2cTab · b2cApply"
-      logic: "[2026.11.16] 예산 조정안(renderAgentGaTodoFinal)과 Agent와 대화하기 칸을 오른쪽 한 칸에 두고 탭으로 하나만 보인다. 예산 조정안 탭에는 검토 대기 건수(agentGaPendingCntFinal) 빨간 배지. Agent 탭으로 바꾸면 최신 대화로 스크롤하고 입력창에 커서. 고른 탭은 브라우저에 기억. 다른 곳에서 예전 함수(agentGaTodoOpenSetFinal(true) · agentGaChatFoldSetFinal(false))를 부르면 해당 탭이 열린다. 메인에서는 왼쪽에 예산 조정안이 있으므로 [Agent와 대화] 탭만 보이고, 메인에서 계정 상세로 들어오면 오른쪽은 메인과 같은 Agent 탭 그대로(왼쪽만 바뀜) — 상세끼리 옮길 때는 고른 탭 유지"
+      logic: "[2026.11.16] 예산 조정안(renderAgentGaTodoFinal)과 Agent와 대화하기 칸을 오른쪽 한 칸에 두고 탭으로 하나만 보인다. 예산 조정안 탭에는 검토 대기 건수(agentGaPendingCntFinal) 빨간 배지. Agent 탭으로 바꾸면 최신 대화로 스크롤하고 입력창에 커서. 고른 탭은 브라우저에 기억. 다른 곳에서 예전 함수(agentGaTodoOpenSetFinal(true) · agentGaChatFoldSetFinal(false))를 부르면 해당 탭이 열린다. 메인에서는 왼쪽에 예산 조정안이 있으므로 [Agent와 대화] 탭만 보이고, 메인에서 계정 상세로 들어오면 오른쪽은 메인과 같은 Agent 탭 그대로(왼쪽만 바뀜) — 상세끼리 옮길 때는 고른 탭 유지 [2026.11.26 feature/nj] 메인에서 계정 탭을 눌러 들어오면 왼쪽 예산 조정안 칸은 펼친 채로(전에 접어 둔 상태가 남아 있어도) 「예산 조정안」 탭부터(budget-design-d.js b2cApply 감싸기)"
       validation: null
       state_writes: [b2cState]
     backend: null
