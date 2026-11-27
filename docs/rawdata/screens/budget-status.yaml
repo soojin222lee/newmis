@@ -95,14 +95,68 @@ elements:
   - id: cell-actual-drilldown
     label: 과거월 실적 금액(파란 링크)
     type: button(cell)
+    crud: R
     area: 전체 현황 그리드
     event: onclick
     front:
       handler: "showActualDetailModal(account, month, detailName)"
-      file: "budget-status-4.js:180 (셀 생성 summaryActualCell budget-status-2.js:2590)"
+      file: "budget-status-4.js:180 (셀 생성 summaryActualCell budget-status-2.js:2590) → budget-monthly-view.js:bmvApOpen (감싸기)"
       validation: "row.account && isPastActualMonth(month) && actual>0 일 때만 클릭 가능"
+      logic: "[2026.11.27] 원가조정 [월별 계획/실적] 팝업 안 실적 상세와 같은 모양의 팝업으로 — 예전 공유 실적조회 모달(실적발생월 · 조회기간 검색 + 밑줄 탭)과 인건비 요약 3칸 팝업 대신. 제목 '{계정} 실적 상세 › {월} · {세부 항목}'. 원가현황 줄 이름(실투입외주비 · 공사/MA외주비 등)은 월별 표의 세부 항목 이름(실투입대상 외주비 · 공사MA)에 맞춰 그 탭으로 열림, 계정 합계 줄(예: 외주비)을 누르면 위 줄은 '외주비 전체'. 모든 스크립트를 읽은 뒤(DOMContentLoaded) showActualDetailModal 을 감싸 원가현황 · 원가조정 계정 상세 [실적조회] 등 월별 팝업 밖에서 부르는 곳이 모두 이 팝업으로 열림(달 하나일 때)"
     backend: null
-    result: 실적조회 모달(계정별 상세 실적 · 탭 · 엑셀 · 합계)
+    result: 실적 상세 팝업(해당 줄 → 탭 · 엑셀 → 표)
+  - id: row-actual-pop-strip
+    label: "실적 상세 팝업 위 달 칸(누른 줄의 지난 달 실적 — 다른 달 = 그 달로 이동)"
+    type: grid
+    crud: R
+    area: 실적 상세 팝업 맨 위
+    event: onclick
+    front:
+      handler: "bmvDrillGo(월, '') → bmvApGo"
+      file: "budget-monthly-view.js:bmvStripHtml · bmvApGo"
+      logic: "[2026.11.27] 달마다 누를 수 있는 칸(위 ○월 · 아래 금액, 단위는 그리드에서 고른 단위). 지금 보는 달은 파란 칸, 실적 없는 달은 회색. 다른 달을 누르면 팝업을 닫지 않고 그 달 실적으로 바뀜. 오른쪽 위 실적 합계. 금액이 길면 칸 글자를 줄이고, 그래도 넘치면 이 줄만 옆으로 넘김"
+      validation: null
+    backend: null
+    result: 다른 달 실적 상세
+  - id: tab-actual-pop
+    label: "실적 상세 팝업 탭 — 세부 항목(인건비는 사내인건비/사내간접비 · 종업원급여-OT · 이관인건비)"
+    type: tab
+    crud: R
+    area: 실적 상세 팝업 · 달 칸 아래
+    event: onclick
+    front:
+      handler: "bmvDrillGo(월, 세부 항목) → bmvApGo (인건비 blfActTab)"
+      file: "budget-monthly-view.js:bmvDrillTabs · bmvApGo · budget-labor-fields.js:blfActTab"
+      logic: "[2026.11.27] 탭을 바꾸면 위 달 칸도 그 세부 항목 줄로 바뀜. 달 · 탭을 바꿔도 팝업이 줄지 않음(가장 컸던 높이 유지)"
+      validation: null
+    backend: null
+    result: 고른 세부 항목의 실적 상세
+  - id: btn-actual-pop-excel
+    label: "엑셀 다운로드 (실적 상세 팝업)"
+    type: button
+    crud: R
+    area: 실적 상세 팝업 · 탭 줄 오른쪽
+    event: onclick
+    front:
+      handler: "bxeActual() (인건비 blfActExcel())"
+      file: "budget-excel-export.js:bxeActual · budget-labor-fields.js:blfActExcel"
+      logic: "[2026.11.27] 지금 보는 달 · 세부 항목 표를 엑셀(.xlsx)로 내려받음"
+      validation: null
+    backend: null
+    result: 엑셀 파일 다운로드
+  - id: btn-actual-pop-close
+    label: "닫기 / ✕ (실적 상세 팝업)"
+    type: button
+    crud: N
+    area: 실적 상세 팝업 · 오른쪽 위 ✕ · 아래 [닫기] · 바깥 클릭 · Esc
+    event: onclick
+    front:
+      handler: "bmvApClose()"
+      file: "budget-monthly-view.js:bmvApClose"
+      logic: "팝업 닫기"
+      validation: null
+    backend: null
+    result: 원가현황 화면으로 돌아감
   - id: cell-labor-plan
     label: 인건비 계획월 금액
     type: button(cell)
@@ -313,4 +367,5 @@ requirements:
   - { id: FR-BST-11, text: "[2026.11.12] 전체 현황 그리드와 실적조회 · 투입계획 조회 팝업은 지금 보이는 표를 엑셀(.xlsx)로 다운로드할 수 있어야 하며, 엑셀 버튼은 원가조정과 같은 공통 디자인이어야 한다" }
   - { id: FR-BST-12, text: "[2026.11.17] 전체 현황 그리드는 시작 월 ~ 끝 월(일 제외)을 골라 그 기간의 월별 계획/실적과 기간 합계를 조회할 수 있어야 한다" }
   - { id: FR-BST-13, text: "[2026.11.17] 전체 현황 그리드는 계정(인건비 · 외주비 · 재료비 · 경비)마다 하위 계정 행을 접고 펼 수 있어야 하며, 도구줄에서 전체 펴기 · 전체 접기를 할 수 있어야 한다" }
+  - { id: FR-BST-15, text: "[2026.11.27] 과거월 실적 금액을 누르면 원가조정 월별 계획/실적의 실적 상세와 같은 모양(달 칸 → 탭 · 엑셀 → 표)으로 보여야 하며, 위 달 칸에서 다른 달을 눌러 팝업을 닫지 않고 그 달 실적으로 옮길 수 있어야 한다" }
   - { id: FR-BST-14, text: "실적 / 계획 월 구분은 회계 마감일 기준이어야 한다 — 마감월까지 실적, 마감 전 당월은 실적과 계획, 이후는 계획. 마감일은 관리자 > 회계결산일자에서 운영자가 매달 입력한 값을 쓴다 (close-month.js). 진행 중인 달은 칸을 넓히지 않고 한 칸에 위 계획 / 아래 실적(작게)으로 함께 보여야 한다" }

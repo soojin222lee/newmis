@@ -429,30 +429,64 @@ var hagPjtAll = false, hagPjtQ = '';
 function hagPjtRows() {
   const card = hagPjts();
   const seen = {}, rows = [];
-  const add = (id, name) => { if (seen[id]) return; seen[id] = 1; rows.push({ id, name }); };
-  card.forEach(p => add(p.id, p.name));
-  ((typeof HOME_PROJECTS !== 'undefined') ? HOME_PROJECTS : []).forEach(p => add(p.id, p.name));
-  HAG_PJT_EXTRA.forEach((n, i) => { if (rows.length < HAG_PJT_TOTAL) add('hag-x' + i, n); });
+  const add = (id, name, no) => { if (seen[id]) return; seen[id] = 1; rows.push({ id, name, no: no || '' }); };
+  card.forEach(p => add(p.id, p.name, p.no));
+  ((typeof HOME_PROJECTS !== 'undefined') ? HOME_PROJECTS : []).forEach(p => add(p.id, p.name, p.no));
+  HAG_PJT_EXTRA.forEach((n, i) => { if (rows.length < HAG_PJT_TOTAL) add('hag-x' + i, n, hagPjtMockNo(i)); });
   return rows.map(r => Object.assign(r, { live: (typeof BUDGET_SOURCE !== 'undefined' && !!BUDGET_SOURCE[r.id]) || card.some(c => c.id === r.id) }));
 }
+// 이름만 있는 시안 프로젝트의 코드(목업) — 실제 코드 모양(8자리-D3자리)만 맞춤
+function hagPjtMockNo(i) { return '3019' + String(1000 + i * 357).slice(-4) + '-D' + String(20 + i).padStart(3, '0'); }
 function hagPjtRowHtml(r) {
+  let html = '';
   if (r.live && typeof homeV2PjtRowHtml === 'function') {
-    try { return homeV2PjtRowHtml({ id: r.id, name: r.name }); } catch (e) { /* 아래 빈 행 */ }
+    try { html = homeV2PjtRowHtml({ id: r.id, name: r.name }); } catch (e) { html = ''; }
   }
-  const arrow = (typeof RPG_ARROW !== 'undefined') ? RPG_ARROW : '';
-  return '<div class="v2-pjt"><div class="v2-pjt-h rpg-h"><span class="rpg-tog off" aria-hidden="true"></span>'
-    + '<button class="rpg-go" onclick="hagPjtGo(\'' + hagEsc(r.id) + '\')" title="프로젝트로 이동"><span class="v2-row-t">' + hagEsc(r.name) + '</span>'
-    + '<span class="rpg-arr">' + arrow + '</span></button></div></div>';
+  if (!html) {
+    const arrow = (typeof RPG_ARROW !== 'undefined') ? RPG_ARROW : '';
+    html = '<div class="v2-pjt"><div class="v2-pjt-h rpg-h"><span class="rpg-tog off" aria-hidden="true"></span>'
+      + '<button class="rpg-go" onclick="hagPjtGo(\'' + hagEsc(r.id) + '\')" title="프로젝트로 이동"><span class="v2-row-t">' + hagEsc(r.name) + '</span>'
+      + '<span class="rpg-arr">' + arrow + '</span></button></div></div>';
+  }
+  // [2026.11.27] 이름에 마우스를 올리면 프로젝트 코드 · 전체 이름 상자(긴 이름은 줄에서 … 로 잘리므로). 기본 title 말풍선은 빼서 겹치지 않게
+  return html.replace(/<button class="rpg-go"([^>]*?) title="[^"]*"/, function (m, a) {
+    return '<button class="rpg-go"' + a + ' data-no="' + hagEsc(r.no) + '" data-name="' + hagEsc(r.name) + '"'
+      + ' onmouseenter="hagPjtTip(this)" onmouseleave="hagPjtTipOff()" onfocus="hagPjtTip(this)" onblur="hagPjtTipOff()"';
+  });
+}
+function hagPjtTip(el) {                                // crud N — 담당 프로젝트 이름에 마우스 → 코드 · 전체 이름 상자
+  if (!el) return;
+  let tip = document.getElementById('hag-pj-tip');
+  if (!tip) { tip = document.createElement('div'); tip.id = 'hag-pj-tip'; tip.setAttribute('role', 'tooltip'); document.body.appendChild(tip); }
+  const no = el.getAttribute('data-no') || '', nm = el.getAttribute('data-name') || '';
+  tip.innerHTML = (no ? '<span class="hag-pj-tip-no">' + hagEsc(no) + '</span>' : '') + '<span class="hag-pj-tip-nm">' + hagEsc(nm) + '</span>';
+  tip.style.display = 'block';
+  const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = r.right + 8, y = r.top + r.height / 2 - h / 2;
+  if (x + w > window.innerWidth - 8) x = Math.max(8, r.left);
+  y = Math.min(Math.max(8, y), window.innerHeight - h - 8);
+  tip.style.left = Math.round(x) + 'px'; tip.style.top = Math.round(y) + 'px';
+}
+function hagPjtTipOff() {                               // crud N — 코드 · 전체 이름 상자 닫기
+  const tip = document.getElementById('hag-pj-tip');
+  if (tip) tip.style.display = 'none';
+}
+document.addEventListener('scroll', hagPjtTipOff, true);
+// [2026.11.27] 이름 또는 코드로 검색 — 대소문자 · 띄어쓰기 · 코드의 '-' 무시(예: 'skon', '30131234', '30131234d001')
+function hagPjtHit(r, q) {
+  const n = v => String(v || '').toLowerCase().replace(/[\s-]/g, '');
+  const k = n(q);
+  return !k || n(r.name).indexOf(k) >= 0 || n(r.no).indexOf(k) >= 0;
 }
 function hagPjtRowsHtml() {
   const rows = hagPjtRows(), q = hagPjtQ.trim();
-  const list = !hagPjtAll ? rows.slice(0, HAG_PJT_TOP) : (q ? rows.filter(r => r.name.indexOf(q) >= 0) : rows);
+  const list = !hagPjtAll ? rows.slice(0, HAG_PJT_TOP) : (q ? rows.filter(r => hagPjtHit(r, q)) : rows);
   return list.length ? list.map(hagPjtRowHtml).join('') : '<div class="v2-empty">찾는 프로젝트가 없습니다.</div>';
 }
 // 원래 목록 함수를 바꿔 끼움 — 레일을 그릴 때도, 원래 펼치기(toggleHomeV2Pjt)가 다시 그릴 때도 이 모양
 window.homeV2PjtListHtml = function () {
   const rest = hagPjtRows().length - HAG_PJT_TOP;
-  return (hagPjtAll ? '<div class="hag-pj-search"><input type="text" placeholder="프로젝트 이름 검색" value="' + hagEsc(hagPjtQ) + '" oninput="hagPjtSearch(this.value)"></div>' : '')
+  return (hagPjtAll ? '<div class="hag-pj-search"><input type="text" placeholder="프로젝트 이름 / 코드 검색" value="' + hagEsc(hagPjtQ) + '" oninput="hagPjtSearch(this.value)"></div>' : '')
     + '<div id="hag-pj-list">' + hagPjtRowsHtml() + '</div>'
     + (rest > 0 ? '<button type="button" class="hag-pj-more" onclick="hagPjtToggle()">' + (hagPjtAll ? '접기 ▴' : '나머지 ' + rest + '개 보기 ▾') + '</button>' : '');
 };
@@ -468,7 +502,8 @@ function hagPjtSearch(v) {                              // crud R — 담당 프
   const el = document.getElementById('hag-pj-list');
   if (el) el.innerHTML = hagPjtRowsHtml();
 }
-function hagPjtGo(id) {                                 // crud N — 목업 데이터가 없는 프로젝트(시안) 안내
+function hagPjtGo(id) {
+  hagPjtTipOff();                                 // crud N — 목업 데이터가 없는 프로젝트(시안) 안내
   const r = hagPjtRows().find(x => x.id === id);
   if (!r || !r.live) { if (typeof showToast === 'function') showToast('시안이라 이 프로젝트는 목업 데이터가 없습니다.'); return; }
   if (typeof railPjtGo === 'function') railPjtGo(id);
@@ -821,6 +856,10 @@ function hagPastClose() {                               // crud N — AI 창의 
   .v2-app-rail .hag-pj-search { padding:3px 3px 5px; }
   .v2-app-rail .hag-pj-search input { width:100%; height:30px; padding:0 10px; border:1px solid var(--v2-line, #e3e7ee); border-radius:8px;
     font-family:inherit; font-size:12px; outline:0; background:#fff; }
+  #hag-pj-tip { position:fixed; z-index:9000; display:none; max-width:320px; padding:8px 11px; background:#fff; border:1px solid #d5dbe4; border-radius:8px;
+    box-shadow:0 4px 14px rgba(20,30,50,.12); pointer-events:none; line-height:1.45; }
+  #hag-pj-tip .hag-pj-tip-no { display:block; font-size:12.5px; font-weight:700; color:#5f6675; letter-spacing:.2px; font-variant-numeric:tabular-nums; }
+  #hag-pj-tip .hag-pj-tip-nm { display:block; font-size:14px; font-weight:700; color:#1f2430; word-break:keep-all; }
   .v2-app-rail .hag-pj-search input:focus { border-color:var(--v2-blue, #2f6bed); }
   /* 원가조정 등 — AI 창 머리의 문서 아이콘(모양은 옆 [⧉] 아이콘과 같은 dde-ai-ico) · 드롭다운 */
   #dde-ai .hag-hist-ico.on { background:#eef1f5; border-color:#d3d9e2; color:#1c2432; }

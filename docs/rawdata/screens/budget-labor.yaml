@@ -704,7 +704,7 @@ elements:
     label: "인건비 실적조회 탭 [사내인건비/사내간접비 | 종업원급여-OT | 이관인건비]"
     type: tab
     crud: R
-    area: "[월별 계획/실적 보기] 팝업 안 실적 상세 · 요약 3칸 아래 (지난 달 실적 금액을 누르면 표 자리가 실적 상세로 바뀜)"
+    area: "[월별 계획/실적 보기] 팝업 안 실적 상세 · 「해당 줄」 아래 (지난 달 실적 금액을 누르면 표 자리가 실적 상세로 바뀜)"
     event: onclick
     front:
       handler: "blfActTab(month, idx)"
@@ -717,6 +717,7 @@ elements:
         월별 팝업에서 누르면 팝업 위 팝업 없이 그 팝업 안에서 표 자리가 실적 상세로 바뀜(제목 › ○월 실적 상세 · 탭 이름, [← 월별 표로]). 팝업 크기는 월별 표일 때와 같음(폭 그대로 · 높이는 들어가기 전 높이 blfActPopH).
         feature/nj 는 budget-monthly-view.js 팝업 안 전환(bmvDrill)에 인건비 내용만 끼우고, 그 기능이 없는 브랜치는 이 파일이 같은 방식으로 전환.
         월별 팝업 밖(인건비 [실적조회] 버튼 등)에서 열면 같은 내용이 따로 팝업(#blf-act-pop)으로 뜸. 다른 계정은 원래 실적조회 모달 그대로.
+        [2026.11.27] 월별 팝업 안에서는 요약 3칸 대신 「해당 줄」(budget-monthly-view.js bmvStripHtml — 그 탭 묶음 줄의 지난 달 실적, 다른 달 금액을 누르면 그 달로 이동)을 보여 외주비 · 재료비 등 다른 계정 실적 상세와 같은 틀(blfActBodyHtml strip 인자). 따로 팝업은 요약 3칸 그대로.
       validation: null
       state_writes: []
     backend: { note: "AS-IS: 사내인건비 = 실투입 인건비 실적(laborAcrsList), OT = 종업원급여 OT 지급(overTimeAcrsList), 이관 = ERP 이관 전표(transAcrsList). 목업 데이터는 인력표 · OT 실적 · 이관 집행완료 건으로 생성" }
@@ -846,6 +847,139 @@ elements:
       logic: "팝업 닫기"
       validation: null
       state_writes: [blpState]
+    result: 인건비 상세 화면으로 돌아감
+
+  # ── [2026.11.27] 실행예산 권한 설정(PM · 사업관리자) — AS-IS 「권한설정」(budget-labor-auth.js) ──
+  - id: btn-lab-auth-open
+    label: "권한 설정"
+    type: button
+    crud: R
+    area: "실투입인건비 탭 · 인력표 위 버튼 줄([인력 투입 일정] 왼쪽)"
+    event: onclick
+    front:
+      handler: "blaOpen()"
+      file: "budget-labor-auth.js:blaOpen · blaApply"
+      logic: "실행예산 권한 설정 팝업을 열고 지금 권한(BLF_PEOPLE[].duty)을 보여 준다. AS-IS ResourcePlanDetailsGrid.vue [권한설정](PM · 사업관리자만, 수정 모드에서 보임)은 표에서 1명을 체크해야 열렸으나, 목업은 한 팝업에 내부 인력 전체를 놓고 체크(누가 권한자인지 한눈에)"
+      validation: null
+      state_writes: [blaDraft]
+    result: 권한 설정 팝업 열림
+
+  - id: chk-lab-auth-pm
+    label: "PM 체크(사람마다)"
+    type: checkbox
+    crud: U
+    area: "권한 설정 팝업 · PM 칸"
+    event: onchange
+    front:
+      handler: "blaToggle(name, 'pm', this)"
+      file: "budget-labor-auth.js:blaToggle"
+      logic: "PM은 1명만(AS-IS AuthoritySetupPopup.vue '※ PM은 한 명만 선택 가능합니다.'). 다른 사람이 이미 PM이면 체크를 되돌리고 빨간 안내 'PM은 한 명만 선택 가능합니다. 지금 PM은 ○○ 님입니다 — 바꾸려면 먼저 ○○ 님의 PM 체크를 풀어 주세요.' PM을 아무도 안 정해도 됨. TBD 인력은 체크 칸 없음(AS-IS 'TBD는 권한을 설정할 수 없습니다.')"
+      validation: null
+      state_writes: [blaDraft]
+    result: PM 지정 / 해제(저장 전)
+
+  - id: chk-lab-auth-biz
+    label: "사업관리자 체크(사람마다)"
+    type: checkbox
+    crud: U
+    area: "권한 설정 팝업 · 사업관리자 칸"
+    event: onchange
+    front:
+      handler: "blaToggle(name, 'biz', this)"
+      file: "budget-labor-auth.js:blaToggle"
+      logic: "사업관리자는 여러 명 가능(AS-IS 화면에 인원 제한 없음). 한 사람이 PM과 사업관리자를 함께 맡을 수 있음(AS-IS prjmYn · bizMngrYn 둘 다 true 가능). TBD 불가"
+      validation: null
+      state_writes: [blaDraft]
+    result: 사업관리자 지정 / 해제(저장 전)
+
+  - id: btn-lab-auth-save
+    label: "저장"
+    type: button
+    crud: U
+    area: "권한 설정 팝업 · 아래 오른쪽"
+    event: onclick
+    front:
+      handler: "blaSave()"
+      file: "budget-labor-auth.js:blaSave"
+      logic: "PM이 2명 이상이면 막음. 저장하면 사람마다 PM / 사업관리 / PM · 사업관리 꼬리표가 인력표 직급 옆에 바뀌어 보임(BLF_PEOPLE[].duty = pm · biz · both). AS-IS 버튼 이름은 [등록]"
+      validation: null
+      state_writes: [BLF_PEOPLE]
+    result: 권한 저장 · 인력표 꼬리표 갱신
+
+  - id: btn-lab-auth-close
+    label: "취소 / ✕ (권한 설정)"
+    type: button
+    crud: N
+    area: "권한 설정 팝업 · 아래 [취소] · 오른쪽 위 ✕ · 바깥 클릭 · Esc"
+    event: onclick
+    front:
+      handler: "blaClose()"
+      file: "budget-labor-auth.js:blaClose"
+      logic: "저장하지 않고 닫기"
+      validation: null
+      state_writes: [blaDraft]
+    result: 인건비 상세 화면으로 돌아감
+
+  # ── [2026.11.27] 인력 투입 일정(간트) — 화면 아래 펼침 → 버튼 + 팝업(budget-labor-gantt.js) ──
+  - id: btn-lab-gantt-open
+    label: "인력 투입 일정"
+    type: button
+    crud: R
+    area: "실투입인건비 탭 · 인력표 위 버튼 줄([월별 투입계획] 왼쪽)"
+    event: onclick
+    front:
+      handler: "blgMonthOpen()"
+      file: "budget-labor-gantt.js:blgMonthOpen · blgApply"
+      logic: "인력 투입 일정 팝업을 연다. 예전에 인력표 아래에 펼쳐 보던 간트(공유 agentLaborGanttFinal .aglg)와 [▸ 인력 투입 일정 펼치기] 줄은 화면에서 뺌(renderAgentLaborDetailFinal 출력만 감쌈). 열면 진행 중인 달이 보이게 가로 위치를 맞춤"
+      validation: null
+      state_writes: [blgOpen]
+    result: 인력 투입 일정 팝업 열림
+
+  - id: grid-lab-gantt
+    label: "인력 투입 일정 간트(인력 · 투입기간 · MM | 연 · 월 막대)"
+    type: grid
+    crud: R
+    area: "인력 투입 일정 팝업 · 가운데"
+    event: null
+    front:
+      handler: "blgPaint()"
+      file: "budget-labor-gantt.js:blgPaint · blgData"
+      logic: "인력표와 같은 사람 · 같은 월별 MM(agentLaborRowsFinal · agentLaborMonthsFinal). 줄 = 사람(시작 월 → 끝 월 → 이름 순), 왼쪽 두 칸(인력: 성명 · 직위 · 팀 / 투입기간 · MM · 실적 MM)은 가로로 넘겨도 고정, 머리(연 · 월)는 세로로 넘겨도 고정. 막대: 이어지는 달은 실적 · 계획 상관없이 막대 하나 — 실적 발생(확정, agentLaborActualDoneFinal) 부분 = 진한 파랑, 계획 부분 = 옅은 파랑으로 한 막대 안에서 끊김 없이 이어짐. 두께는 모두 같음(일부 투입 달도 같은 두께, MM은 안내 상자에). 진행 중인 달(CUR_YM)은 빨간 세로선. 신규추가 · 철수(조정안 반영 중) 인력은 이름 옆 꼬리표. 줄 높이 42px · 줄마다 옅은 바탕으로 시작 · 끝이 같은 사람이 많아도 빡빡하지 않게. 위에 인원 · 기간 · 계획/실적 MM 합계와 색 설명"
+      validation: null
+      state_writes: []
+    backend: { note: "인력자원계획 · 월별 MM · 실적 마감 월(목업 agentLaborRowsFinal · agentLaborActualDoneFinal)" }
+    result: 누가 언제 투입되는지 · 어디까지 실적이 났는지 한눈에 보임
+
+  - id: tip-lab-gantt-bar
+    label: "막대 마우스오버 안내 상자(기간 · 실적/계획 MM)"
+    type: tooltip
+    crud: N
+    area: "인력 투입 일정 팝업 · 막대 위(마우스 옆에 뜸)"
+    event: onmouseenter · onmousemove · onmouseleave
+    front:
+      handler: "blgTip(event, this) · blgTipOff()"
+      file: "budget-labor-gantt.js:blgTip · blgTipOff"
+      logic: "막대에 마우스를 올리면 바로 뜸 — 첫 줄 '성명 · 전체 기간 · 합계 MM', 이어서 '실적(확정) 기간 · MM', '계획 기간 · MM', 일부 투입 달이 있으면 '일부 투입 달: 8월 0.5 …'. 기본 title 말풍선은 늦게 뜨거나 안 보일 때가 있어 직접 그림"
+      validation: null
+      state_writes: []
+    result: 막대의 기간 · MM 확인
+    columns:
+      - { key: name, label: "인력(성명 · 직위 · 팀 · 신규/철수 꼬리표)", crud: R }
+      - { key: period, label: "투입기간 · MM(실적 MM)", crud: R }
+      - { key: months, label: "연 · 월 막대(실적 발생 / 계획)", crud: R }
+
+  - id: btn-lab-gantt-close
+    label: "닫기 / ✕ (인력 투입 일정)"
+    type: button
+    crud: N
+    area: "인력 투입 일정 팝업 · 오른쪽 위 ✕ · 아래 [닫기] · 바깥 클릭 · Esc"
+    event: onclick
+    front:
+      handler: "blgClose()"
+      file: "budget-labor-gantt.js:blgClose"
+      logic: "팝업 닫기"
+      validation: null
+      state_writes: [blgOpen]
     result: 인건비 상세 화면으로 돌아감
 
 # ── 비즈니스 로직 & 규칙 ──
@@ -1003,6 +1137,8 @@ requirements:
   - { id: FR-LAB-32, text: "[2026.11.12] Agent 화면 인건비 상세는 지금 고른 상세계정의 예산내역 표(저장된 내역)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
   - { id: FR-LAB-33, text: "[2026.11.26] 실투입인건비 인력표는 AS-IS 인력자원계획 칸(번호 · 단위업무 · 직급 · Skill Set(Level) · Assign Type · 단가(M/M) · M/M · M/D · M/H)을 함께 보여 줄 수 있어야 한다" }
   - { id: FR-LAB-34, text: "[2026.11.26] 실투입인건비 인력표는 프로젝트 권한자(PM · 사업관리)를 인력별로 구분해 표시할 수 있어야 한다" }
+  - { id: FR-LAB-41, text: "[2026.11.27] 인력표 위 [권한 설정]으로 실투입 인력에게 PM(1명만) · 사업관리자(여러 명) 권한을 지정 · 해제할 수 있어야 하며, PM을 두 명 지정하려 하면 막고 안내해야 하고, TBD 인력에는 권한을 줄 수 없어야 한다" }
+  - { id: FR-LAB-40, text: "[2026.11.27] 인력표 위 [인력 투입 일정] 버튼으로 인력별 투입 기간을 팝업 간트로 한눈에 볼 수 있어야 하며, 실적이 발생한 달은 계획인 달과 다른 색으로 보여야 한다" }
   - { id: FR-LAB-38, text: "[2026.11.26] 내부 인력의 월별 투입계획(투입년월 · 성명 · Assign Type · 직위 · 팀명 · M/M · 단가 · 금액)을 투입년월 기간으로 조회하고 엑셀로 내려받을 수 있어야 한다" }
   - { id: FR-LAB-37, text: "[2026.11.26] 실투입 인력마다 계획 · 실적 · 잔여예산을, 인력 월별 펼침에서는 달마다 계획 금액과 실적 금액을 볼 수 있어야 하며, 이관인건비 표는 번호와 건별 잔여예산을 보여 줘야 한다" }
   - { id: FR-LAB-36, text: "[2026.11.26] 인건비 실적조회 팝업은 사내인건비/사내간접비 · 종업원급여-OT · 이관인건비 탭마다 AS-IS와 같은 칸의 실적 표를 보여 줘야 하며, 탭을 누르면 그 탭 표로 바뀌어야 한다" }
