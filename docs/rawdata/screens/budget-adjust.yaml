@@ -661,7 +661,7 @@ elements:
     front:
       handler: "ddGanttToggle()"
       file: "budget-design-d.js:ddGanttToggle"
-      logic: "인력 투입 일정(막대그래프)은 기본 접힘, 누르면 펼침/접힘. 펼침 여부는 브라우저에 기억(localStorage dd-gantt)"
+      logic: "인력 투입 일정(막대그래프)은 기본 접힘, 누르면 펼침/접힘. 펼침 여부는 브라우저에 기억(localStorage dd-gantt) [2026.11.27] 인건비는 간트를 화면에서 빼고 [인력 투입 일정] 버튼 → 팝업으로(budget-labor-gantt.js) — 이 펼치기 줄은 다른 계정 간트(감가상각 등)에만 남음"
       validation: null
       state_writes: [ddGanttOpen]
     backend: null
