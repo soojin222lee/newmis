@@ -7,6 +7,7 @@
 //     인력자원계획 표 위 [월별 투입계획] 버튼으로 열림. 투입년월 기간 검색 · 엑셀
 //     AS-IS 칸: 투입년월 · 인력구분 · 성명 · Assign Type · 직위 · 팀명 · M/H · M/D · M/M · 단가(M/M) · 금액(KRW) + 총 합계
 //     [2026.11.26] M/H · M/D 는 빼기로 함(사용자 결정) → 목업 칸: 투입년월 · 인력구분 · 성명 · Assign Type · 직위 · 팀명 · M/M · 단가(M/M) · 금액(KRW)
+//     [2026.11.27] 인력구분 칸도 빼기로 함(사용자 결정, 이 팝업은 내부 인력만이라 늘 '내부') → 목업 칸: 투입년월 · 성명 · Assign Type · 직위 · 팀명 · M/M · 단가(M/M) · 금액(KRW)
 //     AS-IS 인력자원 투입계획 팝업(WorkingBudgetMonthManagerPopup.vue)은 넣지 않기로 함(사용자 결정).
 //   목업에서 여는 곳: 실투입인건비 탭 인력표 위 버튼 줄([전체 펼치기] 왼쪽)
 //   모양은 외주비 · 재료비 · 인건비 실적조회와 같은 틀(budget-insp-history.js .bih-*).
@@ -35,7 +36,7 @@ function blpMonthData() {
     blpMonths(r).forEach(x => {
       if (!x.mm) return;
       const unit = blpUnit(r, x.m);
-      out.push({ m: x.m, div: '내부', name: r.name, assign: info.assign || 'Full Time', pos: info.pos || '', org: r.org || '',
+      out.push({ m: x.m, name: r.name, assign: info.assign || 'Full Time', pos: info.pos || '', org: r.org || '',
         mm: x.mm, unit: unit, amt: Math.round(x.mm * unit) });
     });
   });
@@ -74,7 +75,7 @@ function blpPaint() {
   const rows = blpMonthData().filter(x => x.m >= s.from && x.m <= s.to);
   const sum = k => rows.reduce((t, x) => t + x[k], 0);
   const body = rows.map(x => `<tr>
-      <td class="ctr">${x.m}</td><td class="ctr">${x.div}</td><td class="ctr">${blpEsc(x.name)}</td>
+      <td class="ctr">${x.m}</td><td class="ctr">${blpEsc(x.name)}</td>
       <td class="ctr ${x.assign === 'Part Time' ? 'blp-part' : ''}">${blpEsc(x.assign)}</td><td class="ctr">${blpEsc(x.pos)}</td><td>${blpEsc(x.org)}</td>
       <td class="num">${x.mm.toFixed(2)}</td><td class="num">${blpNum(x.unit)}</td><td class="num"><b>${blpNum(x.amt)}</b></td></tr>`).join('');
   el.innerHTML = `
@@ -94,10 +95,10 @@ function blpPaint() {
             <button type="button" class="bih-excel" onclick="blpExcel()">엑셀 다운로드</button>
           </div>
           <div class="bih-wrap"><table class="bih-table blp-xls">
-            <thead><tr><th class="ctr">투입년월</th><th class="ctr">인력구분</th><th class="ctr">성명</th><th class="ctr">Assign Type</th><th class="ctr">직위</th><th>팀명</th>
+            <thead><tr><th class="ctr">투입년월</th><th class="ctr">성명</th><th class="ctr">Assign Type</th><th class="ctr">직위</th><th>팀명</th>
               <th class="num">M/M</th><th class="num">단가(M/M)</th><th class="num">금액(KRW)</th></tr></thead>
-            <tbody>${body || '<tr><td colspan="9" class="bih-empty">그 기간에 투입 계획이 없습니다.</td></tr>'}</tbody>
-            ${rows.length ? `<tfoot><tr class="total"><td colspan="6" class="ctr">총 합계 ${rows.length}건</td>
+            <tbody>${body || '<tr><td colspan="8" class="bih-empty">그 기간에 투입 계획이 없습니다.</td></tr>'}</tbody>
+            ${rows.length ? `<tfoot><tr class="total"><td colspan="5" class="ctr">총 합계 ${rows.length}건</td>
               <td class="num">${sum('mm').toFixed(2)}</td><td></td><td class="num">${blpNum(sum('amt'))}</td></tr></tfoot>` : ''}
           </table></div>
           <p class="bih-note">외부(외주) 인력은 외주비 화면에서 봅니다.</p>
