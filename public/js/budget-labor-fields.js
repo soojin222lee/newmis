@@ -355,17 +355,19 @@ var BLF_ACT_HINT = [
   '그 달 근무분으로 지급된 OT 종업원급여입니다.',
   '다른 프로젝트와 주고받은 인건비 이관 전표입니다.',
 ];
-function blfActBodyHtml(m, idx) {
+// strip: [2026.11.27] 월별 팝업 안에서는 위 요약 3칸 대신 「해당 줄」(budget-monthly-view.js bmvStripHtml — 지난 달 실적, 다른 달 누르면 이동)
+//   외주비 · 재료비 등 다른 계정 실적 상세와 같은 틀. 따로 팝업(월별 팝업 밖)에서는 요약 3칸 그대로
+function blfActBodyHtml(m, idx, strip) {
   const all = [0, 1, 2].map(i => blfActRows(i, m));
   const tot = [all[0].reduce((a, r) => a + r[11] + r[12], 0), all[1].reduce((a, r) => a + r[6], 0), all[2].reduce((a, r) => a + Number(r[6] || 0), 0)];
   const seg = i => `<button type="button" class="${idx === i ? 'on' : ''}" aria-pressed="${idx === i}" onclick="blfActTab('${m}', ${i})">${BLF_ACT_TABS[i]}</button>`;
   const won = n => blfNum(n) + '원';
   return `<div class="blf-act-body">
-    <div class="bih-sum">
+    ${strip || `<div class="bih-sum">
       <div><span>사내인건비 + 간접비</span><b>${won(tot[0])}</b></div>
       <div><span>종업원급여-OT</span><b>${won(tot[1])}</b></div>
       <div><span>이관인건비</span><b>${won(tot[2])}</b></div>
-    </div>
+    </div>`}
     <div class="bih-bar">
       <div class="bih-seg" role="group" aria-label="실적 구분">${seg(0)}${seg(1)}${seg(2)}</div>
       <span class="bih-hint">${BLF_ACT_HINT[idx]}</span>
@@ -409,6 +411,7 @@ function blfActOpen(m, idx) {                           // crud R — 인건비 
 }
 function blfActTab(m, idx) {                            // crud R — 인건비 실적조회 탭 전환
   if (blfHasBmvDrill() && typeof bmvDrill !== 'undefined' && bmvDrill && bmvDrill.acct === BLF_LAB) {
+    if (typeof bmvDrillGo === 'function') { bmvDrillGo(m, BLF_ACT_TABS[idx]); return; }   // 팝업 크기가 줄었다 늘었다 하지 않게(budget-monthly-view.js)
     bmvDrill = { acct: BLF_LAB, m: m, name: BLF_ACT_TABS[idx] };   // 스크롤 위치는 처음 들어올 때 값 그대로
     bmvRerender();
   } else if (blfActInPop) { blfActInPop = { m: m, idx: idx }; bmvRerender(); }
@@ -467,7 +470,7 @@ function blfActPaint() {
   const before = bmvDrillHtml;
   bmvDrillHtml = function (d) {
     if (!d || d.acct !== BLF_LAB || !/^\d{4}-\d{2}$/.test(String(d.m || ''))) return before.apply(this, arguments);
-    return blfActBodyHtml(d.m, blfActTabIdx(d.name));
+    return blfActBodyHtml(d.m, blfActTabIdx(d.name), typeof bmvStripHtml === 'function' ? bmvStripHtml(d) : '');
   };
 })();
 // (2) 그 기능이 없는 브랜치 — 이 파일이 월별 팝업을 감싸 같은 방식(표 자리 교체 + [← 월별 표로])으로
@@ -504,7 +507,8 @@ function blfActPaint() {
     const html = before.apply(this, arguments);
     const drill = typeof bmvDrill !== 'undefined' && bmvDrill && bmvDrill.acct === BLF_LAB;
     if (!html || acct !== BLF_LAB || !drill) { if (!drill) blfActPopH = 0; return html; }
-    if (!blfActPopH) return html;
+    // [2026.11.27] 월별 팝업(budget-monthly-view.js)이 모든 계정 공통으로 '최소 높이'를 걸면 그대로 — 높이를 고정하면 내용이 많을 때 스크롤이 생김
+    if (!blfActPopH || /bmv-pop[^"]*" style="/.test(html)) return html;
     return html.replace(/(<div class="agv-pop aglm-pop bmv-pop[^"]*")/, '$1 style="height:' + blfActPopH + 'px"');
   };
   // 월별 표의 지난 달 금액은 bmvDrillOpen 을 바로 부름(showActualDetailModal 을 거치지 않음) → 여기서 들어가기 전 높이를 기억

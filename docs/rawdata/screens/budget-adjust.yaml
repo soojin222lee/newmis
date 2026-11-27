@@ -470,11 +470,56 @@ elements:
     front:
       handler: "bmvDrillOpen(계정, 월, 상세계정)"
       file: "budget-monthly-view.js:bmvDrillOpen · bmvDrillHtml · renderAgentAcctMonthlyPopFinal"
-      logic: "[2026.11.19] 팝업 위에 팝업을 또 띄우지 않고, 같은 팝업 안의 표 자리에 그 달 실적 상세(조회 조건 · 탭 · 엑셀 · 표 · 합계)를 보여 준다. 제목은 '{계정} 월별 계획 / 실적 › {월} 실적 상세 · {상세계정}'. 내용은 공유 실적조회(showActualDetailModal)를 그대로 그려 안쪽만 가져옴(공유 팝업은 화면에 뜨지 않음). 원가 현황 등 다른 화면의 실적 상세 팝업은 그대로"
+      logic: "[2026.11.19] 팝업 위에 팝업을 또 띄우지 않고, 같은 팝업 안의 표 자리에 그 달 실적 상세(조회 조건 · 탭 · 엑셀 · 표 · 합계)를 보여 준다. 제목은 '{계정} 월별 계획 / 실적 › {월} 실적 상세 · {상세계정}'. 내용은 공유 실적조회(showActualDetailModal)를 그대로 그려 안쪽만 가져옴(공유 팝업은 화면에 뜨지 않음). 원가 현황 등 다른 화면의 실적 상세 팝업은 그대로 [2026.11.27] 모든 계정 실적 상세를 같은 틀로 통일 — 위 「해당 줄」(누른 줄의 지난 달 실적, bmvStripHtml) → [탭(월별 표의 세부 항목) · 안내 · 엑셀 다운로드] → 표. 예전 실적발생월 · 조회기간 검색 · 밑줄 탭은 뺌(BMV_DRILL_OLD=true 로 되돌림). 인건비는 탭만 AS-IS 3개(사내인건비/사내간접비 · 종업원급여-OT · 이관인건비). 팝업 크기는 들어가기 전 월별 표 높이 이상(bmvDrillPopH, 모든 계정) — [2026.11.27 v2] 높이를 고정하지 않고 '최소 높이'로 바꿔 내용이 많으면 팝업이 커져 스크롤이 생기지 않음(화면 높이까지). 달 · 탭을 바꿔도 줄지 않음(가장 컸던 높이 유지)"
       validation: null
-      state_writes: [bmvDrill, bmvDrillScroll]
+      state_writes: [bmvDrill, bmvDrillScroll, bmvDrillPopH]
     backend: null
     result: "팝업 안 내용이 그 달 실적 상세로 바뀜"
+
+  - id: row-agent-monthly-drill-strip
+    label: "실적 상세 위 「해당 줄」 — 그 세부 항목의 지난 달 실적(다른 달 금액 = 그 달로 이동)"
+    type: grid
+    crud: R
+    area: "월별 계획/실적 팝업 안 실적 상세 맨 위(예전 실적발생월 · 조회기간 검색 자리)"
+    event: onclick
+    front:
+      handler: "bmvDrillGo(월, 상세계정)"
+      file: "budget-monthly-view.js:bmvStripHtml · bmvStripRow · bmvDrillGo"
+      logic: "[2026.11.27] 월별 표에서 누른 줄(예: 실투입대상 외주비)의 지난 달 실적을 달마다 누를 수 있는 칸(위 ○월 · 아래 금액)으로 — 오른쪽 위에 실적 합계. 지금 보는 달은 파란 칸, 실적이 없는 달은 회색 칸(못 누름), 칸 폭은 가장 긴 금액에 맞춤(단위 '원'으로 금액이 길면 글자를 조금 줄여 한 줄에, 그래도 넘치면 이 줄만 옆으로 넘기고 지금 달이 보이게), 다른 달 금액을 누르면 팝업을 나가지 않고 그 달 실적 상세로 바뀜(1월을 보다가 2월로). 단위는 월별 표에서 고른 단위. 실적이 없는 달은 –. 인건비는 탭 이름과 줄 이름이 달라 같은 묶음 줄(실투입인건비 · OT비 · 이관인건비)을 보여 줌"
+      validation: null
+      state_writes: [bmvDrill]
+    backend: null
+    result: "다른 달 실적 상세로 바뀜"
+
+  - id: tab-agent-monthly-drill
+    label: "실적 상세 탭 — 월별 표의 세부 항목(예: 실투입대상 외주비 · 전문직수수료/제안/기타 · 외주출장비 …)"
+    type: tab
+    crud: R
+    area: "실적 상세 「해당 줄」 아래"
+    event: onclick
+    front:
+      handler: "bmvDrillGo(월, 세부 항목)"
+      file: "budget-monthly-view.js:bmvDrillTabs · bmvDrillHtml"
+      logic: "[2026.11.27] 탭 = 월별 표의 줄 이름이라 월별 표에서 누른 줄과 같은 탭이 선택돼 있음. 탭을 바꾸면 위 「해당 줄」도 그 세부 항목으로 바뀜. 인건비는 budget-labor-fields.js blfActTab(AS-IS 3개 탭)"
+      validation: null
+      state_writes: [bmvDrill]
+    backend: null
+    result: "고른 세부 항목의 실적 상세"
+
+  - id: btn-agent-monthly-drill-excel
+    label: "엑셀 다운로드 (실적 상세)"
+    type: button
+    crud: R
+    area: "실적 상세 탭 줄 오른쪽 끝"
+    event: onclick
+    front:
+      handler: "bxeActual()"
+      file: "budget-excel-export.js:bxeActual (인건비는 budget-labor-fields.js:blfActExcel)"
+      logic: "[2026.11.27] 지금 보는 달 · 세부 항목의 실적 표를 엑셀(.xlsx)로 내려받음"
+      validation: null
+      state_writes: []
+    backend: null
+    result: "엑셀 파일 다운로드"
 
   # ── [2026.11.19] 디자인 E안(feature/nj-e) — Agent와 대화를 오른쪽 AI 패널로(budget-design-e.js) ──
   - id: btn-dde-ai-toggle
@@ -957,6 +1002,7 @@ requirements:
   - { id: FR-BAD-37, text: "[2026.11.19] 월별 계획/실적 팝업에서 지난 달 실적 금액을 누르면 새 팝업을 띄우지 않고 같은 팝업 안에서 그 달 실적 상세를 볼 수 있어야 하며, [← 월별 표로]로 보던 표(보기 · 단위 · 스크롤 그대로)로 돌아갈 수 있어야 한다" }
   - { id: FR-BAD-38, text: "[2026.11.19] 수행원가 화면의 팝업은 오른쪽 위 ✕ 하나로 닫을 수 있어야 하며, ✕ 와 같은 일을 하는 [닫음] · [닫기] 버튼은 함께 두지 않아야 한다(✕ 가 없는 팝업은 닫기 버튼 유지 — budget-design-d.js:ddHidePopClose)" }
   - { id: FR-BAD-39, text: "[2026.11.19] 원가조정 화면은 핵심(계정 탭 · 예산 조정안 카드 · 상세 표)만 늘 보여 주고, 가끔 쓰는 기능은 [⋯] 더보기 메뉴로([2026.11.27] 계정 상세의 전체 펼치기 · 엑셀 다운로드 · 이력은 다시 바로 보이는 버튼으로 꺼냄 — 지금 [⋯]에는 카드 삭제만), 인력 투입 일정은 접어 두었다가 펼쳐 볼 수 있어야 하며, 예산 조정안은 '반영한 것만 보기' 체크 하나로 거를 수 있어야 한다" }
+  - { id: FR-BAD-44, text: "[2026.11.27] 월별 계획/실적 팝업에서 지난 달 실적을 누르면 모든 계정이 같은 모양(해당 줄 → 탭 · 엑셀 → 표)으로 실적 상세를 보여 줘야 하며, 위 해당 줄에서 다른 달 금액을 눌러 팝업을 나가지 않고 그 달 실적으로 옮길 수 있어야 한다" }
   - { id: FR-BAD-43, text: "[2026.11.27] 예산 조정안 카드는 출처를 태그로 늘 보여 주어야 한다 — Agent 제안(Agent가 SCM · 구매 등 정보를 받아 분석해 제안) · Agent 대화(PM과 Agent의 대화로 생김) · 수기 입력(PM이 직접 고침)" }
   - { id: FR-BAD-42, text: "[2026.11.24] PM이 직접 고친 예산 조정안(수기 입력 카드)은 예산 조정안 목록 맨 위에 보여야 하며, 새로 생긴 순간에는 노란 바탕으로 몇 초간 표시하고 목록을 그 카드가 보이게 옮긴 뒤 「직접 고친 내용이 예산 조정안 맨 위에 추가됐습니다」 안내를 띄워야 한다 (budget-design-d.js:ddManualFirst)" }
   - { id: FR-BAD-41, text: "[2026.11.20] 예산 조정안 카드는 계정 · 제목 · 금액 · [반영]과 함께 근거 한 줄(출처 + 핵심 숫자)을 늘 보여 주어야 하며, 판단 이유 · 영향은 [자세히 ▾]를 눌렀을 때만 보여야 한다. 자주 쓰지 않는 [삭제]는 [⋯] 안에 두어야 한다" }
