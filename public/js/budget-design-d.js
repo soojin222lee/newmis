@@ -599,6 +599,7 @@ function ddMoreRun(k) {                       // crud N — 메뉴 항목 실행
   if (typeof document === 'undefined' || document.getElementById('dd-simplify-style')) return;
   var st = document.createElement('style');
   st.id = 'dd-simplify-style';
+  var CB = '#s-budget#s-budget#s-budget .agga-card.dd-c > .agga-body';   // 카드 한 줄 줄이기(아래)
   st.textContent = [
     '#s-budget .agent-ga .agga-col.detail .agga-col-head .agga-dsub{display:none !important}',
     '#s-budget .agent-ga .bap-tabs{display:none !important}',
@@ -620,7 +621,18 @@ function ddMoreRun(k) {                       // crud N — 메뉴 항목 실행
     '#s-budget .agga-card.dd-c .agga-title{line-height:1.45 !important;margin-top:4px !important}',
     '#s-budget .agga-card.dd-c .dd-why{display:flex;align-items:flex-start;gap:7px;margin-top:6px;font-size:13px;line-height:1.5;color:#444b59;font-weight:600}',
     '#s-budget .agga-card.dd-c .dd-why i{flex:0 0 auto;font-style:normal;font-size:11.5px;font-weight:800;color:#5f6675;background:#f1f3f5;border:1px solid #e4e7eb;border-radius:5px;padding:0 6px;line-height:18px;margin-top:1px}',
-    '#s-budget .agga-card.dd-c .dd-card-more{height:30px;min-width:30px;padding:0 6px;font-size:13px}'
+    '#s-budget .agga-card.dd-c .dd-card-more{height:30px;min-width:30px;padding:0 6px;font-size:13px}',
+    // [2026.11.26] 카드 한 줄 줄이기 — [반영] · [자세히] · [⋯] 을 첫 줄(● 계정 · 금액) 오른쪽으로 올림, 제목은 둘째 줄 전체 폭
+    //   왼쪽(계정 줄 · 제목 · 근거) / 오른쪽(금액 · 버튼) 묶음을 풀어(display:contents) 한 격자에 다시 배치. 펼친 내용 등 나머지는 전체 폭
+    //   (오른쪽 칸 카드는 budget-adjust-side.js 가 칸 이름(grid-area)을 붙여 두어 #s-budget 을 겹쳐 우선순위를 올리고 !important)
+    CB + '{display:grid !important;grid-template-columns:minmax(0,1fr) auto auto !important;grid-template-areas:none !important;column-gap:10px !important;align-items:center}',
+    CB + ' > .agga-left, ' + CB + ' > .agga-right{display:contents !important}',
+    CB + ' > .agga-left > *, ' + CB + ' > .agga-right > *{grid-column:1 / -1 !important;grid-row:auto;min-width:0}',
+    CB + ' > .agga-left > .agga-head{grid-column:1 !important;grid-row:1 !important;min-width:0}',
+    CB + ' > .agga-right > .agga-amt, ' + CB + ' > .agga-right > .agga-hint{grid-column:2 !important;grid-row:1 !important;margin:0 !important;white-space:nowrap;text-align:right}',
+    CB + ' > .agga-right > .agga-acts{grid-column:3 !important;grid-row:1 !important;margin:0 !important;flex-wrap:nowrap !important}',
+    CB + ' > .agga-left > .agga-title{grid-row:2 !important}',
+    CB + ' > .agga-left > .dd-why{grid-row:3 !important}'
   ].join('\n');
   (document.head || document.documentElement).appendChild(st);
 })();

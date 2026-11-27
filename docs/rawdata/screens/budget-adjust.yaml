@@ -571,7 +571,7 @@ elements:
     front:
       handler: null
       file: "budget-design-d.js:ddCardTidy · ddWhyLine · ddWhySource"
-      logic: "[2026.11.20] 근거 3단계 중 ① — 카드에 늘 보이는 한 줄. 꼬리표는 신호 출처(trigger: SCM · 구매 · ERP · 마감 · 실적 · 대화 · 직접 입력은 '직접'), 문장은 목업 한 줄(DD_WHY_SHORT) → 제안의 short → 판단 이유(why) 첫 문장 순. ② [자세히 ▾] 펼치면 판단 이유 · 영향, ③ 원본 화면 이동은 다음 단계. 카드에서 「🤖 Agent 제안」 표시 · 날짜(제목에 마우스를 올리면 보임)는 숨김"
+      logic: "[2026.11.20] 근거 3단계 중 ① — 카드에 늘 보이는 한 줄. 꼬리표는 신호 출처(trigger: SCM · 구매 · ERP · 마감 · 실적 · 대화 · 직접 입력은 '직접'), 문장은 목업 한 줄(DD_WHY_SHORT) → 제안의 short → 판단 이유(why) 첫 문장 순. ② [자세히 ▾] 펼치면 판단 이유 · 영향, ③ 원본 화면 이동은 다음 단계. 카드에서 「🤖 Agent 제안」 표시 · 날짜(제목에 마우스를 올리면 보임)는 숨김 [2026.11.26] 카드 한 줄 줄이기 — [반영] · [자세히] · [⋯](외주비는 1안 · 2안 / 안 고르기)를 첫 줄 ● 계정 · 금액(부족액) 오른쪽으로 올리고, 제목은 둘째 줄 전체 폭(덜 잘림), 근거 한 줄은 셋째 줄(budget-design-d.js ddSimplifyStyle 격자 배치)"
       validation: null
       state_writes: []
     backend: null
