@@ -777,7 +777,7 @@ elements:
     event: onclick
     front:
       handler: "blpMonthOpen()"
-      file: "budget-labor-plan.js:blpMonthOpen · blpMonthData · blpMonthBody"
+      file: "budget-labor-plan.js:blpMonthOpen · blpMonthData · blpPaint"
       logic: "AS-IS 인력자원계획 표 위 [월별 투입계획] 버튼 그대로. (내부) 월별 투입계획 팝업 열기 — 처음 기간은 투입 계획이 있는 첫 달 ~ 끝 달"
       validation: null
       state_writes: [blpState]
@@ -818,15 +818,14 @@ elements:
     area: "월별 투입계획 팝업 · 가운데"
     event: null
     front:
-      handler: "blpMonthBody(state)"
-      file: "budget-labor-plan.js:blpMonthBody"
-      logic: "인력표와 같은 사람 · 같은 월별 MM. 투입년월 순. 맨 아래 총 합계(M/M · 금액). AS-IS의 M/H · M/D 칸은 빼기로 함"
+      handler: "blpPaint()"
+      file: "budget-labor-plan.js:blpPaint"
+      logic: "인력표와 같은 사람 · 같은 월별 MM. 투입년월 순. 맨 아래 총 합계(M/M · 금액). AS-IS의 M/H · M/D 칸과 인력구분 칸(내부만이라 늘 '내부')은 빼기로 함"
       validation: null
       state_writes: [blpState]
     result: 달마다 누가 얼마나 투입되는지 보임
     columns:
       - { key: ym, label: 투입년월, crud: R, asis: "투입년월(thrwYm)" }
-      - { key: div, label: 인력구분, crud: R, asis: "인력구분(hrDivRcid) — 내부만" }
       - { key: name, label: 성명, crud: R, asis: "성명(trgEmpRid)" }
       - { key: assign, label: Assign Type, crud: R, asis: "Assign Type(rsrcAsgmTpRcid)" }
       - { key: pos, label: 직위, crud: R, asis: "직위(intlPosRcid)" }
@@ -1004,7 +1003,7 @@ requirements:
   - { id: FR-LAB-32, text: "[2026.11.12] Agent 화면 인건비 상세는 지금 고른 상세계정의 예산내역 표(저장된 내역)를 엑셀(.xlsx)로 다운로드할 수 있어야 한다" }
   - { id: FR-LAB-33, text: "[2026.11.26] 실투입인건비 인력표는 AS-IS 인력자원계획 칸(번호 · 단위업무 · 직급 · Skill Set(Level) · Assign Type · 단가(M/M) · M/M · M/D · M/H)을 함께 보여 줄 수 있어야 한다" }
   - { id: FR-LAB-34, text: "[2026.11.26] 실투입인건비 인력표는 프로젝트 권한자(PM · 사업관리)를 인력별로 구분해 표시할 수 있어야 한다" }
-  - { id: FR-LAB-38, text: "[2026.11.26] 내부 인력의 월별 투입계획(투입년월 · 인력구분 · 성명 · Assign Type · 직위 · 팀명 · M/M · 단가 · 금액)을 투입년월 기간으로 조회하고 엑셀로 내려받을 수 있어야 한다" }
+  - { id: FR-LAB-38, text: "[2026.11.26] 내부 인력의 월별 투입계획(투입년월 · 성명 · Assign Type · 직위 · 팀명 · M/M · 단가 · 금액)을 투입년월 기간으로 조회하고 엑셀로 내려받을 수 있어야 한다" }
   - { id: FR-LAB-37, text: "[2026.11.26] 실투입 인력마다 계획 · 실적 · 잔여예산을, 인력 월별 펼침에서는 달마다 계획 금액과 실적 금액을 볼 수 있어야 하며, 이관인건비 표는 번호와 건별 잔여예산을 보여 줘야 한다" }
   - { id: FR-LAB-36, text: "[2026.11.26] 인건비 실적조회 팝업은 사내인건비/사내간접비 · 종업원급여-OT · 이관인건비 탭마다 AS-IS와 같은 칸의 실적 표를 보여 줘야 하며, 탭을 누르면 그 탭 표로 바뀌어야 한다" }
   - { id: FR-LAB-35, text: "[2026.11.26] OT비 탭은 귀속계정 · 계정과목 · 변경예산 · 실적 · 잔여예산을 표 위에 보여 줘야 하며, 실적이 계획을 넘으면 잔여예산을 마이너스로 강조해야 한다" }
