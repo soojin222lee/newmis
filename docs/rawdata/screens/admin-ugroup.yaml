@@ -1,0 +1,53 @@
+# rawdata: 관리자 > 사용자 그룹 관리 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# [2026.11.27 남주] AS-IS 관리자(base-front) 화면을 옮긴 메뉴. 공통 코드는 public/js/admin-asis.js
+
+screen:
+  id: s-admin-ugroup
+  name: 사용자 그룹 관리
+  menu_path: "관리자 > 권한 · 접근 > 사용자 그룹 관리"
+  route: "/admin.html#ugroup"
+  entry: "adminGo('ugroup') → asiteRender() → admSectionBody('ugroup') → AAS_RENDER.ugroup"
+  data_source: "관리자 · 사용자 직접 등록"
+  asis_source: "base-front src/views/shared/userGroup/UserGroupManagement.vue"
+  source_files:
+    - public/js/admin-asis.js   # 메뉴 등록(ADMIN_SECTIONS) · admSectionBody 데코레이터 · 렌더 · 핸들러 · 목업 데이터(AAS_DEF) · 전용 CSS(.aas-*)
+    - public/js/admin.js        # 관리자 사이트 셸 · admModal · admToast — 수정하지 않음
+    - public/admin.html         # admin-asis.js 로드(admin-approval.js 다음)
+  purpose: >
+    메일 수신자 · 결재 협조 대상 등에서 한 번에 고르는 사용자 묶음을 관리한다. 공용 그룹은 모두, 개인 그룹은 만든 사람만 쓴다.
+  asis_diff: "AS-IS 의 그리드 행추가 · 바로 입력 · 행삭제 후 [저장] 방식을 목업 공통 방식(등록/수정 팝업 · 행별 삭제 확인)으로 바꿈. 페이지 이동(페이징)은 목업 건수가 적어 뺌"
+
+elements:
+  - { id: grid-ugroup, label: "사용자 그룹 표 (No. · 그룹 유형 · 그룹 명 · 그룹 설명 · 생성자)", type: grid, crud: R, area: "왼쪽 표", event: onclick,
+      front: { handler: "aasUgHtml", file: "admin-asis.js:aasUgHtml", logic: "처음엔 첫 그룹 선택" }, backend: null, result: "그룹 목록" }
+  - { id: row-ugroup-pick, label: "그룹 줄 클릭 (선택)", type: grid-row, crud: R, area: "왼쪽 표", event: onclick,
+      front: { handler: "aasUgPick(id)", file: "admin-asis.js:aasUgPick", logic: "오른쪽에 그 그룹 멤버 표시, 체크 초기화" }, backend: null, result: "멤버 표" }
+  - { id: btn-ugroup-add, label: "＋ 그룹 등록", type: button, crud: C, area: "왼쪽 툴바", event: onclick,
+      front: { handler: "aasUgForm(null) → aasUgSave(null)", file: "admin-asis.js:aasUgForm", logic: "그룹 유형(공용/개인) · 그룹 명(필수) · 그룹 설명. 생성자=관리자" }, backend: null, result: "그룹 목록 갱신" }
+  - { id: btn-ugroup-edit, label: "수정", type: button, crud: U, area: "왼쪽 툴바", event: onclick,
+      front: { handler: "aasUgForm(aasUgSel) → aasUgSave(id)", file: "admin-asis.js:aasUgForm", logic: "선택 그룹 수정. 선택이 없으면 \"사용자그룹을 선택해 주세요.\"" }, backend: null, result: "그룹 목록 갱신" }
+  - { id: btn-ugroup-del, label: "그룹 삭제", type: button, crud: D, area: "왼쪽 툴바", event: onclick,
+      front: { handler: "aasUgAskDel() → aasUgDel()", file: "admin-asis.js:aasUgAskDel", logic: "멤버 수를 알리고 삭제 확인" }, backend: null, result: "그룹 목록 갱신" }
+  - { id: btn-ugroup-save, label: "그룹 저장", type: button, crud: U, area: "왼쪽 툴바", event: onclick,
+      front: { handler: "aasSaveAll('사용자 그룹')", file: "admin-asis.js:aasSaveAll", logic: "localStorage 저장" }, backend: null, result: "토스트" }
+  - { id: grid-ugroup-member, label: "그룹 멤버 표 (선택 · No. · 사번 · 이름 · 조직)", type: grid, crud: R, area: "오른쪽 표", event: onclick,
+      front: { handler: "aasUgHtml", file: "admin-asis.js:aasUgHtml", logic: "구성원 조회 데이터로 이름 · 조직을 채움" }, backend: null, result: "멤버 목록" }
+  - { id: chk-ugroup-member, label: "멤버 선택 체크", type: checkbox, crud: N, area: "오른쪽 표", event: onclick,
+      front: { handler: "aasUgCheck(사번,on)", file: "admin-asis.js:aasUgCheck", logic: "[사용자 삭제] 대상 표시" }, backend: null, result: "체크 상태" }
+  - { id: btn-ugroup-member-add, label: "＋ 사용자 추가 (팝업 열기)", type: button, crud: C, area: "오른쪽 툴바", event: onclick,
+      front: { handler: "aasUgAddMember()", file: "admin-asis.js:aasUgAddMember", logic: "그룹에 없는 구성원 목록을 체크 팝업으로" }, backend: null, result: "사용자 추가 팝업" }
+  - { id: btn-ugroup-member-add-save, label: "추가 (팝업)", type: button, crud: C, area: "사용자 추가 팝업", event: onclick,
+      front: { handler: "aasUgAddMemberSave()", file: "admin-asis.js:aasUgAddMemberSave", logic: "체크한 사람을 멤버에 더함. 없으면 \"추가할 사용자를 선택해 주세요.\"" }, backend: null, result: "멤버 표 갱신" }
+  - { id: btn-ugroup-member-del, label: "사용자 삭제", type: button, crud: D, area: "오른쪽 툴바", event: onclick,
+      front: { handler: "aasUgDelMember()", file: "admin-asis.js:aasUgDelMember", logic: "체크한 멤버를 그룹에서 뺌. 없으면 \"삭제할 사용자를 선택해 주세요.\"" }, backend: null, result: "멤버 표 갱신" }
+  - { id: btn-ugroup-member-save, label: "사용자 목록 저장", type: button, crud: U, area: "오른쪽 툴바", event: onclick,
+      front: { handler: "aasSaveAll('사용자 목록')", file: "admin-asis.js:aasSaveAll", logic: "localStorage 저장" }, backend: null, result: "토스트" }
+
+requirements:
+  - { id: FR-UGR-01, text: "관리자는 사용자 그룹(공용 · 개인)을 등록 · 수정 · 삭제할 수 있어야 한다" }
+  - { id: FR-UGR-02, text: "그룹 목록은 그룹 유형 · 그룹 명 · 그룹 설명 · 생성자를 보여야 한다" }
+  - { id: FR-UGR-03, text: "그룹을 고르면 그 그룹의 멤버(사번 · 이름 · 조직)가 보여야 한다" }
+  - { id: FR-UGR-04, text: "관리자는 구성원 목록에서 여러 명을 골라 그룹에 추가할 수 있어야 한다" }
+  - { id: FR-UGR-05, text: "관리자는 체크한 멤버를 그룹에서 뺄 수 있어야 한다" }
+  - { id: FR-UGR-06, text: "그룹을 고르지 않고 멤버를 다루면 \"사용자그룹을 선택해 주세요.\" 안내가 나와야 한다" }

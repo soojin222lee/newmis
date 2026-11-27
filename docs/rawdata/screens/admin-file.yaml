@@ -1,0 +1,55 @@
+# rawdata: 관리자 > 첨부파일 관리 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# [2026.11.27 남주] AS-IS 관리자(base-front) 화면을 옮긴 메뉴. 공통 코드는 public/js/admin-asis.js
+
+screen:
+  id: s-admin-file
+  name: 첨부파일 관리
+  menu_path: "관리자 > 운영 · 연계 > 첨부파일 관리"
+  route: "/admin.html#file"
+  entry: "adminGo('file') → asiteRender() → admSectionBody('file') → AAS_RENDER.file"
+  data_source: "시스템 파일 저장소"
+  asis_source: "base-front src/views/admin/attachedFile/AttachedFileManagement.vue"
+  source_files:
+    - public/js/admin-asis.js   # 메뉴 등록(ADMIN_SECTIONS) · admSectionBody 데코레이터 · 렌더 · 핸들러 · 목업 데이터(AAS_DEF) · 전용 CSS(.aas-*)
+    - public/js/admin.js        # 관리자 사이트 셸 · admModal · admToast — 수정하지 않음
+    - public/admin.html         # admin-asis.js 로드(admin-approval.js 다음)
+  purpose: >
+    공지 · 매뉴얼 · 결재 첨부 등 시스템에 올라온 파일을 폴더별로 조회 · 업로드 · 다운로드한다.
+  asis_diff: "AS-IS 의 그리드 행추가 · 바로 입력 · 행삭제 후 [저장] 방식을 목업 공통 방식(등록/수정 팝업 · 행별 삭제 확인)으로 바꿈. 페이지 이동(페이징)은 목업 건수가 적어 뺌"
+
+elements:
+  - { id: inp-file-name, label: "파일명", type: input, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('file','name',값) · Enter=aasSearch('file')", file: "admin-asis.js:aasSetDraft", logic: "값이 들어간 줄만(부분 일치)" }, backend: null, result: "조회 조건 입력값" }
+  - { id: btn-file-reset, label: "초기화", type: button, crud: N, area: "조회 조건", event: onclick,
+      front: { handler: "aasReset('file')", file: "admin-asis.js:aasReset", logic: "조회 조건 · 선택 줄을 비우고 다시 그림" }, backend: null, result: "전체 목록" }
+  - { id: btn-file-search, label: "조회", type: button, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSearch('file')", file: "admin-asis.js:aasSearch", logic: "입력한 조건을 적용(aasApplied)해 표를 다시 그림" }, backend: null, result: "검색결과 N건 / 총 M건" }
+  - { id: tree-file-folder, label: "폴더 트리 (전체 · 폴더, 파일 수)", type: tree, crud: R, area: "왼쪽 폴더 패널", event: onclick,
+      front: { handler: "aasFolderPick(id|null)", file: "admin-asis.js:aasFolderPick", logic: "폴더를 고르면 그 폴더와 하위 폴더 파일만(aasFolderUnder)" }, backend: null, result: "오른쪽 표 필터" }
+  - { id: btn-file-folder-top, label: "＋ 상위 폴더 (등록 팝업)", type: button, crud: C, area: "폴더 패널 아래", event: onclick,
+      front: { handler: "aasFolderForm(0) → aasFolderSave(0)", file: "admin-asis.js:aasFolderForm", logic: "최상위 폴더 등록. 이름 공백은 지우고 저장" }, backend: null, result: "폴더 트리 갱신" }
+  - { id: btn-file-folder-child, label: "＋ 하위 폴더 (등록 팝업)", type: button, crud: C, area: "폴더 패널 아래", event: onclick,
+      front: { handler: "aasFolderForm(aasFolderSel) → aasFolderSave(id)", file: "admin-asis.js:aasFolderForm", logic: "선택 폴더 아래 등록. 선택이 없으면 안내" }, backend: null, result: "폴더 트리 갱신" }
+  - { id: grid-file, label: "파일 표 (No. · 폴더경로 · 파일명 · 등록일)", type: grid, crud: R, area: "오른쪽 표", event: onclick,
+      front: { handler: "aasFileHtml", file: "admin-asis.js:aasFileHtml", logic: "폴더 · 파일명 조건에 맞는 파일" }, backend: null, result: "파일 목록" }
+  - { id: btn-file-detail, label: "상세 조회 (행)", type: button, crud: R, area: "파일 표 관리 칸", event: onclick,
+      front: { handler: "aasFileDetail(idx)", file: "admin-asis.js:aasFileDetail", logic: "파일명 · 실제파일명 · 파일크기 · 확장자 · 폴더경로 · 업로드일자 · 다운로드URL 팝업" }, backend: null, result: "첨부파일 상세 팝업" }
+  - { id: btn-file-down, label: "⬇ 다운로드 (행 · 상세 팝업)", type: button, crud: R, area: "파일 표 관리 칸", event: onclick,
+      front: { handler: "aasFileDown(idx)", file: "admin-asis.js:aasFileDown", logic: "목업 스텁, 동작 없음" }, backend: null, result: "토스트" }
+  - { id: btn-file-del, label: "삭제 (행)", type: button, crud: D, area: "파일 표 관리 칸", event: onclick,
+      front: { handler: "aasAskDel('file',idx) → aasDel('file',idx)", file: "admin-asis.js:aasAskDel", logic: "삭제 확인 후 지움" }, backend: null, result: "목록 갱신" }
+  - { id: btn-file-upload, label: "⬆ 파일 업로드 (팝업 열기)", type: button, crud: C, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasFileUpload()", file: "admin-asis.js:aasFileUpload", logic: "올릴 폴더(선택 폴더) 안내 + 파일 선택" }, backend: null, result: "업로드 팝업" }
+  - { id: btn-file-upload-save, label: "업로드 (팝업)", type: button, crud: C, area: "업로드 팝업", event: onclick,
+      front: { handler: "aasFileUploadSave(fid)", file: "admin-asis.js:aasFileUploadSave", logic: "파일이 없으면 안내. 목업은 이름 · 크기 · 확장자만 기록" }, backend: null, result: "파일 표 갱신" }
+  - { id: btn-file-save, label: "저장", type: button, crud: U, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasSaveAll('첨부파일')", file: "admin-asis.js:aasSaveAll", logic: "localStorage 저장" }, backend: null, result: "토스트" }
+
+requirements:
+  - { id: FR-FIL-01, text: "관리자는 폴더 트리에서 폴더를 골라 그 폴더(하위 포함)의 파일을 볼 수 있어야 한다" }
+  - { id: FR-FIL-02, text: "관리자는 파일명으로 첨부파일을 조회할 수 있어야 한다" }
+  - { id: FR-FIL-03, text: "관리자는 상위 폴더와 선택한 폴더의 하위 폴더를 등록할 수 있어야 하며, 폴더 이름의 공백은 지워져야 한다" }
+  - { id: FR-FIL-04, text: "관리자는 선택한 폴더에 파일을 업로드할 수 있어야 한다" }
+  - { id: FR-FIL-05, text: "관리자는 파일 상세(실제파일명 · 크기 · 확장자 · 다운로드URL 등)를 볼 수 있어야 한다" }
+  - { id: FR-FIL-06, text: "관리자는 파일을 다운로드하고 삭제할 수 있어야 한다" }

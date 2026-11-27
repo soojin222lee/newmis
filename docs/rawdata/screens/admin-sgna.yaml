@@ -1,0 +1,57 @@
+# rawdata: 관리자 > SG&A 조직 관리 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# [2026.11.27 남주] AS-IS 관리자(base-front) 화면을 옮긴 메뉴. 공통 코드는 public/js/admin-asis.js
+
+screen:
+  id: s-admin-sgna
+  name: SG&A 조직 관리
+  menu_path: "관리자 > 기준정보 (마스터) > SG&A 조직 관리"
+  route: "/admin.html#sgna"
+  entry: "adminGo('sgna') → asiteRender() → admSectionBody('sgna') → AAS_RENDER.sgna"
+  data_source: "관리자 직접 관리 (HR 조직과 별도)"
+  asis_source: "base-front src/views/admin/organization/SgnaOrganizationManagement.vue"
+  source_files:
+    - public/js/admin-asis.js   # 메뉴 등록(ADMIN_SECTIONS) · admSectionBody 데코레이터 · 렌더 · 핸들러 · 목업 데이터(AAS_DEF) · 전용 CSS(.aas-*)
+    - public/js/admin.js        # 관리자 사이트 셸 · admModal · admToast — 수정하지 않음
+    - public/admin.html         # admin-asis.js 로드(admin-approval.js 다음)
+  purpose: >
+    SG&A(판매비와 관리비) 집계용 조직 트리를 관리한다. CC조직 코드 · 실제 조직 코드 · 사용 기간을 조직마다 둔다.
+  asis_diff: "AS-IS 의 그리드 행추가 · 바로 입력 · 행삭제 후 [저장] 방식을 목업 공통 방식(등록/수정 팝업 · 행별 삭제 확인)으로 바꿈. 페이지 이동(페이징)은 목업 건수가 적어 뺌"
+
+elements:
+  - { id: rdo-sgna-type, label: "조회 구분 (조직명 / 조직영문명 / 조직별칭)", type: radio, crud: N, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('sgna','_type',필드)", file: "admin-asis.js:aasSetDraft", logic: "조회할 칸 선택(AS-IS 라디오와 같음). [조회]를 눌러야 적용" }, backend: null, result: "조회 조건 입력값" }
+  - { id: inp-sgna-q, label: "검색어", type: input, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('sgna','_q',값) · Enter=aasSearch('sgna')", file: "admin-asis.js:aasSetDraft", logic: "고른 칸에 검색어가 들어간 줄만 찾음(대소문자 무시)" }, backend: null, result: "조회 조건 입력값" }
+  - { id: btn-sgna-reset, label: "초기화", type: button, crud: N, area: "조회 조건", event: onclick,
+      front: { handler: "aasReset('sgna')", file: "admin-asis.js:aasReset", logic: "조회 조건 · 선택 줄을 비우고 다시 그림" }, backend: null, result: "전체 목록" }
+  - { id: btn-sgna-search, label: "조회", type: button, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSearch('sgna')", file: "admin-asis.js:aasSearch", logic: "입력한 조건을 적용(aasApplied)해 표를 다시 그림" }, backend: null, result: "검색결과 N건 / 총 M건" }
+  - { id: btn-sgna-fold-all, label: "모두 접기", type: button, crud: N, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasSgnaFoldAll(true)", file: "admin-asis.js:aasSgnaFoldAll", logic: "하위가 있는 조직을 모두 접음" }, backend: null, result: "최상위 조직만" }
+  - { id: btn-sgna-unfold-all, label: "모두 펼침", type: button, crud: N, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasSgnaFoldAll(false)", file: "admin-asis.js:aasSgnaFoldAll", logic: "모두 펼침" }, backend: null, result: "전체 트리" }
+  - { id: btn-sgna-fold, label: "조직 접기/펼치기 (▾/▸)", type: toggle, crud: N, area: "조직명 칸", event: onclick,
+      front: { handler: "aasSgnaToggle(id)", file: "admin-asis.js:aasSgnaToggle", logic: "그 조직 아래만 접고 폄" }, backend: null, result: "트리 갱신" }
+  - { id: row-sgna-pick, label: "조직 줄 클릭 (선택)", type: grid-row, crud: N, area: "본문 표", event: onclick,
+      front: { handler: "aasSgnaPick(id)", file: "admin-asis.js:aasSgnaPick", logic: "하위 등록 · 수정 · 삭제 대상 선택. 툴바에 \"선택: 조직명\" 표시" }, backend: null, result: "선택 표시" }
+  - { id: grid-sgna, label: "조직 트리 표 (ID · 조직명 · CC조직 코드 · 실제 조직 코드 · 조직 약어 명 · 조직 영문 명 · 조직 시작 일자 · 조직 종료 일자 · 상위 조직 ID · 조직단계 · 조직 정렬 ID)", type: grid, crud: R, area: "본문 표", event: onclick,
+      front: { handler: "aasSgnaHtml", file: "admin-asis.js:aasSgnaHtml", logic: "단계만큼 들여쓰기. 종료 일자가 지난 조직은 회색 + [종료]. 검색 중에는 들여쓰기 없이 맞는 조직만" }, backend: null, result: "트리" }
+  - { id: btn-sgna-add-top, label: "＋ 최상위 조직 등록", type: button, crud: C, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasSgnaForm('top') → aasSgnaSave('top')", file: "admin-asis.js:aasSgnaForm", logic: "상위 조직 없이 1단계로 등록" }, backend: null, result: "트리 갱신" }
+  - { id: btn-sgna-add-child, label: "＋ 하위 조직 등록", type: button, crud: C, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasSgnaForm('child') → aasSgnaSave('child')", file: "admin-asis.js:aasSgnaForm", logic: "선택 조직 아래(단계 +1)로 등록. 선택이 없으면 \"상위 조직을 먼저 선택해 주세요.\"" }, backend: null, result: "트리 갱신" }
+  - { id: btn-sgna-edit, label: "수정", type: button, crud: U, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasSgnaForm('edit') → aasSgnaSave('edit')", file: "admin-asis.js:aasSgnaForm", logic: "선택 조직을 팝업에서 수정. 필수: 조직명 · CC조직 코드" }, backend: null, result: "트리 갱신" }
+  - { id: btn-sgna-del, label: "삭제", type: button, crud: D, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasSgnaAskDel() → aasSgnaDel()", file: "admin-asis.js:aasSgnaAskDel", logic: "선택이 없으면 \"삭제할 데이터를 선택해 주세요.\" 하위 조직이 있으면 개수를 알리고 함께 삭제" }, backend: null, result: "트리 갱신" }
+  - { id: btn-sgna-save, label: "저장", type: button, crud: U, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasSaveAll('SG&A 조직')", file: "admin-asis.js:aasSaveAll", logic: "localStorage 저장" }, backend: null, result: "토스트" }
+
+requirements:
+  - { id: FR-SGA-01, text: "관리자는 조직명 · 조직영문명 · 조직별칭으로 SG&A 조직을 조회할 수 있어야 한다" }
+  - { id: FR-SGA-02, text: "조직은 단계별로 들여쓴 트리로 보여야 하며, 조직마다 또는 전체를 접고 펼 수 있어야 한다" }
+  - { id: FR-SGA-03, text: "관리자는 최상위 조직과 선택한 조직의 하위 조직을 등록할 수 있어야 한다(필수: 조직명 · CC조직 코드)" }
+  - { id: FR-SGA-04, text: "관리자는 선택한 조직을 수정할 수 있어야 한다" }
+  - { id: FR-SGA-05, text: "관리자는 선택한 조직을 삭제할 수 있어야 하며, 하위 조직이 있으면 그 개수를 알리고 함께 삭제되어야 한다" }
+  - { id: FR-SGA-06, text: "종료 일자가 지난 조직은 구분되어 보여야 한다" }

@@ -1,0 +1,56 @@
+# rawdata: 관리자 > IP접근제어 관리 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# [2026.11.27 남주] AS-IS 관리자(base-front) 화면을 옮긴 메뉴. 공통 코드는 public/js/admin-asis.js
+
+screen:
+  id: s-admin-ip
+  name: IP접근제어 관리
+  menu_path: "관리자 > 권한 · 접근 > IP접근제어 관리"
+  route: "/admin.html#ip"
+  entry: "adminGo('ip') → asiteRender() → admSectionBody('ip') → AAS_RENDER.ip"
+  data_source: "관리자 직접 등록 · 엑셀 업로드"
+  asis_source: "base-front src/views/admin/ipAccessControl/IPAccessControlManagement.vue"
+  source_files:
+    - public/js/admin-asis.js   # 메뉴 등록(ADMIN_SECTIONS) · admSectionBody 데코레이터 · 렌더 · 핸들러 · 목업 데이터(AAS_DEF) · 전용 CSS(.aas-*)
+    - public/js/admin.js        # 관리자 사이트 셸 · admModal · admToast — 수정하지 않음
+    - public/admin.html         # admin-asis.js 로드(admin-approval.js 다음)
+  purpose: >
+    운영모드(긴급) 때 접속을 허용할 IP를 관리하고, 운영모드로 전환한다. 전환하면 접속 중인 모든 사용자가 로그아웃된다.
+  asis_diff: "AS-IS 의 그리드 행추가 · 바로 입력 · 행삭제 후 [저장] 방식을 목업 공통 방식(등록/수정 팝업 · 행별 삭제 확인)으로 바꿈. 페이지 이동(페이징)은 목업 건수가 적어 뺌"
+
+elements:
+  - { id: btn-ip-mode, label: "운영모드 전환 (확인 팝업 열기)", type: button, crud: N, area: "화면 위 운영모드 줄", event: onclick,
+      front: { handler: "aasIpMode()", file: "admin-asis.js:aasIpMode", logic: "1차 확인 \"운영모드 전환 하시겠습니까? 접속된 모든 사용자가 로그아웃 됩니다.\"" }, backend: null, result: "1차 확인 팝업" }
+  - { id: btn-ip-mode-ok, label: "전환 → 운영모드 전환 (2단계 확인)", type: button, crud: N, area: "확인 팝업", event: onclick,
+      front: { handler: "aasIpMode2() → 토스트", file: "admin-asis.js:aasIpMode2", logic: "목업 스텁, 동작 없음 — AS-IS는 2번 확인 후 /sse/publish 로 \"Run Emergency Mode\" 발행" }, backend: null, result: "토스트" }
+  - { id: inp-ip-ip, label: "IP주소", type: input, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('ip','ip',값) · Enter=aasSearch('ip')", file: "admin-asis.js:aasSetDraft", logic: "값이 들어간 줄만(부분 일치)" }, backend: null, result: "조회 조건 입력값" }
+  - { id: inp-ip-owner, label: "IP소유자사번", type: input, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('ip','owner',값) · Enter=aasSearch('ip')", file: "admin-asis.js:aasSetDraft", logic: "값이 들어간 줄만(부분 일치)" }, backend: null, result: "조회 조건 입력값" }
+  - { id: inp-ip-by, label: "등록자사번", type: input, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('ip','by',값) · Enter=aasSearch('ip')", file: "admin-asis.js:aasSetDraft", logic: "값이 들어간 줄만(부분 일치)" }, backend: null, result: "조회 조건 입력값" }
+  - { id: btn-ip-reset, label: "초기화", type: button, crud: N, area: "조회 조건", event: onclick,
+      front: { handler: "aasReset('ip')", file: "admin-asis.js:aasReset", logic: "조회 조건 · 선택 줄을 비우고 다시 그림" }, backend: null, result: "전체 목록" }
+  - { id: btn-ip-search, label: "조회", type: button, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSearch('ip')", file: "admin-asis.js:aasSearch", logic: "입력한 조건을 적용(aasApplied)해 표를 다시 그림" }, backend: null, result: "검색결과 N건 / 총 M건" }
+  - { id: grid-ip, label: "목록 표 (No · 등록일 · 수정일 · IP 주소 · IP 소유자 사번 · 등록자 사번)", type: grid, crud: R, area: "본문 표", event: onclick,
+      front: { handler: "aasTableHtml('ip')", file: "admin-asis.js:aasTableHtml", logic: "조회 조건에 맞는 줄. 검색결과 건수 / 총 건수 표시. 사번 옆에 구성원 이름 표시" }, backend: null, result: "목록" }
+  - { id: btn-ip-add, label: "＋ IP 등록 (IP 등록 팝업 열기)", type: button, crud: C, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasForm('ip',null)", file: "admin-asis.js:aasForm", logic: "IP 등록 팝업. 입력: IP 주소(필수 · 형식 검사) · IP 소유자 사번(필수) · 등록자 사번" }, backend: null, result: "등록 팝업" }
+  - { id: btn-ip-add-save, label: "IP 등록 (팝업 [등록])", type: button, crud: C, area: "등록 팝업", event: onclick,
+      front: { handler: "aasFormSave('ip',null)", file: "admin-asis.js:aasFormSave", logic: "필수값 · 형식 검사 후 맨 위에 추가, localStorage 저장" }, backend: null, result: "목록 갱신 + 토스트" }
+  - { id: btn-ip-edit, label: "수정 (행)", type: button, crud: U, area: "표 관리 칸", event: onclick,
+      front: { handler: "aasForm('ip',idx) → aasFormSave('ip',idx)", file: "admin-asis.js:aasForm", logic: "같은 팝업에 값을 채워 열고 [수정]으로 덮어씀" }, backend: null, result: "목록 갱신" }
+  - { id: btn-ip-del, label: "삭제 (행)", type: button, crud: D, area: "표 관리 칸", event: onclick,
+      front: { handler: "aasAskDel('ip',idx) → aasDel('ip',idx)", file: "admin-asis.js:aasAskDel", logic: "삭제 확인 팝업 후 지움(되돌릴 수 없음 안내)" }, backend: null, result: "목록 갱신" }
+  - { id: btn-ip-save, label: "저장", type: button, crud: U, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasSaveAll('IP')", file: "admin-asis.js:aasSaveAll", logic: "현재 목록을 localStorage(budgetai.admin.asis.v1)에 저장 — AS-IS [저장]과 같은 자리" }, backend: null, result: "토스트" }
+  - { id: btn-ip-upload, label: "⬆ 엑셀 업로드 (팝업 열기)", type: button, crud: C, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasIpUpload()", file: "admin-asis.js:aasIpUpload", logic: "목업 스텁, 동작 없음 — 칸 순서 안내 + 파일 선택. AS-IS는 업로드 후 데이터 검사" }, backend: null, result: "업로드 팝업" }
+
+requirements:
+  - { id: FR-IPC-01, text: "관리자는 IP주소 · IP소유자사번 · 등록자사번으로 허용 IP를 조회할 수 있어야 한다" }
+  - { id: FR-IPC-02, text: "관리자는 허용 IP를 등록 · 수정 · 삭제할 수 있어야 하며, 등록일 · 수정일이 자동으로 남아야 한다" }
+  - { id: FR-IPC-03, text: "IP 주소 형식이 틀리면 저장되지 않고 안내가 나와야 한다" }
+  - { id: FR-IPC-04, text: "관리자는 엑셀 파일로 허용 IP를 한 번에 올릴 수 있어야 한다" }
+  - { id: FR-IPC-05, text: "관리자는 두 번 확인한 뒤 운영모드로 전환할 수 있어야 하며, 접속 중인 모든 사용자가 로그아웃된다는 안내가 나와야 한다" }

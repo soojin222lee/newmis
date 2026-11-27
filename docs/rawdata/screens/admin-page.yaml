@@ -1,0 +1,54 @@
+# rawdata: 관리자 > 화면 관리 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# [2026.11.27 남주] AS-IS 관리자(base-front) 화면을 옮긴 메뉴. 공통 코드는 public/js/admin-asis.js
+
+screen:
+  id: s-admin-page
+  name: 화면 관리
+  menu_path: "관리자 > 권한 · 접근 > 화면 관리"
+  route: "/admin.html#page"
+  entry: "adminGo('page') → asiteRender() → admSectionBody('page') → AAS_RENDER.page"
+  data_source: "관리자 직접 등록 (메뉴 관리가 연결)"
+  asis_source: "base-front src/views/admin/page/PageManagement.vue"
+  source_files:
+    - public/js/admin-asis.js   # 메뉴 등록(ADMIN_SECTIONS) · admSectionBody 데코레이터 · 렌더 · 핸들러 · 목업 데이터(AAS_DEF) · 전용 CSS(.aas-*)
+    - public/js/admin.js        # 관리자 사이트 셸 · admModal · admToast — 수정하지 않음
+    - public/admin.html         # admin-asis.js 로드(admin-approval.js 다음)
+  purpose: >
+    서비스별 화면(페이지)과 라우팅 · 서비스 경로를 등록한다. 메뉴 관리의 메뉴가 이 화면을 연결한다. 서비스모드 ON 화면은 운영모드(긴급) 중에도 열린다.
+  asis_diff: "AS-IS 의 그리드 행추가 · 바로 입력 · 행삭제 후 [저장] 방식을 목업 공통 방식(등록/수정 팝업 · 행별 삭제 확인)으로 바꿈. 페이지 이동(페이징)은 목업 건수가 적어 뺌"
+
+elements:
+  - { id: sel-page-svc, label: "서비스 구분 (전체 · 기반관리 서비스 · 수주형 서비스 · 플랫폼 서비스 · 추정 서비스 · 투자 서비스 · 데이터 인사이트 · UI 가이드)", type: select, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('page','svc',값)", file: "admin-asis.js:aasSetDraft", logic: "값이 같은 줄만(전체=조건 없음)" }, backend: null, result: "조회 조건 입력값" }
+  - { id: sel-page-mode, label: "서비스 모드 (전체 · ON · OFF)", type: select, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('page','mode',값)", file: "admin-asis.js:aasSetDraft", logic: "값이 같은 줄만(전체=조건 없음)" }, backend: null, result: "조회 조건 입력값" }
+  - { id: inp-page-name, label: "화면이름", type: input, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('page','name',값) · Enter=aasSearch('page')", file: "admin-asis.js:aasSetDraft", logic: "값이 들어간 줄만(부분 일치)" }, backend: null, result: "조회 조건 입력값" }
+  - { id: inp-page-route, label: "라우팅 경로", type: input, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('page','route',값) · Enter=aasSearch('page')", file: "admin-asis.js:aasSetDraft", logic: "값이 들어간 줄만(부분 일치)" }, backend: null, result: "조회 조건 입력값" }
+  - { id: inp-page-path, label: "서비스 경로", type: input, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('page','path',값) · Enter=aasSearch('page')", file: "admin-asis.js:aasSetDraft", logic: "값이 들어간 줄만(부분 일치)" }, backend: null, result: "조회 조건 입력값" }
+  - { id: btn-page-reset, label: "초기화", type: button, crud: N, area: "조회 조건", event: onclick,
+      front: { handler: "aasReset('page')", file: "admin-asis.js:aasReset", logic: "조회 조건 · 선택 줄을 비우고 다시 그림" }, backend: null, result: "전체 목록" }
+  - { id: btn-page-search, label: "조회", type: button, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSearch('page')", file: "admin-asis.js:aasSearch", logic: "입력한 조건을 적용(aasApplied)해 표를 다시 그림" }, backend: null, result: "검색결과 N건 / 총 M건" }
+  - { id: grid-page, label: "목록 표 (No · 서비스구분 · 화면이름 · 라우팅경로 · 서비스경로 · 서비스모드)", type: grid, crud: R, area: "본문 표", event: onclick,
+      front: { handler: "aasTableHtml('page')", file: "admin-asis.js:aasTableHtml", logic: "조회 조건에 맞는 줄. 검색결과 건수 / 총 건수 표시" }, backend: null, result: "목록" }
+  - { id: btn-page-add, label: "＋ 화면 등록 (화면 등록 팝업 열기)", type: button, crud: C, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasForm('page',null)", file: "admin-asis.js:aasForm", logic: "화면 등록 팝업. 입력: 서비스구분 · 서비스모드 · 화면이름(필수) · 라우팅경로(필수) · 서비스경로" }, backend: null, result: "등록 팝업" }
+  - { id: btn-page-add-save, label: "화면 등록 (팝업 [등록])", type: button, crud: C, area: "등록 팝업", event: onclick,
+      front: { handler: "aasFormSave('page',null)", file: "admin-asis.js:aasFormSave", logic: "필수값 · 형식 검사 후 맨 위에 추가, localStorage 저장" }, backend: null, result: "목록 갱신 + 토스트" }
+  - { id: btn-page-edit, label: "수정 (행)", type: button, crud: U, area: "표 관리 칸", event: onclick,
+      front: { handler: "aasForm('page',idx) → aasFormSave('page',idx)", file: "admin-asis.js:aasForm", logic: "같은 팝업에 값을 채워 열고 [수정]으로 덮어씀" }, backend: null, result: "목록 갱신" }
+  - { id: btn-page-del, label: "삭제 (행)", type: button, crud: D, area: "표 관리 칸", event: onclick,
+      front: { handler: "aasAskDel('page',idx) → aasDel('page',idx)", file: "admin-asis.js:aasAskDel", logic: "삭제 확인 팝업 후 지움(되돌릴 수 없음 안내)" }, backend: null, result: "목록 갱신" }
+  - { id: btn-page-save, label: "저장", type: button, crud: U, area: "표 위 툴바", event: onclick,
+      front: { handler: "aasSaveAll('화면')", file: "admin-asis.js:aasSaveAll", logic: "현재 목록을 localStorage(budgetai.admin.asis.v1)에 저장 — AS-IS [저장]과 같은 자리" }, backend: null, result: "토스트" }
+
+requirements:
+  - { id: FR-PAG-01, text: "관리자는 서비스 구분 · 서비스 모드 · 화면이름 · 라우팅 경로 · 서비스 경로로 화면을 조회할 수 있어야 한다" }
+  - { id: FR-PAG-02, text: "관리자는 화면을 등록할 수 있어야 한다(필수: 화면이름 · 라우팅경로)" }
+  - { id: FR-PAG-03, text: "관리자는 화면을 수정 · 삭제할 수 있어야 한다" }
+  - { id: FR-PAG-04, text: "서비스모드(ON/OFF)로 운영모드 중 열리는 화면을 지정할 수 있어야 한다" }
+  - { id: FR-PAG-05, text: "필수값이 비면 \"화면이름을 입력해 주세요.\" 처럼 항목별 안내가 나와야 한다" }

@@ -1,0 +1,44 @@
+# rawdata: 관리자 > 협력사 조회 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# [2026.11.27 남주] AS-IS 관리자(base-front) 화면을 옮긴 메뉴. 공통 코드는 public/js/admin-asis.js
+
+screen:
+  id: s-admin-partner
+  name: 협력사 조회
+  menu_path: "관리자 > 기준정보 (마스터) > 협력사 조회"
+  route: "/admin.html#partner"
+  entry: "adminGo('partner') → asiteRender() → admSectionBody('partner') → AAS_RENDER.partner"
+  data_source: "구매 협력사 마스터 연동 (조회 전용)"
+  asis_source: "base-front src/views/admin/partner/PartnerManagement.vue"
+  source_files:
+    - public/js/admin-asis.js   # 메뉴 등록(ADMIN_SECTIONS) · admSectionBody 데코레이터 · 렌더 · 핸들러 · 목업 데이터(AAS_DEF) · 전용 CSS(.aas-*)
+    - public/js/admin.js        # 관리자 사이트 셸 · admModal · admToast — 수정하지 않음
+    - public/admin.html         # admin-asis.js 로드(admin-approval.js 다음)
+  purpose: >
+    외주 · 구매 협력사 기본정보와 업종 분류를 조회한다.
+  asis_diff: "AS-IS 의 그리드 행추가 · 바로 입력 · 행삭제 후 [저장] 방식을 목업 공통 방식(등록/수정 팝업 · 행별 삭제 확인)으로 바꿈. 페이지 이동(페이징)은 목업 건수가 적어 뺌"
+
+elements:
+  - { id: rdo-partner-type, label: "조회 구분 (회사명 / 사업자 등록번호 / 업종)", type: radio, crud: N, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('partner','_type',필드)", file: "admin-asis.js:aasSetDraft", logic: "조회할 칸 선택(AS-IS 라디오와 같음). [조회]를 눌러야 적용" }, backend: null, result: "조회 조건 입력값" }
+  - { id: inp-partner-q, label: "검색어", type: input, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('partner','_q',값) · Enter=aasSearch('partner')", file: "admin-asis.js:aasSetDraft", logic: "고른 칸에 검색어가 들어간 줄만 찾음(대소문자 무시)" }, backend: null, result: "조회 조건 입력값" }
+  - { id: btn-partner-reset, label: "초기화", type: button, crud: N, area: "조회 조건", event: onclick,
+      front: { handler: "aasReset('partner')", file: "admin-asis.js:aasReset", logic: "조회 조건 · 선택 줄을 비우고 다시 그림" }, backend: null, result: "전체 목록" }
+  - { id: btn-partner-search, label: "조회", type: button, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSearch('partner')", file: "admin-asis.js:aasSearch", logic: "입력한 조건을 적용(aasApplied)해 표를 다시 그림" }, backend: null, result: "검색결과 N건 / 총 M건" }
+  - { id: grid-partner, label: "목록 표 (No · 코드 · 회사명 · 대표자 · 사업자등록번호 · 업종 · 업태 · 관계사여부 · 주소)", type: grid, crud: R, area: "본문 표", event: onclick,
+      front: { handler: "aasTableHtml('partner')", file: "admin-asis.js:aasTableHtml", logic: "조회 조건에 맞는 줄. 검색결과 건수 / 총 건수 표시. 조회 전용" }, backend: null, result: "목록" }
+  - { id: row-partner-pick, label: "목록 줄 클릭 (상세 열기/닫기)", type: grid-row, crud: R, area: "본문 표", event: onclick,
+      front: { handler: "aasPick('partner',idx)", file: "admin-asis.js:aasPick", logic: "같은 줄을 다시 누르면 닫힘. 상세가 열리면 표는 한 줄로 두고 가로 스크롤" }, backend: null, result: "오른쪽 상세 패널" }
+  - { id: pnl-partner-detail, label: "상세 패널 (회사명 · 협력사코드 · 회사명약어 · 대표자 · 신용등급 · 사업자등록번호 · 업종대분류코드 · 업종중분류코드 · 업종소분류코드 · 업태 · 업종 · URL · 관계사여부 · 주소 · 우편번호)", type: panel, crud: R, area: "표 오른쪽", event: onclick,
+      front: { handler: "aasDetailHtml", file: "admin-asis.js:aasDetailHtml", logic: "고른 줄의 상세 항목(읽기 전용) — AS-IS 오른쪽 상세와 같은 항목" }, backend: null, result: "상세 정보" }
+  - { id: btn-partner-detail-close, label: "상세 닫기 (✕)", type: button, crud: N, area: "상세 패널 머리", event: onclick,
+      front: { handler: "aasPick('partner',null)", file: "admin-asis.js:aasPick", logic: "상세 패널 닫기" }, backend: null, result: "표 전체 폭" }
+
+requirements:
+  - { id: FR-PTN-01, text: "사용자는 회사명 · 사업자 등록번호 · 업종 중 하나를 골라 협력사를 조회할 수 있어야 한다" }
+  - { id: FR-PTN-02, text: "목록은 코드 · 회사명 · 대표자 · 사업자등록번호 · 업종 · 업태 · 관계사여부 · 주소를 보여야 한다" }
+  - { id: FR-PTN-03, text: "사용자는 줄을 눌러 협력사 상세(업종 대/중/소분류 코드 · URL 포함 15개 항목)를 볼 수 있어야 한다" }
+  - { id: FR-PTN-04, text: "협력사 정보는 구매 시스템 값으로 조회만 가능해야 한다" }
+  - { id: FR-PTN-05, text: "검색결과 건수와 총 건수를 보여야 한다" }
