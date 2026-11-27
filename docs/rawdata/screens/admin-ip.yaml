@@ -5,13 +5,14 @@
 screen:
   id: s-admin-ip
   name: IP접근제어 관리
-  menu_path: "관리자 > 권한 · 접근 > IP접근제어 관리"
-  route: "/admin.html#ip"
-  entry: "adminGo('ip') → asiteRender() → admSectionBody('ip') → AAS_RENDER.ip"
+  menu_path: "관리자 > 권한 · 보안 관리 > [IP접근제어] 탭"
+  route: "/admin.html#perm (옛 주소 #ip 로 와도 이 탭으로 열림)"
+  entry: "adminGo('perm') → amgTab('perm', 탭) → admSectionBody → amgBody → AAS_RENDER.ip"
   data_source: "관리자 직접 등록 · 엑셀 업로드"
   asis_source: "base-front src/views/admin/ipAccessControl/IPAccessControlManagement.vue"
   source_files:
     - public/js/admin-asis.js   # 메뉴 등록(ADMIN_SECTIONS) · admSectionBody 데코레이터 · 렌더 · 핸들러 · 목업 데이터(AAS_DEF) · 전용 CSS(.aas-*)
+    - public/js/admin-menu-group.js # 메뉴 11개 묶음 · 묶음 안 탭(amgTab) · 옛 주소 연결
     - public/js/admin.js        # 관리자 사이트 셸 · admModal · admToast — 수정하지 않음
     - public/admin.html         # admin-asis.js 로드(admin-approval.js 다음)
   purpose: >

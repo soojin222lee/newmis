@@ -5,13 +5,14 @@
 screen:
   id: s-admin-file
   name: 첨부파일 관리
-  menu_path: "관리자 > 운영 · 연계 > 첨부파일 관리"
-  route: "/admin.html#file"
-  entry: "adminGo('file') → asiteRender() → admSectionBody('file') → AAS_RENDER.file"
+  menu_path: "관리자 > 게시판 · 자료 관리 > [첨부파일] 탭"
+  route: "/admin.html#board (옛 주소 #file 로 와도 이 탭으로 열림)"
+  entry: "adminGo('board') → amgTab('board', 탭) → admSectionBody → amgBody → AAS_RENDER.file"
   data_source: "시스템 파일 저장소"
   asis_source: "base-front src/views/admin/attachedFile/AttachedFileManagement.vue"
   source_files:
     - public/js/admin-asis.js   # 메뉴 등록(ADMIN_SECTIONS) · admSectionBody 데코레이터 · 렌더 · 핸들러 · 목업 데이터(AAS_DEF) · 전용 CSS(.aas-*)
+    - public/js/admin-menu-group.js # 메뉴 11개 묶음 · 묶음 안 탭(amgTab) · 옛 주소 연결
     - public/js/admin.js        # 관리자 사이트 셸 · admModal · admToast — 수정하지 않음
     - public/admin.html         # admin-asis.js 로드(admin-approval.js 다음)
   purpose: >

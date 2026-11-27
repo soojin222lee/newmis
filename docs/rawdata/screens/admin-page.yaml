@@ -5,13 +5,14 @@
 screen:
   id: s-admin-page
   name: 화면 관리
-  menu_path: "관리자 > 권한 · 접근 > 화면 관리"
-  route: "/admin.html#page"
-  entry: "adminGo('page') → asiteRender() → admSectionBody('page') → AAS_RENDER.page"
+  menu_path: "관리자 > 메뉴 · 화면 관리 > [화면] 탭"
+  route: "/admin.html#menu (옛 주소 #page 로 와도 이 탭으로 열림)"
+  entry: "adminGo('menu') → amgTab('menu', 탭) → admSectionBody → amgBody → AAS_RENDER.page"
   data_source: "관리자 직접 등록 (메뉴 관리가 연결)"
   asis_source: "base-front src/views/admin/page/PageManagement.vue"
   source_files:
     - public/js/admin-asis.js   # 메뉴 등록(ADMIN_SECTIONS) · admSectionBody 데코레이터 · 렌더 · 핸들러 · 목업 데이터(AAS_DEF) · 전용 CSS(.aas-*)
+    - public/js/admin-menu-group.js # 메뉴 11개 묶음 · 묶음 안 탭(amgTab) · 옛 주소 연결
     - public/js/admin.js        # 관리자 사이트 셸 · admModal · admToast — 수정하지 않음
     - public/admin.html         # admin-asis.js 로드(admin-approval.js 다음)
   purpose: >

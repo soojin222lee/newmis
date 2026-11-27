@@ -1,0 +1,46 @@
+# rawdata: 관리자 > 메뉴 묶음(25개 → 11개, 탭으로 구분) (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# [2026.11.27 남주] 관리자 메뉴를 11개로 줄이라는 요청 — 묶인 메뉴는 화면 안 탭으로 나눈다.
+
+screen:
+  id: s-admin-menu-group
+  name: 관리자 메뉴 묶음 (11개 메뉴 · 묶음 안 탭)
+  menu_path: "관리자 > (왼쪽 메뉴 11개 전체)"
+  route: "/admin.html#<묶음 키> — 옛 메뉴 키(#fx · #closedate · #ip …)로 와도 그 묶음의 그 탭으로 열림"
+  entry: "adminGo(묶음) → asiteRender() → admSectionBody(묶음) → amgBody(묶음) → 지금 탭의 원래 화면 함수"
+  source_files:
+    - public/js/admin-menu-group.js   # AMG_GROUPS(11개 묶음) · ADMIN_SECTIONS 교체 · admSectionBody/adminGo 데코레이터 · 탭 줄 · 전용 CSS(.amg-*)
+    - public/js/admin.js              # 관리자 사이트 셸 — 수정하지 않음
+    - public/admin.html               # admin-menu-group.js 를 모든 관리자 스크립트 맨 뒤에 로드
+  purpose: >
+    관리자 메뉴가 25개로 늘어 찾기 어려워졌다. 비슷한 메뉴를 11개로 묶고, 묶인 메뉴는 화면 위쪽 탭으로 나눈다.
+    각 탭 아래에 그 탭의 설명과 데이터 출처를 한 줄로 보여 준다. 원래 화면과 기능은 그대로다.
+  groups:
+    - { menu: 사용자 관리,        nav_group: "기준정보 (마스터)", tabs: [사용자, 구성원 조회, 사용자 그룹] }
+    - { menu: 조직 관리,          nav_group: "기준정보 (마스터)", tabs: [조직도, SG&A 조직] }
+    - { menu: 기준정보 관리,      nav_group: "기준정보 (마스터)", tabs: [공통코드, 계정과목, P단가, 환율, 회계결산일자] }
+    - { menu: 거래처 관리,        nav_group: "기준정보 (마스터)", tabs: [고객사, 협력사] }
+    - { menu: 결재라인 관리,      nav_group: "기준정보 (마스터)", tabs: [] }
+    - { menu: "권한 · 보안 관리",  nav_group: "권한 · 접근",       tabs: [역할별 권한, IP접근제어, "로그 · 이력"] }
+    - { menu: "메뉴 · 화면 관리",  nav_group: "권한 · 접근",       tabs: [메뉴, 화면] }
+    - { menu: "알림 · 메일 관리",  nav_group: "운영 · 연계",       tabs: [운영 알림, 메일 발송 이력] }
+    - { menu: 시스템 운영,        nav_group: "운영 · 연계",       tabs: [외부 연동, "배치 / 스케줄"] }
+    - { menu: "게시판 · 자료 관리", nav_group: "운영 · 연계",      tabs: [공지사항, Q&A, 매뉴얼, 첨부파일] }
+    - { menu: Golden Data set 관리, nav_group: "Agent 평가",      tabs: [] }
+
+elements:
+  - { id: nav-admin-group, label: "왼쪽 메뉴 (11개 묶음)", type: button, crud: N, area: 왼쪽 레일, event: onclick,
+      front: { handler: "adminGo(묶음 키)", file: "admin-menu-group.js:amgInstall", logic: "ADMIN_SECTIONS 를 11개 묶음으로 바꿔 끼워 레일에 11개만 보임. 고르면 그 묶음의 마지막으로 보던 탭(없으면 첫 탭)", state_writes: [adminCur] }, backend: null, result: 묶음 화면 }
+  - { id: tab-admin-group, label: "묶음 안 탭", type: tab, crud: N, area: "화면 제목 아래", event: onclick,
+      front: { handler: "amgTab(묶음, 탭)", file: "admin-menu-group.js:amgTab", logic: "탭 전환 후 다시 그림. 탭이 1개인 묶음(결재라인 · Golden)은 탭 줄 없음", state_writes: [AMG_TAB] }, backend: null, result: 그 탭의 원래 화면 }
+  - { id: txt-admin-group-sub, label: "탭 설명 · 데이터 출처 줄", type: text, crud: R, area: "탭 줄 아래", event: none,
+      front: { handler: "amgBody", file: "admin-menu-group.js:amgBody", logic: "원래 메뉴의 설명 · 데이터 출처(admSrcOf)를 탭마다 보여 줌" }, backend: null, result: 안내 줄 }
+  - { id: route-admin-old-key, label: "옛 메뉴 주소 연결", type: event, crud: N, area: 주소창, event: hashchange,
+      front: { handler: "adminGo(옛 키) · location.hash", file: "admin-menu-group.js:amgInstall", logic: "옛 메뉴 키를 묶음 키 + 탭으로 바꿔 엶(처음 들어올 때는 initAdminSite 전에 주소를 묶음 키로 바꿔 둠)" }, backend: null, result: 그 묶음의 그 탭 }
+
+requirements:
+  - { id: FR-AMG-01, text: "관리자 왼쪽 메뉴는 11개로 보여야 하며, 묶인 메뉴는 화면 안 탭으로 나뉘어야 한다" }
+  - { id: FR-AMG-02, text: "사용자는 묶음 안 탭을 눌러 원래 메뉴 화면을 기능 그대로 쓸 수 있어야 한다" }
+  - { id: FR-AMG-03, text: "탭마다 그 화면의 설명과 데이터 출처가 보여야 한다" }
+  - { id: FR-AMG-04, text: "메뉴를 다시 고르면 그 묶음에서 마지막으로 보던 탭이 열려야 한다" }
+  - { id: FR-AMG-05, text: "예전 메뉴 주소(예: #fx · #closedate)로 들어와도 해당 묶음의 해당 탭이 열려야 한다" }

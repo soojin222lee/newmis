@@ -5,13 +5,14 @@
 screen:
   id: s-admin-member
   name: 구성원 조회
-  menu_path: "관리자 > 기준정보 (마스터) > 구성원 조회"
-  route: "/admin.html#member"
-  entry: "adminGo('member') → asiteRender() → admSectionBody('member') → AAS_RENDER.member"
+  menu_path: "관리자 > 사용자 관리 > [구성원 조회] 탭"
+  route: "/admin.html#user (옛 주소 #member 로 와도 이 탭으로 열림)"
+  entry: "adminGo('user') → amgTab('user', 탭) → admSectionBody → amgBody → AAS_RENDER.member"
   data_source: "HR 인사 마스터 연동 (조회 전용)"
   asis_source: "base-front src/views/admin/member/MemberManagement.vue"
   source_files:
     - public/js/admin-asis.js   # 메뉴 등록(ADMIN_SECTIONS) · admSectionBody 데코레이터 · 렌더 · 핸들러 · 목업 데이터(AAS_DEF) · 전용 CSS(.aas-*)
+    - public/js/admin-menu-group.js # 메뉴 11개 묶음 · 묶음 안 탭(amgTab) · 옛 주소 연결
     - public/js/admin.js        # 관리자 사이트 셸 · admModal · admToast — 수정하지 않음
     - public/admin.html         # admin-asis.js 로드(admin-approval.js 다음)
   purpose: >

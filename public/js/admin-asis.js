@@ -703,6 +703,36 @@ function aasFileUploadSave(fid) {
   aasPersist(); admCloseModal(); asiteRender(); admToast('「' + f.name + '」을(를) 업로드했습니다. (목업: 이름 · 크기만 기록)');
 }
 
+// ════ ⑦ 조직도 — AS-IS(OrganizationManagement.vue)처럼 조회 전용 ════
+// 수진 admin.js 의 admOrgHtml(등록/수정/삭제)을 AAS_RENDER.org 로 덮는다. 데이터(ADM.org)는 그대로 쓰고
+// AS-IS 칸(조직영문명 · 조직별칭)은 이름으로 붙인다(AAS_ORG_EXTRA).
+var AAS_ORG_EXTRA = {
+  'AX 사업본부':      { eng: 'AX Business Division',  alias: 'AX본부' },
+  'AX ERP사업부':     { eng: 'AX ERP Business Unit',  alias: 'ERP사업부' },
+  'AX ERP사업부 1팀': { eng: 'AX ERP Team 1',         alias: 'ERP1팀' },
+  'AX ERP사업부 2팀': { eng: 'AX ERP Team 2',         alias: 'ERP2팀' },
+  '데이터사업부':      { eng: 'Data Business Unit',    alias: '데이터BU' },
+  '데이터플랫폼팀':    { eng: 'Data Platform Team',    alias: '데이터PF팀' },
+  '(전사)IT운영팀':    { eng: 'IT Operation Team',     alias: 'IT운영' },
+};
+AAS_SC.org = { noun: '조직', search: [{ t: 'radio', opts: [['조직명', 'name'], ['조직영문명', 'eng'], ['조직별칭', 'alias']] }], cols: [] };
+function aasOrgHtml() {
+  var all = ((typeof ADM !== 'undefined' && ADM.org) || []).map(function (o) {
+    var x = AAS_ORG_EXTRA[o.name] || {};
+    return { name: o.name, lv: o.lv || 0, eng: x.eng || '-', alias: x.alias || '-' };
+  });
+  var q = aasApplied.org, w = q && (q._q || '').trim().toLowerCase();
+  var rows = w ? all.filter(function (o) { return String(o[q._type] || '').toLowerCase().indexOf(w) >= 0; }) : all;
+  var body = rows.length ? rows.map(function (o) {
+    return '<tr><td><span style="padding-left:' + (w ? 0 : o.lv * 20) + 'px">' + (o.lv === 0 ? '🏢 ' : o.lv === 1 ? '📂 ' : '👥 ') + '<b>' + aasE(o.name) + '</b></span></td>'
+      + '<td class="adm-muted">' + aasE(o.eng) + '</td><td>' + aasE(o.alias) + '</td></tr>';
+  }).join('') : aasEmpty(3);
+  return aasSearchHtml('org')
+    + '<div class="adm-toolbar aas-bar"><span class="aas-cnt">검색결과 <b>' + rows.length + '</b>건 <span class="adm-muted">/ 총 ' + all.length + '건</span></span></div>'
+    + '<table class="adm-table aas-table"><thead><tr><th>조직명</th><th>조직영문명</th><th>조직별칭</th></tr></thead><tbody>' + body + '</tbody></table>'
+    + '<div class="adm-note">※ HR 조직 마스터에서 받은 조직을 조회만 합니다(AS-IS 와 같이 등록 · 수정 · 삭제 없음). 계층만큼 들여쓰고, 검색 중에는 맞는 조직만 보입니다.</div>';
+}
+
 // ── 메뉴 등록 ──
 var AAS_MENUS = [
   { key: 'member',  icon: '🧑‍🤝‍🧑', title: '구성원 조회',     group: 'master', desc: '조직별 구성원(이름 · 사번 · 직위 · 직책 · 부서)을 조회합니다.', src: 'HR 인사 마스터 연동 (조회 전용)' },
@@ -717,7 +747,7 @@ var AAS_MENUS = [
   { key: 'file',    icon: '📎', title: '첨부파일 관리',   group: 'ops',    desc: '시스템에 올라온 첨부파일을 폴더별로 조회 · 업로드 · 다운로드합니다.', src: '시스템 파일 저장소' },
 ];
 var AAS_RENDER = {
-  member: aasMemberHtml, sgna: aasSgnaHtml, ugroup: aasUgHtml, ip: aasIpHtml, board: aasBoardHtml, file: aasFileHtml,
+  org: aasOrgHtml, member: aasMemberHtml, sgna: aasSgnaHtml, ugroup: aasUgHtml, ip: aasIpHtml, board: aasBoardHtml, file: aasFileHtml,
   acct: function () { return aasStdHtml('acct'); }, client: function () { return aasStdHtml('client'); },
   partner: function () { return aasStdHtml('partner'); }, page: function () { return aasStdHtml('page'); },
 };

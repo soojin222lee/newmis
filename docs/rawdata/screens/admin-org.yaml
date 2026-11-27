@@ -1,0 +1,37 @@
+# rawdata: 관리자 > 조직 관리 > [조직도] 탭 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# [2026.11.27 남주] AS-IS(OrganizationManagement.vue)처럼 조회 전용으로 바꿈 — 등록 · 수정 · 삭제 제거.
+
+screen:
+  id: s-admin-org
+  name: 조직도 (조회 전용)
+  menu_path: "관리자 > 조직 관리 > [조직도] 탭"
+  route: "/admin.html#org"
+  entry: "adminGo('org') → amgTab('org','org') → admSectionBody → amgBody → AAS_RENDER.org = aasOrgHtml"
+  data_source: "HR 조직 마스터 연동 (조회 전용)"
+  asis_source: "base-front src/views/admin/organization/OrganizationManagement.vue"
+  source_files:
+    - public/js/admin-asis.js   # aasOrgHtml · AAS_ORG_EXTRA(조직영문명 · 조직별칭) — admin.js 의 admOrgHtml 을 덮음
+    - public/js/admin.js        # 조직 데이터(ADM.org) — 수정하지 않음
+  purpose: >
+    본부 · 사업부 · 팀 조직 구조를 조회한다. AS-IS 에 등록 · 수정 · 삭제가 없어(HR 에서 받음) 목업도 조회만 남겼다.
+  asis_diff: "AS-IS 와 같은 칸(조직명 · 조직영문명 · 조직별칭)과 검색(조직명 · 조직영문명 · 조직별칭). 예전 목업의 [＋ 부서 등록] · 수정 · 삭제 · 저장 · 조직장 · 인원 표시는 뺌"
+
+elements:
+  - { id: rdo-org-type, label: "조회 구분 (조직명 / 조직영문명 / 조직별칭)", type: radio, crud: N, area: "조회 조건", event: onclick,
+      front: { handler: "aasSetDraft('org','_type',필드)", file: "admin-asis.js:aasSetDraft", logic: "조회할 칸 선택. [조회]를 눌러야 적용" }, backend: null, result: "조회 조건 입력값" }
+  - { id: inp-org-q, label: 검색어, type: input, crud: R, area: "조회 조건", event: oninput,
+      front: { handler: "aasSetDraft('org','_q',값) · Enter=aasSearch('org')", file: "admin-asis.js:aasSetDraft", logic: "고른 칸에 검색어가 들어간 조직만" }, backend: null, result: "조회 조건 입력값" }
+  - { id: btn-org-reset, label: 초기화, type: button, crud: N, area: "조회 조건", event: onclick,
+      front: { handler: "aasReset('org')", file: "admin-asis.js:aasReset", logic: "조건을 비우고 전체 트리" }, backend: null, result: 전체 조직 }
+  - { id: btn-org-search, label: 조회, type: button, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "aasSearch('org')", file: "admin-asis.js:aasSearch", logic: "조건 적용 후 다시 그림" }, backend: null, result: "검색결과 N건 / 총 M건" }
+  - { id: grid-org, label: "조직 표 (조직명 · 조직영문명 · 조직별칭)", type: grid, crud: R, area: 본문 표, event: none,
+      front: { handler: "aasOrgHtml", file: "admin-asis.js:aasOrgHtml", logic: "계층(lv)만큼 들여쓰기. 검색 중에는 들여쓰기 없이 맞는 조직만. 조회 전용" }, backend: null, result: 조직 트리 }
+
+requirements:
+  - { id: FR-ORG-01, text: "사용자는 조직명 · 조직영문명 · 조직별칭 중 하나를 골라 조직을 조회할 수 있어야 한다" }
+  - { id: FR-ORG-02, text: "조직은 본부 · 사업부 · 팀 계층대로 들여쓴 트리로 보여야 한다" }
+  - { id: FR-ORG-03, text: "목록은 조직명 · 조직영문명 · 조직별칭을 보여야 하며 검색결과 건수와 총 건수를 함께 보여야 한다" }
+  - { id: FR-ORG-04, text: "조직 정보는 HR 조직 마스터에서 받은 값으로 조회만 가능해야 한다(등록 · 수정 · 삭제 없음)" }
+  - { id: FR-ORG-05, text: "조회 조건은 [조회] 또는 Enter 를 눌렀을 때 적용되고 [초기화]로 비울 수 있어야 한다" }

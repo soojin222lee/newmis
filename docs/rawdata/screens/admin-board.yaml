@@ -5,13 +5,14 @@
 screen:
   id: s-admin-board
   name: 게시판 관리
-  menu_path: "관리자 > 운영 · 연계 > 게시판 관리"
+  menu_path: "관리자 > 게시판 · 자료 관리 > [공지사항 · Q&A · 매뉴얼] 탭"
   route: "/admin.html#board"
-  entry: "adminGo('board') → asiteRender() → admSectionBody('board') → AAS_RENDER.board"
+  entry: "adminGo('board') → amgTab('board', 탭) → admSectionBody → amgBody → AMG_SUB.notice|qna|manual.render = aasStdHtml"
   data_source: "운영자 작성 · 사용자 질문"
   asis_source: "base-front src/views/admin/board/ (notice/NoticeAdmin.vue · qna/QnaAdmin.vue · manual/ManualBoard.vue)"
   source_files:
     - public/js/admin-asis.js   # 메뉴 등록(ADMIN_SECTIONS) · admSectionBody 데코레이터 · 렌더 · 핸들러 · 목업 데이터(AAS_DEF) · 전용 CSS(.aas-*)
+    - public/js/admin-menu-group.js # 메뉴 11개 묶음 · 묶음 안 탭(amgTab) · 옛 주소 연결
     - public/js/admin.js        # 관리자 사이트 셸 · admModal · admToast — 수정하지 않음
     - public/admin.html         # admin-asis.js 로드(admin-approval.js 다음)
   purpose: >
@@ -19,8 +20,8 @@ screen:
   asis_diff: "AS-IS 의 그리드 행추가 · 바로 입력 · 행삭제 후 [저장] 방식을 목업 공통 방식(등록/수정 팝업 · 행별 삭제 확인)으로 바꿈. 페이지 이동(페이징)은 목업 건수가 적어 뺌"
 
 elements:
-  - { id: tab-board, label: "게시판 탭 (공지사항 · Q&A · 매뉴얼, 건수)", type: tab, crud: N, area: "화면 상단", event: onclick,
-      front: { handler: "aasBoardGo('notice'|'qna'|'manual')", file: "admin-asis.js:aasBoardGo", logic: "탭 전환" }, backend: null, result: "탭별 조회 조건 · 표" }
+  - { id: tab-board, label: "게시판 · 자료 관리 탭 (공지사항 · Q&A · 매뉴얼 · 첨부파일)", type: tab, crud: N, area: "화면 상단 묶음 탭", event: onclick,
+      front: { handler: "amgTab('board','notice'|'qna'|'manual'|'file')", file: "admin-menu-group.js:amgTab", logic: "묶음 탭 전환 — 탭마다 설명 · 데이터 출처 줄 표시" }, backend: null, result: "탭별 조회 조건 · 표" }
   - { id: sel-notice-type, label: "구분 (전체 · 공지 · 작업공지 · 안내 · 긴급작업공지)", type: select, crud: R, area: "공지사항 탭 조회 조건", event: onclick,
       front: { handler: "aasSetDraft('notice','type',값)", file: "admin-asis.js:aasSetDraft", logic: "값이 같은 줄만(전체=조건 없음)" }, backend: null, result: "조회 조건 입력값" }
   - { id: inp-notice-title, label: "제목", type: input, crud: R, area: "공지사항 탭 조회 조건", event: onclick,
