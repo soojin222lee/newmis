@@ -8,13 +8,16 @@
 //                   상세로 들어오면 왼쪽 칸은 「예산 조정안」 탭부터.
 //   · 위 요약     : 왼쪽 = 지금 수립 → 반영 시(아래 왼쪽 칸과 같은 폭), 오른쪽 = 계정 5개를 폴더 탭으로.
 //                   고른 계정 탭은 흰 종이처럼 바로 아래 상세 카드와 이어짐(위아래가 따로 놀지 않게).
-//   · 왼쪽 칸 폭은 경계선을 끌어 조절(오른쪽 칸 폭과 따로 기억), 더블클릭 = 기본 폭.
+//   · 왼쪽 칸 폭은 고정(2026.11.26) — 표 자리의 37%, 「지금 수립 → 반영 시」 숫자가 줄지 않는 폭 이상, 560px 이하.
+//     경계선 끌기 · 더블클릭은 없앰. 접기 · 펴기([«] 버튼)는 그대로.
 // ════════════════════════════════════════════════════════════════════════════════
 
-var DD_SIDE = { min: 360, def: 490, max: 600 };
+var DD_SIDE = { min: 360, def: 490, max: 600, ratio: 0.37, cap: 560 };
 var ddSideW = (function () { try { return Number(localStorage.getItem('dd-side-w')) || 0; } catch (e) { return 0; } })();
 // 프로젝트 메인의 오른쪽(Agent와 대화) 폭 — 0 = 반반. 끌어서 바꾸면 따로 기억(계정 상세 왼쪽 칸 폭과 별개)
 var ddMainW = (function () { try { return Number(localStorage.getItem('dd-main-w')) || 0; } catch (e) { return 0; } })();
+// [2026.11.26] 폭 고정 — 예전에 끌어서 저장해 둔 폭은 쓰지 않음(메인 = 반반, 계정 상세 = 고정 폭)
+ddSideW = 0; ddMainW = 0;
 function ddSave() {
   try { localStorage.setItem('dd-side-w', String(ddSideW || 0)); localStorage.setItem('dd-main-w', String(ddMainW || 0)); }
   catch (e) { /* 저장 막힘 */ }
@@ -54,13 +57,14 @@ if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
 
 // 왼쪽 칸 폭(계정 상세) — 위 요약의 「지금 수립 → 반영 시」 칸도 같은 폭을 씀(--dd-side)
 //   경계선으로 자유롭게 조절(최소 280px). 기본 폭만 숫자가 다 들어가는 폭 이상으로 잡음
+//   [2026.11.26] 고정 폭: 표 자리 × 37%(560px 이하) — 단, 「지금 수립 → 반영 시」 숫자가 줄지 않는 폭(need)보다 좁아지지 않음.
+//   1600px ≈ 538 : 858, 1366px ≈ 435 : 727, 1920px ≈ 560 : 1156 (예산 조정안 : 예산내역)
 function ddSideWidth(g) {
   var gw = g ? g.clientWidth : 1200;
   var max = Math.max(B2C_MIN.side, gw - B2C_MIN.main - 14);
-  if (ddSideW) return Math.min(Math.max(ddSideW, B2C_MIN.side), max);
-  var def = Math.min(DD_SIDE.def, Math.max(DD_SIDE.min, Math.round(gw * 0.35)));
   var need = Math.ceil(ddFigNeed() / ddFigK()) - 14;   // 칸 사이 간격(14px)만큼은 숫자 칸이 더 넓음
-  return Math.min(Math.max(def, need), max);
+  var w = Math.min(Math.round(gw * DD_SIDE.ratio), DD_SIDE.cap);
+  return Math.min(Math.max(w, need, B2C_MIN.side), max);
 }
 // 칸을 숫자보다 좁게 끌면 「지금 수립 → 반영 시」 전체를 그 폭에 맞춰 줄임(zoom) — 겹치지 않고 탭 줄도 그대로
 function ddFigK() {
@@ -146,10 +150,12 @@ if (typeof b2cApply === 'function') {
   };
 }
 
-// 경계선 끌기 — 계정 상세에서는 칸이 왼쪽이라 오른쪽으로 끌면 넓어짐. 200px 아래로 밀면 접힘
+// [2026.11.26] 폭 고정 — 경계선 끌기 · 더블클릭(기본 폭) 없앰. 아래 예전 끌기 코드는 남겨 두지만 쓰지 않음(DD_FIXED=false 로 바꾸면 다시 끌림)
+var DD_FIXED = true;
 if (typeof b2cSplitStart === 'function') {
   var ddSplitBefore = b2cSplitStart;
   b2cSplitStart = function (ev) {
+    if (DD_FIXED) return;
     var g = b2cGrid();
     var side = g && g.querySelector(':scope > .b2c-side');
     if (!g || !side || b2cNarrow()) return ddSplitBefore.apply(this, arguments);
@@ -178,6 +184,7 @@ if (typeof b2cSplitStart === 'function') {
 if (typeof b2cSplitReset === 'function') {
   var ddResetBefore = b2cSplitReset;
   b2cSplitReset = function () {
+    if (DD_FIXED) return;
     var g = b2cGrid();
     if (!g) return ddResetBefore.apply(this, arguments);
     if (b2cIsMain(g)) ddMainW = 0; else ddSideW = 0;      // 메인 = 반반, 계정 상세 = 기본 폭
@@ -197,6 +204,8 @@ if (typeof b2cSplitReset === 'function') {
     G + ' > .b2c-side{grid-column:1 !important;grid-row:1}',
     G + ' > .agga-col.detail{grid-column:2 !important;grid-row:1}',
     G + ' > .b2c-side .b2c-split{left:auto !important;right:-12px !important}',
+    // [2026.11.26] 폭 고정 — 경계선(끌기 손잡이) 숨김. 접기 · 펴기 버튼은 그대로
+    '#s-budget .agent-ga .agga-grid.b2c-on .b2c-split{display:none !important}',
     G + ' > .b2c-side .b2c-fold svg{transform:rotate(180deg)}',
     //   상세 카드: 위 탭과 이어지도록 위 모서리 각지게
     G + ' > .agga-col.detail{border-radius:0 0 8px 8px !important;border:1px solid #dde2e9 !important}',
