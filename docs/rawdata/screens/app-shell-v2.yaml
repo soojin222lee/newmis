@@ -289,6 +289,53 @@ elements:
     logic: "버전2 로 전환 — 레일 주입·상단 바 숨김"
     api: 없음
 
+  # ── 화면 탭 (app-tabs.js, 최대 5개) — [2026.11.27] 사이트를 나갔다 와도 탭 유지 ──
+  - id: tab-app-screen
+    label: 화면 탭 (탭 전환)
+    kind: tab
+    crud: N
+    where: "본문 위 탭 줄 #app-tabbar .aptab"
+    handler: "__appTabsActivate(id)"
+    logic: "app-tabs.js:activate → showTab — 탭 화면 스냅샷 복원. 다시 들어와 복원된 탭(lazy)은 누를 때 openDesc 로 화면을 다시 연다(reopenTab → tabReopen)"
+    api: 없음
+  - id: btn-app-tab-new
+    label: 새 탭 열기 (＋)
+    kind: button
+    crud: N
+    where: "탭 줄 오른쪽 끝 .aptab-new"
+    handler: "__appTabsNew()"
+    logic: "app-tabs.js:openNew — 홈 탭 추가. 5개면 비활성 + '탭은 최대 5개까지 열 수 있어요.' 안내"
+    api: 없음
+  - id: btn-app-tab-close
+    label: 탭 닫기 (✕)
+    kind: button
+    crud: N
+    where: "각 탭 오른쪽 .aptab-x (탭이 1개면 숨김)"
+    handler: "__appTabsClose(id)"
+    logic: "app-tabs.js:closeTab — 지금 탭을 닫으면 옆 탭으로 이동(showTab)"
+    api: 없음
+  - id: btn-app-tab-clear
+    label: 모든 탭 닫기 (🗑)
+    kind: button
+    crud: N
+    where: "탭 줄 왼쪽 끝 .aptab-clear"
+    handler: "__appTabsClearAll()"
+    logic: "app-tabs.js:clearAll — 모든 탭을 닫고 홈 한 탭으로"
+    api: 없음
+  - id: store-app-tabs
+    label: 탭 목록 저장·복원 (자동)
+    kind: event
+    crud: N
+    where: "브라우저 localStorage newmis.appTabs"
+    handler: "persist() · restoreSaved()"
+    logic: >
+      app-tabs.js:persist — 탭이 바뀔 때마다(render) 탭별 화면·이름·openDesc 와 보던 탭 순서를 저장.
+      app-tabs.js:restoreSaved — 다시 열면 탭을 다시 세우고, app.js 첫 화면 열기(routeInitial) 자리에서 연다.
+      새로고침·뒤로가기(isReturnNav) = 보던 탭(주소대로, 주소로 못 살리는 프로젝트 상세는 openDesc 로).
+      새로 들어옴 = 홈 — 홈 탭이 있으면 그 탭, 없으면 맨 앞에 추가, 5개 꽉 차면 맨 뒤 탭을 빼고 추가.
+      탭 안의 팝업·펼침·입력값·스크롤은 유지하지 않는다. 같은 브라우저에서만 유지(서버 저장 없음, 목업).
+    api: 없음 (localStorage)
+
 # ── 공통 부품 스타일 매핑 (shell-v2.css · 각 화면 파일은 수정하지 않음) ──
 component_map:
   page_title: { classes: [page-title, exec-budget-title, setup-title, ins-title], style: "20px · 900 · #1b2437 (AiPMO 'PRB 관리')" }
@@ -318,6 +365,7 @@ requirements:
   - { id: FR-SHELL-09, text: "AI 대화창과 AI 레포트는 선행 시스템(Talent AX)과 같은 대화 형태(말풍선·구슬 아이콘·보라 테두리 입력창·면책 문구)로 보여야 한다" }
   - { id: FR-SHELL-10, text: "표가 화면 폭보다 넓으면 버튼이 잘리지 않고 표 안에서 가로로 스크롤되어야 한다" }
   - { id: FR-SHELL-11, text: "레일 담당 프로젝트의 이름을 누르면 그 프로젝트의 원가조정 화면으로 바로 이동할 수 있어야 하며, 이동과 펼치기 영역이 눈으로 구분되어야 한다(▸ 칸 = 펼치기, 이름 끝 ↗ = 이동)" }
+  - { id: FR-SHELL-12, text: "[2026.11.27] 사용자가 열어 둔 화면 탭(최대 5개)은 사이트를 나갔다 다시 들어와도 유지되어야 한다. 새로고침하면 보던 탭이, 새로 들어오면 홈이 열려야 하며, 탭이 5개 모두 차 있고 홈 탭이 없으면 맨 뒤 탭 대신 홈 탭이 맨 앞에 열려야 한다" }
 
 # ── 확인 시나리오 (2026-10-07) ──
 verification:

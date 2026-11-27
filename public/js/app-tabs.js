@@ -9,16 +9,21 @@
 // - 프로젝트 상세를 열면 탭에 "프로젝트번호 + 명칭"을 표시한다(tabTagProject). 같은 화면도 프로젝트별 탭.
 // - 좌측 '전체 닫기'(휴지통)로 모든 탭을 닫고 홈 한 탭으로 초기화. 최대 5개.
 // - 각 탭은 재진입 서술자(openDesc)를 보관해 즐겨찾기(favorites.js)가 저장·복원에 쓴다.
+// - [2026.11.27 남주] 사이트를 나갔다 와도 탭 유지: 탭 목록을 localStorage(newmis.appTabs)에 저장.
+//   새로고침·뒤로가기 = 보던 탭 / 새로 들어옴 = 홈(홈 탭이 없으면 맨 앞에 추가, 5개 꽉 차면 맨 뒤 탭을 빼고 추가).
+//   복원된 탭은 이름만 먼저 보이고, 누를 때 openDesc 로 화면을 다시 연다(lazy). 탭 안의 팝업·입력값은 유지 안 됨.
 
 (function () {
   if (window.__APP_TABS_INIT) return;
   window.__APP_TABS_INIT = true;
 
   var MAX = 5;
-  var tabs = [];            // { id, screenId, label, projNo, projName, openDesc, snap, scroll }
+  var tabs = [];            // { id, screenId, label, projNo, projName, openDesc, snap, scroll, lazy }
   var activeId = null;
   var seq = 0;
   var switching = false;
+  var reopening = false;    // 복원 탭을 다시 여는 중 — tabOpenProjectHint 가 새 탭을 띄우지 않게
+  var STORE_KEY = 'newmis.appTabs';
 
   var TAB_LABELS = {
     's-main': '홈',
@@ -118,6 +123,55 @@
     var plusDis = tabs.length >= MAX ? ' disabled' : '';
     var plus = '<button class="aptab-new" onclick="__appTabsNew()"' + plusDis + ' title="새 탭 (최대 ' + MAX + '개)" aria-label="새 탭">＋</button>';
     bar.innerHTML = clear + chips + plus;
+    persist();
+  }
+
+  // ── 탭 저장 · 복원 ──
+  function persist() {
+    try {
+      var idx = tabs.findIndex(function (x) { return x.id === activeId; });
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        active: idx < 0 ? 0 : idx,
+        tabs: tabs.map(function (t) {
+          return { screenId: t.screenId, label: t.label, projNo: t.projNo, projName: t.projName, openDesc: t.openDesc };
+        }),
+      }));
+    } catch (e) {}
+  }
+  function loadSaved() {
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (s && Array.isArray(s.tabs) && s.tabs.length) return s;
+    } catch (e) {}
+    return null;
+  }
+  // 새로고침·뒤로가기면 true(보던 탭 그대로), 주소 입력·북마크로 새로 들어오면 false(홈)
+  function isReturnNav() {
+    try {
+      var n = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+      if (n) return n.type === 'reload' || n.type === 'back_forward';
+      if (performance.navigation) return performance.navigation.type === 1 || performance.navigation.type === 2;
+    } catch (e) {}
+    return false;
+  }
+  function isHome(t) { return t.screenId === 's-main' && !t.projName; }
+  function homeTab() {
+    return { id: ++seq, screenId: 's-main', label: '홈', projNo: null, projName: null, openDesc: { kind: 'screen', screenId: 's-main' }, snap: null, scroll: 0, lazy: false };
+  }
+  // 복원 탭을 서술자로 다시 연다. 화면 함수가 setScreen·tabTagProject 를 거치며 탭 이름도 다시 붙는다.
+  function reopenTab(t) {
+    t.lazy = false;
+    var d = t.openDesc || { kind: 'screen', screenId: t.screenId };
+    reopening = true;
+    try { window.tabReopen(d); } finally { reopening = false; }
+  }
+  // 탭 화면 보이기 — 스냅샷이 있으면 복원, 복원 탭(lazy)이면 다시 연다
+  function showTab(t) {
+    switching = true;
+    if (typeof origSetScreen === 'function') origSetScreen(t.screenId);
+    switching = false;
+    if (t.lazy) reopenTab(t);
+    else restore(t);
   }
 
   function saveActive() {
@@ -137,10 +191,7 @@
     if (!t) return;
     saveActive();
     activeId = id;
-    switching = true;
-    if (typeof origSetScreen === 'function') origSetScreen(t.screenId);
-    switching = false;
-    restore(t);
+    showTab(t);
     render();
   }
 
@@ -164,10 +215,7 @@
     if (wasActive) {
       var next = tabs[Math.min(idx, tabs.length - 1)];
       activeId = next.id;
-      switching = true;
-      if (typeof origSetScreen === 'function') origSetScreen(next.screenId);
-      switching = false;
-      restore(next);
+      showTab(next);
     }
     render();
   }
@@ -239,6 +287,11 @@
         };
         var fn = SHOW[desc.screenId];
         if (fn && typeof window[fn] === 'function') { window[fn](); return; }
+        // [2026.11.27] 목록에 없는 화면(운영 가이드·마스터 설정 등)은 라우트 액션으로 — 내용까지 그린다
+        if (typeof SCREEN_ROUTES !== 'undefined' && typeof ROUTE_ACTIONS !== 'undefined') {
+          var rt = SCREEN_ROUTES[desc.screenId];
+          if (typeof rt === 'string' && typeof ROUTE_ACTIONS[rt] === 'function') { ROUTE_ACTIONS[rt](); return; }
+        }
         if (typeof origSetScreen === 'function') origSetScreen(desc.screenId);
       }
     } catch (e) {}
@@ -262,7 +315,7 @@
   // 같은 프로젝트 탭이 이미 있으면 그 탭을 포커스, 없으면 새 탭을 띄운다(최대치면 현재 탭 사용).
   // 호출 뒤 호출자가 실제 화면을 렌더(show*/setScreen/orig)하면 활성 탭이 그 화면으로 채워진다.
   function tabOpenProjectHint(desc) {
-    if (!desc) return;
+    if (!desc || reopening) return;
     var sig = JSON.stringify(desc);
     var existing = null;
     for (var i = 0; i < tabs.length; i++) {
@@ -322,11 +375,57 @@
   function init() {
     injectStyle();
     wrapBudgetOpener();
+    if (restoreSaved()) return;
     var cur = document.querySelector('.screen.active');
     var sid = cur ? cur.id : 's-main';
     tabs = [{ id: ++seq, screenId: sid, label: labelFor(sid), projNo: null, projName: null, openDesc: { kind: 'screen', screenId: sid }, snap: null, scroll: 0 }];
     activeId = tabs[0].id;
     render();
+  }
+
+  // 저장된 탭이 있으면 다시 세운다. 보이는 탭 하나만 바로 열고 나머지는 누를 때 연다.
+  function restoreSaved() {
+    var saved = loadSaved();
+    if (!saved) return false;
+    tabs = saved.tabs.slice(0, MAX).map(function (s) {
+      var sid = s.screenId || 's-main';
+      return { id: ++seq, screenId: sid, label: s.label || labelFor(sid), projNo: s.projNo || null, projName: s.projName || null,
+        openDesc: s.openDesc || { kind: 'screen', screenId: sid }, snap: null, scroll: 0, lazy: true };
+    });
+    var idx;
+    if (isReturnNav()) {
+      idx = Math.min(Math.max(+saved.active || 0, 0), tabs.length - 1);
+    } else {
+      idx = tabs.findIndex(isHome);
+      if (idx < 0) {
+        if (tabs.length >= MAX) tabs.pop();       // 5개 꽉 차면 맨 뒤 탭을 빼고
+        tabs.unshift(homeTab());                  // 홈 탭을 맨 앞에
+        idx = 0;
+      }
+    }
+    var t = tabs[idx];
+    var useRoute = isReturnNav() && !!location.hash;
+    activeId = t.id;
+    render();
+    // app.js 초기화(bootstrapApp)는 데이터를 불러온 뒤 routeInitial() 로 첫 화면을 연다.
+    // 그보다 먼저 열면 덮이므로, routeInitial 자리에서 연다.
+    //  - 새로고침: 주소(#/budget-adjust/labor?pj=… 등)가 가장 정확하므로 주소대로 열고,
+    //    주소로 못 살리는 화면(프로젝트 상세 등)만 서술자로 다시 연다.
+    //  - 새로 들어옴: 주소와 상관없이 홈.
+    var origRouteInitial = window.routeInitial;
+    window.routeInitial = function () {
+      window.routeInitial = origRouteInitial;
+      if (activeId !== t.id) { if (typeof origRouteInitial === 'function') origRouteInitial(); return; }
+      var want = JSON.stringify(t.openDesc);
+      if (useRoute && typeof origRouteInitial === 'function') {
+        t.lazy = false;
+        reopening = true;
+        try { origRouteInitial(); } finally { reopening = false; }
+      }
+      if (!useRoute || JSON.stringify(t.openDesc) !== want) reopenTab(t);
+      render();
+    };
+    return true;
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
