@@ -356,6 +356,7 @@ function ddHidePopClose() {
 //   원래 버튼 · 탭은 지우지 않고 숨긴 채 두고, 새 버튼이 그것을 대신 눌러 줌(동작 · 엑셀 · 이력 팝업은 원래 그대로)
 var ddGanttOpen = (function () { try { return localStorage.getItem('dd-gantt') === '1'; } catch (e) { return false; } })();
 var ddMoreSeq = 0;
+var DD_DETAIL_MORE = false;   // [2026.11.27] 계정 상세 [⋯ 더보기] 안 씀 — 버튼을 꺼내 둠
 function ddHideEl(el, key) {
   if (!el) return;
   if (el.getAttribute('data-dd-more') !== key) el.setAttribute('data-dd-more', key);
@@ -377,7 +378,12 @@ function ddSimplify() {
   ga.querySelectorAll('.agga-col.todo .agga-card').forEach(ddCardTidy);
   ddManualFirst(ga);
   // ② 계정 상세 [전체 펼치기] · [엑셀 다운로드] · 맨 위 [이력] → [⋯ 더보기]
-  if (detail) {
+  //   [2026.11.27] [⋯ 더보기]에 숨기지 않고 원래 버튼(전체 펼치기 · 엑셀 다운로드 · 이력)을 그대로 꺼내 둠(사용자 요청).
+  //   예전 동작은 남겨 둠 — DD_DETAIL_MORE 를 true 로 바꾸면 다시 [⋯ 더보기]로 모음
+  if (!DD_DETAIL_MORE) {
+    ga.querySelectorAll('[data-dd-more="detail"]').forEach(function (el) { el.removeAttribute('data-dd-more'); el.style.removeProperty('display'); });
+    ga.querySelectorAll('.dd-more[data-for="detail"]').forEach(function (el) { el.remove(); });
+  } else if (detail) {
     var body = detail.querySelector('.agga-col-body.detail') || detail;
     var xls = Array.prototype.filter.call(body.querySelectorAll('button'), function (b) { return /엑셀/.test(b.textContent); });
     var xp = body.querySelector('.aglb-xpand-btn');
