@@ -1,0 +1,56 @@
+# rawdata: 관리자 > 알림 · 메일 관리 > [메일링리스트] 탭 (스토리보드/SRS/버튼로직 생성용 원천 데이터)
+# 스키마 규약: 영문 key(안정적 파싱) + 한국어 value. 로직은 file:function 근거 인용.
+# [2026.11.27 남주] AS-IS 「메일발송 관리」 탭을 옮김.
+
+screen:
+  id: s-admin-mailing
+  name: 메일링리스트
+  menu_path: "관리자 > 알림 · 메일 관리 > [메일링리스트] 탭"
+  route: "/admin.html#notify (옛 키 #mailing 로 와도 이 탭으로 열림)"
+  entry: "adminGo('notify') → amgTab('notify','mailing') → admSectionBody → amgBody → amsMailingHtml"
+  data_source: "관리자 직접 등록 (AS-IS 메일발송 관리)"
+  asis_source: "base-front src/views/admin/postbox/MailingList.vue · Mailing.ts"
+  source_files:
+    - public/js/admin-asis-mail.js    # 메일링리스트 · 메일 템플릿 렌더 · 핸들러 · 목업 데이터(AMS_DEF) · 전용 CSS(.ams-*)
+    - public/js/admin-menu-group.js   # '알림 · 메일 관리' 묶음 탭
+    - public/js/admin-asis.js         # 수신자 고르기에 쓰는 구성원(AAS.member) · 사용자 그룹(AAS.ugroup) · 화면(AAS.page)
+  purpose: >
+    어떤 업무 이벤트가 생기면 · 누구에게 · 어떤 템플릿으로 메일을 보낼지 정한다. 수동 발송 건은 [전송]으로 바로 보낸다.
+  asis_diff: >
+    그리드 행추가 · 바로 입력 → 등록/수정 팝업. 발송형식은 AS-IS 선택지(이벤트 수신 시 · 수동)만 — 코드에만 남은 '예약(발송주기 팝업)'은
+    선택지에 없어 뺌. AS-IS '발송기능' 칸의 [전송]은 오른쪽 고정 '관리' 칸으로 옮김(칸이 많아 좁은 화면에서 가려지지 않게).
+
+elements:
+  - { id: sel-mailing-svc, label: "구분 (전체 · 기반 · 수주 · 플랫폼 · 손익추정 · 투자 · Data Insight · UI/UX)", type: select, crud: R, area: "조회 조건", event: onchange,
+      front: { handler: "amsSet('mailing','svc',값)", file: "admin-asis-mail.js:amsSet", logic: "[조회]를 눌러야 적용" }, backend: null, result: "조회 조건 입력값" }
+  - { id: inp-mailing-title, label: 제목, type: input, crud: R, area: "조회 조건", event: oninput,
+      front: { handler: "amsSet('mailing','title',값) · Enter=amsSearch('mailing')", file: "admin-asis-mail.js:amsSet", logic: "제목에 들어간 글자로 찾음" }, backend: null, result: "조회 조건 입력값" }
+  - { id: btn-mailing-reset, label: 초기화, type: button, crud: N, area: "조회 조건", event: onclick,
+      front: { handler: "amsReset('mailing')", file: "admin-asis-mail.js:amsReset", logic: "조건 비움" }, backend: null, result: 전체 목록 }
+  - { id: btn-mailing-search, label: 조회, type: button, crud: R, area: "조회 조건", event: onclick,
+      front: { handler: "amsSearch('mailing')", file: "admin-asis-mail.js:amsSearch", logic: "조건 적용 후 다시 그림" }, backend: null, result: "검색결과 N건 / 총 M건" }
+  - { id: grid-mailing, label: "메일링 표 (메일링ID · 구분 · 제목 · 연결 이벤트 · 수신자유형 · 수신자 · 업무키 · 템플릿 · 연결화면 · 발송형식 · 관리)", type: grid, crud: R, area: 본문 표, event: none,
+      front: { handler: "amsMailingHtml", file: "admin-asis-mail.js:amsMailingHtml", logic: "수신자는 개인이면 이름, 그룹 · 역할이면 그 이름 배지. 비어 있으면 '미지정'(빨강). 관리 칸은 오른쪽 고정, 나머지는 표 안 가로 스크롤" }, backend: null, result: 메일링 목록 }
+  - { id: btn-mailing-add, label: "＋ 메일링 등록 (팝업 열기)", type: button, crud: C, area: "표 위 툴바", event: onclick,
+      front: { handler: "amsMailingForm(null)", file: "admin-asis-mail.js:amsMailingForm", logic: "입력: 구분 · 발송형식 · 제목(필수) · 연결 이벤트 · 업무키 · 템플릿(필수) · 연결화면 · 수신자유형 · 수신자(필수)" }, backend: null, result: 등록 팝업 }
+  - { id: sel-mailing-rcvtype, label: "수신자유형 (개인 · 사용자 그룹 · 사용자 역할)", type: select, crud: N, area: "등록/수정 팝업", event: onchange,
+      front: { handler: "amsRcvTypeChange(idx)", file: "admin-asis-mail.js:amsRcvTypeChange", logic: "개인 = 구성원 여러 명 체크 / 사용자 그룹 = 그룹 1개 선택 / 사용자 역할 = 역할 1개 선택으로 바뀜" }, backend: null, result: 수신자 고르기 칸 }
+  - { id: btn-mailing-save, label: "메일링 등록 · 수정 (팝업)", type: button, crud: C, area: "등록/수정 팝업", event: onclick,
+      front: { handler: "amsMailingSave(idx|null)", file: "admin-asis-mail.js:amsMailingSave", logic: "검사: 제목 → '제목을 입력해 주세요.' · 템플릿 → '템플릿을 선택해 주세요.' · 수신자(amsRcvCheck) → '수신자 정보를 / 사용자 그룹 정보를 / 사용자 역할 정보를 선택해 주세요.'. 새 메일링ID 자동(ML-n)" }, backend: null, result: 목록 갱신 + 토스트 }
+  - { id: btn-mailing-edit, label: "수정 (행)", type: button, crud: U, area: "관리 칸", event: onclick,
+      front: { handler: "amsMailingForm(idx) → amsMailingSave(idx)", file: "admin-asis-mail.js:amsMailingForm", logic: "같은 팝업에 값을 채워 엶" }, backend: null, result: 목록 갱신 }
+  - { id: btn-mailing-del, label: "삭제 (행)", type: button, crud: D, area: "관리 칸", event: onclick,
+      front: { handler: "amsAskDel('mailing',idx) → amsDel('mailing',idx)", file: "admin-asis-mail.js:amsAskDel", logic: "삭제 확인 후 지움" }, backend: null, result: 목록 갱신 }
+  - { id: btn-mailing-send, label: "전송 (수동 발송 행만)", type: button, crud: N, area: "관리 칸", event: onclick,
+      front: { handler: "amsSendAsk(idx) → 확인 [전송]", file: "admin-asis-mail.js:amsSendAsk", logic: "목업 스텁, 동작 없음 — AS-IS 처럼 수신자 검사 후 '전송 하시겠습니까?'(수신자 · 템플릿 표시) 확인. AS-IS 는 processMail 호출" }, backend: "AS-IS /mailings command processMail", result: "토스트 '전송했습니다.'" }
+  - { id: btn-mailing-store, label: 저장, type: button, crud: U, area: "표 위 툴바", event: onclick,
+      front: { handler: "amsSave('메일링리스트')", file: "admin-asis-mail.js:amsSave", logic: "localStorage(budgetai.admin.asismail.v1) 저장" }, backend: null, result: 토스트 }
+
+requirements:
+  - { id: FR-MLS-01, text: "관리자는 구분과 제목으로 메일링을 조회할 수 있어야 한다" }
+  - { id: FR-MLS-02, text: "관리자는 메일링을 등록 · 수정 · 삭제할 수 있어야 한다(필수: 제목 · 템플릿 · 수신자)" }
+  - { id: FR-MLS-03, text: "메일링마다 연결 이벤트 · 업무키 · 연결화면 · 템플릿을 지정할 수 있어야 한다" }
+  - { id: FR-MLS-04, text: "수신자는 수신자유형에 따라 개인(여러 명) · 사용자 그룹 · 사용자 역할 중 하나로 지정할 수 있어야 한다" }
+  - { id: FR-MLS-05, text: "수신자가 비어 있으면 저장 · 전송되지 않고 수신자유형별 안내가 나와야 한다" }
+  - { id: FR-MLS-06, text: "발송형식이 '이벤트 수신 시'면 연결 이벤트가 생길 때 자동 발송되고, '수동'이면 관리자가 [전송]으로 보낼 수 있어야 한다" }
+  - { id: FR-MLS-07, text: "[전송] 전에는 수신자와 템플릿을 보여 주고 확인을 받아야 한다" }

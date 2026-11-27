@@ -24,8 +24,8 @@ var AMG_GROUPS = [
     desc: '역할별 메뉴 권한, 운영모드 접속 허용 IP, 사용자 활동 기록(로그 · 이력)을 관리합니다.' },
   { key: 'menu',    icon: '🗂', title: '메뉴 · 화면 관리', group: 'access', tabs: ['menu', 'page'],
     desc: '메뉴 노출 · 순서와 메뉴가 연결하는 화면(페이지)을 관리합니다.' },
-  { key: 'notify',  icon: '🔔', title: '알림 · 메일 관리', group: 'ops',    tabs: ['notify', 'mail'],
-    desc: '운영 알림 설정과 메일 발송 이력을 관리합니다.' },
+  { key: 'notify',  icon: '🔔', title: '알림 · 메일 관리', group: 'ops',    tabs: ['notify', 'mailing', 'mailtpl', 'mail'],
+    desc: '운영 알림 설정, 메일링리스트 · 템플릿, 메일 발송 이력을 관리합니다.' },
   // [2026.11.27] 로그 · 이력은 권한 · 보안 관리로 옮김 — 조회 전용 감사 기록과 배치(실행 도구 · 자체 실행 이력)를 한 메뉴에 두면 헷갈림
   { key: 'sysops',  icon: '⚙', title: '시스템 운영',      group: 'ops',    tabs: ['integ', 'batch'],
     desc: '외부 시스템 연동과 배치 · 스케줄 작업을 관리합니다.' },
@@ -43,7 +43,7 @@ var AMG_SUB = {
   user:   { title: '사용자' }, ugroup: { title: '사용자 그룹' }, sgna: { title: 'SG&A 조직' },
   code:   { title: '공통코드' }, acct: { title: '계정과목' }, price: { title: 'P단가' }, fx: { title: '환율' }, closedate: { title: '회계결산일자' },
   client: { title: '고객사' }, partner: { title: '협력사' }, perm: { title: '역할별 권한' }, ip: { title: 'IP접근제어' },
-  menu:   { title: '메뉴' }, page: { title: '화면' }, notify: { title: '운영 알림' }, mail: { title: '메일 발송 이력' },
+  menu:   { title: '메뉴' }, page: { title: '화면' }, notify: { title: '운영 알림' }, mailing: { title: '메일링리스트' }, mailtpl: { title: '메일 템플릿' }, mail: { title: '메일 발송 이력' },
   log:    { title: '로그 · 이력' }, integ: { title: '외부 연동' }, batch: { title: '배치 / 스케줄' }, file: { title: '첨부파일' },
 };
 

@@ -23,7 +23,7 @@ screen:
     - { menu: 결재라인 관리,      nav_group: "기준정보 (마스터)", tabs: [] }
     - { menu: "권한 · 보안 관리",  nav_group: "권한 · 접근",       tabs: [역할별 권한, IP접근제어, "로그 · 이력"] }
     - { menu: "메뉴 · 화면 관리",  nav_group: "권한 · 접근",       tabs: [메뉴, 화면] }
-    - { menu: "알림 · 메일 관리",  nav_group: "운영 · 연계",       tabs: [운영 알림, 메일 발송 이력] }
+    - { menu: "알림 · 메일 관리",  nav_group: "운영 · 연계",       tabs: [운영 알림, 메일링리스트, 메일 템플릿, 메일 발송 이력] }
     - { menu: 시스템 운영,        nav_group: "운영 · 연계",       tabs: [외부 연동, "배치 / 스케줄"] }
     - { menu: "게시판 · 자료 관리", nav_group: "운영 · 연계",      tabs: [공지사항, Q&A, 매뉴얼, 첨부파일] }
     - { menu: Golden Data set 관리, nav_group: "Agent 평가",      tabs: [] }
