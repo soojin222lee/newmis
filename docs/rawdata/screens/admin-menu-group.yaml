@@ -38,7 +38,14 @@ elements:
   - { id: route-admin-old-key, label: "옛 메뉴 주소 연결", type: event, crud: N, area: 주소창, event: hashchange,
       front: { handler: "adminGo(옛 키) · location.hash", file: "admin-menu-group.js:amgInstall", logic: "옛 메뉴 키를 묶음 키 + 탭으로 바꿔 엶(처음 들어올 때는 initAdminSite 전에 주소를 묶음 키로 바꿔 둠)" }, backend: null, result: 그 묶음의 그 탭 }
 
+layout:
+  note: >
+    [2026.11.27] 화면이 작고 옆 · 아래가 비어 답답하다는 의견 → 본문 폭 제한(1040px)을 풀어 화면 폭 끝까지 쓰고,
+    본문을 흰 판으로 감싸 화면 아래까지 채움. 표 · 버튼 · 안내 글자를 키움(1500px 이하에서는 조금 덜). 배지 · 버튼은 줄바꿈 안 함.
+    admin.html 공용 CSS 는 고치지 않고 admin-menu-group.js:amgStyle 에서 덮음.
+
 requirements:
+  - { id: FR-AMG-06, text: "관리자 화면 본문은 화면 폭 끝까지 쓰고, 내용이 짧아도 본문 판이 화면 아래까지 채워져야 한다" }
   - { id: FR-AMG-01, text: "관리자 왼쪽 메뉴는 11개로 보여야 하며, 묶인 메뉴는 화면 안 탭으로 나뉘어야 한다" }
   - { id: FR-AMG-02, text: "사용자는 묶음 안 탭을 눌러 원래 메뉴 화면을 기능 그대로 쓸 수 있어야 한다" }
   - { id: FR-AMG-03, text: "탭마다 그 화면의 설명과 데이터 출처가 보여야 한다" }

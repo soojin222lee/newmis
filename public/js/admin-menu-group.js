@@ -127,6 +127,23 @@ function amgBody(grp, inner) {
     + '.amg-tab{border:0;background:none;font-family:inherit;font-size:13.5px;font-weight:700;color:#64748b;padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}'
     + '.amg-tab:hover{color:#334155}.amg-tab.on{color:var(--sk-blue,#2563eb);border-bottom-color:var(--sk-blue,#2563eb)}'
     + '.amg-sub{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;font-size:12.5px;color:#64748b;padding:10px 2px 14px}'
-    + '.amg-sub-src{color:var(--sk-blue-deep,#1d4ed8);font-weight:700;font-size:12px}';
+    + '.amg-sub-src{color:var(--sk-blue-deep,#1d4ed8);font-weight:700;font-size:12px}'
+    // [2026.11.27] 화면이 작고 옆 · 아래가 비어 답답함 → 본문 폭 제한(1040px) 해제 + 흰 판이 화면 아래까지 + 글자 · 줄 간격 키움
+    //   (admin.html 공용 CSS 는 고치지 않고 뒤에 주입한 이 규칙이 덮음)
+    + '.asite-page{padding:20px 28px 24px;display:flex;flex-direction:column;min-height:calc(100vh - 47px);box-sizing:border-box}'
+    + '.asite-content{max-width:none;min-width:0;flex:1 1 auto;margin-top:14px;background:#fff;border:1px solid var(--sk-border,#e5e7eb);border-radius:14px;padding:6px 24px 24px;box-shadow:0 1px 2px rgba(16,24,40,.04)}'
+    + '.asite-h-t{font-size:22px}.asite-h-d{font-size:13.5px}.asite-h-src{font-size:12.5px}'
+    + '.asite-content>:first-child:not(.amg-tabs){margin-top:18px}'
+    + '.amg-tabs{margin:0 -24px;padding:0 16px}.amg-tab{font-size:14.5px;padding:13px 18px}'
+    + '.amg-sub{font-size:13.5px}.amg-sub-src{font-size:13px}'
+    + '.asite-content .adm-table{font-size:13.5px}.asite-content .adm-table th{padding:12px 14px;font-size:13px}.asite-content .adm-table td{padding:12px 14px}'
+    + '.asite-content .adm-btn{font-size:13px}.asite-content .adm-btn.sm{font-size:12.5px}'
+    + '.asite-content .adm-search,.asite-content .adm-filter{font-size:13.5px}.asite-content .adm-note{font-size:12.5px;line-height:1.7}'
+    + '.asite-content .aas-cnt{font-size:13.5px}.asite-content .aas-sf label{font-size:12.5px}.asite-content .aas-radio{font-size:13.5px}'
+    + '.asite-content .aas-tree-i{font-size:13.5px}.asite-content .aas-dl{font-size:13.5px}'
+    + '.asite-content .aas-side{flex-basis:230px}.asite-content .aas-detail{flex-basis:340px}'
+    + '.asite-content .adm-pill,.asite-content .adm-tag,.asite-content .adm-code,.asite-content .adm-btn{white-space:nowrap}'
+    + '@media (max-width:1500px){.asite-content .adm-table{font-size:13px}.asite-content .adm-table th{padding:11px 10px;font-size:12.5px}.asite-content .adm-table td{padding:11px 10px}.asite-page{padding:18px 20px 20px}.asite-content{padding:4px 18px 20px}.amg-tabs{margin:0 -18px;padding:0 10px}}'
+    + '@media (max-width:900px){.asite-page{padding:16px 12px}.asite-content{padding:4px 12px 16px}.amg-tabs{margin:0 -12px;padding:0 6px}}';
   document.head.appendChild(st);
 })();
